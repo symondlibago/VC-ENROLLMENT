@@ -145,12 +145,6 @@ const LandingPage = ({ onGetStarted }) => {
 
         <div className="container mx-auto px-6 relative z-10">
           <div className="text-center max-w-4xl mx-auto">
-            <motion.div variants={itemVariants} className="mb-6">
-              <Badge className="mb-4 bg-[var(--dominant-red)] text-white px-4 py-2 text-sm">
-                🚀 New: AI-Powered Enrollment Insights
-              </Badge>
-            </motion.div>
-
             <motion.h1
               variants={itemVariants}
               className="text-5xl md:text-7xl font-bold heading-bold text-gray-900 mb-6 leading-tight"
@@ -178,7 +172,7 @@ const LandingPage = ({ onGetStarted }) => {
                 onClick={onGetStarted}
                 className="gradient-primary text-white px-8 py-4 text-lg liquid-button group"
               >
-                Get Started Free
+                Enroll Now !
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
               <Button
@@ -361,15 +355,8 @@ const LandingPage = ({ onGetStarted }) => {
                 onClick={onGetStarted}
                 className="bg-white text-[var(--dominant-red)] hover:bg-gray-100 px-8 py-4 text-lg liquid-button group"
               >
-                Start Free Trial
+                Enroll Now !
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                className="border-2 border-white text-white hover:bg-white hover:text-[var(--dominant-red)] px-8 py-4 text-lg liquid-button"
-              >
-                Schedule Demo
               </Button>
             </div>
           </motion.div>
