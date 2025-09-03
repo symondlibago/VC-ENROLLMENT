@@ -20,7 +20,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { authAPI } from '../services/api';
+import { authAPI } from '../../services/api';
 
 const LoginPage = ({ onLogin, onBack }) => {
   const [showPassword, setShowPassword] = useState(false);

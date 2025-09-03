@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 import { 
   Search, 
   Bell, 
@@ -23,8 +24,24 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-const Header = ({ isCollapsed, setIsCollapsed }) => {
+const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
   const [searchFocused, setSearchFocused] = useState(false);
+  const location = useLocation();
+
+  // Page titles mapping
+  const pageTitles = {
+    '/dashboard': { title: 'Dashboard', subtitle: 'Welcome back, Admin' },
+    '/students': { title: 'Students', subtitle: 'Manage student information' },
+    '/courses': { title: 'Courses', subtitle: 'Educational programs and curricula' },
+    '/enrollment': { title: 'Enrollment', subtitle: 'Student registrations and applications' },
+    '/schedule': { title: 'Schedule', subtitle: 'Class timetables and calendar' },
+    '/reports': { title: 'Reports', subtitle: 'Analytics and performance insights' },
+    '/documents': { title: 'Documents', subtitle: 'File management and storage' },
+    '/notifications': { title: 'Notifications', subtitle: 'System alerts and messages' },
+    '/settings': { title: 'Settings', subtitle: 'Account and system preferences' }
+  };
+
+  const currentPage = pageTitles[location.pathname] || pageTitles['/dashboard'];
 
   const headerVariants = {
     initial: { y: -20, opacity: 0 },
@@ -57,6 +74,18 @@ const Header = ({ isCollapsed, setIsCollapsed }) => {
     }
   };
 
+  const titleVariants = {
+    initial: { opacity: 0, y: 10 },
+    animate: { 
+      opacity: 1, 
+      y: 0,
+      transition: {
+        duration: 0.4,
+        ease: [0.23, 1, 0.32, 1]
+      }
+    }
+  };
+
   return (
     <motion.header
       className="h-16 bg-white border-b border-gray-200 px-6 flex items-center justify-between sticky top-0 z-40 backdrop-blur-lg bg-white/95"
@@ -78,8 +107,17 @@ const Header = ({ isCollapsed, setIsCollapsed }) => {
 
         {/* Page Title */}
         <div className="hidden lg:block">
-          <h2 className="text-xl font-bold heading-bold text-gray-900">Dashboard</h2>
-          <p className="text-sm text-gray-500">Welcome back, Admin</p>
+          <motion.div
+            key={location.pathname}
+            variants={titleVariants}
+            initial="initial"
+            animate="animate"
+          >
+            <h2 className="text-xl font-bold heading-bold text-gray-900">
+              {currentPage.title}
+            </h2>
+            <p className="text-sm text-gray-500">{currentPage.subtitle}</p>
+          </motion.div>
         </div>
       </div>
 
@@ -92,7 +130,7 @@ const Header = ({ isCollapsed, setIsCollapsed }) => {
         >
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
           <Input
-            placeholder="Search students, courses, or documents..."
+            placeholder={`Search ${currentPage.title.toLowerCase()}...`}
             className="pl-10 pr-4 py-2 w-full border-gray-200 focus:border-[var(--dominant-red)] focus:ring-[var(--dominant-red)] liquid-morph"
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
@@ -103,49 +141,70 @@ const Header = ({ isCollapsed, setIsCollapsed }) => {
       {/* Right Section */}
       <div className="flex items-center space-x-3">
         {/* Theme Toggle */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-gray-600 hover:text-[var(--dominant-red)] liquid-button"
-        >
-          <Sun className="w-4 h-4" />
-        </Button>
+        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-gray-600 hover:text-[var(--dominant-red)] liquid-button"
+          >
+            <Sun className="w-4 h-4" />
+          </Button>
+        </motion.div>
 
         {/* Notifications */}
-        <motion.div className="relative">
+        <motion.div 
+          className="relative"
+          whileHover={{ scale: 1.05 }} 
+          whileTap={{ scale: 0.95 }}
+        >
           <Button
             variant="ghost"
             size="sm"
             className="text-gray-600 hover:text-[var(--dominant-red)] liquid-button relative"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
           >
             <Bell className="w-4 h-4" />
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-[var(--dominant-red)] rounded-full text-xs text-white flex items-center justify-center">
+            <motion.span 
+              className="absolute -top-1 -right-1 w-3 h-3 bg-[var(--dominant-red)] rounded-full text-xs text-white flex items-center justify-center"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.3, delay: 0.5 }}
+            >
               3
-            </span>
+            </motion.span>
           </Button>
         </motion.div>
 
         {/* User Profile Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="flex items-center space-x-2 hover:bg-gray-50 liquid-button"
-            >
-              <Avatar className="w-8 h-8">
-                <AvatarImage src="/api/placeholder/32/32" alt="Admin" />
-                <AvatarFallback className="bg-[var(--dominant-red)] text-white text-sm">
-                  AD
-                </AvatarFallback>
-              </Avatar>
-              <div className="hidden md:block text-left">
-                <p className="text-sm font-medium text-gray-900">Admin User</p>
-                <p className="text-xs text-gray-500">admin@eduenroll.com</p>
-              </div>
-              <ChevronDown className="w-4 h-4 text-gray-400" />
-            </Button>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button
+                variant="ghost"
+                className="flex items-center space-x-2 hover:bg-gray-50 liquid-button"
+              >
+                <Avatar className="w-8 h-8">
+                  <AvatarImage src="/api/placeholder/32/32" alt="Admin" />
+                  <AvatarFallback className="bg-[var(--dominant-red)] text-white text-sm">
+                    {user?.name?.charAt(0) || 'AD'}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="hidden md:block text-left">
+                  <p className="text-sm font-medium text-gray-900">
+                    {user?.name || 'Admin User'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {user?.email || 'admin@eduenroll.com'}
+                  </p>
+                </div>
+                <motion.div
+                  animate={{ rotate: 0 }}
+                  whileHover={{ rotate: 180 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                </motion.div>
+              </Button>
+            </motion.div>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 liquid-morph">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
@@ -159,7 +218,10 @@ const Header = ({ isCollapsed, setIsCollapsed }) => {
               <span>Settings</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer hover:bg-red-50 text-red-600">
+            <DropdownMenuItem 
+              className="cursor-pointer hover:bg-red-50 text-red-600"
+              onClick={onLogout}
+            >
               <LogOut className="mr-2 h-4 w-4" />
               <span>Log out</span>
             </DropdownMenuItem>

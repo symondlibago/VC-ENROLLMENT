@@ -19,11 +19,23 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-const LandingPage = ({ onGetStarted }) => {
+const LandingPage = ({ onGetStarted, onEnrollNow }) => {
   const [isVisible, setIsVisible] = useState(false);
   const { scrollY } = useScroll();
   const y1 = useTransform(scrollY, [0, 300], [0, -50]);
   const y2 = useTransform(scrollY, [0, 300], [0, -100]);
+  
+  const handleEnrollClick = () => {
+    if (onEnrollNow) {
+      onEnrollNow();
+    }
+  };
+  
+  const handleLoginClick = () => {
+    if (onGetStarted) {
+      onGetStarted();
+    }
+  };
 
   useEffect(() => {
     setIsVisible(true);
@@ -169,19 +181,20 @@ const LandingPage = ({ onGetStarted }) => {
             >
               <Button
                 size="lg"
-                onClick={onGetStarted}
+                onClick={handleLoginClick} 
                 className="gradient-primary text-white px-8 py-4 text-lg liquid-button group"
               >
-                Enroll Now !
+                Login
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
               <Button
                 variant="outline"
                 size="lg"
+                onClick={handleEnrollClick} 
                 className="px-8 py-4 text-lg border-2 border-gray-300 hover:border-[var(--dominant-red)] liquid-button group"
               >
                 <Play className="mr-2 w-5 h-5" />
-                Watch Demo
+                Enroll Now
               </Button>
             </motion.div>
 
@@ -352,7 +365,7 @@ const LandingPage = ({ onGetStarted }) => {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 size="lg"
-                onClick={onGetStarted}
+                onClick={handleEnrollClick}
                 className="bg-white text-[var(--dominant-red)] hover:bg-gray-100 px-8 py-4 text-lg liquid-button group"
               >
                 Enroll Now !
