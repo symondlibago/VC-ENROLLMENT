@@ -1,0 +1,287 @@
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Save, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+
+const ProgramModal = ({ 
+  isOpen, 
+  onClose, 
+  onSubmit, 
+  program = null, 
+  isLoading = false 
+}) => {
+  const [formData, setFormData] = useState({
+    program_name: '',
+    description: '',
+    years: ''
+  });
+  const [errors, setErrors] = useState({});
+
+  // Initialize form data when modal opens or program changes
+  useEffect(() => {
+    if (isOpen) {
+      if (program) {
+        // Edit mode - populate with existing data
+        setFormData({          program_name: program.program_name || 
+'',
+          description: program.description || '',
+          years: program.years?.toString() || ''
+        });
+      } else {
+        // Create mode - reset form
+        setFormData({
+          program_name: '',
+          description: '',
+          years: ''
+        });
+      }
+      setErrors({});
+    }
+  }, [isOpen, program]);
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    
+    // Clear error for this field when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({
+        ...prev,
+        [field]: ''
+      }));
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.program_name.trim()) {
+      newErrors.program_name = 'Program name is required';
+    }
+
+    if (!formData.description.trim()) {
+      newErrors.description = 'Program description is required';
+    }
+
+    if (!formData.years) {
+      newErrors.years = 'Years is required';
+    } else {
+      const years = parseInt(formData.years);
+      if (isNaN(years) || years < 1 || years > 10) {
+        newErrors.years = 'Years must be a number between 1 and 10';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    const submitData = {
+      program_name: formData.program_name.trim(),
+      description: formData.description.trim(),
+      years: parseInt(formData.years)
+    };
+
+    try {
+      await onSubmit(submitData);
+    } catch (error) {
+      // Handle API validation errors
+      if (error.errors) {
+        setErrors(error.errors);
+      }
+    }
+  };
+
+  const handleClose = () => {
+    if (!isLoading) {
+      onClose();
+    }
+  };
+
+  const modalVariants = {
+    hidden: { 
+      opacity: 0,
+      scale: 0.95,
+      y: 20
+    },
+    visible: { 
+      opacity: 1,
+      scale: 1,
+      y: 0,
+      transition: {
+        type: "spring",
+        stiffness: 300,
+        damping: 30,
+        mass: 0.8
+      }
+    },
+    exit: { 
+      opacity: 0,
+      scale: 0.95,
+      y: 20,
+      transition: {
+        duration: 0.2,
+        ease: "easeInOut"
+      }
+    }
+  };
+
+  const overlayVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+      opacity: 1,
+      transition: { duration: 0.3 }
+    },
+    exit: { 
+      opacity: 0,
+      transition: { duration: 0.2 }
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          variants={overlayVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          onClick={handleClose}
+        >
+          <motion.div
+            className="bg-white rounded-2xl max-w-md w-full shadow-2xl"
+            variants={modalVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">
+                {program ? 'Edit Program' : 'Create Program'}
+              </h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClose}
+                disabled={isLoading}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {/* Program Name */}
+              <div className="space-y-2">
+                <Label htmlFor="program_name" className="text-sm font-medium text-gray-700">
+                  Program Name *
+                </Label>
+                <Input
+                  id="program_name"
+                  type="text"
+                  value={formData.program_name}
+                  onChange={(e) => handleInputChange("program_name", e.target.value)}
+                  placeholder="Enter program name"
+                  disabled={isLoading}
+                  className={`liquid-morph ${errors.program_name ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                />
+                {errors.program_name && (
+                  <p className="text-sm text-red-600">{errors.program_name}</p>
+                )}
+              </div>
+
+              {/* Program Description */}
+              <div className="space-y-2">
+                <Label htmlFor="description" className="text-sm font-medium text-gray-700">
+                  Description *
+                </Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  placeholder="Enter program description"
+                  disabled={isLoading}
+                  rows={4}
+                  className={`liquid-morph resize-none ${errors.description ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                />
+                {errors.description && (
+                  <p className="text-sm text-red-600">{errors.description}</p>
+                )}
+              </div>
+
+              {/* Years */}
+              <div className="space-y-2">
+                <Label htmlFor="years" className="text-sm font-medium text-gray-700">
+                  Duration (Years) *
+                </Label>
+                <Input
+                  id="years"
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={formData.years}
+                  onChange={(e) => handleInputChange('years', e.target.value)}
+                  placeholder="Enter duration in years"
+                  disabled={isLoading}
+                  className={`liquid-morph ${errors.years ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                />
+                {errors.years && (
+                  <p className="text-sm text-red-600">{errors.years}</p>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleClose}
+                  disabled={isLoading}
+                  className="liquid-button"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="gradient-primary text-white liquid-button min-w-[100px]"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      {program ? 'Updating...' : 'Creating...'}
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      {program ? 'Update' : 'Create'}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+export default ProgramModal;
+

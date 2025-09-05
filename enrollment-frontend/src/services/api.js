@@ -131,5 +131,111 @@ export const healthCheck = async () => {
   }
 };
 
+// Program API methods
+export const programAPI = {
+  // Get all programs
+  getAll: async () => {
+    try {
+      const response = await api.get('/programs');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch programs' };
+    }
+  },
+
+  // Get single program
+  getById: async (id) => {
+    try {
+      const response = await api.get(`/programs/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch program' };
+    }
+  },
+
+  // Create new program
+  create: async (programData) => {
+    try {
+      const response = await api.post('/programs', programData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to create program' };
+    }
+  },
+
+  // Update program
+  update: async (id, programData) => {
+    try {
+      const response = await api.put(`/programs/${id}`, programData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to update program' };
+    }
+  },
+
+  // Delete program
+  delete: async (id) => {
+    try {
+      const response = await api.delete(`/programs/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to delete program' };
+    }
+  }
+};
+
+// Course API methods
+export const courseAPI = {
+  // Get all courses
+  getAll: async () => {
+    try {
+      const response = await api.get('/courses');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch courses' };
+    }
+  },
+
+  // Get single course
+  getById: async (id) => {
+    try {
+      const response = await api.get(`/courses/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch course' };
+    }
+  },
+
+  // Create new course
+  create: async (courseData) => {
+    try {
+      const response = await api.post('/courses', courseData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to create course' };
+    }
+  },
+
+  // Update course
+  update: async (id, courseData) => {
+    try {
+      const response = await api.put(`/courses/${id}`, courseData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to update course' };
+    }
+  },
+
+  // Delete course
+  delete: async (id) => {
+    try {
+      const response = await api.delete(`/courses/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to delete course' };
+    }
+  }
+};
+
 export default api;
 

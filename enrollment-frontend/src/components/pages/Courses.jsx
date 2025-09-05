@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, 
@@ -19,8 +19,11 @@ import {
   ChevronDown,
   GraduationCap,
   School,
-  Building
+  Building,
+  X,
+  ChevronRight
 } from 'lucide-react';
+import { courseAPI, programAPI } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -31,200 +34,85 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import CourseModal from './CourseModal';
+import ProgramModal from './ProgramModal';
+import DeleteConfirmationModal from './DeleteConfirmationModal';
+import SuccessAlert from './SuccessAlert';
 
 const Courses = () => {
+  // UI State
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCourse, setSelectedCourse] = useState(null);
   const [selectedYear, setSelectedYear] = useState('1st Year');
   const [selectedSemester, setSelectedSemester] = useState('1st Semester');
   const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
   const [isSemesterDropdownOpen, setIsSemesterDropdownOpen] = useState(false);
-  
-  // New state for toggle functionality
   const [activeTab, setActiveTab] = useState('courses'); // 'courses' or 'programs'
+  
+  // Data State
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState(null);
+  const [isProgramModalOpen, setIsProgramModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedProgram, setSelectedProgram] = useState(null);
+  const [courses, setCourses] = useState();
+  const [programs, setPrograms] = useState();
+  
+  const [alert, setAlert] = useState({
+    isVisible: false,
+    message: '',
+    type: 'success' // 'success', 'error', 'warning'
+  });
 
-  const courses = [
-    {
-      id: 1,
-      title: 'Bachelor of Science in Computer Science',
-      description: 'Focuses on the fundamentals of computing, algorithms, and software development.',
-      instructor: 'Prof. Elena Rodriguez',
-      duration: '4 years',
-      students: 120,
-      maxStudents: 150,
-      startDate: '2025-08-15',
-      status: 'active',
-      category: 'Bachelor\'s Degree',
-      price: '₱45,000/sem',
-      image: '/api/placeholder/300/200'
-    },
-    {
-      id: 2,
-      title: 'Bachelor of Science in Business Administration',
-      description: 'Covers core business functions, management principles, and strategic decision-making.',
-      instructor: 'Dr. Robert Garcia',
-      duration: '4 years',
-      students: 150,
-      maxStudents: 180,
-      startDate: '2025-08-15',
-      status: 'active',
-      category: 'Bachelor\'s Degree',
-      price: '₱40,000/sem',
-      image: '/api/placeholder/300/200'
-    },
-    {
-      id: 3,
-      title: 'Bachelor of Science in Hospitality Management',
-      description: 'Prepares students for careers in hotel, restaurant, and tourism industries.',
-      instructor: 'Chef Maria Santos',
-      duration: '4 years',
-      students: 90,
-      maxStudents: 100,
-      startDate: '2025-08-15',
-      status: 'upcoming',
-      category: 'Bachelor\'s Degree',
-      price: '₱42,000/sem',
-      image: '/api/placeholder/300/200'
-    },
-    {
-      id: 4,
-      title: 'Bachelor of Science in Nursing',
-      description: 'Comprehensive program for aspiring nurses, covering patient care and medical practices.',
-      instructor: 'Dean Anna Lim',
-      duration: '4 years',
-      students: 100,
-      maxStudents: 120,
-      startDate: '2025-08-15',
-      status: 'active',
-      category: 'Bachelor\'s Degree',
-      price: '₱50,000/sem',
-      image: '/api/placeholder/300/200'
-    },
-    {
-      id: 5,
-      title: 'Bachelor of Science in Information Technology',
-      description: 'Focuses on software, hardware, and networking, preparing students for IT careers.',
-      instructor: 'Engr. John Dela Cruz',
-      duration: '4 years',
-      students: 130,
-      maxStudents: 160,
-      startDate: '2025-08-15',
-      status: 'active',
-      category: 'Bachelor\'s Degree',
-      price: '₱46,000/sem',
-      image: '/api/placeholder/300/200'
-    },
-    {
-      id: 6,
-      title: 'Bachelor of Science in Accountancy',
-      description: 'Provides in-depth knowledge of accounting principles, financial reporting, and auditing.',
-      instructor: 'CPA Christine Reyes',
-      duration: '4 years',
-      students: 110,
-      maxStudents: 130,
-      startDate: '2025-08-15',
-      status: 'upcoming',
-      category: 'Bachelor\'s Degree',
-      price: '₱43,000/sem',
-      image: '/api/placeholder/300/200'
-    }
-  ];
-
-  // Filtered programs data - only showing Senior High School, Diploma, and Bachelor's Degree
-  const programs = [
-    {
-      id: 1,
-      title: 'Senior High School - STEM Strand',
-      description: 'Science, Technology, Engineering, and Mathematics track for college-bound students.',
-      coordinator: 'Dr. Sarah Johnson',
-      duration: '2 years',
-      students: 180,
-      maxStudents: 200,
-      startDate: '2025-06-15',
-      status: 'active',
-      category: 'Senior High School',
-      price: '₱25,000/sem',
-      image: '/api/placeholder/300/200',
-      type: 'senior_high'
-    },
-    {
-      id: 2,
-      title: 'Senior High School - ABM Strand',
-      description: 'Accountancy, Business, and Management track for business-oriented students.',
-      coordinator: 'Prof. Michael Chen',
-      duration: '2 years',
-      students: 160,
-      maxStudents: 180,
-      startDate: '2025-06-15',
-      status: 'active',
-      category: 'Senior High School',
-      price: '₱23,000/sem',
-      image: '/api/placeholder/300/200',
-      type: 'senior_high'
-    },
-    {
-      id: 3,
-      title: 'Diploma in Computer Programming',
-      description: 'Intensive 2-year program focusing on practical programming skills and software development.',
-      coordinator: 'Engr. Lisa Wong',
-      duration: '2 years',
-      students: 85,
-      maxStudents: 100,
-      startDate: '2025-08-15',
-      status: 'upcoming',
-      category: 'Diploma',
-      price: '₱35,000/sem',
-      image: '/api/placeholder/300/200',
-      type: 'diploma'
-    },
-    {
-      id: 4,
-      title: 'Diploma in Culinary Arts',
-      description: 'Comprehensive culinary program covering cooking techniques, food safety, and restaurant management.',
-      coordinator: 'Chef Antonio Rivera',
-      duration: '18 months',
-      students: 60,
-      maxStudents: 75,
-      startDate: '2025-07-01',
-      status: 'active',
-      category: 'Diploma',
-      price: '₱38,000/sem',
-      image: '/api/placeholder/300/200',
-      type: 'diploma'
-    },
-    {
-      id: 5,
-      title: 'Bachelor of Arts in Psychology',
-      description: 'Comprehensive study of human behavior, mental processes, and psychological research methods.',
-      instructor: 'Dr. Maria Gonzales',
-      duration: '4 years',
-      students: 95,
-      maxStudents: 120,
-      startDate: '2025-08-15',
-      status: 'active',
-      category: 'Bachelor\'s Degree',
-      price: '₱41,000/sem',
-      image: '/api/placeholder/300/200',
-      type: 'bachelors'
-    },
-    {
-      id: 6,
-      title: 'Bachelor of Science in Civil Engineering',
-      description: 'Engineering program focusing on infrastructure design, construction, and project management.',
-      instructor: 'Engr. Carlos Mendoza',
-      duration: '5 years',
-      students: 140,
-      maxStudents: 160,
-      startDate: '2025-08-15',
-      status: 'upcoming',
-      category: 'Bachelor\'s Degree',
-      price: '₱48,000/sem',
-      image: '/api/placeholder/300/200',
-      type: 'bachelors'
-    }
-  ];
+  // Fetch courses from API
+  useEffect(() => {
+    const fetchCourses = async () => {
+      setIsLoading(true);
+      try {
+        const response = await courseAPI.getAll();
+        if (response.success) {
+          setCourses(response.data);
+        }
+      } catch (error) {
+        console.error('Error fetching courses:', error);
+        setAlert({
+          isVisible: true,
+          message: 'Failed to load courses. Please try again later.',
+          type: 'error'
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchCourses();
+  }, []);
+  
+  useEffect(() => {
+    const fetchPrograms = async () => {
+      setIsLoading(true);
+      try {
+        const response = await programAPI.getAll();
+        if (response.success) {
+          setPrograms(response.data);
+        }
+      } catch (error) {
+        console.error('Error fetching programs:', error);
+        setAlert({
+          isVisible: true,
+          message: 'Failed to load programs. Please try again later.',
+          type: 'error'
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchPrograms();
+  }, []);
 
   // Sample subjects data for each course
   const courseSubjects = {
@@ -517,16 +405,21 @@ const Courses = () => {
     return activeTab === 'courses' ? stats : programStats;
   };
 
-  const filteredData = getCurrentData().filter(item => {
-    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (item.instructor || item.coordinator).toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.category.toLowerCase().includes(searchTerm.toLowerCase());
+  // Add null check to prevent TypeError when courses or programs is undefined
+  const currentData = getCurrentData() || [];
+  const filteredData = currentData.filter(item => {
+    const matchesSearch =
+  (item.title && item.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+  ((item.instructor || item.coordinator || "").toLowerCase().includes(searchTerm.toLowerCase())) ||
+  (item.category && item.category.toLowerCase().includes(searchTerm.toLowerCase()));
+
     const matchesFilter = selectedFilter === 'all' || item.status === selectedFilter;
     return matchesSearch && matchesFilter;
   });
 
-  const openModal = (item) => {
-    setSelectedCourse(item);
+  // Modal functions for courses
+  const openCourseModal = (course = null) => {
+    setSelectedCourse(course);
     setIsModalOpen(true);
     setSelectedYear('1st Year');
     setSelectedSemester('1st Semester');
@@ -534,10 +427,165 @@ const Courses = () => {
     setIsSemesterDropdownOpen(false);
   };
 
-  const closeModal = () => {
+  const closeCourseModal = () => {
     setIsModalOpen(false);
     setSelectedCourse(null);
   };
+  
+  // Handle course creation and update
+  const handleCourseSubmit = async (courseData) => {
+    setIsLoading(true);
+    try {
+      let response;
+      
+      if (selectedCourse) {
+        // Update existing course
+        response = await courseAPI.update(selectedCourse.id, courseData);
+        if (response.success) {
+          // Update the courses list
+          setCourses(prevCourses => 
+            prevCourses.map(course => 
+              course.id === selectedCourse.id ? response.data : course
+            )
+          );
+          setAlert({
+            isVisible: true,
+            message: 'Course updated successfully!',
+            type: 'success'
+          });
+        }
+      } else {
+        // Create new course
+        response = await courseAPI.create(courseData);
+        if (response.success) {
+          // Add the new course to the list
+          setCourses(prevCourses => [...prevCourses, response.data]);
+          setAlert({
+            isVisible: true,
+            message: 'Course created successfully!',
+            type: 'success'
+          });
+        }
+      }
+      
+      // Close the modal
+      closeCourseModal();
+    } catch (error) {
+      console.error('Error saving course:', error);
+      setAlert({
+        isVisible: true,
+        message: `Failed to ${selectedCourse ? 'update' : 'create'} course. ${error.message || 'Please try again.'}`,
+        type: 'error'
+      });
+      throw error; // Rethrow to be handled by the modal
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Handle program creation and update
+  const handleProgramSubmit = async (programData) => {
+    setIsLoading(true);
+    try {
+      let response;
+      
+      if (selectedProgram) {
+        // Update existing program
+        response = await programAPI.update(selectedProgram.id, programData);
+        if (response.success) {
+          // Update the programs list
+          setPrograms(prevPrograms => 
+            prevPrograms.map(program => 
+              program.id === selectedProgram.id ? response.data : program
+            )
+          );
+          setAlert({
+            isVisible: true,
+            message: 'Program updated successfully!',
+            type: 'success'
+          });
+        }
+      } else {
+        // Create new program
+        response = await programAPI.create(programData);
+        if (response.success) {
+          // Add the new program to the list
+          setPrograms(prevPrograms => [...prevPrograms, response.data]);
+          setAlert({
+            isVisible: true,
+            message: 'Program created successfully!',
+            type: 'success'
+          });
+        }
+      }
+      
+      // Close the modal
+      setIsProgramModalOpen(false);
+      setSelectedProgram(null);
+    } catch (error) {
+      console.error('Error saving program:', error);
+      setAlert({
+        isVisible: true,
+        message: `Failed to ${selectedProgram ? 'update' : 'create'} program. ${error.message || 'Please try again.'}`,
+        type: 'error'
+      });
+      throw error; // Rethrow to be handled by the modal
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Handle deletion of courses and programs
+  const handleDeleteConfirm = async () => {
+    if (!selectedItem) return;
+    
+    setIsLoading(true);
+    try {
+      let response;
+      
+      if (activeTab === 'courses') {
+        // Delete course
+        response = await courseAPI.delete(selectedItem.id);
+        if (response.success) {
+          // Remove the course from the list
+          setCourses(prevCourses => prevCourses.filter(course => course.id !== selectedItem.id));
+          setAlert({
+            isVisible: true,
+            message: 'Course deleted successfully!',
+            type: 'success'
+          });
+        }
+      } else {
+        // Delete program
+        response = await programAPI.delete(selectedItem.id);
+        if (response.success) {
+          // Remove the program from the list
+          setPrograms(prevPrograms => prevPrograms.filter(program => program.id !== selectedItem.id));
+          setAlert({
+            isVisible: true,
+            message: 'Program deleted successfully!',
+            type: 'success'
+          });
+        }
+      }
+      
+      // Close the modal
+      setIsDeleteModalOpen(false);
+      setSelectedItem(null);
+    } catch (error) {
+      console.error(`Error deleting ${activeTab === 'courses' ? 'course' : 'program'}:`, error);
+      setAlert({
+        isVisible: true,
+        message: `Failed to delete ${activeTab === 'courses' ? 'course' : 'program'}. ${error.message || 'Please try again.'}`,
+        type: 'error'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // State for selected item to delete
+  const [selectedItem, setSelectedItem] = useState(null);
 
   const getCurrentSubjects = () => {
     if (!selectedCourse || !courseSubjects[selectedCourse.id]) {
@@ -622,7 +670,17 @@ const Courses = () => {
                 </motion.button>
               </div>
               
-              <Button className="gradient-primary text-white liquid-button">
+              <Button 
+                className="gradient-primary text-white liquid-button"
+                onClick={() => {
+                  if (activeTab === 'courses') {
+                    openCourseModal();
+                  } else {
+                    setSelectedProgram(null);
+                    setIsProgramModalOpen(true);
+                  }
+                }}
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 {activeTab === 'courses' ? 'Create Course' : 'Create Program'}
               </Button>
@@ -757,9 +815,11 @@ const Courses = () => {
                   <div className="h-48 bg-gradient-to-br from-[var(--dominant-red)] to-red-600 relative overflow-hidden">
                     <div className="absolute inset-0 bg-black/20"></div>
                     <div className="absolute top-4 left-4">
-                      <Badge className={`${getCategoryColor(item.category)} text-xs`}>
-                        {item.category}
-                      </Badge>
+                      {activeTab === 'courses' && item.program && (
+                        <Badge className={`${getCategoryColor(item.program.program_name)} text-xs`}>
+                          {item.program.program_name}
+                        </Badge>
+                      )}
                     </div>
                     <div className="absolute top-4 right-4">
                       <DropdownMenu>
@@ -769,15 +829,26 @@ const Courses = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem
+                          onClick={() => {
+                              if (activeTab === 'courses') {
+                                setSelectedCourse(item);
+                                setIsModalOpen(true);
+                              } else {
+                                setSelectedProgram(item);
+                                setIsProgramModalOpen(true);
+                              }
+                            }}>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit {activeTab === 'courses' ? 'Course' : 'Program'}
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600">
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={() => {
+                              setSelectedItem(item);
+                              setIsDeleteModalOpen(true);
+                            }}
+                          >
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete
                           </DropdownMenuItem>
@@ -785,18 +856,14 @@ const Courses = () => {
                       </DropdownMenu>
                     </div>
                     <div className="absolute bottom-4 left-4 right-4">
-                      <h3 className="text-white font-bold text-lg mb-1">{item.title}</h3>
-                      <p className="text-white/80 text-sm">{item.instructor || item.coordinator}</p>
+                      <h3 className="text-white font-bold text-lg mb-1">{activeTab === 'courses' ? item.course_name : item.program_name}</h3>
+                      <p className="text-white text-sm mb-4 line-clamp-2">
+                      {item.course_specialization }
+                    </p>
                     </div>
                   </div>
 
                   <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <Badge className={`${getStatusColor(item.status)} text-xs`}>
-                        {item.status}
-                      </Badge>
-                    </div>
-
                     <p className="text-gray-600 text-sm mb-4 line-clamp-2">
                       {item.description}
                     </p>
@@ -805,30 +872,20 @@ const Courses = () => {
                       <div className="flex items-center justify-between text-sm">
                         <div className="flex items-center text-gray-600">
                           <Clock className="w-4 h-4 mr-2 text-gray-400" />
-                          {item.duration}
+                          {activeTab === 'courses' ? `${item.years} years` : `${item.years} years`}
                         </div>
-                        <div className="flex items-center text-gray-600">
-                          <Users className="w-4 h-4 mr-2 text-gray-400" />
-                          {item.students}/{item.maxStudents}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Calendar className="w-4 h-4 mr-2 text-gray-400" />
-                        {item.startDate}
                       </div>
                     </div>
 
                     <div className="mt-4 pt-4 border-t border-gray-100">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
-                          <Button variant="outline" size="sm" className="liquid-button">
+                                      <Button variant="outline" size="sm" className="liquid-button">
                             <BookMarked className="w-4 h-4" />
                           </Button>
                           <Button 
                             size="sm" 
                             className="gradient-primary text-white liquid-button"
-                            onClick={() => openModal(item)}
                           >
                             View {activeTab === 'courses' ? 'Course' : 'Program'} Details
                           </Button>
@@ -867,234 +924,49 @@ const Courses = () => {
         </motion.div>
       )}
 
-      {/* Modal */}
-      {isModalOpen && selectedCourse && (
-        <motion.div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={closeModal}
-        >
-          <motion.div
-            className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">{selectedCourse.title}</h2>
-                  <p className="text-gray-600 mt-1">{selectedCourse.instructor || selectedCourse.coordinator}</p>
-                </div>
-                <Badge className={`${getCategoryColor(selectedCourse.category)}`}>
-                  {selectedCourse.category}
-                </Badge>
-              </div>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6">
-              {/* Course Details */}
-              {activeTab === 'courses' && (
-                <>
-                  {/* Year and Semester Selection */}
-                  <div className="flex space-x-4 mb-6">
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Academic Year
-                      </label>
-                      <div className="relative custom-dropdown">
-                        <motion.button
-                          onClick={() => setIsYearDropdownOpen(!isYearDropdownOpen)}
-                          className="w-full px-4 py-2 rounded-lg dropdown-button bg-white text-left flex items-center justify-between"
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          <span>{selectedYear}</span>
-                          <motion.div
-                            animate={{ rotate: isYearDropdownOpen ? 180 : 0 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <ChevronDown className="w-4 h-4 text-gray-400" />
-                          </motion.div>
-                        </motion.button>
-                        
-                        {isYearDropdownOpen && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                            transition={{ duration: 0.2, ease: "easeOut" }}
-                            className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg dropdown-menu z-10 overflow-hidden"
-                          >
-                            {yearOptions.map((year, index) => (
-                              <motion.button
-                                key={year}
-                                onClick={() => {
-                                  setSelectedYear(year);
-                                  setIsYearDropdownOpen(false);
-                                }}
-                                className={`w-full px-4 py-2 text-left dropdown-item ${
-                                  selectedYear === year ? 'selected' : ''
-                                }`}
-                                whileHover={{ backgroundColor: selectedYear === year ? undefined : '#f9fafb' }}
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: index * 0.05 }}
-                              >
-                                {year}
-                              </motion.button>
-                            ))}
-                          </motion.div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Semester
-                      </label>
-                      <div className="relative custom-dropdown">
-                        <motion.button
-                          onClick={() => setIsSemesterDropdownOpen(!isSemesterDropdownOpen)}
-                          className="w-full px-4 py-2 rounded-lg dropdown-button bg-white text-left flex items-center justify-between"
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          <span>{selectedSemester}</span>
-                          <motion.div
-                            animate={{ rotate: isSemesterDropdownOpen ? 180 : 0 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <ChevronDown className="w-4 h-4 text-gray-400" />
-                          </motion.div>
-                        </motion.button>
-                        
-                        {isSemesterDropdownOpen && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                            transition={{ duration: 0.2, ease: "easeOut" }}
-                            className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg dropdown-menu z-10 overflow-hidden"
-                          >
-                            {semesterOptions.map((semester, index) => (
-                              <motion.button
-                                key={semester}
-                                onClick={() => {
-                                  setSelectedSemester(semester);
-                                  setIsSemesterDropdownOpen(false);
-                                }}
-                                className={`w-full px-4 py-2 text-left dropdown-item ${
-                                  selectedSemester === semester ? 'selected' : ''
-                                }`}
-                                whileHover={{ backgroundColor: selectedSemester === semester ? undefined : '#f9fafb' }}
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: index * 0.05 }}
-                              >
-                                {semester}
-                              </motion.button>
-                            ))}
-                          </motion.div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Subjects List */}
-                  <div className="bg-gray-50 rounded-xl p-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                      {selectedYear} - {selectedSemester} Subjects
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {getCurrentSubjects().map((subject, index) => (
-                        <motion.div
-                          key={index}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.05 }}
-                          className="bg-white p-4 rounded-lg subject-card border border-gray-100"
-                        >
-                          <div className="flex items-center">
-                            <div className="w-8 h-8 bg-[var(--dominant-red)] text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">
-                              {index + 1}
-                            </div>
-                            <span className="text-gray-800 font-medium">{subject}</span>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                    {getCurrentSubjects().length === 0 && (
-                      <div className="text-center py-8">
-                        <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                        <p className="text-gray-500">No subjects available for this selection.</p>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {/* Program Details */}
-              {activeTab === 'programs' && (
-                <div className="bg-gray-50 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Program Information
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Program Type</label>
-                        <p className="text-gray-900 font-medium">{selectedCourse?.category}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Duration</label>
-                        <p className="text-gray-900 font-medium">{selectedCourse?.duration}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Coordinator</label>
-                        <p className="text-gray-900 font-medium">{selectedCourse?.coordinator}</p>
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Enrollment</label>
-                        <p className="text-gray-900 font-medium">{selectedCourse?.students}/{selectedCourse?.maxStudents} students</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Start Date</label>
-                        <p className="text-gray-900 font-medium">{selectedCourse?.startDate}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Tuition Fee</label>
-                        <p className="text-gray-900 font-medium">{selectedCourse?.price}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-6">
-                    <label className="text-sm font-medium text-gray-600">Description</label>
-                    <p className="text-gray-900 mt-2">{selectedCourse?.description}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="bg-gray-50 px-6 py-4 flex justify-end">
-              <Button
-                onClick={closeModal}
-                className="gradient-primary text-white modal-liquid-button"
-              >
-                Close
-              </Button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
+      {/* Course Modal */}
+      <CourseModal
+        isOpen={isModalOpen}
+        onClose={closeCourseModal}
+        onSubmit={handleCourseSubmit}
+        course={selectedCourse}
+        programs={programs}
+        isLoading={isLoading}
+      />
+      
+      {/* Program Modal */}
+       <ProgramModal
+         isOpen={isProgramModalOpen}
+         onClose={() => setIsProgramModalOpen(false)}
+         onSubmit={handleProgramSubmit}
+         program={selectedProgram}
+         isLoading={isLoading}
+       />
+      
+      {/* Delete Confirmation Modal */}
+       <DeleteConfirmationModal
+         isOpen={isDeleteModalOpen}
+         onClose={() => setIsDeleteModalOpen(false)}
+         onConfirm={handleDeleteConfirm}
+         title={`Delete ${activeTab === 'courses' ? 'Course' : 'Program'}`}
+         message={`Are you sure you want to delete this ${activeTab === 'courses' ? 'course' : 'program'}?`}
+         itemName={selectedItem?.course_name || selectedItem?.program_name}
+         isLoading={isLoading}
+       />
+      
+      {/* Success Alert */}
+       <SuccessAlert
+         isVisible={alert.isVisible}
+         message={alert.message}
+         type={alert.type}
+         onClose={() => setAlert({...alert, isVisible: false})}
+         autoClose={true}
+         duration={3000}
+       />
     </motion.div>
   );
 };
 
 export default Courses;
 
+  
