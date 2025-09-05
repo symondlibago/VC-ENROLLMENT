@@ -34,10 +34,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import CourseModal from './CourseModal';
-import ProgramModal from './ProgramModal';
-import DeleteConfirmationModal from './DeleteConfirmationModal';
-import SuccessAlert from './SuccessAlert';
+import CourseModal from '../modals/CourseModal';
+import ProgramModal from '../modals/ProgramModal';
+import ProgramDetailsModal from '../modals/ProgramDetailsModal';
+import SubjectDetailsModal from '../modals/SubjectDetailsModal';
+import DeleteConfirmationModal from '../modals/DeleteConfirmationModal';
+import SuccessAlert from '../modals/SuccessAlert';
 
 const Courses = () => {
   // UI State
@@ -60,6 +62,8 @@ const Courses = () => {
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [courses, setCourses] = useState();
   const [programs, setPrograms] = useState();
+  const [isProgramDetailsModalOpen, setIsProgramDetailsModalOpen] = useState(false);
+  const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
   
   const [alert, setAlert] = useState({
     isVisible: false,
@@ -886,6 +890,15 @@ const Courses = () => {
                           <Button 
                             size="sm" 
                             className="gradient-primary text-white liquid-button"
+                            onClick={() => {
+                              if (activeTab === 'courses') {
+                                setSelectedCourse(item);
+                                setIsSubjectModalOpen(true);
+                              } else {
+                                setSelectedProgram(item);
+                                setIsProgramDetailsModalOpen(true);
+                              }
+                            }}
                           >
                             View {activeTab === 'courses' ? 'Course' : 'Program'} Details
                           </Button>
@@ -942,6 +955,21 @@ const Courses = () => {
          program={selectedProgram}
          isLoading={isLoading}
        />
+      
+      {/* Program Details Modal */}
+      <ProgramDetailsModal
+        isOpen={isProgramDetailsModalOpen}
+        onClose={() => setIsProgramDetailsModalOpen(false)}
+        program={selectedProgram}
+        courses={courses || []}
+      />
+      
+      {/* Subject Details Modal */}
+      <SubjectDetailsModal
+        isOpen={isSubjectModalOpen}
+        onClose={() => setIsSubjectModalOpen(false)}
+        course={selectedCourse}
+      />
       
       {/* Delete Confirmation Modal */}
        <DeleteConfirmationModal
