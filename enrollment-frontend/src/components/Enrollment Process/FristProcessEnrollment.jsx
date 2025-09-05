@@ -28,6 +28,10 @@ const EnrollmentPage = ({ onBack }) => {
   const [isCourseOpen, setIsCourseOpen] = useState(false);
   const [isGradeLevelOpen, setIsGradeLevelOpen] = useState(false);
   const [isScholarshipTypeOpen, setIsScholarshipTypeOpen] = useState(false);
+  const [isVaccinatedOpen, setIsVaccinatedOpen] = useState(false);
+  const [isPhilHealthOpen, setIsPhilHealthOpen] = useState(false);
+  const [isProfessionalAssessmentOpen, setIsProfessionalAssessmentOpen] = useState(false);
+  const [isReceivingSupportOpen, setIsReceivingSupportOpen] = useState(false);
 
   // Second step form data
   const [formData, setFormData] = useState({
@@ -369,11 +373,11 @@ step <= currentStep
               <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
                 <Calendar className="w-6 h-6 text-white" />
               </div>
-              <h3 className="text-lg font-bold heading-bold text-gray-900 ml-3">Schedule</h3>
+              <h3 className="text-lg font-bold heading-bold text-gray-900 ml-3">Upload Receipt</h3>
             </div>
-            <p className="text-gray-600 mb-4">View important dates and deadlines</p>
+            <p className="text-gray-600 mb-4">Receipt for First Process of Enrollment</p>
             <button className="text-[var(--dominant-red)] font-semibold hover:underline">
-              View Schedule →
+              Upload →
             </button>
           </motion.div>
         </motion.div>
@@ -1061,15 +1065,43 @@ step <= currentStep
                     <label className="block text-gray-800 text-lg font-bold heading-bold mb-3">
                       Are you vaccinated?
                     </label>
-                    <select
-                      value={formData.isVaccinated}
-                      onChange={(e) => handleFormDataChange('isVaccinated', e.target.value)}
-                      className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-4 px-6 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300"
-                    >
-                      <option value="">Select Answer</option>
-                      <option value="Yes">Yes</option>
-                      <option value="No">No</option>
-                    </select>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-4 px-6 text-left text-gray-800 flex justify-between items-center focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg"
+                        onClick={() => setIsVaccinatedOpen(!isVaccinatedOpen)}
+                      >
+                        <span className="font-semibold">
+                          {formData.isVaccinated || 'Select Answer'}
+                        </span>
+                        <ChevronDown className={`w-6 h-6 text-[var(--dominant-red)] transition-transform duration-300 ${isVaccinatedOpen ? 'rotate-180' : 'rotate-0'}`} />
+                      </button>
+                      <AnimatePresence>
+                        {isVaccinatedOpen && (
+                          <motion.div
+                            variants={dropdownVariants}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
+                            className="absolute z-20 w-full bg-white border-2 border-gray-200 rounded-2xl shadow-2xl mt-2 max-h-80 overflow-auto"
+                          >
+                            {['Yes', 'No'].map((option, index) => (
+                              <motion.div
+                                key={option}
+                                className="px-6 py-4 hover:bg-gradient-to-r hover:from-[var(--whitish-pink)] hover:to-white cursor-pointer transition-all duration-200 text-gray-800 border-b border-gray-100 last:border-b-0 font-medium"
+                                onClick={() => {
+                                  handleFormDataChange('isVaccinated', option);
+                                  setIsVaccinatedOpen(false);
+                                }}
+                                whileHover={{ x: 5 }}
+                              >
+                                {option}
+                              </motion.div>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-gray-800 text-lg font-bold heading-bold mb-3">
@@ -1089,15 +1121,43 @@ step <= currentStep
                   <label className="block text-gray-800 text-lg font-bold heading-bold mb-3">
                     Have you registered to PhilHealth?
                   </label>
-                  <select
-                    value={formData.philHealthRegistered}
-                    onChange={(e) => handleFormDataChange('philHealthRegistered', e.target.value)}
-                    className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-4 px-6 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300"
-                  >
-                    <option value="">Select Answer</option>
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                  </select>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-4 px-6 text-left text-gray-800 flex justify-between items-center focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg"
+                      onClick={() => setIsPhilHealthOpen(!isPhilHealthOpen)}
+                    >
+                      <span className="font-semibold">
+                        {formData.philHealthRegistered || 'Select Answer'}
+                      </span>
+                      <ChevronDown className={`w-6 h-6 text-[var(--dominant-red)] transition-transform duration-300 ${isPhilHealthOpen ? 'rotate-180' : 'rotate-0'}`} />
+                    </button>
+                    <AnimatePresence>
+                      {isPhilHealthOpen && (
+                        <motion.div
+                          variants={dropdownVariants}
+                          initial="hidden"
+                          animate="visible"
+                          exit="exit"
+                          className="absolute z-20 w-full bg-white border-2 border-gray-200 rounded-2xl shadow-2xl mt-2 max-h-80 overflow-auto"
+                        >
+                          {['Yes', 'No'].map((option, index) => (
+                            <motion.div
+                              key={option}
+                              className="px-6 py-4 hover:bg-gradient-to-r hover:from-[var(--whitish-pink)] hover:to-white cursor-pointer transition-all duration-200 text-gray-800 border-b border-gray-100 last:border-b-0 font-medium"
+                              onClick={() => {
+                                handleFormDataChange('philHealthRegistered', option);
+                                setIsPhilHealthOpen(false);
+                              }}
+                              whileHover={{ x: 5 }}
+                            >
+                              {option}
+                            </motion.div>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
 
                 {/* Special Needs Section */}
@@ -1119,15 +1179,43 @@ step <= currentStep
                         <label className="block text-gray-800 text-lg font-bold heading-bold mb-3">
                           Have the psychological/behavioral concerns you identified been assessed by a professional such as a Counselor, Psychologist, Psychiatrist, or Developmental Pediatrician?
                         </label>
-                        <select
-                          value={formData.specialNeeds.professionalAssessment}
-                          onChange={(e) => handleSpecialNeedsChange('professionalAssessment', e.target.value)}
-                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-4 px-6 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300"
-                        >
-                          <option value="">Select Answer</option>
-                          <option value="Yes">Yes</option>
-                          <option value="No">No</option>
-                        </select>
+                        <div className="relative">
+                          <button
+                            type="button"
+                            className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-4 px-6 text-left text-gray-800 flex justify-between items-center focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg"
+                            onClick={() => setIsProfessionalAssessmentOpen(!isProfessionalAssessmentOpen)}
+                          >
+                            <span className="font-semibold">
+                              {formData.specialNeeds.professionalAssessment || 'Select Answer'}
+                            </span>
+                            <ChevronDown className={`w-6 h-6 text-[var(--dominant-red)] transition-transform duration-300 ${isProfessionalAssessmentOpen ? 'rotate-180' : 'rotate-0'}`} />
+                          </button>
+                          <AnimatePresence>
+                            {isProfessionalAssessmentOpen && (
+                              <motion.div
+                                variants={dropdownVariants}
+                                initial="hidden"
+                                animate="visible"
+                                exit="exit"
+                                className="absolute z-20 w-full bg-white border-2 border-gray-200 rounded-2xl shadow-2xl mt-2 max-h-80 overflow-auto"
+                              >
+                                {['Yes', 'No'].map((option, index) => (
+                                  <motion.div
+                                    key={option}
+                                    className="px-6 py-4 hover:bg-gradient-to-r hover:from-[var(--whitish-pink)] hover:to-white cursor-pointer transition-all duration-200 text-gray-800 border-b border-gray-100 last:border-b-0 font-medium"
+                                    onClick={() => {
+                                      handleSpecialNeedsChange('professionalAssessment', option);
+                                      setIsProfessionalAssessmentOpen(false);
+                                    }}
+                                    whileHover={{ x: 5 }}
+                                  >
+                                    {option}
+                                  </motion.div>
+                                ))}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       </div>
 
                       <div className="mb-4">
@@ -1221,15 +1309,43 @@ step <= currentStep
                         <label className="block text-gray-800 text-lg font-bold heading-bold mb-3">
                           Are you currently receiving any support services based on your identified concerns?
                         </label>
-                        <select
-                          value={formData.specialNeeds.receivingSupport}
-                          onChange={(e) => handleSpecialNeedsChange('receivingSupport', e.target.value)}
-                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-4 px-6 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300"
-                        >
-                          <option value="">Select Answer</option>
-                          <option value="Yes">Yes</option>
-                          <option value="No">No</option>
-                        </select>
+                        <div className="relative">
+                          <button
+                            type="button"
+                            className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-4 px-6 text-left text-gray-800 flex justify-between items-center focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg"
+                            onClick={() => setIsReceivingSupportOpen(!isReceivingSupportOpen)}
+                          >
+                            <span className="font-semibold">
+                              {formData.specialNeeds.receivingSupport || 'Select Answer'}
+                            </span>
+                            <ChevronDown className={`w-6 h-6 text-[var(--dominant-red)] transition-transform duration-300 ${isReceivingSupportOpen ? 'rotate-180' : 'rotate-0'}`} />
+                          </button>
+                          <AnimatePresence>
+                            {isReceivingSupportOpen && (
+                              <motion.div
+                                variants={dropdownVariants}
+                                initial="hidden"
+                                animate="visible"
+                                exit="exit"
+                                className="absolute z-20 w-full bg-white border-2 border-gray-200 rounded-2xl shadow-2xl mt-2 max-h-80 overflow-auto"
+                              >
+                                {['Yes', 'No'].map((option, index) => (
+                                  <motion.div
+                                    key={option}
+                                    className="px-6 py-4 hover:bg-gradient-to-r hover:from-[var(--whitish-pink)] hover:to-white cursor-pointer transition-all duration-200 text-gray-800 border-b border-gray-100 last:border-b-0 font-medium"
+                                    onClick={() => {
+                                      handleSpecialNeedsChange('receivingSupport', option);
+                                      setIsReceivingSupportOpen(false);
+                                    }}
+                                    whileHover={{ x: 5 }}
+                                  >
+                                    {option}
+                                  </motion.div>
+                                ))}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       </div>
 
                       <div className="mb-4">
