@@ -15,6 +15,7 @@ class Course extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'course_code',
         'course_name',
         'course_specialization',
         'description',

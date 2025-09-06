@@ -38,6 +38,7 @@ class CourseController extends Controller
     {
         try {
             $validated = $request->validate([
+                'course_code' => 'required|string|max:255',
                 'course_name' => 'required|string|max:255',
                 'course_specialization' => 'nullable|string|max:255',
                 'description' => 'required|string',
@@ -97,6 +98,7 @@ class CourseController extends Controller
     {
         try {
             $validated = $request->validate([
+                'course_code' => 'required|string|max:255',
                 'course_name' => 'required|string|max:255',
                 'course_specialization' => 'nullable|string|max:255',
                 'description' => 'required|string',

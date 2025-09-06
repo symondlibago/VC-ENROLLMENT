@@ -199,7 +199,13 @@ const ProgramModal = ({
                   onChange={(e) => handleInputChange("program_name", e.target.value)}
                   placeholder="Enter program name"
                   disabled={isLoading}
-                  className={`liquid-morph ${errors.program_name ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                  className={`
+                    w-full px-3 py-2 text-left bg-white border rounded-lg
+                    focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
+                    liquid-morph
+                    ${errors.program_name ? 'border-red-500' : 'border-gray-300'}
+                    ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
+                  `}
                 />
                 {errors.program_name && (
                   <p className="text-sm text-red-600">{errors.program_name}</p>
@@ -218,7 +224,13 @@ const ProgramModal = ({
                   placeholder="Enter program description"
                   disabled={isLoading}
                   rows={4}
-                  className={`liquid-morph resize-none ${errors.description ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                  className={`
+                    w-full px-3 py-2 text-left bg-white border rounded-lg
+                    focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
+                    liquid-morph
+                    ${errors.description ? 'border-red-500' : 'border-gray-300'}
+                    ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
+                  `}
                 />
                 {errors.description && (
                   <p className="text-sm text-red-600">{errors.description}</p>
@@ -239,7 +251,13 @@ const ProgramModal = ({
                   onChange={(e) => handleInputChange('years', e.target.value)}
                   placeholder="Enter duration in years"
                   disabled={isLoading}
-                  className={`liquid-morph ${errors.years ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                  className={`
+                    w-full px-3 py-2 text-left bg-white border rounded-lg
+                    focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
+                    liquid-morph
+                    ${errors.years ? 'border-red-500' : 'border-gray-300'}
+                    ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
+                  `}
                 />
                 {errors.years && (
                   <p className="text-sm text-red-600">{errors.years}</p>

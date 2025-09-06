@@ -88,7 +88,7 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
 
   return (
     <motion.header
-      className="h-16 bg-white border-b border-gray-200 px-6 flex items-center justify-between sticky top-0 z-40 backdrop-blur-lg bg-white/95"
+      className="h-16 bg-white border-b border-gray-200 px-6 flex items-center justify-between sticky top-0 z-40 backdrop-blur-l"
       variants={headerVariants}
       initial="initial"
       animate="animate"

@@ -860,7 +860,7 @@ const Courses = () => {
                       </DropdownMenu>
                     </div>
                     <div className="absolute bottom-4 left-4 right-4">
-                      <h3 className="text-white font-bold text-lg mb-1">{activeTab === 'courses' ? item.course_name : item.program_name}</h3>
+                      <h3 className="text-white font-bold text-lg mb-1">{activeTab === 'courses' ? `[${item.course_code}] ${item.course_name}` : item.program_name}</h3>
                       <p className="text-white text-sm mb-4 line-clamp-2">
                       {item.course_specialization }
                     </p>

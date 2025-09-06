@@ -15,6 +15,7 @@ const CourseModal = ({
   programs = []
 }) => {
   const [formData, setFormData] = useState({
+    course_code: '',
     course_name: '',
     course_specialization: '',
     description: '',
@@ -30,6 +31,7 @@ const CourseModal = ({
       if (course) {
         // Edit mode - populate with existing data
         setFormData({
+          course_code: course.course_code || '',
           course_name: course.course_name || '',
           course_specialization: course.course_specialization || '',
           description: course.description || '',
@@ -39,6 +41,7 @@ const CourseModal = ({
       } else {
         // Create mode - reset form
         setFormData({
+          course_code: '',
           course_name: '',
           course_specialization: '',
           description: '',
@@ -73,6 +76,10 @@ const CourseModal = ({
       newErrors.course_name = 'Course name is required';
     }
 
+    if (!formData.course_code.trim()) {
+      newErrors.course_code = 'Course code is required';
+    }
+
     if (!formData.description.trim()) {
       newErrors.description = 'Course description is required';
     }
@@ -102,6 +109,7 @@ const CourseModal = ({
     }
 
     const submitData = {
+      course_code: formData.course_code.trim(),
       course_name: formData.course_name.trim(),
       course_specialization: formData.course_specialization.trim(),
       description: formData.description.trim(),
@@ -233,40 +241,79 @@ const CourseModal = ({
             {/* Modal Body */}
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               {/* Course Name */}
+              <div className="flex space-x-4">
+        <div className="w-25">
+          <Label htmlFor="course_code" className="text-sm font-medium text-gray-700">
+            Course Code *
+          </Label>
+          <Input
+            id="course_code"
+            type="text"
+            value={formData.course_code}
+            onChange={(e) => handleInputChange('course_code', e.target.value)}
+            placeholder="Enter course code"
+            disabled={isLoading}
+            className={`
+                w-full px-3 py-2 text-left bg-white border rounded-lg
+                focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
+                liquid-morph
+                ${errors.course_code ? 'border-red-500' : 'border-gray-300'}
+                ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
+              `}
+          />
+          {errors.course_code && (
+            <p className="text-sm text-red-600">{errors.course_code}</p>
+          )}
+        </div>
+
+        <div className="flex-1">
+          <Label htmlFor="course_name" className="text-sm font-medium text-gray-700">
+            Course Name *
+          </Label>
+          <Input
+            id="course_name"
+            type="text"
+            value={formData.course_name}
+            onChange={(e) => handleInputChange('course_name', e.target.value)}
+            placeholder="Enter course name"
+            disabled={isLoading}
+            className={`
+                w-full px-3 py-2 text-left bg-white border rounded-lg
+                focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
+                liquid-morph
+                ${errors.course_name ? 'border-red-500' : 'border-gray-300'}
+                ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
+              `}
+          />
+          {errors.course_name && (
+            <p className="text-sm text-red-600">{errors.course_name}</p>
+          )}
+        </div>
+      </div>
+
               <div className="space-y-2">
-                <Label htmlFor="course_name" className="text-sm font-medium text-gray-700">
-                  Course Name *
-                </Label>
-                <Input
-                  id="course_name"
-                  type="text"
-                  value={formData.course_name}
-                  onChange={(e) => handleInputChange('course_name', e.target.value)}
-                  placeholder="Enter course name"
-                  disabled={isLoading}
-                  className={`liquid-morph ${errors.course_name ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
-                />
-                {errors.course_name && (
-                  <p className="text-sm text-red-600">{errors.course_name}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="course_specialization" className="text-sm font-medium text-gray-700">
-                  Course Specialization
-                </Label>
-                <Input
-                  id="course_specialization"
-                  type="text"
-                  value={formData.course_specialization}
-                  onChange={(e) => handleInputChange('course_specialization', e.target.value)}
-                  placeholder="Enter Course Specialization"
-                  disabled={isLoading}
-                  className={`liquid-morph ${errors.course_specialization ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
-                />
-                {errors.course_specialization && (
-                  <p className="text-sm text-red-600">{errors.course_specialization}</p>
-                )}
-              </div>
+            <Label htmlFor="course_specialization" className="text-sm font-medium text-gray-700">
+              Course Specialization
+            </Label>
+            <Input
+              id="course_specialization"
+              type="text"
+              value={formData.course_specialization}
+              onChange={(e) => handleInputChange('course_specialization', e.target.value)}
+              placeholder="Enter Course Specialization"
+              disabled={isLoading}
+              className={`
+                w-full px-3 py-2 text-left bg-white border rounded-lg
+                focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
+                liquid-morph
+                ${errors.course_specialization ? 'border-red-500' : 'border-gray-300'}
+                ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
+              `}
+            />
+            {errors.course_specialization && (
+              <p className="text-sm text-red-600">{errors.course_specialization}</p>
+            )}
+          </div>
 
               {/* Program Selection */}
               <div className="space-y-2">
@@ -350,7 +397,13 @@ const CourseModal = ({
                   placeholder="Enter course description"
                   disabled={isLoading}
                   rows={4}
-                  className={`liquid-morph resize-none ${errors.description ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                  className={`
+                w-full px-3 py-2 text-left bg-white border rounded-lg
+                focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
+                liquid-morph
+                ${errors.course_description ? 'border-red-500' : 'border-gray-300'}
+                ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
+              `}
                 />
                 {errors.description && (
                   <p className="text-sm text-red-600">{errors.description}</p>
@@ -371,7 +424,13 @@ const CourseModal = ({
                   onChange={(e) => handleInputChange('years', e.target.value)}
                   placeholder="Enter duration in years"
                   disabled={isLoading}
-                  className={`liquid-morph ${errors.years ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                  className={`
+                    w-full px-3 py-2 text-left bg-white border rounded-lg
+                    focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
+                    liquid-morph
+                    ${errors.years ? 'border-red-500' : 'border-gray-300'}
+                    ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
+                  `}
                 />
                 {errors.years && (
                   <p className="text-sm text-red-600">{errors.years}</p>
