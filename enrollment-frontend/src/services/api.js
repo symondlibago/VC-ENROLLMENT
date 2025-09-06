@@ -237,5 +237,67 @@ export const courseAPI = {
   }
 };
 
+// Subject Api
+export const subjectAPI = {
+  // Get all subjects
+  getAll: async () => {
+    try {
+      const response = await api.get('/subjects');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch subjects' };
+    }
+  },
+
+  // Get subjects by course ID
+  getByCourse: async (courseId) => {
+    try {
+      const response = await api.get(`/courses/${courseId}/subjects`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch subjects for this course' };
+    }
+  },
+
+  // Get single subject
+  getById: async (id) => {
+    try {
+      const response = await api.get(`/subjects/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch subject' };
+    }
+  },
+
+  // Create new subject
+  create: async (subjectData) => {
+    try {
+      const response = await api.post('/subjects', subjectData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to create subject' };
+    }
+  },
+
+  // Update subject
+  update: async (id, subjectData) => {
+    try {
+      const response = await api.put(`/subjects/${id}`, subjectData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to update subject' };
+    }
+  },
+
+  // Delete subject
+  delete: async (id) => {
+    try {
+      const response = await api.delete(`/subjects/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to delete subject' };
+    }
+  }
+};
 export default api;
 

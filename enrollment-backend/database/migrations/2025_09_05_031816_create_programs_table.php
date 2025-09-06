@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('programs', function (Blueprint $table) {
             $table->id();
             $table->string('program_name');
-            $table->text('description');
+            $table->enum('program_code', ['SHS', 'Bachelor', 'Diploma']);
             $table->integer('years');
             $table->timestamps();
         });

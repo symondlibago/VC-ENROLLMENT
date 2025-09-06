@@ -42,5 +42,13 @@ class Course extends Model
     {
         return $this->belongsTo(Program::class);
     }
+    
+    /**
+     * Get the subjects for the course.
+     */
+    public function subjects()
+    {
+        return $this->hasMany(Subject::class);
+    }
 }
 

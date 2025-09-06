@@ -335,7 +335,7 @@ const CourseModal = ({
                     whileTap={{ scale: 0.98 }}
                   >
                     <span className={getSelectedProgram() ? 'text-gray-900' : 'text-gray-500'}>
-                      {getSelectedProgram()?.program_name || 'Select a program'}
+                      {getSelectedProgram() ? `${getSelectedProgram().program_code} - ${getSelectedProgram().program_name}` : 'Select a program'}
                     </span>
                     <motion.div
                       animate={{ rotate: isProgramDropdownOpen ? 180 : 0 }}
@@ -367,8 +367,7 @@ const CourseModal = ({
                               whileHover={{ backgroundColor: '#f9fafb' }}
                               whileTap={{ scale: 0.98 }}
                             >
-                              <div className="font-medium text-gray-900">{program.program_name}</div>
-                              <div className="text-sm text-gray-500 truncate">{program.description}</div>
+                              <div className="font-medium text-gray-900">{program.program_code} - {program.program_name}</div>
                             </motion.button>
                           ))
                         ) : (

@@ -39,7 +39,7 @@ class ProgramController extends Controller
         try {
             $validated = $request->validate([
                 'program_name' => 'required|string|max:255',
-                'description' => 'required|string',
+                'program_code' => 'required|string|in:Bachelor,SHS,Diploma',
                 'years' => 'required|integer|min:1|max:10'
             ]);
 
@@ -93,7 +93,7 @@ class ProgramController extends Controller
         try {
             $validated = $request->validate([
                 'program_name' => 'required|string|max:255',
-                'description' => 'required|string',
+                'program_code' => 'required|string|in:Bachelor,SHS,Diploma',
                 'years' => 'required|integer|min:1|max:10'
             ]);
 

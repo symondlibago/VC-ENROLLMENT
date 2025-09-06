@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save, Loader2 } from 'lucide-react';
+import { X, Save, Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,9 +15,16 @@ const ProgramModal = ({
 }) => {
   const [formData, setFormData] = useState({
     program_name: '',
-    description: '',
+    program_code: '',
     years: ''
   });
+  
+  const programCodeOptions = [
+    { value: 'Bachelor', label: 'Bachelor' },
+    { value: 'SHS', label: 'SHS' },
+    { value: 'Diploma', label: 'Diploma' }
+  ];
+  const [isProgramCodeDropdownOpen, setIsProgramCodeDropdownOpen] = useState(false);
   const [errors, setErrors] = useState({});
 
   // Initialize form data when modal opens or program changes
@@ -25,19 +32,20 @@ const ProgramModal = ({
     if (isOpen) {
       if (program) {
         // Edit mode - populate with existing data
-        setFormData({          program_name: program.program_name || 
-'',
-          description: program.description || '',
+        setFormData({
+          program_name: program.program_name || '',
+          program_code: program.program_code || '',
           years: program.years?.toString() || ''
         });
       } else {
         // Create mode - reset form
         setFormData({
           program_name: '',
-          description: '',
+          program_code: '',
           years: ''
         });
       }
+      setIsProgramCodeDropdownOpen(false);
       setErrors({});
     }
   }, [isOpen, program]);
@@ -64,8 +72,8 @@ const ProgramModal = ({
       newErrors.program_name = 'Program name is required';
     }
 
-    if (!formData.description.trim()) {
-      newErrors.description = 'Program description is required';
+    if (!formData.program_code) {
+      newErrors.program_code = 'Program code is required';
     }
 
     if (!formData.years) {
@@ -90,7 +98,7 @@ const ProgramModal = ({
 
     const submitData = {
       program_name: formData.program_name.trim(),
-      description: formData.description.trim(),
+      program_code: formData.program_code,
       years: parseInt(formData.years)
     };
 
@@ -147,6 +155,32 @@ const ProgramModal = ({
     exit: { 
       opacity: 0,
       transition: { duration: 0.2 }
+    }
+  };
+
+  const dropdownVariants = {
+    hidden: { 
+      opacity: 0,
+      y: -10,
+      scale: 0.95
+    },
+    visible: { 
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        type: "spring",
+        stiffness: 400,
+        damping: 25
+      }
+    },
+    exit: { 
+      opacity: 0,
+      y: -10,
+      scale: 0.95,
+      transition: {
+        duration: 0.15
+      }
     }
   };
 
@@ -212,28 +246,66 @@ const ProgramModal = ({
                 )}
               </div>
 
-              {/* Program Description */}
+              {/* Program Code */}
               <div className="space-y-2">
-                <Label htmlFor="description" className="text-sm font-medium text-gray-700">
-                  Description *
+                <Label className="text-sm font-medium text-gray-700">
+                  Program Code *
                 </Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                  placeholder="Enter program description"
-                  disabled={isLoading}
-                  rows={4}
-                  className={`
-                    w-full px-3 py-2 text-left bg-white border rounded-lg
-                    focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
-                    liquid-morph
-                    ${errors.description ? 'border-red-500' : 'border-gray-300'}
-                    ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
-                  `}
-                />
-                {errors.description && (
-                  <p className="text-sm text-red-600">{errors.description}</p>
+                <div className="relative">
+                  <motion.button
+                    type="button"
+                    onClick={() => setIsProgramCodeDropdownOpen(!isProgramCodeDropdownOpen)}
+                    disabled={isLoading}
+                    className={`
+                      w-full px-3 py-2 text-left bg-white border rounded-lg 
+                      focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
+                      liquid-morph flex items-center justify-between
+                      ${errors.program_code ? 'border-red-500' : 'border-gray-300'}
+                      ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
+                    `}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <span className={formData.program_code ? 'text-gray-900' : 'text-gray-500'}>
+                      {formData.program_code || 'Select a program code'}
+                    </span>
+                    <motion.div
+                      animate={{ rotate: isProgramCodeDropdownOpen ? 180 : 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    </motion.div>
+                  </motion.button>
+
+                  <AnimatePresence>
+                    {isProgramCodeDropdownOpen && (
+                      <motion.div
+                        variants={dropdownVariants}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                        className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto"
+                      >
+                        {programCodeOptions.map((option) => (
+                          <motion.button
+                            key={option.value}
+                            type="button"
+                            onClick={() => {
+                              handleInputChange('program_code', option.value);
+                              setIsProgramCodeDropdownOpen(false);
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none first:rounded-t-lg last:rounded-b-lg"
+                            whileHover={{ backgroundColor: '#f9fafb' }}
+                            whileTap={{ scale: 0.98 }}
+                          >
+                            <div className="font-medium text-gray-900">{option.label}</div>
+                          </motion.button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+                {errors.program_code && (
+                  <p className="text-sm text-red-600">{errors.program_code}</p>
                 )}
               </div>
 

@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProgramController;
 use App\Http\Controllers\CourseController;
+use App\Http\Controllers\SubjectController;
 
 /*
 |--------------------------------------------------------------------------
@@ -32,5 +33,9 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Course routes
     Route::apiResource('courses', CourseController::class);
+    
+    // Subject routes
+    Route::apiResource('subjects', SubjectController::class);
+    Route::get('courses/{course}/subjects', [SubjectController::class, 'getByCourse']);
 });
 

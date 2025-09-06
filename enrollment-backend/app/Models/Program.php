@@ -16,7 +16,7 @@ class Program extends Model
      */
     protected $fillable = [
         'program_name',
-        'description',
+        'program_code',
         'years',
     ];
 

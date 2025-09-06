@@ -8,24 +8,19 @@ import {
   MoreVertical,
   Clock,
   Users,
-  Calendar,
   Edit,
   Trash2,
-  Eye,
   Download,
   Play,
   BookMarked,
   Award,
-  ChevronDown,
   GraduationCap,
   School,
   Building,
-  X,
-  ChevronRight
 } from 'lucide-react';
-import { courseAPI, programAPI } from '@/services/api';
+import { courseAPI, programAPI, subjectAPI } from '@/services/api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -38,6 +33,7 @@ import CourseModal from '../modals/CourseModal';
 import ProgramModal from '../modals/ProgramModal';
 import ProgramDetailsModal from '../modals/ProgramDetailsModal';
 import SubjectDetailsModal from '../modals/SubjectDetailsModal';
+import SubjectModal from '../modals/SubjectModal';
 import DeleteConfirmationModal from '../modals/DeleteConfirmationModal';
 import SuccessAlert from '../modals/SuccessAlert';
 
@@ -64,6 +60,9 @@ const Courses = () => {
   const [programs, setPrograms] = useState();
   const [isProgramDetailsModalOpen, setIsProgramDetailsModalOpen] = useState(false);
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
+  const [isSubjectFormModalOpen, setIsSubjectFormModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedSubject, setSelectedSubject] = useState(null);
   
   const [alert, setAlert] = useState({
     isVisible: false,
@@ -118,159 +117,7 @@ const Courses = () => {
     fetchPrograms();
   }, []);
 
-  // Sample subjects data for each course
-  const courseSubjects = {
-    1: { // Computer Science
-      "1st Year": {
-        "1st Semester": [
-          "Introduction to Computing",
-          "Computer Programming 1",
-          "Mathematics in the Modern World",
-          "Understanding the Self",
-          "Readings in Philippine History",
-          "The Contemporary World",
-          "Physical Education 1",
-          "National Service Training Program 1"
-        ],
-        "2nd Semester": [
-          "Computer Programming 2",
-          "Discrete Mathematics",
-          "Purposive Communication",
-          "Art Appreciation",
-          "Ethics",
-          "Science, Technology and Society",
-          "Physical Education 2",
-          "National Service Training Program 2"
-        ]
-      },
-      "2nd Year": {
-        "1st Semester": [
-          "Data Structures and Algorithms",
-          "Object-Oriented Programming",
-          "Digital Logic Design",
-          "Statistics and Probability",
-          "Filipino sa Piling Larangan",
-          "Physical Education 3"
-        ],
-        "2nd Semester": [
-          "Database Management Systems",
-          "Computer Organization and Architecture",
-          "Web Development",
-          "Linear Algebra",
-          "Rizal's Life and Works",
-          "Physical Education 4"
-        ]
-      },
-      "3rd Year": {
-        "1st Semester": [
-          "Software Engineering 1",
-          "Operating Systems",
-          "Computer Networks",
-          "Human Computer Interaction",
-          "Elective 1"
-        ],
-        "2nd Semester": [
-          "Software Engineering 2",
-          "Information Assurance and Security",
-          "Systems Integration and Architecture",
-          "Automata Theory and Formal Languages",
-          "Elective 2"
-        ]
-      },
-      "4th Year": {
-        "1st Semester": [
-          "Capstone Project 1",
-          "Machine Learning",
-          "Mobile Application Development",
-          "Professional Issues in Computing",
-          "Elective 3"
-        ],
-        "2nd Semester": [
-          "Capstone Project 2",
-          "Internship/Practicum",
-          "Emerging Technologies",
-          "Elective 4"
-        ]
-      }
-    },
-    2: { // Business Administration
-      "1st Year": {
-        "1st Semester": [
-          "Introduction to Business",
-          "Business Mathematics",
-          "Mathematics in the Modern World",
-          "Understanding the Self",
-          "Readings in Philippine History",
-          "The Contemporary World",
-          "Physical Education 1",
-          "National Service Training Program 1"
-        ],
-        "2nd Semester": [
-          "Principles of Management",
-          "Business Statistics",
-          "Purposive Communication",
-          "Art Appreciation",
-          "Ethics",
-          "Science, Technology and Society",
-          "Physical Education 2",
-          "National Service Training Program 2"
-        ]
-      },
-      "2nd Year": {
-        "1st Semester": [
-          "Financial Management",
-          "Marketing Management",
-          "Operations Management",
-          "Business Law",
-          "Filipino sa Piling Larangan",
-          "Physical Education 3"
-        ],
-        "2nd Semester": [
-          "Human Resource Management",
-          "Strategic Management",
-          "International Business",
-          "Business Research Methods",
-          "Rizal's Life and Works",
-          "Physical Education 4"
-        ]
-      },
-      "3rd Year": {
-        "1st Semester": [
-          "Organizational Behavior",
-          "Business Analytics",
-          "Entrepreneurship",
-          "Corporate Finance",
-          "Elective 1"
-        ],
-        "2nd Semester": [
-          "Supply Chain Management",
-          "Digital Marketing",
-          "Business Ethics and Social Responsibility",
-          "Project Management",
-          "Elective 2"
-        ]
-      },
-      "4th Year": {
-        "1st Semester": [
-          "Business Capstone Project 1",
-          "Advanced Strategic Management",
-          "Business Consulting",
-          "Leadership and Change Management",
-          "Elective 3"
-        ],
-        "2nd Semester": [
-          "Business Capstone Project 2",
-          "Internship/Practicum",
-          "Global Business Environment",
-          "Elective 4"
-        ]
-      }
-    }
-    // Add similar structure for other courses (3, 4, 5, 6)
-  };
-
-  const yearOptions = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
-  const semesterOptions = ['1st Semester', '2nd Semester'];
+  // Dropdown related effects removed as requested
 
   const stats = [
     {
@@ -365,19 +212,6 @@ const Courses = () => {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'upcoming':
-        return 'bg-blue-100 text-blue-800';
-      case 'completed':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-yellow-100 text-yellow-800';
-    }
-  };
-
   const getCategoryColor = (category) => {
     switch (category) {
       case 'Mathematics':
@@ -411,13 +245,18 @@ const Courses = () => {
 
   // Add null check to prevent TypeError when courses or programs is undefined
   const currentData = getCurrentData() || [];
+  
   const filteredData = currentData.filter(item => {
-    const matchesSearch =
-  (item.title && item.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
-  ((item.instructor || item.coordinator || "").toLowerCase().includes(searchTerm.toLowerCase())) ||
-  (item.category && item.category.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesSearch = searchTerm === '' || 
+      (item.title && item.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (item.course_name && item.course_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (item.course_code && item.course_code.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (item.program_name && item.program_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      ((item.instructor || item.coordinator || "").toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (item.category && item.category.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesFilter = selectedFilter === 'all' || item.status === selectedFilter;
+    
     return matchesSearch && matchesFilter;
   });
 
@@ -539,6 +378,69 @@ const Courses = () => {
     }
   };
   
+  // Handle subject creation and update
+  const handleSubjectSubmit = async (subjectData) => {
+    setIsLoading(true);
+    try {
+      let response;
+      
+      if (selectedSubject) {
+        // Update existing subject
+        response = await subjectAPI.update(selectedSubject.id, subjectData);
+        if (response.success) {
+          setAlert({
+            isVisible: true,
+            message: 'Subject updated successfully!',
+            type: 'success'
+          });
+          
+          // If the subject details modal is open, refresh the course data
+          if (isSubjectModalOpen && selectedCourse) {
+            const updatedCourse = await courseAPI.getById(selectedCourse.id);
+            if (updatedCourse.success) {
+              setSelectedCourse(updatedCourse.data);
+            }
+          }
+        }
+      } else {
+        // Create new subject
+        response = await subjectAPI.create({
+          ...subjectData,
+          course_id: selectedCourse.id
+        });
+        if (response.success) {
+          setAlert({
+            isVisible: true,
+            message: 'Subject created successfully!',
+            type: 'success'
+          });
+          
+          // If the subject details modal is open, refresh the course data
+          if (isSubjectModalOpen && selectedCourse) {
+            const updatedCourse = await courseAPI.getById(selectedCourse.id);
+            if (updatedCourse.success) {
+              setSelectedCourse(updatedCourse.data);
+            }
+          }
+        }
+      }
+      
+      // Close the modal
+      setIsSubjectFormModalOpen(false);
+      setSelectedSubject(null);
+    } catch (error) {
+      console.error('Error saving subject:', error);
+      setAlert({
+        isVisible: true,
+        message: `Failed to ${selectedSubject ? 'update' : 'create'} subject. ${error.message || 'Please try again.'}`,
+        type: 'error'
+      });
+      throw error; // Rethrow to be handled by the modal
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   // Handle deletion of courses and programs
   const handleDeleteConfirm = async () => {
     if (!selectedItem) return;
@@ -559,7 +461,7 @@ const Courses = () => {
             type: 'success'
           });
         }
-      } else {
+      } else if (activeTab === 'programs') {
         // Delete program
         response = await programAPI.delete(selectedItem.id);
         if (response.success) {
@@ -571,16 +473,34 @@ const Courses = () => {
             type: 'success'
           });
         }
+      } else if (selectedItem && selectedItem.subject_code) {
+        // Delete subject
+        response = await subjectAPI.delete(selectedItem.id);
+        if (response.success) {
+          setAlert({
+            isVisible: true,
+            message: 'Subject deleted successfully!',
+            type: 'success'
+          });
+          // If the subject details modal is open, we need to refresh it
+          if (isSubjectModalOpen && selectedCourse) {
+            // Refresh the course data to update subjects
+            const updatedCourse = await courseAPI.getById(selectedCourse.id);
+            if (updatedCourse.success) {
+              setSelectedCourse(updatedCourse.data);
+            }
+          }
+        }
       }
       
       // Close the modal
       setIsDeleteModalOpen(false);
       setSelectedItem(null);
     } catch (error) {
-      console.error(`Error deleting ${activeTab === 'courses' ? 'course' : 'program'}:`, error);
+      console.error(`Error deleting item:`, error);
       setAlert({
         isVisible: true,
-        message: `Failed to delete ${activeTab === 'courses' ? 'course' : 'program'}. ${error.message || 'Please try again.'}`,
+        message: `Failed to delete item. ${error.message || 'Please try again.'}`,
         type: 'error'
       });
     } finally {
@@ -588,15 +508,6 @@ const Courses = () => {
     }
   };
   
-  // State for selected item to delete
-  const [selectedItem, setSelectedItem] = useState(null);
-
-  const getCurrentSubjects = () => {
-    if (!selectedCourse || !courseSubjects[selectedCourse.id]) {
-      return [];
-    }
-    return courseSubjects[selectedCourse.id][selectedYear]?.[selectedSemester] || [];
-  };
 
   return (
     <motion.div
@@ -752,28 +663,19 @@ const Courses = () => {
         <Card className="card-hover border-0 shadow-sm">
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-              <div className="flex-1 max-w-md">
+              <div className="flex-1 max-w-5xl">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
-                    placeholder={`Search ${activeTab} by title, instructor, or category...`}
+                    placeholder={`Search ${activeTab} by course name, course code, program name, title, instructor, or category...`}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 liquid-morph"
+                    className="pl-10 liquid-morph border-gray-300 focus:border-[var(--dominant-red)] focus:ring-[var(--dominant-red)]"
                   />
                 </div>
               </div>
               <div className="flex items-center space-x-3">
-                <select
-                  value={selectedFilter}
-                  onChange={(e) => setSelectedFilter(e.target.value)}
-                  className="px-4 py-2 border border-gray-200 rounded-lg focus:border-[var(--dominant-red)] focus:ring-[var(--dominant-red)] liquid-morph"
-                >
-                  <option value="all">All {activeTab === 'courses' ? 'Courses' : 'Programs'}</option>
-                  <option value="active">Active</option>
-                  <option value="upcoming">Upcoming</option>
-                  <option value="completed">Completed</option>
-                </select>
+                {/* Course Code Dropdown removed as requested */}
                 <Button variant="outline" className="liquid-button">
                   <Filter className="w-4 h-4 mr-2" />
                   Filter
@@ -821,7 +723,7 @@ const Courses = () => {
                     <div className="absolute top-4 left-4">
                       {activeTab === 'courses' && item.program && (
                         <Badge className={`${getCategoryColor(item.program.program_name)} text-xs`}>
-                          {item.program.program_name}
+                          {item.program.program_code}
                         </Badge>
                       )}
                     </div>
@@ -969,6 +871,28 @@ const Courses = () => {
         isOpen={isSubjectModalOpen}
         onClose={() => setIsSubjectModalOpen(false)}
         course={selectedCourse}
+        onAddSubject={() => {
+          setSelectedSubject(null);
+          setIsSubjectFormModalOpen(true);
+        }}
+        onEditSubject={(subject) => {
+          setSelectedSubject(subject);
+          setIsSubjectFormModalOpen(true);
+        }}
+        onDeleteSubject={(subject) => {
+          setSelectedItem(subject);
+          setIsDeleteModalOpen(true);
+        }}
+      />
+      
+      {/* Subject Form Modal */}
+      <SubjectModal
+        isOpen={isSubjectFormModalOpen}
+        onClose={() => setIsSubjectFormModalOpen(false)}
+        onSubmit={handleSubjectSubmit}
+        subject={selectedSubject}
+        course={selectedCourse}
+        isLoading={isLoading}
       />
       
       {/* Delete Confirmation Modal */}
