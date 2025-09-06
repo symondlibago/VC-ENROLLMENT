@@ -445,7 +445,7 @@ step <= currentStep
               <div className="p-8 space-y-8">
                 {/* Department Selection */}
                 <div>
-                  <label className="block text-gray-800 text-xl font-bold heading-bold mb-4 flex items-center">
+                  <label className="text-gray-800 text-xl font-bold heading-bold mb-4 flex items-center">
                     <BookOpen className="w-6 h-6 mr-3 text-[var(--dominant-red)]" />
                     Select Department
                   </label>
@@ -487,7 +487,7 @@ step <= currentStep
 
                 {/* Enrollment Type Selection */}
                 <div>
-                  <label className="block text-gray-800 text-xl font-bold heading-bold mb-4 flex items-center">
+                  <label className="text-gray-800 text-xl font-bold heading-bold mb-4 flex items-center">
                     <Users className="w-6 h-6 mr-3 text-[var(--dominant-red)]" />
                     Enrollment Type
                   </label>

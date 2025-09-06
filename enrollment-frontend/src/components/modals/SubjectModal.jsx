@@ -12,6 +12,7 @@ const SubjectModal = ({
   onSubmit,
   subject = null,
   course = null,
+  programType = null,
   isLoading = false
 }) => {
   // Form state
@@ -31,9 +32,21 @@ const SubjectModal = ({
   // Validation state
   const [errors, setErrors] = useState({});
   
-  // Year and semester options
-  const yearOptions = ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Summer'];
-  const semesterOptions = ['1st Semester', '2nd Semester'];
+  // Year and semester options based on program type
+  const getYearOptions = () => {
+    switch (programType) {
+      case 'SHS':
+        return ['Grade 11', 'Grade 12'];
+      case 'Bachelor':
+      case 'Diploma':
+      default:
+        return ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Summer'];
+    }
+  };
+
+  const getSemesterOptions = () => {
+    return ['1st Semester', '2nd Semester'];
+  };
   
   // Dropdown state
   const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
@@ -83,6 +96,8 @@ const SubjectModal = ({
   // Initialize form data when subject or course changes
   useEffect(() => {
     if (isOpen) {
+      const defaultYear = programType === 'SHS' ? 'Grade 11' : '1st Year';
+      
       if (subject) {
         // Edit mode - populate form with subject data
         setFormData({
@@ -91,7 +106,7 @@ const SubjectModal = ({
           lec_hrs: subject.lec_hrs || 0,
           lab_hrs: subject.lab_hrs || 0,
           total_units: subject.total_units || 0,
-          year: subject.year || '1st Year',
+          year: subject.year || defaultYear,
           semester: subject.semester || '1st Semester',
           course_id: subject.course_id || (course ? course.id : ''),
           number_of_hours: subject.number_of_hours || 0,
@@ -105,7 +120,7 @@ const SubjectModal = ({
           lec_hrs: 0,
           lab_hrs: 0,
           total_units: 0,
-          year: '1st Year',
+          year: defaultYear,
           semester: '1st Semester',
           course_id: course ? course.id : '',
           number_of_hours: 0,
@@ -115,7 +130,7 @@ const SubjectModal = ({
       // Clear errors
       setErrors({});
     }
-  }, [isOpen, subject, course]);
+  }, [isOpen, subject, course, programType]);
 
   // Handle input changes
   const handleInputChange = (field, value) => {
@@ -133,7 +148,7 @@ const SubjectModal = ({
     }
   };
 
-  // Validate form
+  // Validate form based on program type
   const validateForm = () => {
     const newErrors = {};
     
@@ -145,12 +160,27 @@ const SubjectModal = ({
       newErrors.descriptive_title = 'Descriptive title is required';
     }
     
+    // Year and semester are always required for all program types
     if (!formData.year) {
       newErrors.year = 'Year is required';
     }
     
     if (!formData.semester) {
       newErrors.semester = 'Semester is required';
+    }
+    
+    // Conditional validation based on program type
+    if (programType === 'Bachelor') {
+      // Bachelor: All fields except number_of_hours are required
+      // Additional validation can be added here if needed
+    } else if (programType === 'SHS') {
+      // SHS: Subject code, descriptive title, number_of_hours, year, and semester are required
+      if (!formData.number_of_hours || formData.number_of_hours <= 0) {
+        newErrors.number_of_hours = 'Number of hours is required and must be greater than 0';
+      }
+    } else if (programType === 'Diploma') {
+      // Diploma: Subject code, descriptive title, year, and semester are required
+      // No additional validation needed
     }
     
     if (!formData.course_id) {
@@ -174,6 +204,25 @@ const SubjectModal = ({
   const handleClose = () => {
     if (!isLoading) {
       onClose();
+    }
+  };
+
+  // Helper function to determine which fields to show
+  const shouldShowField = (fieldName) => {
+    if (!programType) return true; // Show all fields if program type is not available
+    
+    switch (programType) {
+      case 'Bachelor':
+        // Show all fields except number_of_hours
+        return fieldName !== 'number_of_hours';
+      case 'SHS':
+        // Show subject_code, descriptive_title, number_of_hours, year, and semester
+        return ['subject_code', 'descriptive_title', 'number_of_hours', 'year', 'semester'].includes(fieldName);
+      case 'Diploma':
+        // Show subject_code, descriptive_title, year, and semester
+        return ['subject_code', 'descriptive_title', 'year', 'semester'].includes(fieldName);
+      default:
+        return true;
     }
   };
 
@@ -211,6 +260,11 @@ const SubjectModal = ({
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
                 <h2 className="text-xl font-bold text-gray-900">
                   {subject ? 'Edit Subject' : 'Add Subject'}
+                  {programType && (
+                    <span className="text-sm font-normal text-gray-500 ml-2">
+                      ({programType} Program)
+                    </span>
+                  )}
                 </h2>
                 <Button
                   variant="ghost"
@@ -226,142 +280,64 @@ const SubjectModal = ({
               {/* Modal Body */}
               <form onSubmit={handleSubmit} className="p-6 space-y-4">
                 {/* Subject Code */}
-                <div className="space-y-2">
-                  <Label htmlFor="subject_code" className="text-sm font-medium text-gray-700">
-                    Subject Code *
-                  </Label>
-                  <Input
-                    id="subject_code"
-                    type="text"
-                    value={formData.subject_code}
-                    onChange={(e) => handleInputChange('subject_code', e.target.value)}
-                    placeholder="Enter subject code"
-                    disabled={isLoading}
-                    className={`
-                      w-full px-3 py-2 text-left bg-white border rounded-lg
-                      focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
-                      liquid-morph
-                      ${errors.subject_code ? 'border-red-500' : 'border-gray-300'}
-                      ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
-                    `}
-                  />
-                  {errors.subject_code && (
-                    <p className="text-sm text-red-600">{errors.subject_code}</p>
-                  )}
-                </div>
+                {shouldShowField('subject_code') && (
+                  <div className="space-y-2">
+                    <Label htmlFor="subject_code" className="text-sm font-medium text-gray-700">
+                      Subject Code *
+                    </Label>
+                    <Input
+                      id="subject_code"
+                      type="text"
+                      value={formData.subject_code}
+                      onChange={(e) => handleInputChange('subject_code', e.target.value)}
+                      placeholder="Enter subject code"
+                      disabled={isLoading}
+                      className={`
+                        w-full px-3 py-2 text-left bg-white border rounded-lg
+                        focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
+                        liquid-morph
+                        ${errors.subject_code ? 'border-red-500' : 'border-gray-300'}
+                        ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
+                      `}
+                    />
+                    {errors.subject_code && (
+                      <p className="text-sm text-red-600">{errors.subject_code}</p>
+                    )}
+                  </div>
+                )}
 
                 {/* Descriptive Title */}
-                <div className="space-y-2">
-                  <Label htmlFor="descriptive_title" className="text-sm font-medium text-gray-700">
-                    Descriptive Title *
-                  </Label>
-                  <Input
-                    id="descriptive_title"
-                    type="text"
-                    value={formData.descriptive_title}
-                    onChange={(e) => handleInputChange('descriptive_title', e.target.value)}
-                    placeholder="Enter descriptive title"
-                    disabled={isLoading}
-                    className={`
-                      w-full px-3 py-2 text-left bg-white border rounded-lg
-                      focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
-                      liquid-morph
-                      ${errors.descriptive_title ? 'border-red-500' : 'border-gray-300'}
-                      ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
-                    `}
-                  />
-                  {errors.descriptive_title && (
-                    <p className="text-sm text-red-600">{errors.descriptive_title}</p>
-                  )}
-                </div>
-
-                {/* Hours and Units */}
-                <div className="grid grid-cols-3 gap-4">
-                  {/* Lecture Hours */}
+                {shouldShowField('descriptive_title') && (
                   <div className="space-y-2">
-                    <Label htmlFor="lec_hrs" className="text-sm font-medium text-gray-700">
-                      Lecture Hours *
+                    <Label htmlFor="descriptive_title" className="text-sm font-medium text-gray-700">
+                      Descriptive Title *
                     </Label>
                     <Input
-                      id="lec_hrs"
-                      type="number"
-                      min="0"
-                      step="0.5"
-                      value={formData.lec_hrs}
-                      onChange={(e) => handleInputChange('lec_hrs', e.target.value)}
-                      placeholder="0"
+                      id="descriptive_title"
+                      type="text"
+                      value={formData.descriptive_title}
+                      onChange={(e) => handleInputChange('descriptive_title', e.target.value)}
+                      placeholder="Enter descriptive title"
                       disabled={isLoading}
                       className={`
                         w-full px-3 py-2 text-left bg-white border rounded-lg
                         focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
                         liquid-morph
-                        ${errors.lec_hrs ? 'border-red-500' : 'border-gray-300'}
+                        ${errors.descriptive_title ? 'border-red-500' : 'border-gray-300'}
                         ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
                       `}
                     />
-                    {errors.lec_hrs && (
-                      <p className="text-sm text-red-600">{errors.lec_hrs}</p>
+                    {errors.descriptive_title && (
+                      <p className="text-sm text-red-600">{errors.descriptive_title}</p>
                     )}
                   </div>
+                )}
 
-                  {/* Laboratory Hours */}
-                  <div className="space-y-2">
-                    <Label htmlFor="lab_hrs" className="text-sm font-medium text-gray-700">
-                      Laboratory Hours *
-                    </Label>
-                    <Input
-                      id="lab_hrs"
-                      type="number"
-                      min="0"
-                      step="0.5"
-                      value={formData.lab_hrs}
-                      onChange={(e) => handleInputChange('lab_hrs', e.target.value)}
-                      placeholder="0"
-                      disabled={isLoading}
-                      className={`
-                        w-full px-3 py-2 text-left bg-white border rounded-lg
-                        focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
-                        liquid-morph
-                        ${errors.lab_hrs ? 'border-red-500' : 'border-gray-300'}
-                        ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
-                      `}
-                    />
-                    {errors.lab_hrs && (
-                      <p className="text-sm text-red-600">{errors.lab_hrs}</p>
-                    )}
-                  </div>
-
-                  {/* Total Units */}
-                  <div className="space-y-2">
-                    <Label htmlFor="total_units" className="text-sm font-medium text-gray-700">
-                      Total Units
-                    </Label>
-                    <Input
-                      id="total_units"
-                      type="number"
-                      min="0"
-                      step="0.5"
-                      value={formData.total_units}
-                      onChange={(e) => handleInputChange('total_units', e.target.value)}
-                      placeholder="0"
-                      disabled={isLoading}
-                      className={`
-                        w-full px-3 py-2 text-left bg-white border rounded-lg
-                        focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
-                        liquid-morph
-                        ${errors.total_units ? 'border-red-500' : 'border-gray-300'}
-                        ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
-                      `}
-                    />
-                    {errors.total_units && (
-                      <p className="text-sm text-red-600">{errors.total_units}</p>
-                    )}
-                  </div>
-
-                  {/* Number of Hours */}
+                {/* Number of Hours - Only for SHS */}
+                {shouldShowField('number_of_hours') && (
                   <div className="space-y-2">
                     <Label htmlFor="number_of_hours" className="text-sm font-medium text-gray-700">
-                      Number of Hours
+                      Number of Hours *
                     </Label>
                     <Input
                       id="number_of_hours"
@@ -384,63 +360,157 @@ const SubjectModal = ({
                       <p className="text-sm text-red-600">{errors.number_of_hours}</p>
                     )}
                   </div>
+                )}
 
-                    {/* Pre Requisites */}
+                {/* Hours and Units - Only for Bachelor */}
+                {programType === 'Bachelor' && (
+                  <div className="grid grid-cols-3 gap-4">
+                    {/* Lecture Hours */}
+                    {shouldShowField('lec_hrs') && (
+                      <div className="space-y-2">
+                        <Label htmlFor="lec_hrs" className="text-sm font-medium text-gray-700">
+                          Lecture Hours
+                        </Label>
+                        <Input
+                          id="lec_hrs"
+                          type="number"
+                          min="0"
+                          step="0.5"
+                          value={formData.lec_hrs}
+                          onChange={(e) => handleInputChange('lec_hrs', e.target.value)}
+                          placeholder="0"
+                          disabled={isLoading}
+                          className={`
+                            w-full px-3 py-2 text-left bg-white border rounded-lg
+                            focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
+                            liquid-morph
+                            ${errors.lec_hrs ? 'border-red-500' : 'border-gray-300'}
+                            ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
+                          `}
+                        />
+                        {errors.lec_hrs && (
+                          <p className="text-sm text-red-600">{errors.lec_hrs}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Laboratory Hours */}
+                    {shouldShowField('lab_hrs') && (
+                      <div className="space-y-2">
+                        <Label htmlFor="lab_hrs" className="text-sm font-medium text-gray-700">
+                          Laboratory Hours
+                        </Label>
+                        <Input
+                          id="lab_hrs"
+                          type="number"
+                          min="0"
+                          step="0.5"
+                          value={formData.lab_hrs}
+                          onChange={(e) => handleInputChange('lab_hrs', e.target.value)}
+                          placeholder="0"
+                          disabled={isLoading}
+                          className={`
+                            w-full px-3 py-2 text-left bg-white border rounded-lg
+                            focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
+                            liquid-morph
+                            ${errors.lab_hrs ? 'border-red-500' : 'border-gray-300'}
+                            ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
+                          `}
+                        />
+                        {errors.lab_hrs && (
+                          <p className="text-sm text-red-600">{errors.lab_hrs}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Total Units */}
+                    {shouldShowField('total_units') && (
+                      <div className="space-y-2">
+                        <Label htmlFor="total_units" className="text-sm font-medium text-gray-700">
+                          Total Units
+                        </Label>
+                        <Input
+                          id="total_units"
+                          type="number"
+                          min="0"
+                          step="0.5"
+                          value={formData.total_units}
+                          onChange={(e) => handleInputChange('total_units', e.target.value)}
+                          placeholder="0"
+                          disabled={isLoading}
+                          className={`
+                            w-full px-3 py-2 text-left bg-white border rounded-lg
+                            focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
+                            liquid-morph
+                            ${errors.total_units ? 'border-red-500' : 'border-gray-300'}
+                            ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
+                          `}
+                        />
+                        {errors.total_units && (
+                          <p className="text-sm text-red-600">{errors.total_units}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Pre Requisites - Only for Bachelor */}
+                {shouldShowField('pre_req') && (
                   <div className="space-y-2">
-                  <Label htmlFor="pre_req" className="text-sm font-medium text-gray-700">
-                    Pre Requisites
-                  </Label>
-                  <Input
-                    id="pre_req"
-                    type="text"
-                    value={formData.pre_req}
-                    onChange={(e) => handleInputChange('pre_req', e.target.value)}
-                    placeholder="Enter pre requisites"
-                    disabled={isLoading}
-                    className={`
-                      w-full px-3 py-2 text-left bg-white border rounded-lg
-                      focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
-                      liquid-morph
-                      ${errors.pre_req ? 'border-red-500' : 'border-gray-300'}
-                      ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
-                    `}
-                  />
-                  {errors.pre_req && (
-                    <p className="text-sm text-red-600">{errors.pre_req}</p>
-                  )}
-                </div>
-                </div>
+                    <Label htmlFor="pre_req" className="text-sm font-medium text-gray-700">
+                      Pre Requisites
+                    </Label>
+                    <Input
+                      id="pre_req"
+                      type="text"
+                      value={formData.pre_req}
+                      onChange={(e) => handleInputChange('pre_req', e.target.value)}
+                      placeholder="Enter pre requisites"
+                      disabled={isLoading}
+                      className={`
+                        w-full px-3 py-2 text-left bg-white border rounded-lg
+                        focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
+                        liquid-morph
+                        ${errors.pre_req ? 'border-red-500' : 'border-gray-300'}
+                        ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
+                      `}
+                    />
+                    {errors.pre_req && (
+                      <p className="text-sm text-red-600">{errors.pre_req}</p>
+                    )}
+                  </div>
+                )}
 
-                {/* Year and Semester */}
+                {/* Year and Semester - Show for all program types */}
                 <div className="grid grid-cols-2 gap-4">
                   {/* Year */}
-                  <div className="space-y-2">
-                    <Label htmlFor="year" className="text-sm font-medium text-gray-700">
-                      Year *
-                    </Label>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        className={`
-                          w-full px-3 py-2 text-left bg-white border rounded-lg flex items-center justify-between
-                          focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
-                          ${errors.year ? 'border-red-500' : 'border-gray-300'}
-                          ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
-                        `}
-                        onClick={() => !isLoading && setIsYearDropdownOpen(!isYearDropdownOpen)}
-                        disabled={isLoading}
-                      >
-                        {formData.year}
-                        <ChevronDown className="w-4 h-4 ml-2" />
-                      </button>
-                      {isYearDropdownOpen && (
-                        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg">
-                          <div className="py-1">
-                            {yearOptions.map((year) => (
+                  {shouldShowField('year') && (
+                    <div className="space-y-2">
+                      <Label htmlFor="year" className="text-sm font-medium text-gray-700">
+                        {programType === 'SHS' ? 'Grade' : 'Year'} *
+                      </Label>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className={`
+                            w-full px-3 py-2 text-left bg-white border rounded-lg flex items-center justify-between
+                            focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
+                            ${errors.year ? 'border-red-500' : 'border-gray-300'}
+                            ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
+                          `}
+                          onClick={() => !isLoading && setIsYearDropdownOpen(!isYearDropdownOpen)}
+                          disabled={isLoading}
+                        >
+                          {formData.year}
+                          <ChevronDown className="w-4 h-4 ml-2" />
+                        </button>
+                        {isYearDropdownOpen && (
+                          <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            {getYearOptions().map((year) => (
                               <button
                                 key={year}
                                 type="button"
-                                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
+                                className="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none first:rounded-t-lg last:rounded-b-lg"
                                 onClick={() => {
                                   handleInputChange('year', year);
                                   setIsYearDropdownOpen(false);
@@ -450,42 +520,42 @@ const SubjectModal = ({
                               </button>
                             ))}
                           </div>
-                        </div>
+                        )}
+                      </div>
+                      {errors.year && (
+                        <p className="text-sm text-red-600">{errors.year}</p>
                       )}
                     </div>
-                    {errors.year && (
-                      <p className="text-sm text-red-600">{errors.year}</p>
-                    )}
-                  </div>
+                  )}
 
                   {/* Semester */}
-                  <div className="space-y-2">
-                    <Label htmlFor="semester" className="text-sm font-medium text-gray-700">
-                      Semester *
-                    </Label>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        className={`
-                          w-full px-3 py-2 text-left bg-white border rounded-lg flex items-center justify-between
-                          focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
-                          ${errors.semester ? 'border-red-500' : 'border-gray-300'}
-                          ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
-                        `}
-                        onClick={() => !isLoading && setIsSemesterDropdownOpen(!isSemesterDropdownOpen)}
-                        disabled={isLoading}
-                      >
-                        {formData.semester}
-                        <ChevronDown className="w-4 h-4 ml-2" />
-                      </button>
-                      {isSemesterDropdownOpen && (
-                        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg">
-                          <div className="py-1">
-                            {semesterOptions.map((semester) => (
+                  {shouldShowField('semester') && (
+                    <div className="space-y-2">
+                      <Label htmlFor="semester" className="text-sm font-medium text-gray-700">
+                        Semester *
+                      </Label>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className={`
+                            w-full px-3 py-2 text-left bg-white border rounded-lg flex items-center justify-between
+                            focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
+                            ${errors.semester ? 'border-red-500' : 'border-gray-300'}
+                            ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
+                          `}
+                          onClick={() => !isLoading && setIsSemesterDropdownOpen(!isSemesterDropdownOpen)}
+                          disabled={isLoading}
+                        >
+                          {formData.semester}
+                          <ChevronDown className="w-4 h-4 ml-2" />
+                        </button>
+                        {isSemesterDropdownOpen && (
+                          <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            {getSemesterOptions().map((semester) => (
                               <button
                                 key={semester}
                                 type="button"
-                                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
+                                className="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none first:rounded-t-lg last:rounded-b-lg"
                                 onClick={() => {
                                   handleInputChange('semester', semester);
                                   setIsSemesterDropdownOpen(false);
@@ -495,13 +565,13 @@ const SubjectModal = ({
                               </button>
                             ))}
                           </div>
-                        </div>
+                        )}
+                      </div>
+                      {errors.semester && (
+                        <p className="text-sm text-red-600">{errors.semester}</p>
                       )}
                     </div>
-                    {errors.semester && (
-                      <p className="text-sm text-red-600">{errors.semester}</p>
-                    )}
-                  </div>
+                  )}
                 </div>
 
                 {/* Modal Footer */}
@@ -543,3 +613,4 @@ const SubjectModal = ({
 };
 
 export default SubjectModal;
+

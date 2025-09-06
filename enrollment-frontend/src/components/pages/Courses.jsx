@@ -117,6 +117,13 @@ const Courses = () => {
     fetchPrograms();
   }, []);
 
+  // Helper function to get program type for a course
+  const getProgramTypeForCourse = (course) => {
+    if (!course || !programs) return null;
+    const program = programs.find(p => p.id === course.program_id);
+    return program ? program.program_code : null;
+  };
+
   // Dropdown related effects removed as requested
 
   const stats = [
@@ -871,6 +878,7 @@ const Courses = () => {
         isOpen={isSubjectModalOpen}
         onClose={() => setIsSubjectModalOpen(false)}
         course={selectedCourse}
+        programType={getProgramTypeForCourse(selectedCourse)}
         onAddSubject={() => {
           setSelectedSubject(null);
           setIsSubjectFormModalOpen(true);
@@ -892,6 +900,7 @@ const Courses = () => {
         onSubmit={handleSubjectSubmit}
         subject={selectedSubject}
         course={selectedCourse}
+        programType={getProgramTypeForCourse(selectedCourse)}
         isLoading={isLoading}
       />
       
@@ -901,19 +910,16 @@ const Courses = () => {
          onClose={() => setIsDeleteModalOpen(false)}
          onConfirm={handleDeleteConfirm}
          title={`Delete ${activeTab === 'courses' ? 'Course' : 'Program'}`}
-         message={`Are you sure you want to delete this ${activeTab === 'courses' ? 'course' : 'program'}?`}
-         itemName={selectedItem?.course_name || selectedItem?.program_name}
+         message={`Are you sure you want to delete this ${activeTab === 'courses' ? 'course' : 'program'}? This action cannot be undone.`}
          isLoading={isLoading}
        />
-      
-      {/* Success Alert */}
+       
+       {/* Success Alert */}
        <SuccessAlert
          isVisible={alert.isVisible}
          message={alert.message}
          type={alert.type}
-         onClose={() => setAlert({...alert, isVisible: false})}
-         autoClose={true}
-         duration={3000}
+         onClose={() => setAlert({ ...alert, isVisible: false })}
        />
     </motion.div>
   );
@@ -921,4 +927,3 @@ const Courses = () => {
 
 export default Courses;
 
-  

@@ -68,7 +68,7 @@ class SubjectController extends Controller
                 'total_units' => 'nullable|numeric|min:0',
                 'number_of_hours' => 'nullable|numeric|min:0',
                 'pre_req' => 'nullable|string|max:255',
-                'year' => 'required|string|in:1st Year,2nd Year,3rd Year,4th Year,Summer',
+                'year' => 'required|string|in:Grade 11,Grade 12,1st Year,2nd Year,3rd Year,4th Year,Summer',
                 'semester' => 'required|string|in:1st Semester,2nd Semester',
                 'course_id' => 'required|integer|exists:courses,id'
             ]);

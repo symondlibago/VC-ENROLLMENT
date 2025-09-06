@@ -22,6 +22,7 @@ const SubjectDetailsModal = ({
   isOpen, 
   onClose, 
   course = null,
+  programType = null,
   onAddSubject = () => {},
   onEditSubject = () => {},
   onDeleteSubject = () => {}
@@ -33,8 +34,31 @@ const SubjectDetailsModal = ({
   const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
   const [isSemesterDropdownOpen, setIsSemesterDropdownOpen] = useState(false);
   
-  const years = ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Summer'];
-  const semesters = ['1st Semester', '2nd Semester'];
+  // Get year and semester options based on program type
+  const getYearOptions = () => {
+    switch (programType) {
+      case 'SHS':
+        return ['Grade 11', 'Grade 12'];
+      case 'Bachelor':
+      case 'Diploma':
+      default:
+        return ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Summer'];
+    }
+  };
+
+  const getSemesterOptions = () => {
+    return ['1st Semester', '2nd Semester'];
+  };
+  
+  // Initialize selected year based on program type
+  useEffect(() => {
+    if (programType === 'SHS') {
+      setSelectedYear('Grade 11');
+    } else {
+      setSelectedYear('1st Year');
+    }
+  }, [programType]);
+  
   // Fetch subjects when course changes or modal opens
   useEffect(() => {
     if (isOpen && course) {
@@ -61,10 +85,29 @@ const SubjectDetailsModal = ({
   // Filter subjects based on selected year and semester
   const filteredSubjects = subjects.filter(subject => {
     return (
-      (selectedYear === 'All Years' || subject.year === selectedYear) &&
+      (selectedYear === 'All Years' || selectedYear === 'All Grades' || subject.year === selectedYear) &&
       (selectedSemester === 'All Semesters' || subject.semester === selectedSemester)
     );
   });
+
+  // Helper function to determine which columns to show based on program type
+  const shouldShowColumn = (columnName) => {
+    if (!programType) return true; // Show all columns if program type is not available
+    
+    switch (programType) {
+      case 'Bachelor':
+        // Show all columns except number_of_hours
+        return columnName !== 'number_of_hours';
+      case 'SHS':
+        // Show subject_code, descriptive_title, number_of_hours, year, semester
+        return ['subject_code', 'descriptive_title', 'number_of_hours', 'year', 'semester'].includes(columnName);
+      case 'Diploma':
+        // Show subject_code, descriptive_title, year, semester
+        return ['subject_code', 'descriptive_title', 'year', 'semester'].includes(columnName);
+      default:
+        return true;
+    }
+  };
 
   // Animation variants
   const modalVariants = {
@@ -142,6 +185,11 @@ const SubjectDetailsModal = ({
                 <h2 className="text-2xl font-bold heading-bold text-gray-900 flex items-center">
                   <BookMarked className="w-6 h-6 text-[var(--dominant-red)] mr-3" />
                   {course ? `${course.course_name} Subjects` : 'Course Subjects'}
+                  {programType && (
+                    <span className="text-sm font-normal text-gray-500 ml-2">
+                      ({programType} Program)
+                    </span>
+                  )}
                 </h2>
                 <Button
                   variant="ghost"
@@ -158,7 +206,7 @@ const SubjectDetailsModal = ({
                 {/* Filters and Add Button */}
                 <div className="flex justify-between items-center mb-6">
                   <div className="flex space-x-4">
-                    {/* Year Dropdown */}
+                    {/* Year/Grade Dropdown */}
                     <div className="relative">
                       <Button
                         variant="outline"
@@ -174,13 +222,13 @@ const SubjectDetailsModal = ({
                             <button
                               className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
                               onClick={() => {
-                                setSelectedYear('All Years');
+                                setSelectedYear(programType === 'SHS' ? 'All Grades' : 'All Years');
                                 setIsYearDropdownOpen(false);
                               }}
                             >
-                              All Years
+                              {programType === 'SHS' ? 'All Grades' : 'All Years'}
                             </button>
-                            {years.map((year) => (
+                            {getYearOptions().map((year) => (
                               <button
                                 key={year}
                                 className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
@@ -219,7 +267,7 @@ const SubjectDetailsModal = ({
                             >
                               All Semesters
                             </button>
-                            {semesters.map((semester) => (
+                            {getSemesterOptions().map((semester) => (
                               <button
                                 key={semester}
                                 className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
@@ -257,26 +305,68 @@ const SubjectDetailsModal = ({
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="w-[120px]">Subject Code</TableHead>
-                          <TableHead>Descriptive Title</TableHead>
-                          <TableHead className="text-center w-[80px]">Lec Hrs</TableHead>
-                          <TableHead className="text-center w-[80px]">Lab Hrs</TableHead>
-                          <TableHead className="text-center w-[80px]">Units</TableHead>
-                          <TableHead className="text-center w-[80px]">Number of Hours</TableHead>
-                          <TableHead className="text-center w-[80px]">Pre Requisites</TableHead>
+                          {shouldShowColumn('subject_code') && (
+                            <TableHead className="w-[120px]">Subject Code</TableHead>
+                          )}
+                          {shouldShowColumn('descriptive_title') && (
+                            <TableHead>Descriptive Title</TableHead>
+                          )}
+                          {shouldShowColumn('lec_hrs') && (
+                            <TableHead className="text-center w-[80px]">Lec Hrs</TableHead>
+                          )}
+                          {shouldShowColumn('lab_hrs') && (
+                            <TableHead className="text-center w-[80px]">Lab Hrs</TableHead>
+                          )}
+                          {shouldShowColumn('total_units') && (
+                            <TableHead className="text-center w-[80px]">Units</TableHead>
+                          )}
+                          {shouldShowColumn('number_of_hours') && (
+                            <TableHead className="text-center w-[80px]">Number of Hours</TableHead>
+                          )}
+                          {shouldShowColumn('pre_req') && (
+                            <TableHead className="text-center w-[80px]">Pre Requisites</TableHead>
+                          )}
+                          {shouldShowColumn('year') && (
+                            <TableHead className="text-center w-[80px]">
+                              {programType === 'SHS' ? 'Grade' : 'Year'}
+                            </TableHead>
+                          )}
+                          {shouldShowColumn('semester') && (
+                            <TableHead className="text-center w-[80px]">Semester</TableHead>
+                          )}
                           <TableHead className="text-right w-[100px]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {filteredSubjects.map((subject) => (
                           <TableRow key={subject.id}>
-                            <TableCell className="font-medium">{subject.subject_code}</TableCell>
-                            <TableCell>{subject.descriptive_title}</TableCell>
-                            <TableCell className="text-center">{subject.lec_hrs}</TableCell>
-                            <TableCell className="text-center">{subject.lab_hrs}</TableCell>
-                            <TableCell className="text-center">{subject.total_units}</TableCell>
-                            <TableCell className="text-center">{subject.number_of_hours}</TableCell>
-                            <TableCell className="text-center">{subject.pre_req}</TableCell>
+                            {shouldShowColumn('subject_code') && (
+                              <TableCell className="font-medium">{subject.subject_code}</TableCell>
+                            )}
+                            {shouldShowColumn('descriptive_title') && (
+                              <TableCell>{subject.descriptive_title}</TableCell>
+                            )}
+                            {shouldShowColumn('lec_hrs') && (
+                              <TableCell className="text-center">{subject.lec_hrs}</TableCell>
+                            )}
+                            {shouldShowColumn('lab_hrs') && (
+                              <TableCell className="text-center">{subject.lab_hrs}</TableCell>
+                            )}
+                            {shouldShowColumn('total_units') && (
+                              <TableCell className="text-center">{subject.total_units}</TableCell>
+                            )}
+                            {shouldShowColumn('number_of_hours') && (
+                              <TableCell className="text-center">{subject.number_of_hours}</TableCell>
+                            )}
+                            {shouldShowColumn('pre_req') && (
+                              <TableCell className="text-center">{subject.pre_req}</TableCell>
+                            )}
+                            {shouldShowColumn('year') && (
+                              <TableCell className="text-center">{subject.year}</TableCell>
+                            )}
+                            {shouldShowColumn('semester') && (
+                              <TableCell className="text-center">{subject.semester}</TableCell>
+                            )}
                             <TableCell className="text-right">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -321,6 +411,11 @@ const SubjectDetailsModal = ({
                   {subjects.length > 0 && (
                     <p className="text-sm text-gray-500">
                       Showing {filteredSubjects.length} of {subjects.length} subjects
+                      {programType && (
+                        <span className="ml-2 text-gray-400">
+                          • {programType} Program View
+                        </span>
+                      )}
                     </p>
                   )}
                 </div>
@@ -341,3 +436,4 @@ const SubjectDetailsModal = ({
 };
 
 export default SubjectDetailsModal;
+
