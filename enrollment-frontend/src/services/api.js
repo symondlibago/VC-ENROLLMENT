@@ -299,5 +299,58 @@ export const subjectAPI = {
     }
   }
 };
+// Schedule API methods
+export const scheduleAPI = {
+  // Get schedules by subject ID
+  getBySubject: async (subjectId) => {
+    try {
+      const response = await api.get(`/subjects/${subjectId}/schedules`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch schedules for this subject' };
+    }
+  },
+
+  // Get single schedule
+  getById: async (id) => {
+    try {
+      const response = await api.get(`/schedules/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch schedule' };
+    }
+  },
+
+  // Create new schedule
+  create: async (scheduleData) => {
+    try {
+      const response = await api.post('/schedules', scheduleData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to create schedule' };
+    }
+  },
+
+  // Update schedule
+  update: async (id, scheduleData) => {
+    try {
+      const response = await api.put(`/schedules/${id}`, scheduleData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to update schedule' };
+    }
+  },
+
+  // Delete schedule
+  delete: async (id) => {
+    try {
+      const response = await api.delete(`/schedules/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to delete schedule' };
+    }
+  }
+};
+
 export default api;
 

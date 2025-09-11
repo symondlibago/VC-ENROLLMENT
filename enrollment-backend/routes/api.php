@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProgramController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\SubjectController;
+use App\Http\Controllers\ScheduleController;
 
 /*
 |--------------------------------------------------------------------------
@@ -37,5 +38,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Subject routes
     Route::apiResource('subjects', SubjectController::class);
     Route::get('courses/{course}/subjects', [SubjectController::class, 'getByCourse']);
+    
+    // Schedule routes
+    Route::apiResource('schedules', ScheduleController::class);
+    Route::get('subjects/{subject}/schedules', [ScheduleController::class, 'getBySubject']);
 });
 

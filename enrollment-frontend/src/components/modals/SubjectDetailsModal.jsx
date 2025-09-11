@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, BookMarked, Plus, ChevronDown, Edit, Trash2 } from 'lucide-react';
+import { X, BookMarked, Plus, ChevronDown, Edit, Trash2, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { subjectAPI } from '@/services/api';
+import ScheduleModal from './ScheduleModal';
 import {
   Table,
   TableBody,
@@ -33,6 +34,8 @@ const SubjectDetailsModal = ({
   const [selectedSemester, setSelectedSemester] = useState('1st Semester');
   const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
   const [isSemesterDropdownOpen, setIsSemesterDropdownOpen] = useState(false);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState(null);
   
   // Get year and semester options based on program type
   const getYearOptions = () => {
@@ -173,7 +176,7 @@ const SubjectDetailsModal = ({
             exit="exit"
           >
             <motion.div 
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden"
               variants={modalVariants}
               initial="hidden"
               animate="visible"
@@ -376,12 +379,19 @@ const SubjectDetailsModal = ({
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => {
+                                    setSelectedSubject(subject);
+                                    setIsScheduleModalOpen(true);
+                                  }}>
+                                    <Calendar className="mr-2 h-4 w-4 group-hover:text-white" />
+                                    Schedule
+                                  </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => onEditSubject(subject)}>
-                                    <Edit className="mr-2 h-4 w-4" />
+                                    <Edit className="mr-2 h-4 w-4 group-hover:text-white" />
                                     Edit
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => onDeleteSubject(subject)}>
-                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    <Trash2 className="mr-2 h-4 w-4 group-hover:text-white" />
                                     Delete
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -429,6 +439,12 @@ const SubjectDetailsModal = ({
               </div>
             </motion.div>
           </motion.div>
+          {/* Schedule Modal */}
+          <ScheduleModal 
+            isOpen={isScheduleModalOpen}
+            onClose={() => setIsScheduleModalOpen(false)}
+            subject={selectedSubject}
+          />
         </>
       )}
     </AnimatePresence>
