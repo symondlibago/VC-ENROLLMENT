@@ -75,7 +75,7 @@ const EnrollmentPage = ({ onBack }) => {
   });
 
   const departments = [
-    'Higher Education Department / Graduate School',
+    'College',
     'Senior High School',
   ];
 
@@ -390,7 +390,7 @@ const EnrollmentPage = ({ onBack }) => {
                       onClick={() => setIsDepartmentOpen(!isDepartmentOpen)}
                     >
                       <span className="font-semibold">
-                        {department || 'Higher Education Department / Graduate School'}
+                        {department || 'College'}
                       </span>
                       <ChevronDown className={`w-5 h-5 text-[var(--dominant-red)] transition-transform duration-300 ${isDepartmentOpen ? 'rotate-180' : 'rotate-0'}`} />
                     </button>
