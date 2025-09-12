@@ -29,12 +29,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/logout', [AuthController::class, 'logout']);
     
-    // Program routes
-    Route::apiResource('programs', ProgramController::class);
-    
-    // Course routes
-    Route::apiResource('courses', CourseController::class);
-    
     // Subject routes
     Route::apiResource('subjects', SubjectController::class);
     Route::get('courses/{course}/subjects', [SubjectController::class, 'getByCourse']);
@@ -43,4 +37,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('schedules', ScheduleController::class);
     Route::get('subjects/{subject}/schedules', [ScheduleController::class, 'getBySubject']);
 });
+    // Program routes
+    Route::apiResource('programs', ProgramController::class);
+    
+    // Course routes
+    Route::apiResource('courses', CourseController::class);
 

@@ -14,11 +14,12 @@ import {
   Clock,
   MapPin
 } from 'lucide-react';
+import DepartmentModal from '../modals/DepartmentModal';
 
 const EnrollmentPage = ({ onBack }) => {
   const [department, setDepartment] = useState('');
   const [enrollmentType, setEnrollmentType] = useState('');
-  const [isDepartmentOpen, setIsDepartmentOpen] = useState(false);
+  const [isDepartmentModalOpen, setIsDepartmentModalOpen] = useState(false);
   const [isEnrollmentTypeOpen, setIsEnrollmentTypeOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
 
@@ -89,18 +90,19 @@ const EnrollmentPage = ({ onBack }) => {
   // Step 2 dropdown options
   const schoolYears = ['2024-2025', '2025-2026'];
   const semesters = ['1st Semester', '2nd Semester', 'Summer'];
-  const courses = [
-    'BS Computer Science',
-    'BS Information Technology', 
-    'BS Business Administration',
-    'BS Education',
-    'BS Nursing'
-  ];
   const genders = ['Male', 'Female'];
 
-  const handleDepartmentSelect = (dept) => {
-    setDepartment(dept);
-    setIsDepartmentOpen(false);
+  const handleDepartmentSelect = (course) => {
+    setDepartment(course.course_name);
+    setIsDepartmentModalOpen(false);
+  };
+
+  const handleOpenDepartmentModal = () => {
+    setIsDepartmentModalOpen(true);
+  };
+
+  const handleCloseDepartmentModal = () => {
+    setIsDepartmentModalOpen(false);
   };
 
   const handleEnrollmentTypeSelect = (type) => {
@@ -384,38 +386,14 @@ const EnrollmentPage = ({ onBack }) => {
                     Select Department
                   </label>
                   <div className="relative">
-                    <button
-                      type="button"
-                      className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-left text-gray-800 flex justify-between items-center focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg text-sm"
-                      onClick={() => setIsDepartmentOpen(!isDepartmentOpen)}
-                    >
-                      <span className="font-semibold">
-                        {department || 'College'}
-                      </span>
-                      <ChevronDown className={`w-5 h-5 text-[var(--dominant-red)] transition-transform duration-300 ${isDepartmentOpen ? 'rotate-180' : 'rotate-0'}`} />
-                    </button>
-                    <AnimatePresence>
-                      {isDepartmentOpen && (
-                        <motion.div
-                          variants={dropdownVariants}
-                          initial="hidden"
-                          animate="visible"
-                          exit="exit"
-                          className="absolute z-20 w-full bg-white border-2 border-gray-200 rounded-2xl shadow-2xl mt-2 max-h-40 overflow-auto"
-                        >
-                          {departments.map((dept, index) => (
-                            <motion.div
-                              key={dept}
-                              className="px-4 py-3 hover:bg-gradient-to-r hover:from-[var(--whitish-pink)] hover:to-white cursor-pointer transition-all duration-200 text-gray-800 border-b border-gray-100 last:border-b-0 font-medium text-sm"
-                              onClick={() => handleDepartmentSelect(dept)}
-                              whileHover={{ x: 5 }}
-                            >
-                              {dept}
-                            </motion.div>
-                          ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                    <input
+                      type="text"
+                      readOnly
+                      placeholder="Click to select department"
+                      value={department}
+                      onClick={handleOpenDepartmentModal}
+                      className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg text-sm cursor-pointer font-semibold"
+                    />
                   </div>
                 </div>
 
@@ -499,47 +477,7 @@ const EnrollmentPage = ({ onBack }) => {
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-200">
                   <h3 className="text-lg font-bold heading-bold text-gray-900 mb-4">Academic Information</h3>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
-                        Course
-                      </label>
-                      <div className="relative">
-                        <button
-                          type="button"
-                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-left text-gray-800 flex justify-between items-center focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg text-sm"
-                          onClick={() => setIsCourseOpen(!isCourseOpen)}
-                        >
-                          <span className="font-semibold">
-                            {formData.course || 'Select Course'}
-                          </span>
-                          <ChevronDown className={`w-4 h-4 text-[var(--dominant-red)] transition-transform duration-300 ${isCourseOpen ? 'rotate-180' : 'rotate-0'}`} />
-                        </button>
-                        <AnimatePresence>
-                          {isCourseOpen && (
-                            <motion.div
-                              variants={dropdownVariants}
-                              initial="hidden"
-                              animate="visible"
-                              exit="exit"
-                              className="absolute z-20 w-full bg-white border-2 border-gray-200 rounded-2xl shadow-2xl mt-2 max-h-80 overflow-auto"
-                            >
-                              {courses.map((course, index) => (
-                                <motion.div
-                                  key={course}
-                                  className="px-4 py-3 hover:bg-gradient-to-r hover:from-[var(--whitish-pink)] hover:to-white cursor-pointer transition-all duration-200 text-gray-800 border-b border-gray-100 last:border-b-0 font-medium text-sm"
-                                  onClick={() => handleCourseSelect(course)}
-                                  whileHover={{ x: 5 }}
-                                >
-                                  {course}
-                                </motion.div>
-                              ))}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    </div>
-                    
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
                         Semester
@@ -1121,6 +1059,13 @@ const EnrollmentPage = ({ onBack }) => {
           </motion.div>
         )}
       </motion.div>
+
+      {/* Department Modal */}
+      <DepartmentModal
+        isOpen={isDepartmentModalOpen}
+        onClose={handleCloseDepartmentModal}
+        onSelectCourse={handleDepartmentSelect}
+      />
     </div>
   );
 };
