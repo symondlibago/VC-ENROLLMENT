@@ -14,6 +14,7 @@ import {
   Clock,
   MapPin
 } from 'lucide-react';
+import CustomCalendar from '../layout/CustomCalendar';
 import DepartmentModal from '../modals/DepartmentModal';
 
 const EnrollmentPage = ({ onBack }) => {
@@ -439,7 +440,7 @@ const EnrollmentPage = ({ onBack }) => {
                   </div>
                 </div>
 
-                {/* Proceed Button */}
+                {/* Continue Button */}
                 <div className="text-center pt-4">
                   <motion.button 
                     onClick={handleContinueEnrollment}
@@ -455,6 +456,7 @@ const EnrollmentPage = ({ onBack }) => {
             </div>
           </motion.div>
         )}
+
 
         {/* Step 2 - Detailed Enrollment Form */}
         {currentStep === 2 && (
@@ -473,7 +475,7 @@ const EnrollmentPage = ({ onBack }) => {
               </div>
 
               <div className="p-6 space-y-6">
-                {/* Basic Academic Information */}
+                {/* Academic Information */}
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-200">
                   <h3 className="text-lg font-bold heading-bold text-gray-900 mb-4">Academic Information</h3>
                   
@@ -560,7 +562,7 @@ const EnrollmentPage = ({ onBack }) => {
                   </div>
                 </div>
 
-                {/* Personal Information */}
+                {/* Personal Information with Custom Calendar */}
                 <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-4 border border-green-200">
                   <h3 className="text-lg font-bold heading-bold text-gray-900 mb-4">Personal Information</h3>
                   
@@ -604,7 +606,7 @@ const EnrollmentPage = ({ onBack }) => {
                     </div>
                   </div>
 
-                  {/* Gender and Birth Information */}
+                  {/* Gender and Birth Information with Custom Calendar */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
                       <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
@@ -649,11 +651,10 @@ const EnrollmentPage = ({ onBack }) => {
                       <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
                         Birth Date
                       </label>
-                      <input
-                        type="date"
+                      <CustomCalendar
                         value={formData.birthDate}
-                        onChange={(e) => handleFormDataChange('birthDate', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                        onChange={(date) => handleFormDataChange('birthDate', date)}
+                        placeholder="Select Birth Date"
                       />
                     </div>
                     <div>
@@ -903,115 +904,125 @@ const EnrollmentPage = ({ onBack }) => {
                   </div>
                 </div>
 
-                {/* Educational Background */}
-                <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl p-4 border border-yellow-200">
+                
+
+                {/* Educational Background with Custom Calendar for Date Completed fields */}
+                <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl p-4 border border-orange-200">
                   <h3 className="text-lg font-bold heading-bold text-gray-900 mb-4">Educational Background</h3>
                   
                   {/* Elementary */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
-                        Elementary School Attended
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Enter Elementary School Name"
-                        value={formData.elementary}
-                        onChange={(e) => handleFormDataChange('elementary', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
-                        Date Completed
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.elementaryDateCompleted}
-                        onChange={(e) => handleFormDataChange('elementaryDateCompleted', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
-                      />
+                  <div className="mb-4">
+                    <h4 className="text-base font-semibold text-gray-800 mb-3">Elementary</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
+                          School Name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Enter Elementary School Name"
+                          value={formData.elementary}
+                          onChange={(e) => handleFormDataChange('elementary', e.target.value)}
+                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
+                          Date Completed
+                        </label>
+                        <CustomCalendar
+                          value={formData.elementaryDateCompleted}
+                          onChange={(date) => handleFormDataChange('elementaryDateCompleted', date)}
+                          placeholder="Select Completion Date"
+                        />
+                      </div>
                     </div>
                   </div>
 
                   {/* Junior High School */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
-                        Junior High School Attended
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Enter Junior High School Name"
-                        value={formData.juniorHighSchool}
-                        onChange={(e) => handleFormDataChange('juniorHighSchool', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
-                        Date Completed
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.juniorHighDateCompleted}
-                        onChange={(e) => handleFormDataChange('juniorHighDateCompleted', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
-                      />
+                  <div className="mb-4">
+                    <h4 className="text-base font-semibold text-gray-800 mb-3">Junior High School</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
+                          School Name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Enter Junior High School Name"
+                          value={formData.juniorHighSchool}
+                          onChange={(e) => handleFormDataChange('juniorHighSchool', e.target.value)}
+                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
+                          Date Completed
+                        </label>
+                        <CustomCalendar
+                          value={formData.juniorHighDateCompleted}
+                          onChange={(date) => handleFormDataChange('juniorHighDateCompleted', date)}
+                          placeholder="Select Completion Date"
+                        />
+                      </div>
                     </div>
                   </div>
 
                   {/* Senior High School */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
-                        Senior High School Attended
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Enter Senior High School Name"
-                        value={formData.seniorHighSchool}
-                        onChange={(e) => handleFormDataChange('seniorHighSchool', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
-                        Date Completed
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.seniorHighDateCompleted}
-                        onChange={(e) => handleFormDataChange('seniorHighDateCompleted', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
-                      />
+                  <div className="mb-4">
+                    <h4 className="text-base font-semibold text-gray-800 mb-3">Senior High School</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
+                          School Name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Enter Senior High School Name"
+                          value={formData.seniorHighSchool}
+                          onChange={(e) => handleFormDataChange('seniorHighSchool', e.target.value)}
+                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
+                          Date Completed
+                        </label>
+                        <CustomCalendar
+                          value={formData.seniorHighDateCompleted}
+                          onChange={(date) => handleFormDataChange('seniorHighDateCompleted', date)}
+                          placeholder="Select Completion Date"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  {/* High School (NON K12-PROGRAM) */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
-                        High School (NON K12-PROGRAM)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Enter High School Name (Non K12)"
-                        value={formData.highSchoolNonK12}
-                        onChange={(e) => handleFormDataChange('highSchoolNonK12', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
-                        Date Completed
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.highSchoolNonK12DateCompleted}
-                        onChange={(e) => handleFormDataChange('highSchoolNonK12DateCompleted', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
-                      />
+                  {/* High School */}
+                  <div className="mb-4">
+                    <h4 className="text-base font-semibold text-gray-800 mb-3">High School (NON K-12 PROGRAM)</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
+                          School Name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Enter High School Name"
+                          value={formData.highSchoolNonK12}
+                          onChange={(e) => handleFormDataChange('highSchoolNonK12', e.target.value)}
+                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
+                          Date Completed
+                        </label>
+                        <CustomCalendar
+                          value={formData.highSchoolNonK12DateCompleted}
+                          onChange={(date) => handleFormDataChange('highSchoolNonK12DateCompleted', date)}
+                          placeholder="Select Completion Date"
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -1033,11 +1044,10 @@ const EnrollmentPage = ({ onBack }) => {
                       <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
                         Date Completed
                       </label>
-                      <input
-                        type="date"
+                      <CustomCalendar
                         value={formData.collegeDateCompleted}
-                        onChange={(e) => handleFormDataChange('collegeDateCompleted', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                        onChange={(date) => handleFormDataChange('collegeDateCompleted', date)}
+                        placeholder="Select Completion Date"
                       />
                     </div>
                   </div>
