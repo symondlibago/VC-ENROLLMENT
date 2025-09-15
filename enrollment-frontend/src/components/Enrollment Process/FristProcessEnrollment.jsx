@@ -34,6 +34,9 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
   const [selectedSubjects, setSelectedSubjects] = useState([]);
   const [currentSemesterFilter, setCurrentSemesterFilter] = useState('1st Semester');
 
+  // Step 4 confirmation state
+  const [isDataConfirmed, setIsDataConfirmed] = useState(false);
+
   // Second step form data
   const [formData, setFormData] = useState({
     // Basic Information
@@ -181,6 +184,10 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
     setCurrentStep(3);
   };
 
+  const handleContinueToReview = () => {
+    setCurrentStep(4);
+  };
+
   // Subject selection handlers
   const handleAddSubject = (subject) => {
     if (!selectedSubjects.find(s => s.id === subject.id)) {
@@ -308,7 +315,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
           variants={itemVariants}
         >
           <div className="flex items-center space-x-4">
-            {[1, 2, 3].map((step) => (
+            {[1, 2, 3, 4].map((step) => (
               <div key={step} className="flex items-center">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${
                   step <= currentStep 
@@ -317,7 +324,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                 }`}>
                   {step < currentStep ? <CheckCircle className="w-4 h-4" /> : step}
                 </div>
-                {step < 3 && (
+                {step < 4 && (
                   <div className={`w-12 h-1 mx-2 rounded-full transition-all duration-300 ${
                     step < currentStep ? 'bg-[var(--dominant-red)]' : 'bg-gray-200'
                   }`} />
@@ -1278,16 +1285,270 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                     {selectedSubjects.length > 0 && (
                       <div className="mt-6 text-center">
                         <motion.button 
-                          className="bg-gradient-to-r from-red-800 to-red-600 text-white px-8 py-3 rounded-2xl text-base font-bold heading-bold shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center justify-center mx-auto group"
+                          onClick={handleContinueToReview}
+                          className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-3 rounded-2xl text-base font-bold heading-bold shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center justify-center mx-auto group"
                           whileHover={{ scale: 1.05, y: -2 }}
                           whileTap={{ scale: 0.98 }}
                         >
-                          Continue
-                          <CheckCircle className="ml-2 w-5 h-5 group-hover:scale-110 transition-transform" />
+                          Continue to Review
+                          <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                         </motion.button>
                       </div>
                     )}
                   </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Step 4 - Credential Review */}
+        {currentStep === 4 && (
+          <motion.div 
+            className="max-w-6xl mx-auto"
+            variants={itemVariants}
+          >
+            <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
+              <div className="bg-gradient-to-r from-[var(--dominant-red)] to-red-600 p-6 text-white">
+                <h2 className="text-2xl font-bold heading-bold mb-2">Review Your Information</h2>
+                <p className="text-red-100 text-sm">Please review all your information before submitting your enrollment</p>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Enrollment Type & Course */}
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-200">
+                  <h3 className="text-lg font-bold heading-bold text-gray-900 mb-3 flex items-center">
+                    <GraduationCap className="w-5 h-5 mr-2 text-[var(--dominant-red)]" />
+                    Enrollment Details
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Department/Course</label>
+                      <p className="text-base font-semibold text-gray-900">{department || 'Not selected'}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Enrollment Type</label>
+                      <p className="text-base font-semibold text-gray-900">{enrollmentType || 'NEW'}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">School Year</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.schoolYear || 'Not selected'}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Semester</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.semester || 'Not selected'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Personal Information */}
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-4 border border-green-200">
+                  <h3 className="text-lg font-bold heading-bold text-gray-900 mb-3 flex items-center">
+                    <Users className="w-5 h-5 mr-2 text-[var(--dominant-red)]" />
+                    Personal Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Full Name</label>
+                      <p className="text-base font-semibold text-gray-900">
+                        {`${formData.firstName || ''} ${formData.middleName || ''} ${formData.lastName || ''}`.trim() || 'Not provided'}
+                      </p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Gender</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.gender || 'Not selected'}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Birth Date</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.birthDate || 'Not selected'}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Birth Place</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.birthPlace || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Nationality</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.nationality || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Civil Status</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.civilStatus || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm col-span-full">
+                      <label className="text-xs font-bold text-gray-600">Address</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.address || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Contact Number</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.contactNumber || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Email Address</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.emailAddress || 'Not provided'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Parent Information */}
+                <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-2xl p-4 border border-purple-200">
+                  <h3 className="text-lg font-bold heading-bold text-gray-900 mb-3 flex items-center">
+                    <Users className="w-5 h-5 mr-2 text-[var(--dominant-red)]" />
+                    Parent Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Father's Name</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.fatherName || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Father's Occupation</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.fatherOccupation || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Father's Contact</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.fatherContactNumber || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Mother's Name</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.motherName || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Mother's Occupation</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.motherOccupation || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Mother's Contact</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.motherContactNumber || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm col-span-full">
+                      <label className="text-xs font-bold text-gray-600">Parents' Address</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.parentsAddress || 'Not provided'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Emergency Contact */}
+                <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-2xl p-4 border border-red-200">
+                  <h3 className="text-lg font-bold heading-bold text-gray-900 mb-3 flex items-center">
+                    <MapPin className="w-5 h-5 mr-2 text-[var(--dominant-red)]" />
+                    Emergency Contact
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Full Name</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.emergencyContactName || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Contact Number</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.emergencyContactNumber || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm col-span-full">
+                      <label className="text-xs font-bold text-gray-600">Address</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.emergencyContactAddress || 'Not provided'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Educational Background */}
+                <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl p-4 border border-orange-200">
+                  <h3 className="text-lg font-bold heading-bold text-gray-900 mb-3 flex items-center">
+                    <BookOpen className="w-5 h-5 mr-2 text-[var(--dominant-red)]" />
+                    Educational Background
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Elementary</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.elementary || 'Not provided'} ({formData.elementaryDateCompleted || 'N/A'})</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Junior High School</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.juniorHighSchool || 'Not provided'} ({formData.juniorHighDateCompleted || 'N/A'})</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Senior High School</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.seniorHighSchool || 'Not provided'} ({formData.seniorHighDateCompleted || 'N/A'})</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">High School (Non K-12)</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.highSchoolNonK12 || 'Not provided'} ({formData.highSchoolNonK12DateCompleted || 'N/A'})</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">College</label>
+                      <p className="text-base font-semibold text-gray-900">{formData.college || 'Not provided'} ({formData.collegeDateCompleted || 'N/A'})</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Selected Subjects */}
+                <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-2xl p-4 border border-purple-200">
+                  <h3 className="text-lg font-bold heading-bold text-gray-900 mb-3 flex items-center">
+                    <BookOpen className="w-5 h-5 mr-2 text-[var(--dominant-red)]" />
+                    Selected Subjects ({getTotalUnits()} total units)
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {selectedSubjects.map((subject) => (
+                      <div key={subject.id} className="bg-white rounded-xl p-3 shadow-sm">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded-md text-xs font-bold">
+                            {subject.code}
+                          </span>
+                          <span className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md text-xs font-bold">
+                            {subject.units} units
+                          </span>
+                        </div>
+                        <h4 className="font-semibold text-gray-900 text-sm">{subject.name}</h4>
+                        <p className="text-xs text-gray-600">Prerequisite: {subject.prerequisite}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Confirmation Section */}
+                <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-2xl p-6 border border-amber-200">
+                  <div className="flex items-start space-x-4">
+                    <div className="flex-shrink-0 mt-1">
+                      <input
+                        type="checkbox"
+                        id="dataConfirmation"
+                        checked={isDataConfirmed}
+                        onChange={(e) => setIsDataConfirmed(e.target.checked)}
+                        className="w-5 h-5 text-[var(--dominant-red)] bg-gray-100 border-gray-300 rounded focus:ring-[var(--dominant-red)] focus:ring-2"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label htmlFor="dataConfirmation" className="text-gray-900 font-semibold cursor-pointer">
+                        I confirm that all the information provided above is accurate and complete.
+                      </label>
+                      <p className="text-sm text-gray-600 mt-2">
+                        Please review all your information carefully. Once submitted, changes may require additional processing time. 
+                        Make sure your contact information is correct as we will use it to communicate important updates about your enrollment.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Submit Button */}
+                <div className="text-center pt-4">
+                  <motion.button 
+                    disabled={!isDataConfirmed}
+                    className={`px-8 py-3 rounded-2xl text-base font-bold heading-bold shadow-2xl transition-all duration-300 flex items-center justify-center mx-auto group ${
+                      isDataConfirmed
+                        ? 'bg-gradient-to-r from-[var(--dominant-red)] to-red-600 text-white hover:shadow-3xl cursor-pointer'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                    whileHover={isDataConfirmed ? { scale: 1.05, y: -2 } : {}}
+                    whileTap={isDataConfirmed ? { scale: 0.98 } : {}}
+                  >
+                    Submit Enrollment
+                    <CheckCircle className={`ml-2 w-5 h-5 transition-transform ${
+                      isDataConfirmed ? 'group-hover:scale-110' : ''
+                    }`} />
+                  </motion.button>
+                  {!isDataConfirmed && (
+                    <p className="text-sm text-gray-500 mt-2">
+                      Please confirm that your information is correct to enable submission
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
