@@ -30,6 +30,10 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
   const [isCourseOpen, setIsCourseOpen] = useState(false);
   const [isGenderOpen, setIsGenderOpen] = useState(false);
 
+  // Step 3 subject selection states
+  const [selectedSubjects, setSelectedSubjects] = useState([]);
+  const [currentSemesterFilter, setCurrentSemesterFilter] = useState('1st Semester');
+
   // Second step form data
   const [formData, setFormData] = useState({
     // Basic Information
@@ -92,6 +96,31 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
   const schoolYears = ['2024-2025', '2025-2026'];
   const semesters = ['1st Semester', '2nd Semester', 'Summer'];
   const genders = ['Male', 'Female'];
+
+  // Sample subjects data for step 3
+  const availableSubjects = {
+    '1st Semester': [
+      { id: 1, code: 'MATH101', name: 'College Algebra', units: 3, prerequisite: 'None' },
+      { id: 2, code: 'ENG101', name: 'English Communication', units: 3, prerequisite: 'None' },
+      { id: 3, code: 'SCI101', name: 'General Biology', units: 3, prerequisite: 'None' },
+      { id: 4, code: 'PE101', name: 'Physical Education 1', units: 2, prerequisite: 'None' },
+      { id: 5, code: 'HIST101', name: 'Philippine History', units: 3, prerequisite: 'None' },
+      { id: 6, code: 'NSTP101', name: 'National Service Training Program 1', units: 3, prerequisite: 'None' }
+    ],
+    '2nd Semester': [
+      { id: 7, code: 'MATH102', name: 'Trigonometry', units: 3, prerequisite: 'MATH101' },
+      { id: 8, code: 'ENG102', name: 'Speech Communication', units: 3, prerequisite: 'ENG101' },
+      { id: 9, code: 'SCI102', name: 'General Chemistry', units: 3, prerequisite: 'SCI101' },
+      { id: 10, code: 'PE102', name: 'Physical Education 2', units: 2, prerequisite: 'PE101' },
+      { id: 11, code: 'PHIL101', name: 'Introduction to Philosophy', units: 3, prerequisite: 'None' },
+      { id: 12, code: 'NSTP102', name: 'National Service Training Program 2', units: 3, prerequisite: 'NSTP101' }
+    ],
+    'Summer': [
+      { id: 13, code: 'MATH103', name: 'Statistics', units: 3, prerequisite: 'MATH102' },
+      { id: 14, code: 'ENG103', name: 'Technical Writing', units: 3, prerequisite: 'ENG102' },
+      { id: 15, code: 'SCI103', name: 'Physics', units: 3, prerequisite: 'SCI102' }
+    ]
+  };
   
   const handleCheckStatusClick = () => {
     if (onCheckStatus) {
@@ -146,6 +175,33 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
 
   const handleContinueEnrollment = () => {
     setCurrentStep(2);
+  };
+
+  const handleContinueToSubjectSetup = () => {
+    setCurrentStep(3);
+  };
+
+  // Subject selection handlers
+  const handleAddSubject = (subject) => {
+    if (!selectedSubjects.find(s => s.id === subject.id)) {
+      setSelectedSubjects(prev => [...prev, subject]);
+    }
+  };
+
+  const handleRemoveSubject = (subjectId) => {
+    setSelectedSubjects(prev => prev.filter(s => s.id !== subjectId));
+  };
+
+  const handleAddAllSubjects = () => {
+    const currentSemesterSubjects = availableSubjects[currentSemesterFilter] || [];
+    const newSubjects = currentSemesterSubjects.filter(
+      subject => !selectedSubjects.find(s => s.id === subject.id)
+    );
+    setSelectedSubjects(prev => [...prev, ...newSubjects]);
+  };
+
+  const getTotalUnits = () => {
+    return selectedSubjects.reduce((total, subject) => total + subject.units, 0);
   };
 
   const handleFormDataChange = (field, value) => {
@@ -1062,16 +1118,176 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                   </div>
                 </div>
 
-                {/* Submit Button */}
+                {/* Continue Button */}
                 <div className="text-center pt-4">
                   <motion.button 
+                    onClick={handleContinueToSubjectSetup}
                     className="bg-gradient-to-r from-[var(--dominant-red)] to-red-600 text-white px-8 py-3 rounded-2xl text-base font-bold heading-bold shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center justify-center mx-auto group"
                     whileHover={{ scale: 1.05, y: -2 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    Submit Enrollment Form
+                    Continue to Subject Setup
                     <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </motion.button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Step 3 - Subject Setup */}
+        {currentStep === 3 && (
+          <motion.div 
+            className="max-w-7xl mx-auto"
+            variants={itemVariants}
+          >
+            <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
+              <div className="bg-gradient-to-r from-[var(--dominant-red)] to-red-600 p-6 text-white">
+                <h2 className="text-2xl font-bold heading-bold mb-2">Subject Setup</h2>
+                <p className="text-red-100 text-sm">Select your subjects for enrollment</p>
+              </div>
+
+              <div className="p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left Container - Available Subjects */}
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-bold heading-bold text-gray-900">Available Subjects</h3>
+                      <button
+                        onClick={handleAddAllSubjects}
+                        className="bg-blue-500 text-white px-4 py-2 rounded-xl font-semibold hover:bg-blue-600 transition-colors shadow-lg text-sm flex items-center"
+                      >
+                        <BookOpen className="w-4 h-4 mr-2" />
+                        Add All Subjects
+                      </button>
+                    </div>
+
+                    {/* Semester Filter */}
+                    <div className="mb-4">
+                      <div className="flex space-x-2">
+                        {semesters.map((semester) => (
+                          <button
+                            key={semester}
+                            onClick={() => setCurrentSemesterFilter(semester)}
+                            className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-300 ${
+                              currentSemesterFilter === semester
+                                ? 'bg-[var(--dominant-red)] text-white shadow-lg'
+                                : 'bg-white text-gray-700 hover:bg-gray-100'
+                            }`}
+                          >
+                            {semester}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Subjects List */}
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {(availableSubjects[currentSemesterFilter] || []).map((subject) => (
+                        <motion.div
+                          key={subject.id}
+                          className="bg-white rounded-xl p-4 shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300"
+                          whileHover={{ y: -2 }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center mb-2">
+                                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-lg text-xs font-bold mr-2">
+                                  {subject.code}
+                                </span>
+                                <span className="bg-green-100 text-green-800 px-2 py-1 rounded-lg text-xs font-bold">
+                                  {subject.units} units
+                                </span>
+                              </div>
+                              <h4 className="font-semibold text-gray-900 text-sm mb-1">{subject.name}</h4>
+                              <p className="text-xs text-gray-600">
+                                Prerequisite: {subject.prerequisite}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => handleAddSubject(subject)}
+                              disabled={selectedSubjects.find(s => s.id === subject.id)}
+                              className={`ml-4 px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-300 ${
+                                selectedSubjects.find(s => s.id === subject.id)
+                                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                                  : 'bg-[var(--dominant-red)] text-white hover:bg-red-600 shadow-lg hover:shadow-xl'
+                              }`}
+                            >
+                              {selectedSubjects.find(s => s.id === subject.id) ? 'Added' : 'Add'}
+                            </button>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Right Container - Selected Subjects */}
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-bold heading-bold text-gray-900">Selected Subjects</h3>
+                      <div className="bg-green-100 text-green-800 px-3 py-1 rounded-lg text-sm font-bold">
+                        Total: {getTotalUnits()} units
+                      </div>
+                    </div>
+
+                    {selectedSubjects.length === 0 ? (
+                      <div className="text-center py-12">
+                        <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-500 text-lg font-semibold">No subjects selected</p>
+                        <p className="text-gray-400 text-sm">Add subjects from the left panel</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {selectedSubjects.map((subject) => (
+                          <motion.div
+                            key={subject.id}
+                            className="bg-white rounded-xl p-4 shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300"
+                            whileHover={{ y: -2 }}
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center mb-2">
+                                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded-lg text-xs font-bold mr-2">
+                                    {subject.code}
+                                  </span>
+                                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-lg text-xs font-bold">
+                                    {subject.units} units
+                                  </span>
+                                </div>
+                                <h4 className="font-semibold text-gray-900 text-sm mb-1">{subject.name}</h4>
+                                <p className="text-xs text-gray-600">
+                                  Prerequisite: {subject.prerequisite}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => handleRemoveSubject(subject.id)}
+                                className="ml-4 px-3 py-2 rounded-lg font-semibold text-sm bg-red-500 text-white hover:bg-red-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Continue Button */}
+                    {selectedSubjects.length > 0 && (
+                      <div className="mt-6 text-center">
+                        <motion.button 
+                          className="bg-gradient-to-r from-red-800 to-red-600 text-white px-8 py-3 rounded-2xl text-base font-bold heading-bold shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center justify-center mx-auto group"
+                          whileHover={{ scale: 1.05, y: -2 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          Continue
+                          <CheckCircle className="ml-2 w-5 h-5 group-hover:scale-110 transition-transform" />
+                        </motion.button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
