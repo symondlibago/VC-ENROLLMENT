@@ -15,12 +15,12 @@ import {
   MapPin
 } from 'lucide-react';
 import CustomCalendar from '../layout/CustomCalendar';
-import DepartmentModal from '../modals/DepartmentModal';
+import CourseChoicesModal from '../modals/CourseChoicesModal';
 
-const EnrollmentPage = ({ onBack }) => {
+const EnrollmentPage = ({ onBack, onCheckStatus }) => {
   const [department, setDepartment] = useState('');
   const [enrollmentType, setEnrollmentType] = useState('');
-  const [isDepartmentModalOpen, setIsDepartmentModalOpen] = useState(false);
+  const [isCourseChoicesModalOpen, setIsCourseChoicesModalOpen] = useState(false);
   const [isEnrollmentTypeOpen, setIsEnrollmentTypeOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
 
@@ -92,18 +92,24 @@ const EnrollmentPage = ({ onBack }) => {
   const schoolYears = ['2024-2025', '2025-2026'];
   const semesters = ['1st Semester', '2nd Semester', 'Summer'];
   const genders = ['Male', 'Female'];
+  
+  const handleCheckStatusClick = () => {
+    if (onCheckStatus) {
+      onCheckStatus();
+    }
+  };
 
   const handleDepartmentSelect = (course) => {
     setDepartment(course.course_name);
-    setIsDepartmentModalOpen(false);
+    setIsCourseChoicesModalOpen(false);
   };
 
-  const handleOpenDepartmentModal = () => {
-    setIsDepartmentModalOpen(true);
+  const handleOpenCourseChoicesModal = () => {
+    setIsCourseChoicesModalOpen(true);
   };
 
-  const handleCloseDepartmentModal = () => {
-    setIsDepartmentModalOpen(false);
+  const handleCloseCourseChoicesModal = () => {
+    setIsCourseChoicesModalOpen(false);
   };
 
   const handleEnrollmentTypeSelect = (type) => {
@@ -289,6 +295,7 @@ const EnrollmentPage = ({ onBack }) => {
           <motion.div 
             className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-white/20 liquid-hover cursor-pointer"
             whileHover={{ y: -5 }}
+            onClick={handleCheckStatusClick}
           >
             <div className="flex items-center mb-3">
               <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
@@ -384,15 +391,15 @@ const EnrollmentPage = ({ onBack }) => {
                 <div>
                   <label className="text-gray-800 text-base font-bold heading-bold mb-3 flex items-center">
                     <BookOpen className="w-5 h-5 mr-2 text-[var(--dominant-red)]" />
-                    Select Department
+                    Select Course
                   </label>
                   <div className="relative">
                     <input
                       type="text"
                       readOnly
-                      placeholder="Click to select department"
+                      placeholder="Click to Select Course"
                       value={department}
-                      onClick={handleOpenDepartmentModal}
+                      onClick={handleOpenCourseChoicesModal}
                       className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg text-sm cursor-pointer font-semibold"
                     />
                   </div>
@@ -476,7 +483,7 @@ const EnrollmentPage = ({ onBack }) => {
 
               <div className="p-6 space-y-6">
                 {/* Academic Information */}
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-200">
+                <div className="bg-[#FFFAFA] rounded-2xl p-4 border border-black-200 shadow-md">
                   <h3 className="text-lg font-bold heading-bold text-gray-900 mb-4">Academic Information</h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1021,6 +1028,7 @@ const EnrollmentPage = ({ onBack }) => {
                           value={formData.highSchoolNonK12DateCompleted}
                           onChange={(date) => handleFormDataChange('highSchoolNonK12DateCompleted', date)}
                           placeholder="Select Completion Date"
+                          position="above"
                         />
                       </div>
                     </div>
@@ -1048,6 +1056,7 @@ const EnrollmentPage = ({ onBack }) => {
                         value={formData.collegeDateCompleted}
                         onChange={(date) => handleFormDataChange('collegeDateCompleted', date)}
                         placeholder="Select Completion Date"
+                        position="above"
                       />
                     </div>
                   </div>
@@ -1071,9 +1080,9 @@ const EnrollmentPage = ({ onBack }) => {
       </motion.div>
 
       {/* Department Modal */}
-      <DepartmentModal
-        isOpen={isDepartmentModalOpen}
-        onClose={handleCloseDepartmentModal}
+      <CourseChoicesModal
+        isOpen={isCourseChoicesModalOpen}
+        onClose={handleCloseCourseChoicesModal}
         onSelectCourse={handleDepartmentSelect}
       />
     </div>

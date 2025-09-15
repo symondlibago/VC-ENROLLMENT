@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, BookOpen, Search, GraduationCap, ChevronDown } from 'lucide-react';
 import { courseAPI, programAPI } from '@/services/api';
 
-const DepartmentModal = ({
+const CourseChoicesModal = ({
   isOpen,
   onClose,
   onSelectCourse
@@ -381,5 +381,5 @@ const DepartmentModal = ({
   );
 };
 
-export default DepartmentModal;
+export default CourseChoicesModal;
 

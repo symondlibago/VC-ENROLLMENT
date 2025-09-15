@@ -15,6 +15,7 @@ import Settings from './components/pages/Settings';
 import LandingPage from './components/auth/LandingPage';
 import LoginPage from './components/auth/LoginPage';
 import FristProcessEnrollment from './components/Enrollment Process/FristProcessEnrollment';
+import CheckStatus from './components/pages/CheckStatus';
 import { authAPI } from './services/api';
 import './App.css';
 
@@ -22,7 +23,7 @@ function App() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentView, setCurrentView] = useState('landing'); // 'landing', 'login', 'enrollment', 'dashboard'
+  const [currentView, setCurrentView] = useState('landing'); // 'landing', 'login', 'enrollment', 'checkstatus', 'dashboard'
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -55,6 +56,7 @@ function App() {
 
   const handleGetStarted = () => setCurrentView('login');
   const handleEnrollNow = () => setCurrentView('enrollment');
+  const handleCheckStatus = () => setCurrentView('checkstatus');
   const handleLogin = () => {
     const userData = authAPI.getUserData();
     setUser(userData);
@@ -62,6 +64,7 @@ function App() {
     setCurrentView('dashboard');
   };
   const handleBack = () => setCurrentView('landing');
+  const handleBackToEnrollment = () => setCurrentView('enrollment');
   const handleLogout = async () => {
     try {
       await authAPI.logout();
@@ -165,7 +168,19 @@ function App() {
           initial="initial"
           animate="animate"
         >
-          <FristProcessEnrollment onBack={handleBack} />
+          <FristProcessEnrollment onBack={handleBack} onCheckStatus={handleCheckStatus} />
+        </motion.div>
+      )}
+
+      {/* Check Status View */}
+      {currentView === 'checkstatus' && (
+        <motion.div
+          className="min-h-screen"
+          variants={layoutVariants}
+          initial="initial"
+          animate="animate"
+        >
+          <CheckStatus onBack={handleBackToEnrollment} />
         </motion.div>
       )}
 
@@ -306,6 +321,14 @@ function App() {
                       </motion.div>
                     }
                   />
+                  <Route
+                    path="/check-status"
+                    element={
+                      <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
+                        <CheckStatus />
+                      </motion.div>
+                    }
+                  />
                 </Routes>
               </AnimatePresence>
             </motion.main>
@@ -336,5 +359,4 @@ function App() {
 }
 
 export default App;
-
 

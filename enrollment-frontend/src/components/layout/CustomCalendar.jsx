@@ -7,7 +7,8 @@ const CustomCalendar = ({
   onChange, 
   placeholder = "Select Date",
   className = "",
-  disabled = false 
+  disabled = false,
+  position = "below" // "above" or "below"
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
@@ -170,10 +171,12 @@ const CustomCalendar = ({
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: position === "above" ? 10 : -10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="absolute z-50 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 w-80"
+            exit={{ opacity: 0, y: position === "above" ? 10 : -10 }}
+            className={`absolute z-50 bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 w-80 ${
+              position === "above" ? "bottom-full mb-2" : "top-full mt-2"
+            }`}
           >
             {/* Header with Month & Year pickers */}
             <div className="flex items-center justify-between mb-4 relative">
