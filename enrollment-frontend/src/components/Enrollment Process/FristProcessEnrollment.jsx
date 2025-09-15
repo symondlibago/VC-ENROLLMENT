@@ -171,7 +171,9 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
   };
 
   const handleBackClick = () => {
-    if (onBack) {
+    if (currentStep > 1) {
+      setCurrentStep(prevStep => prevStep - 1);
+    } else if (onBack) {
       onBack();
     }
   };
@@ -266,7 +268,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6 }}
       >
-        {onBack && (
+        {(onBack || currentStep > 1) && (
           <button
             onClick={handleBackClick}
             className="bg-white/90 backdrop-blur-sm text-[var(--dominant-red)] p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 border border-white/20"
