@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronDown, 
@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import CustomCalendar from '../layout/CustomCalendar';
 import CourseChoicesModal from '../modals/CourseChoicesModal';
+import EnrollmentConfirmationModal from '../modals/EnrollmentConfirmationModal';
+import { subjectAPI, enrollmentAPI } from '@/services/api';
 
 const EnrollmentPage = ({ onBack, onCheckStatus }) => {
   const [department, setDepartment] = useState('');
@@ -33,9 +35,18 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
   // Step 3 subject selection states
   const [selectedSubjects, setSelectedSubjects] = useState([]);
   const [currentSemesterFilter, setCurrentSemesterFilter] = useState('1st Semester');
+  const [availableSubjects, setAvailableSubjects] = useState({});
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
+  const [subjectError, setSubjectError] = useState(null);
 
   // Step 4 confirmation state
   const [isDataConfirmed, setIsDataConfirmed] = useState(false);
+  
+  // Enrollment submission states
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState(null);
+  const [enrollmentCode, setEnrollmentCode] = useState(null);
+  const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
 
   // Second step form data
   const [formData, setFormData] = useState({
@@ -100,29 +111,58 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
   const semesters = ['1st Semester', '2nd Semester', 'Summer'];
   const genders = ['Male', 'Female'];
 
-  // Sample subjects data for step 3
-  const availableSubjects = {
-    '1st Semester': [
-      { id: 1, code: 'MATH101', name: 'College Algebra', units: 3, prerequisite: 'None' },
-      { id: 2, code: 'ENG101', name: 'English Communication', units: 3, prerequisite: 'None' },
-      { id: 3, code: 'SCI101', name: 'General Biology', units: 3, prerequisite: 'None' },
-      { id: 4, code: 'PE101', name: 'Physical Education 1', units: 2, prerequisite: 'None' },
-      { id: 5, code: 'HIST101', name: 'Philippine History', units: 3, prerequisite: 'None' },
-      { id: 6, code: 'NSTP101', name: 'National Service Training Program 1', units: 3, prerequisite: 'None' }
-    ],
-    '2nd Semester': [
-      { id: 7, code: 'MATH102', name: 'Trigonometry', units: 3, prerequisite: 'MATH101' },
-      { id: 8, code: 'ENG102', name: 'Speech Communication', units: 3, prerequisite: 'ENG101' },
-      { id: 9, code: 'SCI102', name: 'General Chemistry', units: 3, prerequisite: 'SCI101' },
-      { id: 10, code: 'PE102', name: 'Physical Education 2', units: 2, prerequisite: 'PE101' },
-      { id: 11, code: 'PHIL101', name: 'Introduction to Philosophy', units: 3, prerequisite: 'None' },
-      { id: 12, code: 'NSTP102', name: 'National Service Training Program 2', units: 3, prerequisite: 'NSTP101' }
-    ],
-    'Summer': [
-      { id: 13, code: 'MATH103', name: 'Statistics', units: 3, prerequisite: 'MATH102' },
-      { id: 14, code: 'ENG103', name: 'Technical Writing', units: 3, prerequisite: 'ENG102' },
-      { id: 15, code: 'SCI103', name: 'Physics', units: 3, prerequisite: 'SCI102' }
-    ]
+  // Fetch subjects when course is selected and user reaches step 3
+  useEffect(() => {
+    if (currentStep === 3 && formData.courseId) {
+      fetchSubjectsByCourse(formData.courseId);
+    }
+  }, [currentStep, formData.courseId]);
+  
+  // Function to fetch subjects by course ID
+  const fetchSubjectsByCourse = async (courseId) => {
+    setIsLoadingSubjects(true);
+    setSubjectError(null);
+    
+    try {
+      const response = await subjectAPI.getByCourse(courseId);
+      
+      if (response.success) {
+        // Organize subjects by semester
+        const subjectsBySemester = {};
+        
+        response.data.forEach(subject => {
+          const semester = subject.semester;
+          
+          if (!subjectsBySemester[semester]) {
+            subjectsBySemester[semester] = [];
+          }
+          
+          subjectsBySemester[semester].push({
+            id: subject.id,
+            code: subject.subject_code,
+            name: subject.descriptive_title,
+            units: subject.total_units,
+            prerequisite: subject.pre_req || 'None'
+          });
+        });
+        
+        setAvailableSubjects(subjectsBySemester);
+        
+        // Set default semester filter if current one has no subjects
+        if (subjectsBySemester && Object.keys(subjectsBySemester).length > 0) {
+          if (!subjectsBySemester[currentSemesterFilter]) {
+            setCurrentSemesterFilter(Object.keys(subjectsBySemester)[0]);
+          }
+        }
+      } else {
+        setSubjectError('Failed to fetch subjects for this course');
+      }
+    } catch (error) {
+      console.error('Error fetching subjects:', error);
+      setSubjectError('Error loading subjects. Please try again.');
+    } finally {
+      setIsLoadingSubjects(false);
+    }
   };
   
   const handleCheckStatusClick = () => {
@@ -133,7 +173,89 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
 
   const handleDepartmentSelect = (course) => {
     setDepartment(course.course_name);
+    // Store the complete course object with ID for fetching subjects later
+    setFormData(prev => ({
+      ...prev,
+      courseId: course.id,
+      course: course.course_name
+    }));
     setIsCourseChoicesModalOpen(false);
+  };
+  
+  // Handle enrollment submission
+  const handleSubmitEnrollment = async () => {
+    if (!isDataConfirmed || isSubmitting) return;
+    
+    setIsSubmitting(true);
+    setSubmissionError(null);
+    
+    try {
+      // Prepare the enrollment data
+      const enrollmentData = {
+        course_id: formData.courseId,
+        last_name: formData.lastName,
+        first_name: formData.firstName,
+        middle_name: formData.middleName,
+        gender: formData.gender,
+        birth_date: formData.birthDate,
+        birth_place: formData.birthPlace,
+        nationality: formData.nationality,
+        civil_status: formData.civilStatus,
+        religion: formData.religion,
+        address: formData.address,
+        contact_number: formData.contactNumber,
+        email_address: formData.emailAddress,
+        father_name: formData.fatherName,
+        father_occupation: formData.fatherOccupation,
+        father_contact_number: formData.fatherContactNumber,
+        mother_name: formData.motherName,
+        mother_occupation: formData.motherOccupation,
+        mother_contact_number: formData.motherContactNumber,
+        parents_address: formData.parentsAddress,
+        emergency_contact_name: formData.emergencyContactName,
+        emergency_contact_number: formData.emergencyContactNumber,
+        emergency_contact_address: formData.emergencyContactAddress,
+        elementary: formData.elementary,
+        elementary_date_completed: formData.elementaryDateCompleted,
+        junior_high_school: formData.juniorHighSchool,
+        junior_high_date_completed: formData.juniorHighDateCompleted,
+        senior_high_school: formData.seniorHighSchool,
+        senior_high_date_completed: formData.seniorHighDateCompleted,
+        high_school_non_k12: formData.highSchoolNonK12,
+        high_school_non_k12_date_completed: formData.highSchoolNonK12DateCompleted,
+        college: formData.college,
+        college_date_completed: formData.collegeDateCompleted,
+        semester: formData.semester,
+        school_year: formData.schoolYear,
+        enrollment_type: enrollmentType,
+        selected_subjects: selectedSubjects.map(subject => subject.id),
+      };
+      
+      // Submit the enrollment data
+      const response = await enrollmentAPI.submitEnrollment(enrollmentData);
+      
+      // Set the enrollment code and open the confirmation modal
+      setEnrollmentCode(response.data.enrollment_code);
+      setIsConfirmationModalOpen(true);
+    } catch (error) {
+      console.error('Enrollment submission error:', error);
+      
+      // Handle validation errors specifically
+      if (error.errors) {
+        // Format validation errors for display
+        const errorMessages = Object.entries(error.errors)
+          .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+          .join('\n');
+        
+        setSubmissionError(`Validation failed:\n${errorMessages}`);
+      } else {
+        setSubmissionError(error.message || 'Failed to submit enrollment. Please try again.');
+      }
+      
+      setIsConfirmationModalOpen(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleOpenCourseChoicesModal = () => {
@@ -192,7 +314,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
 
   // Subject selection handlers
   const handleAddSubject = (subject) => {
-    if (!selectedSubjects.find(s => s.id === subject.id)) {
+    if (!selectedSubjects.some(s => s.id === subject.id)) {
       setSelectedSubjects(prev => [...prev, subject]);
     }
   };
@@ -202,10 +324,15 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
   };
 
   const handleAddAllSubjects = () => {
+    if (isLoadingSubjects || !availableSubjects[currentSemesterFilter] || availableSubjects[currentSemesterFilter].length === 0) {
+      return;
+    }
+    
     const currentSemesterSubjects = availableSubjects[currentSemesterFilter] || [];
     const newSubjects = currentSemesterSubjects.filter(
-      subject => !selectedSubjects.find(s => s.id === subject.id)
+      subject => !selectedSubjects.some(s => s.id === subject.id)
     );
+    
     setSelectedSubjects(prev => [...prev, ...newSubjects]);
   };
 
@@ -1164,7 +1291,8 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                       <h3 className="text-xl font-bold heading-bold text-gray-900">Available Subjects</h3>
                       <button
                         onClick={handleAddAllSubjects}
-                        className="bg-blue-500 text-white px-4 py-2 rounded-xl font-semibold hover:bg-blue-600 transition-colors shadow-lg text-sm flex items-center"
+                        disabled={isLoadingSubjects || !availableSubjects[currentSemesterFilter] || (availableSubjects[currentSemesterFilter] || []).length === 0}
+                        className={`px-4 py-2 rounded-xl font-semibold text-sm flex items-center transition-colors ${isLoadingSubjects || !availableSubjects[currentSemesterFilter] || (availableSubjects[currentSemesterFilter] || []).length === 0 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600 shadow-lg'}`}
                       >
                         <BookOpen className="w-4 h-4 mr-2" />
                         Add All Subjects
@@ -1173,26 +1301,59 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
 
                     {/* Semester Filter */}
                     <div className="mb-4">
-                      <div className="flex space-x-2">
-                        {semesters.map((semester) => (
-                          <button
-                            key={semester}
-                            onClick={() => setCurrentSemesterFilter(semester)}
-                            className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-300 ${
-                              currentSemesterFilter === semester
-                                ? 'bg-[var(--dominant-red)] text-white shadow-lg'
-                                : 'bg-white text-gray-700 hover:bg-gray-100'
-                            }`}
-                          >
-                            {semester}
-                          </button>
-                        ))}
+                      <div className="flex space-x-2 flex-wrap">
+                        {Object.keys(availableSubjects).length > 0 ? (
+                          Object.keys(availableSubjects).map((semester) => (
+                            <button
+                              key={semester}
+                              onClick={() => setCurrentSemesterFilter(semester)}
+                              className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-300 mb-2 ${
+                                currentSemesterFilter === semester
+                                  ? 'bg-[var(--dominant-red)] text-white shadow-lg'
+                                  : 'bg-white text-gray-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              {semester}
+                            </button>
+                          ))
+                        ) : (
+                          <div className="text-sm text-gray-500 italic">
+                            No semesters available
+                          </div>
+                        )}
                       </div>
                     </div>
 
                     {/* Subjects List */}
                     <div className="space-y-3 max-h-96 overflow-y-auto">
-                      {(availableSubjects[currentSemesterFilter] || []).map((subject) => (
+                      {isLoadingSubjects ? (
+                        <div className="flex justify-center items-center py-12">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--dominant-red)]"></div>
+                          <span className="ml-3 text-gray-600">Loading subjects...</span>
+                        </div>
+                      ) : subjectError ? (
+                        <div className="text-center py-12">
+                          <div className="text-red-500 mb-4">
+                            <BookOpen className="w-12 h-12 mx-auto mb-2" />
+                            <h3 className="text-lg font-semibold">Error Loading Subjects</h3>
+                            <p className="text-sm">{subjectError}</p>
+                          </div>
+                          <button
+                            onClick={() => fetchSubjectsByCourse(formData.courseId)}
+                            className="bg-[var(--dominant-red)] text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors"
+                          >
+                            Try Again
+                          </button>
+                        </div>
+                      ) : (availableSubjects[currentSemesterFilter] || []).length === 0 ? (
+                        <div className="text-center py-12">
+                          <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2">No subjects found</h3>
+                          <p className="text-gray-600">
+                            No subjects are available for this semester.
+                          </p>
+                        </div>
+                      ) : (availableSubjects[currentSemesterFilter] || []).map((subject) => (
                         <motion.div
                           key={subject.id}
                           className="bg-white rounded-xl p-4 shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300"
@@ -1215,14 +1376,14 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                             </div>
                             <button
                               onClick={() => handleAddSubject(subject)}
-                              disabled={selectedSubjects.find(s => s.id === subject.id)}
+                              disabled={selectedSubjects.some(s => s.id === subject.id)}
                               className={`ml-4 px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-300 ${
-                                selectedSubjects.find(s => s.id === subject.id)
+                                selectedSubjects.some(s => s.id === subject.id)
                                   ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
                                   : 'bg-[var(--dominant-red)] text-white hover:bg-red-600 shadow-lg hover:shadow-xl'
                               }`}
                             >
-                              {selectedSubjects.find(s => s.id === subject.id) ? 'Added' : 'Add'}
+                              {selectedSubjects.some(s => s.id === subject.id) ? 'Added' : 'Add'}
                             </button>
                           </div>
                         </motion.div>
@@ -1532,19 +1693,29 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                 {/* Submit Button */}
                 <div className="text-center pt-4">
                   <motion.button 
-                    disabled={!isDataConfirmed}
+                    disabled={!isDataConfirmed || isSubmitting}
                     className={`px-8 py-3 rounded-2xl text-base font-bold heading-bold shadow-2xl transition-all duration-300 flex items-center justify-center mx-auto group ${
-                      isDataConfirmed
+                      isDataConfirmed && !isSubmitting
                         ? 'bg-gradient-to-r from-[var(--dominant-red)] to-red-600 text-white hover:shadow-3xl cursor-pointer'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
-                    whileHover={isDataConfirmed ? { scale: 1.05, y: -2 } : {}}
-                    whileTap={isDataConfirmed ? { scale: 0.98 } : {}}
+                    whileHover={isDataConfirmed && !isSubmitting ? { scale: 1.05, y: -2 } : {}}
+                    whileTap={isDataConfirmed && !isSubmitting ? { scale: 0.98 } : {}}
+                    onClick={handleSubmitEnrollment}
                   >
-                    Submit Enrollment
-                    <CheckCircle className={`ml-2 w-5 h-5 transition-transform ${
-                      isDataConfirmed ? 'group-hover:scale-110' : ''
-                    }`} />
+                    {isSubmitting ? (
+                      <>
+                        <span className="mr-2">Submitting</span>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      </>
+                    ) : (
+                      <>
+                        Submit Enrollment
+                        <CheckCircle className={`ml-2 w-5 h-5 transition-transform ${
+                          isDataConfirmed ? 'group-hover:scale-110' : ''
+                        }`} />
+                      </>
+                    )}
                   </motion.button>
                   {!isDataConfirmed && (
                     <p className="text-sm text-gray-500 mt-2">
@@ -1563,6 +1734,15 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
         isOpen={isCourseChoicesModalOpen}
         onClose={handleCloseCourseChoicesModal}
         onSelectCourse={handleDepartmentSelect}
+      />
+      
+      {/* Enrollment Confirmation Modal */}
+      <EnrollmentConfirmationModal
+        isOpen={isConfirmationModalOpen}
+        onClose={() => setIsConfirmationModalOpen(false)}
+        enrollmentCode={enrollmentCode}
+        isLoading={isSubmitting}
+        error={submissionError}
       />
     </div>
   );

@@ -299,6 +299,36 @@ export const subjectAPI = {
     }
   }
 };
+
+// Enrollment API methods
+export const enrollmentAPI = {
+  // Submit enrollment
+  submitEnrollment: async (enrollmentData) => {
+    try {
+      const response = await api.post('/enrollments', enrollmentData);
+      return response.data;
+    } catch (error) {
+      // Extract validation errors if they exist
+      if (error.response?.data?.errors) {
+        throw {
+          ...error.response.data,
+          errors: error.response.data.errors
+        };
+      }
+      throw error.response?.data || { success: false, message: 'Failed to submit enrollment' };
+    }
+  },
+  
+  // Check enrollment status
+  checkStatus: async (code) => {
+    try {
+      const response = await api.get(`/enrollments/code/${code}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to check enrollment status' };
+    }
+  }
+};
 // Schedule API methods
 export const scheduleAPI = {
   // Get schedules by subject ID

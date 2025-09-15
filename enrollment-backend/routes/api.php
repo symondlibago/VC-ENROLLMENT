@@ -7,6 +7,7 @@ use App\Http\Controllers\ProgramController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\ScheduleController;
+use App\Http\Controllers\API\EnrollmentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -29,10 +30,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/logout', [AuthController::class, 'logout']);
     
-    // Subject routes
-    Route::apiResource('subjects', SubjectController::class);
-    Route::get('courses/{course}/subjects', [SubjectController::class, 'getByCourse']);
-    
     // Schedule routes
     Route::apiResource('schedules', ScheduleController::class);
     Route::get('subjects/{subject}/schedules', [ScheduleController::class, 'getBySubject']);
@@ -42,4 +39,12 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Course routes
     Route::apiResource('courses', CourseController::class);
+
+        // Subject routes
+    Route::apiResource('subjects', SubjectController::class);
+    Route::get('courses/{course}/subjects', [SubjectController::class, 'getByCourse']);
+    
+    // Enrollment routes
+    Route::post('enrollments', [EnrollmentController::class, 'submitEnrollment']);
+    Route::get('enrollments/code/{code}', [EnrollmentController::class, 'checkEnrollmentStatus']);
 
