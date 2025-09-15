@@ -12,11 +12,13 @@ import {
   Search,
   ArrowRight,
   Clock,
-  MapPin
+  MapPin,
+  AlertTriangle
 } from 'lucide-react';
 import CustomCalendar from '../layout/CustomCalendar';
 import CourseChoicesModal from '../modals/CourseChoicesModal';
 import EnrollmentConfirmationModal from '../modals/EnrollmentConfirmationModal';
+import ValidationErrorModal from '../modals/ValidationErrorModal';
 import { subjectAPI, enrollmentAPI } from '@/services/api';
 
 const EnrollmentPage = ({ onBack, onCheckStatus }) => {
@@ -47,6 +49,10 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
   const [submissionError, setSubmissionError] = useState(null);
   const [enrollmentCode, setEnrollmentCode] = useState(null);
   const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
+  
+  // Validation error modal states
+  const [showValidationErrorModal, setShowValidationErrorModal] = useState(false);
+  const [validationErrorMessage, setValidationErrorMessage] = useState('');
 
   // Second step form data
   const [formData, setFormData] = useState({
@@ -110,6 +116,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
   const schoolYears = ['2024-2025', '2025-2026'];
   const semesters = ['1st Semester', '2nd Semester', 'Summer'];
   const genders = ['Male', 'Female'];
+  const [formErrors, setFormErrors] = useState({});
 
   // Fetch subjects when course is selected and user reaches step 3
   useEffect(() => {
@@ -301,13 +308,112 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
   };
 
   const handleContinueEnrollment = () => {
+    // Validate course and enrollment type selection
+    if (!department) {
+      setValidationErrorMessage('Please select a course before proceeding.');
+      setShowValidationErrorModal(true);
+      return;
+    }
+    
+    if (!enrollmentType) {
+      setValidationErrorMessage('Please select an enrollment type before proceeding.');
+      setShowValidationErrorModal(true);
+      return;
+    }
+    
+    // If validation passes, proceed to step 2
     setCurrentStep(2);
   };
 
   const handleContinueToSubjectSetup = () => {
+    // Validate form fields
+    const errors = {};
+    const errorRefs = {};
+    
+    // Required fields validation
+    const requiredFields = [
+      { key: 'firstName', label: 'First Name' },
+      { key: 'lastName', label: 'Last Name' },
+      { key: 'middleName', label: 'Middle Name' },
+      { key: 'gender', label: 'Gender' },
+      { key: 'birthDate', label: 'Birth Date' },
+      { key: 'birthPlace', label: 'Birth Place' },
+      { key: 'nationality', label: 'Nationality' },
+      { key: 'civilStatus', label: 'Civil Status' },
+      { key: 'address', label: 'Address' },
+      { key: 'contactNumber', label: 'Contact Number' },
+      { key: 'emailAddress', label: 'Email Address' },
+      { key: 'semester', label: 'Semester' },
+      { key: 'schoolYear', label: 'School Year' },
+      { key: 'emergencyContactName', label: 'Emergency Contact Name' },
+      { key: 'emergencyContactNumber', label: 'Emergency Contact Number' },
+      { key: 'emergencyContactAddress', label: 'Emergency Contact Address' },
+      { key: 'elementary', label: 'Elementary' },
+      { key: 'juniorHighSchool', label: 'Junior High School Date Completed' },
+    ];
+    
+    // Check required fields
+    requiredFields.forEach(field => {
+      if (!formData[field.key] || formData[field.key].trim() === '') {
+        errors[field.key] = `${field.label} is required`;
+        errorRefs[field.key] = React.createRef();
+      }
+    });
+    
+    // Email validation
+    if (formData.emailAddress && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.emailAddress)) {
+      errors.emailAddress = 'Please enter a valid email address';
+      errorRefs.emailAddress = React.createRef();
+    }
+    
+    // Contact number validation (simple check for now)
+    if (formData.contactNumber && !/^[0-9+\-\s()]{7,15}$/.test(formData.contactNumber)) {
+      errors.contactNumber = 'Please enter a valid contact number';
+      errorRefs.contactNumber = React.createRef();
+    }
+    
+    // If there are errors, display them and scroll to the first error
+    if (Object.keys(errors).length > 0) {
+      // Set form errors
+      setFormErrors(errors);
+      
+      // Get the first error field key
+      const firstErrorKey = Object.keys(errors)[0];
+      
+      // Find the input element for the first error
+      const errorElement = document.querySelector(`[name="${firstErrorKey}"]`) || 
+                           document.querySelector(`#${firstErrorKey}`) ||
+                           document.querySelector(`[data-field="${firstErrorKey}"]`);
+      
+      // If element found, scroll to it smoothly
+      if (errorElement) {
+        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Focus on the element after scrolling
+        setTimeout(() => {
+          errorElement.focus();
+        }, 500);
+      } else {
+        // If specific element not found, scroll to the form section
+        const formSection = document.querySelector('.enrollment-form-section');
+        if (formSection) {
+          formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+      
+      // Show validation error modal instead of alert
+      setValidationErrorMessage('Please correct the errors in the form before proceeding.');
+      setShowValidationErrorModal(true);
+      
+      return;
+    }
+    
+    // Clear any previous errors
+    setFormErrors({});
+    
+    // If validation passes, proceed to next step
     setCurrentStep(3);
   };
-
+  
   const handleContinueToReview = () => {
     setCurrentStep(4);
   };
@@ -610,7 +716,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                       onClick={() => setIsEnrollmentTypeOpen(!isEnrollmentTypeOpen)}
                     >
                       <span className="font-semibold">
-                        {enrollmentType || 'NEW'}
+                        {enrollmentType || 'Select Enrollment Type'}
                       </span>
                       <ChevronDown className={`w-5 h-5 text-[var(--dominant-red)] transition-transform duration-300 ${isEnrollmentTypeOpen ? 'rotate-180' : 'rotate-0'}`} />
                     </button>
@@ -686,14 +792,19 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                       <div className="relative">
                         <button
                           type="button"
-                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-left text-gray-800 flex justify-between items-center focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg text-sm"
+                          className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.semester ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-left text-gray-800 flex justify-between items-center focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg text-sm`}
                           onClick={() => setIsSemesterOpen(!isSemesterOpen)}
+                          name="semester"
+                          data-field="semester"
                         >
                           <span className="font-semibold">
                             {formData.semester || 'Select Semester'}
                           </span>
                           <ChevronDown className={`w-4 h-4 text-[var(--dominant-red)] transition-transform duration-300 ${isSemesterOpen ? 'rotate-180' : 'rotate-0'}`} />
                         </button>
+                        {formErrors.semester && (
+                          <p className="text-red-500 text-xs mt-1">{formErrors.semester}</p>
+                        )}
                         <AnimatePresence>
                           {isSemesterOpen && (
                             <motion.div
@@ -726,14 +837,19 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                       <div className="relative">
                         <button
                           type="button"
-                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-left text-gray-800 flex justify-between items-center focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg text-sm"
+                          className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.schoolYear ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-left text-gray-800 flex justify-between items-center focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg text-sm`}
                           onClick={() => setIsSchoolYearOpen(!isSchoolYearOpen)}
+                          name="schoolYear"
+                          data-field="schoolYear"
                         >
                           <span className="font-semibold">
                             {formData.schoolYear || 'Select School Year'}
                           </span>
                           <ChevronDown className={`w-4 h-4 text-[var(--dominant-red)] transition-transform duration-300 ${isSchoolYearOpen ? 'rotate-180' : 'rotate-0'}`} />
                         </button>
+                        {formErrors.schoolYear && (
+                          <p className="text-red-500 text-xs mt-1">{formErrors.schoolYear}</p>
+                        )}
                         <AnimatePresence>
                           {isSchoolYearOpen && (
                             <motion.div
@@ -776,20 +892,30 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                         placeholder="Enter Last Name"
                         value={formData.lastName}
                         onChange={(e) => handleFormDataChange('lastName', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                        className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.lastName ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                        name="lastName"
+                        data-field="lastName"
                       />
+                      {formErrors.lastName && (
+                        <p className="text-red-500 text-xs mt-1">{formErrors.lastName}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
                         First Name
                       </label>
                       <input
-                        type="text"
-                        placeholder="Enter First Name"
-                        value={formData.firstName}
-                        onChange={(e) => handleFormDataChange('firstName', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
-                      />
+                          type="text"
+                          placeholder="Enter First Name"
+                          value={formData.firstName}
+                          onChange={(e) => handleFormDataChange('firstName', e.target.value)}
+                          className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.firstName ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                          name="firstName"
+                          data-field="firstName"
+                        />
+                        {formErrors.firstName && (
+                          <p className="text-red-500 text-xs mt-1">{formErrors.firstName}</p>
+                        )}
                     </div>
                     <div>
                       <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
@@ -800,8 +926,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                         placeholder="Enter Middle Name"
                         value={formData.middleName}
                         onChange={(e) => handleFormDataChange('middleName', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                        className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.middleName ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                        name="middleName"
+                        data-field="middleName"
                       />
+                      {formErrors.middleName && (
+                        <p className="text-red-500 text-xs mt-1">{formErrors.middleName}</p>
+                      )}
                     </div>
                   </div>
 
@@ -814,14 +945,19 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                       <div className="relative">
                         <button
                           type="button"
-                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-left text-gray-800 flex justify-between items-center focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg text-sm"
+                          className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.gender ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-left text-gray-800 flex justify-between items-center focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg text-sm`}
                           onClick={() => setIsGenderOpen(!isGenderOpen)}
+                          name="gender"
+                          data-field="gender"
                         >
                           <span className="font-semibold">
                             {formData.gender || 'Select Gender'}
                           </span>
                           <ChevronDown className={`w-4 h-4 text-[var(--dominant-red)] transition-transform duration-300 ${isGenderOpen ? 'rotate-180' : 'rotate-0'}`} />
                         </button>
+                        {formErrors.gender && (
+                          <p className="text-red-500 text-xs mt-1">{formErrors.gender}</p>
+                        )}
                         <AnimatePresence>
                           {isGenderOpen && (
                             <motion.div
@@ -850,11 +986,19 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                       <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
                         Birth Date
                       </label>
-                      <CustomCalendar
-                        value={formData.birthDate}
-                        onChange={(date) => handleFormDataChange('birthDate', date)}
-                        placeholder="Select Birth Date"
-                      />
+                      <div>
+                        <CustomCalendar
+                          value={formData.birthDate}
+                          onChange={(date) => handleFormDataChange('birthDate', date)}
+                          placeholder="Select Birth Date"
+                          className={formErrors.birthDate ? 'border-red-500' : ''}
+                          name="birthDate"
+                          data-field="birthDate"
+                        />
+                        {formErrors.birthDate && (
+                          <p className="text-red-500 text-xs mt-1">{formErrors.birthDate}</p>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
@@ -865,8 +1009,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                         placeholder="Enter Birth Place"
                         value={formData.birthPlace}
                         onChange={(e) => handleFormDataChange('birthPlace', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                        className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.birthPlace ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                        name="birthPlace"
+                        data-field="birthPlace"
                       />
+                      {formErrors.birthPlace && (
+                        <p className="text-red-500 text-xs mt-1">{formErrors.birthPlace}</p>
+                      )}
                     </div>
                   </div>
 
@@ -881,8 +1030,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                         placeholder="Enter Nationality"
                         value={formData.nationality}
                         onChange={(e) => handleFormDataChange('nationality', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                        className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.nationality ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                        name="nationality"
+                        data-field="nationality"
                       />
+                      {formErrors.nationality && (
+                        <p className="text-red-500 text-xs mt-1">{formErrors.nationality}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
@@ -893,8 +1047,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                         placeholder="Enter Civil Status"
                         value={formData.civilStatus}
                         onChange={(e) => handleFormDataChange('civilStatus', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                        className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.civilStatus ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                        name="civilStatus"
+                        data-field="civilStatus"
                       />
+                      {formErrors.civilStatus && (
+                        <p className="text-red-500 text-xs mt-1">{formErrors.civilStatus}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
@@ -920,8 +1079,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                       placeholder="Enter Complete Address"
                       value={formData.address}
                       onChange={(e) => handleFormDataChange('address', e.target.value)}
-                      className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                      className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.address ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                      name="address"
+                      data-field="address"
                     />
+                    {formErrors.address && (
+                      <p className="text-red-500 text-xs mt-1">{formErrors.address}</p>
+                    )}
                   </div>
 
                   {/* Contact Information */}
@@ -935,8 +1099,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                         placeholder="Enter Contact Number"
                         value={formData.contactNumber}
                         onChange={(e) => handleFormDataChange('contactNumber', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                        className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.contactNumber ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                        name="contactNumber"
+                        data-field="contactNumber"
                       />
+                      {formErrors.contactNumber && (
+                        <p className="text-red-500 text-xs mt-1">{formErrors.contactNumber}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
@@ -947,8 +1116,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                         placeholder="Enter Email Address"
                         value={formData.emailAddress}
                         onChange={(e) => handleFormDataChange('emailAddress', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                        className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.emailAddress ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                        name="emailAddress"
+                        data-field="emailAddress"
                       />
+                      {formErrors.emailAddress && (
+                        <p className="text-red-500 text-xs mt-1">{formErrors.emailAddress}</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -970,8 +1144,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                           placeholder="Enter Father's Full Name"
                           value={formData.fatherName}
                           onChange={(e) => handleFormDataChange('fatherName', e.target.value)}
-                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                          className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.fatherName ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                          name="fatherName"
+                          data-field="fatherName"
                         />
+                        {formErrors.fatherName && (
+                          <p className="text-red-500 text-xs mt-1">{formErrors.fatherName}</p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
@@ -982,8 +1161,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                           placeholder="Enter Father's Occupation"
                           value={formData.fatherOccupation}
                           onChange={(e) => handleFormDataChange('fatherOccupation', e.target.value)}
-                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                          className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.fatherOccupation ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                          name="fatherOccupation"
+                          data-field="fatherOccupation"
                         />
+                        {formErrors.fatherOccupation && (
+                          <p className="text-red-500 text-xs mt-1">{formErrors.fatherOccupation}</p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
@@ -994,8 +1178,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                           placeholder="Enter Father's Contact Number"
                           value={formData.fatherContactNumber}
                           onChange={(e) => handleFormDataChange('fatherContactNumber', e.target.value)}
-                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                          className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.fatherContactNumber ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                          name="fatherContactNumber"
+                          data-field="fatherContactNumber"
                         />
+                        {formErrors.fatherContactNumber && (
+                          <p className="text-red-500 text-xs mt-1">{formErrors.fatherContactNumber}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1013,8 +1202,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                           placeholder="Enter Mother's Full Name"
                           value={formData.motherName}
                           onChange={(e) => handleFormDataChange('motherName', e.target.value)}
-                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                          className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.motherName ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                          name="motherName"
+                          data-field="motherName"
                         />
+                        {formErrors.motherName && (
+                          <p className="text-red-500 text-xs mt-1">{formErrors.motherName}</p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
@@ -1025,8 +1219,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                           placeholder="Enter Mother's Occupation"
                           value={formData.motherOccupation}
                           onChange={(e) => handleFormDataChange('motherOccupation', e.target.value)}
-                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                          className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.motherOccupation ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                          name="motherOccupation"
+                          data-field="motherOccupation"
                         />
+                        {formErrors.motherOccupation && (
+                          <p className="text-red-500 text-xs mt-1">{formErrors.motherOccupation}</p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
@@ -1037,8 +1236,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                           placeholder="Enter Mother's Contact Number"
                           value={formData.motherContactNumber}
                           onChange={(e) => handleFormDataChange('motherContactNumber', e.target.value)}
-                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                          className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.motherContactNumber ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                          name="motherContactNumber"
+                          data-field="motherContactNumber"
                         />
+                        {formErrors.motherContactNumber && (
+                          <p className="text-red-500 text-xs mt-1">{formErrors.motherContactNumber}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1072,8 +1276,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                         placeholder="Enter Emergency Contact Full Name"
                         value={formData.emergencyContactName}
                         onChange={(e) => handleFormDataChange('emergencyContactName', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
-                      />
+                        className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.emergencyContactName ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                          name="emergencyContactName"
+                          data-field="emergencyContactName"
+                        />
+                        {formErrors.emergencyContactName && (
+                          <p className="text-red-500 text-xs mt-1">{formErrors.emergencyContactName}</p>
+                        )}
                     </div>
                     <div>
                       <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
@@ -1084,8 +1293,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                         placeholder="Enter Emergency Contact Number"
                         value={formData.emergencyContactNumber}
                         onChange={(e) => handleFormDataChange('emergencyContactNumber', e.target.value)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
-                      />
+                        className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.emergencyContactNumber ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                          name="emergencyContactNumber"
+                          data-field="emergencyContactNumber"
+                        />
+                        {formErrors.emergencyContactNumber && (
+                          <p className="text-red-500 text-xs mt-1">{formErrors.emergencyContactNumber}</p>
+                        )}
                     </div>
                   </div>
 
@@ -1098,8 +1312,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                       placeholder="Enter Emergency Contact Address"
                       value={formData.emergencyContactAddress}
                       onChange={(e) => handleFormDataChange('emergencyContactAddress', e.target.value)}
-                      className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
-                    />
+                      className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.emergencyContactAddress ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                          name="emergencyContactAddress"
+                          data-field="emergencyContactAddress"
+                        />
+                        {formErrors.emergencyContactAddress && (
+                          <p className="text-red-500 text-xs mt-1">{formErrors.emergencyContactAddress}</p>
+                        )}
                   </div>
                 </div>
 
@@ -1122,8 +1341,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                           placeholder="Enter Elementary School Name"
                           value={formData.elementary}
                           onChange={(e) => handleFormDataChange('elementary', e.target.value)}
-                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                           className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.elementary ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                          name="elementary"
+                          data-field="elementary"
                         />
+                        {formErrors.elementary && (
+                          <p className="text-red-500 text-xs mt-1">{formErrors.elementary}</p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
@@ -1151,8 +1375,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                           placeholder="Enter Junior High School Name"
                           value={formData.juniorHighSchool}
                           onChange={(e) => handleFormDataChange('juniorHighSchool', e.target.value)}
-                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                          className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.juniorHighSchool ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                          name="juniorHighSchool"
+                          data-field="juniorHighSchool"
                         />
+                        {formErrors.juniorHighSchool && (
+                          <p className="text-red-500 text-xs mt-1">{formErrors.juniorHighSchool}</p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
@@ -1449,7 +1678,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                       <div className="mt-6 text-center">
                         <motion.button 
                           onClick={handleContinueToReview}
-                          className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-3 rounded-2xl text-base font-bold heading-bold shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center justify-center mx-auto group"
+                          className="bg-gradient-to-r from-red-800 to-red-600 text-white px-8 py-3 rounded-2xl text-base font-bold heading-bold shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center justify-center mx-auto group"
                           whileHover={{ scale: 1.05, y: -2 }}
                           whileTap={{ scale: 0.98 }}
                         >
@@ -1743,6 +1972,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
         enrollmentCode={enrollmentCode}
         isLoading={isSubmitting}
         error={submissionError}
+      />
+      
+      {/* Validation Error Modal */}
+      <ValidationErrorModal
+        isOpen={showValidationErrorModal}
+        onClose={() => setShowValidationErrorModal(false)}
+        message={validationErrorMessage}
       />
     </div>
   );
