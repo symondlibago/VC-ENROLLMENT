@@ -1968,7 +1968,10 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
       {/* Enrollment Confirmation Modal */}
       <EnrollmentConfirmationModal
         isOpen={isConfirmationModalOpen}
-        onClose={() => setIsConfirmationModalOpen(false)}
+        onClose={() => {
+          setIsConfirmationModalOpen(false);
+          onBack(); // Navigate back to landing page
+        }}
         enrollmentCode={enrollmentCode}
         isLoading={isSubmitting}
         error={submissionError}
