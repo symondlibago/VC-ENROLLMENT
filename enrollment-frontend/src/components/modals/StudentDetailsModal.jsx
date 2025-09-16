@@ -176,17 +176,17 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-100">
                         <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject Code</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descriptive Title</th>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Units</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {subjects.map((subject) => (
                           <tr key={subject.id}>
-                            <td className="px-4 py-2 whitespace-nowrap">{subject.code}</td>
-                            <td className="px-4 py-2 whitespace-nowrap">{subject.name}</td>
-                            <td className="px-4 py-2 whitespace-nowrap">{subject.units}</td>
+                            <td className="px-4 py-2 whitespace-nowrap">{subject.subject_code}</td>
+                            <td className="px-4 py-2 whitespace-nowrap">{subject.descriptive_title}</td>
+                            <td className="px-4 py-2 whitespace-nowrap">{subject.total_units}</td>
                           </tr>
                         ))}
                       </tbody>

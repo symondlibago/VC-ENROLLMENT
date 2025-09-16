@@ -348,12 +348,12 @@ const Enrollment = () => {
                             <p className="font-medium text-gray-900">
                               {enrollment.name || `${enrollment.first_name || ''} ${enrollment.middle_name || ''} ${enrollment.last_name || ''}`}
                             </p>
-                            <p className="text-xs text-gray-500">Gender: {enrollment.gender || 'Not specified'}</p>
+                            <p className="text-xs text-gray-500">Program: {enrollment.program || 'Not specified'}</p>
                           </div>
                           
                           <div>
                             <p className="text-sm text-gray-500">Course</p>
-                            <p className="font-medium text-gray-900">{enrollment.course_code ? `${enrollment.course_name} (${enrollment.course_code})` : enrollment.course || 'Not specified'}</p>
+                            <p className="font-medium text-gray-900">{enrollment.course && enrollment.course_code ? `${enrollment.course} [${enrollment.course_code}]` : 'Not specified'}</p>
                           </div>
                           
                           <div>

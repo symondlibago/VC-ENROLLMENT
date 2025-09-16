@@ -165,7 +165,7 @@ class EnrollmentController extends Controller
     public function getPreEnrolledStudents()
     {
         try {
-            $preEnrolledStudents = PreEnrolledStudent::with('course', 'enrollmentCode')
+            $preEnrolledStudents = PreEnrolledStudent::with(['course.program', 'enrollmentCode'])
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->map(function ($student) {
@@ -174,8 +174,9 @@ class EnrollmentController extends Controller
                         'name' => $student->getFullNameAttribute(),
                         'email' => $student->email_address,
                         'contact' => $student->contact_number,
-                        'course' => $student->course ? $student->course->name : null,
-                        'course_code' => $student->course ? $student->course->code : null,
+                        'course' => $student->course ? $student->course->course_name : null,
+                        'course_code' => $student->course ? $student->course->course_code : null,
+                        'program' => $student->course && $student->course->program ? $student->course->program->program_name : null,
                         'enrollment_date' => $student->created_at->format('Y-m-d'),
                         'semester' => $student->semester,
                         'school_year' => $student->school_year,
@@ -183,6 +184,7 @@ class EnrollmentController extends Controller
                         'status' => $this->getEnrollmentStatus($student),
                         'progress' => $this->calculateProgress($student),
                         'enrollment_code' => $student->enrollmentCode ? $student->enrollmentCode->code : null,
+                        'gender' => $student->gender,
                         // Include only necessary fields for the table view
                     ];
                 });
