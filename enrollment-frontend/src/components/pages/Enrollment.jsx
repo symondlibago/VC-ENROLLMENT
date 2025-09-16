@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   GraduationCap, 
@@ -18,13 +18,24 @@ import {
   Download,
   UserCheck,
   BookOpen,
-  CreditCard
+  CreditCard,
+  FileText,
+  ChevronRight,
+  Printer
 } from 'lucide-react';
+import { enrollmentAPI } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,104 +43,46 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import StudentDetailsModal from '../modals/StudentDetailsModal';
 
 const Enrollment = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [enrollments, setEnrollments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedStudentId, setSelectedStudentId] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  useEffect(() => {
+    fetchEnrollments();
+  }, []);
 
-  const enrollments = [
-    {
-      id: 1,
-      studentName: 'Sarah Johnson',
-      studentEmail: 'sarah.johnson@email.com',
-      courseName: 'Advanced Mathematics',
-      instructor: 'Dr. Sarah Johnson',
-      enrollmentDate: '2024-01-15',
-      status: 'approved',
-      paymentStatus: 'paid',
-      progress: 65,
-      grade: 'A-',
-      avatar: 'SJ',
-      coursePrice: '$299',
-      dueDate: '2024-03-15'
-    },
-    {
-      id: 2,
-      studentName: 'Michael Chen',
-      studentEmail: 'michael.chen@email.com',
-      courseName: 'Computer Science Fundamentals',
-      instructor: 'Prof. Michael Chen',
-      enrollmentDate: '2024-01-14',
-      status: 'pending',
-      paymentStatus: 'pending',
-      progress: 0,
-      grade: '-',
-      avatar: 'MC',
-      coursePrice: '$399',
-      dueDate: '2024-02-14'
-    },
-    {
-      id: 3,
-      studentName: 'Emily Davis',
-      studentEmail: 'emily.davis@email.com',
-      courseName: 'Digital Marketing Strategy',
-      instructor: 'Emily Davis',
-      enrollmentDate: '2024-01-12',
-      status: 'approved',
-      paymentStatus: 'paid',
-      progress: 80,
-      grade: 'B+',
-      avatar: 'ED',
-      coursePrice: '$249',
-      dueDate: '2024-03-12'
-    },
-    {
-      id: 4,
-      studentName: 'James Wilson',
-      studentEmail: 'james.wilson@email.com',
-      courseName: 'Data Analytics & Visualization',
-      instructor: 'James Wilson',
-      enrollmentDate: '2024-01-10',
-      status: 'rejected',
-      paymentStatus: 'refunded',
-      progress: 0,
-      grade: '-',
-      avatar: 'JW',
-      coursePrice: '$349',
-      dueDate: '2024-02-10'
-    },
-    {
-      id: 5,
-      studentName: 'Lisa Anderson',
-      studentEmail: 'lisa.anderson@email.com',
-      courseName: 'Creative Writing Workshop',
-      instructor: 'Lisa Anderson',
-      enrollmentDate: '2024-01-08',
-      status: 'completed',
-      paymentStatus: 'paid',
-      progress: 100,
-      grade: 'A',
-      avatar: 'LA',
-      coursePrice: '$199',
-      dueDate: '2024-02-22'
-    },
-    {
-      id: 6,
-      studentName: 'David Brown',
-      studentEmail: 'david.brown@email.com',
-      courseName: 'Web Development Bootcamp',
-      instructor: 'David Brown',
-      enrollmentDate: '2024-01-05',
-      status: 'approved',
-      paymentStatus: 'paid',
-      progress: 30,
-      grade: 'B',
-      avatar: 'DB',
-      coursePrice: '$499',
-      dueDate: '2024-05-05'
+  const fetchEnrollments = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await enrollmentAPI.getPreEnrolledStudents();
+      
+      if (response.success) {
+        setEnrollments(response.data);
+      } else {
+        setError('Failed to load enrollments');
+      }
+    } catch (err) {
+      setError(err.message || 'An error occurred while fetching enrollments');
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-  ];
-
+  };
+  
+  const handleViewDetails = (studentId) => {
+    setSelectedStudentId(studentId);
+    setIsModalOpen(true);
+  };
+  
+  // Stats based on real data
   const stats = [
     {
       title: 'Total Enrollments',
@@ -189,17 +142,20 @@ const Enrollment = () => {
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
-      case 'approved':
-        return 'bg-green-100 text-green-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'rejected':
-        return 'bg-red-100 text-red-800';
-      case 'completed':
-        return 'bg-blue-100 text-blue-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+    if (!status) return 'bg-gray-100 text-gray-800';
+    
+    status = status.toLowerCase();
+    
+    if (status.includes('approved')) {
+      return 'bg-green-100 text-green-800';
+    } else if (status.includes('pending') || status.includes('review')) {
+      return 'bg-yellow-100 text-yellow-800';
+    } else if (status.includes('rejected')) {
+      return 'bg-red-100 text-red-800';
+    } else if (status.includes('completed')) {
+      return 'bg-blue-100 text-blue-800';
+    } else {
+      return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -233,14 +189,17 @@ const Enrollment = () => {
     }
   };
 
-  const filteredEnrollments = enrollments.filter(enrollment => {
-    const matchesSearch = enrollment.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         enrollment.courseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         enrollment.instructor.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = selectedFilter === 'all' || enrollment.status === selectedFilter;
-    return matchesSearch && matchesFilter;
+  const filteredEnrollments = enrollments.filter((enrollment) => {
+    const matchesSearch = (enrollment.full_name ? enrollment.full_name.toLowerCase().includes(searchTerm.toLowerCase()) : false) ||
+      (enrollment.email && enrollment.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (enrollment.course && enrollment.course.name && enrollment.course.name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    if (selectedFilter === 'all') return matchesSearch;
+    return matchesSearch && enrollment.status === selectedFilter;
   });
 
+ 
+  
   return (
     <motion.div
       className="p-6 space-y-6 max-w-7xl mx-auto"
@@ -390,37 +349,27 @@ const Enrollment = () => {
                         
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div>
+                            <p className="text-sm text-gray-500">Student Name</p>
+                            <p className="font-medium text-gray-900">
+                              {enrollment.first_name} {enrollment.middle_name} {enrollment.last_name}
+                            </p>
+                            <p className="text-xs text-gray-500">Gender: {enrollment.gender}</p>
+                          </div>
+                          
+                          <div>
                             <p className="text-sm text-gray-500">Course</p>
-                            <p className="font-medium text-gray-900">{enrollment.courseName}</p>
-                            <p className="text-xs text-gray-500">by {enrollment.instructor}</p>
+                            <p className="font-medium text-gray-900">{enrollment.course}</p>
                           </div>
                           
                           <div>
                             <p className="text-sm text-gray-500">Enrollment Date</p>
-                            <p className="font-medium text-gray-900">{enrollment.enrollmentDate}</p>
-                            <p className="text-xs text-gray-500">Due: {enrollment.dueDate}</p>
-                          </div>
-                          
-                          <div>
-                            <p className="text-sm text-gray-500">Progress & Grade</p>
-                            <div className="flex items-center space-x-2">
-                              <Progress value={enrollment.progress} className="flex-1 h-2" />
-                              <span className="text-sm font-medium text-gray-900">{enrollment.progress}%</span>
-                            </div>
-                            <p className="text-xs text-gray-500">Grade: {enrollment.grade}</p>
+                            <p className="font-medium text-gray-900">{enrollment.enrollment_date}</p>
                           </div>
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-center space-x-3">
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-[var(--dominant-red)]">
-                          {enrollment.coursePrice}
-                        </p>
-                        <p className="text-xs text-gray-500">Course Fee</p>
-                      </div>
-
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="sm" className="liquid-button">
@@ -428,7 +377,7 @@ const Enrollment = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleViewDetails(enrollment.id)}>
                             <Eye className="mr-2 h-4 w-4" />
                             View Details
                           </DropdownMenuItem>
@@ -448,10 +397,6 @@ const Enrollment = () => {
                               </DropdownMenuItem>
                             </>
                           )}
-                          <DropdownMenuItem>
-                            <CreditCard className="mr-2 h-4 w-4" />
-                            Payment Details
-                          </DropdownMenuItem>
                           <DropdownMenuItem className="text-red-600">
                             <Trash2 className="mr-2 h-4 w-4" />
                             Cancel Enrollment
@@ -468,7 +413,21 @@ const Enrollment = () => {
       </motion.div>
 
       {/* Empty State */}
-      {filteredEnrollments.length === 0 && (
+      {loading ? (
+        <motion.div variants={itemVariants} className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--dominant-red)] mx-auto"></div>
+          <p className="mt-4 text-gray-500">Loading enrollments...</p>
+        </motion.div>
+      ) : error ? (
+        <motion.div variants={itemVariants} className="text-center py-12">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Error loading enrollments</h3>
+          <p className="text-gray-500 mb-4">{error}</p>
+          <Button onClick={fetchEnrollments} className="gradient-primary text-white liquid-button">
+            Try Again
+          </Button>
+        </motion.div>
+      ) : filteredEnrollments.length === 0 && (
         <motion.div
           variants={itemVariants}
           className="text-center py-12"
@@ -517,6 +476,12 @@ const Enrollment = () => {
           </CardContent>
         </Card>
       </motion.div>
+      {/* Student Details Modal */}
+      <StudentDetailsModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        studentId={selectedStudentId} 
+      />
     </motion.div>
   );
 };

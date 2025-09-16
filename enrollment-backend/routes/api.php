@@ -47,4 +47,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Enrollment routes
     Route::post('enrollments', [EnrollmentController::class, 'submitEnrollment']);
     Route::get('enrollments/code/{code}', [EnrollmentController::class, 'checkEnrollmentStatus']);
+    Route::get('enrollments', [EnrollmentController::class, 'getPreEnrolledStudents']);
+    Route::get('enrollments/{id}', [EnrollmentController::class, 'getPreEnrolledStudentDetails']);
 

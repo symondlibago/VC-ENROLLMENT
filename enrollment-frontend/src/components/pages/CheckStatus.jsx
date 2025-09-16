@@ -393,7 +393,7 @@ const CheckStatus = ({ onBack }) => {
                             doc.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                             'bg-red-100 text-red-700'
                           }`}>
-                            {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                            {doc.status ? doc.status.charAt(0).toUpperCase() + doc.status.slice(1) : 'Unknown'}
                           </span>
                         </div>
                       ))}

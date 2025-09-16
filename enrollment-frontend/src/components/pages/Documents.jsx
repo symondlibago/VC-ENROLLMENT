@@ -506,7 +506,7 @@ const Documents = () => {
                         <h3 className="font-medium text-gray-900 mb-2 line-clamp-2">{doc.name}</h3>
                         <div className="flex items-center space-x-2 mb-2">
                           <Badge className={`${getFileTypeColor(doc.type)} text-xs`}>
-                            {doc.type.toUpperCase()}
+                            {doc.type ? doc.type.toUpperCase() : 'UNKNOWN'}
                           </Badge>
                           <Badge className={`${getCategoryColor(doc.category)} text-xs`}>
                             {doc.category}

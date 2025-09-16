@@ -333,6 +333,26 @@ export const enrollmentAPI = {
     } catch (error) {
       throw error.response?.data || { success: false, message: 'Failed to check enrollment status' };
     }
+  },
+
+  // Get all pre-enrolled students
+  getPreEnrolledStudents: async () => {
+    try {
+      const response = await api.get('/enrollments');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch pre-enrolled students' };
+    }
+  },
+
+  // Get pre-enrolled student details
+  getStudentDetails: async (id) => {
+    try {
+      const response = await api.get(`/enrollments/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch student details' };
+    }
   }
 };
 // Schedule API methods
