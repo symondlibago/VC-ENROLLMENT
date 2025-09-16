@@ -200,7 +200,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
               {/* Parent/Guardian Information */}
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h3 className="text-lg font-medium mb-3 text-blue-800">Parent/Guardian Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Father's Name</p>
                     <p className="font-medium">{student.father_name || 'Not specified'}</p>
