@@ -329,36 +329,31 @@ const Enrollment = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4 flex-1">
                       <Avatar className="w-12 h-12">
-                        <AvatarImage src={`/api/placeholder/48/48`} alt={enrollment.studentName} />
+                        <AvatarImage src={`/api/placeholder/48/48`} alt={enrollment.first_name} />
                         <AvatarFallback className="bg-[var(--dominant-red)] text-white font-bold">
-                          {enrollment.avatar}
+                          {enrollment.first_name}
                         </AvatarFallback>
                       </Avatar>
 
                       <div className="flex-1">
                         <div className="flex items-center space-x-3 mb-2">
-                          <h3 className="font-bold text-gray-900">{enrollment.studentName}</h3>
                           <Badge className={`${getStatusColor(enrollment.status)} text-xs flex items-center space-x-1`}>
                             {getStatusIcon(enrollment.status)}
                             <span>{enrollment.status}</span>
-                          </Badge>
-                          <Badge className={`${getPaymentStatusColor(enrollment.paymentStatus)} text-xs`}>
-                            {enrollment.paymentStatus}
                           </Badge>
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div>
-                            <p className="text-sm text-gray-500">Student Name</p>
                             <p className="font-medium text-gray-900">
-                              {enrollment.first_name} {enrollment.middle_name} {enrollment.last_name}
+                              {enrollment.name || `${enrollment.first_name || ''} ${enrollment.middle_name || ''} ${enrollment.last_name || ''}`}
                             </p>
-                            <p className="text-xs text-gray-500">Gender: {enrollment.gender}</p>
+                            <p className="text-xs text-gray-500">Gender: {enrollment.gender || 'Not specified'}</p>
                           </div>
                           
                           <div>
                             <p className="text-sm text-gray-500">Course</p>
-                            <p className="font-medium text-gray-900">{enrollment.course}</p>
+                            <p className="font-medium text-gray-900">{enrollment.course_code ? `${enrollment.course_name} (${enrollment.course_code})` : enrollment.course || 'Not specified'}</p>
                           </div>
                           
                           <div>

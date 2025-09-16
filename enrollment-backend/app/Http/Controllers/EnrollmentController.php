@@ -209,7 +209,7 @@ class EnrollmentController extends Controller
     public function getPreEnrolledStudentDetails($id)
     {
         try {
-            $student = PreEnrolledStudent::with('course', 'enrollmentCode')->findOrFail($id);
+            $student = PreEnrolledStudent::with(['course.program', 'enrollmentCode'])->findOrFail($id);
             
             // Get subject details for the selected subjects
             $subjectIds = $student->selected_subjects;

@@ -23,7 +23,9 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
       
       if (response.success) {
         setStudent(response.data.student);
+        // Make sure we're getting the subjects from the API response
         setSubjects(response.data.subjects || []);
+        console.log('Student details:', response.data);
       } else {
         setError('Failed to load student details');
       }
@@ -111,7 +113,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Course</p>
-                    <p className="font-medium">{student.course?.name || 'Not specified'}</p>
+                    <p className="font-medium">{student.course ? student.course.course_name : 'Not specified'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Enrollment Type</p>
@@ -135,7 +137,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Program</p>
-                    <p className="font-medium">{student.program?.code || 'Not available'}</p>
+                    <p className="font-medium">{student.course && student.course.program ? student.course.program.program_name : 'Not available'}</p>
                   </div>
                 </div>
               </div>

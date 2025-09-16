@@ -348,7 +348,7 @@ export const enrollmentAPI = {
   // Get pre-enrolled student details
   getStudentDetails: async (id) => {
     try {
-      const response = await api.get(`/enrollments/${id}`);
+      const response = await api.get(`/enrollments/${id}/details`);
       return response.data;
     } catch (error) {
       throw error.response?.data || { success: false, message: 'Failed to fetch student details' };
