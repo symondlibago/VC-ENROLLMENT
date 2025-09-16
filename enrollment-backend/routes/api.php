@@ -7,7 +7,7 @@ use App\Http\Controllers\ProgramController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\ScheduleController;
-use App\Http\Controllers\API\EnrollmentController;
+use App\Http\Controllers\EnrollmentController;
 
 /*
 |--------------------------------------------------------------------------

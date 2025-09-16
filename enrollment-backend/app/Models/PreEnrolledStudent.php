@@ -50,6 +50,8 @@ class PreEnrolledStudent extends Model
         'high_school_non_k12_date_completed',
         'college',
         'college_date_completed',
+        'id_photo',
+        'signature',
         'semester',
         'school_year',
         'enrollment_type',

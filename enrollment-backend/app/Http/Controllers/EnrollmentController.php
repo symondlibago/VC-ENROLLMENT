@@ -1,12 +1,13 @@
 <?php
 
-namespace App\Http\Controllers\API;
+namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\EnrollmentCode;
 use App\Models\PreEnrolledStudent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 class EnrollmentController extends Controller
@@ -54,6 +55,8 @@ class EnrollmentController extends Controller
             'high_school_non_k12_date_completed' => 'nullable|string|max:255',
             'college' => 'nullable|string|max:255',
             'college_date_completed' => 'nullable|string|max:255',
+            'id_photo' => 'nullable|file|mimes:png|max:5120', // 5MB max size, PNG only
+            'signature' => 'nullable|file|mimes:png|max:5120', // 5MB max size, PNG only
             'semester' => 'required|string|max:255',
             'school_year' => 'required|string|max:255',
             'enrollment_type' => 'required|string|max:255',
@@ -71,9 +74,24 @@ class EnrollmentController extends Controller
 
         try {
             DB::beginTransaction();
+            
+            // Process the data
+            $data = $request->all();
+            
+            // Handle ID photo upload
+            if ($request->hasFile('id_photo') && $request->file('id_photo')->isValid()) {
+                $idPhotoPath = $request->file('id_photo')->store('identification', 'public');
+                $data['id_photo'] = $idPhotoPath;
+            }
+            
+            // Handle signature upload
+            if ($request->hasFile('signature') && $request->file('signature')->isValid()) {
+                $signaturePath = $request->file('signature')->store('identification', 'public');
+                $data['signature'] = $signaturePath;
+            }
 
             // Create pre-enrolled student record
-            $preEnrolledStudent = PreEnrolledStudent::create($request->all());
+            $preEnrolledStudent = PreEnrolledStudent::create($data);
 
             // Generate enrollment code
             $enrollmentCode = new EnrollmentCode([

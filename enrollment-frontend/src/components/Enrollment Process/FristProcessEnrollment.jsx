@@ -13,7 +13,11 @@ import {
   ArrowRight,
   Clock,
   MapPin,
-  AlertTriangle
+  AlertTriangle,
+  Upload,
+  X,
+  FileSignature,
+  AlertCircle
 } from 'lucide-react';
 import CustomCalendar from '../layout/CustomCalendar';
 import CourseChoicesModal from '../modals/CourseChoicesModal';
@@ -97,7 +101,11 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
     highSchoolNonK12: '',
     highSchoolNonK12DateCompleted: '',
     college: '',
-    collegeDateCompleted: ''
+    collegeDateCompleted: '',
+    
+    // Identification Documents
+    idPhoto: null,
+    signature: null
   });
 
   const departments = [
@@ -197,49 +205,70 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
     setSubmissionError(null);
     
     try {
-      // Prepare the enrollment data
-      const enrollmentData = {
-        course_id: formData.courseId,
-        last_name: formData.lastName,
-        first_name: formData.firstName,
-        middle_name: formData.middleName,
-        gender: formData.gender,
-        birth_date: formData.birthDate,
-        birth_place: formData.birthPlace,
-        nationality: formData.nationality,
-        civil_status: formData.civilStatus,
-        religion: formData.religion,
-        address: formData.address,
-        contact_number: formData.contactNumber,
-        email_address: formData.emailAddress,
-        father_name: formData.fatherName,
-        father_occupation: formData.fatherOccupation,
-        father_contact_number: formData.fatherContactNumber,
-        mother_name: formData.motherName,
-        mother_occupation: formData.motherOccupation,
-        mother_contact_number: formData.motherContactNumber,
-        parents_address: formData.parentsAddress,
-        emergency_contact_name: formData.emergencyContactName,
-        emergency_contact_number: formData.emergencyContactNumber,
-        emergency_contact_address: formData.emergencyContactAddress,
-        elementary: formData.elementary,
-        elementary_date_completed: formData.elementaryDateCompleted,
-        junior_high_school: formData.juniorHighSchool,
-        junior_high_date_completed: formData.juniorHighDateCompleted,
-        senior_high_school: formData.seniorHighSchool,
-        senior_high_date_completed: formData.seniorHighDateCompleted,
-        high_school_non_k12: formData.highSchoolNonK12,
-        high_school_non_k12_date_completed: formData.highSchoolNonK12DateCompleted,
-        college: formData.college,
-        college_date_completed: formData.collegeDateCompleted,
-        semester: formData.semester,
-        school_year: formData.schoolYear,
-        enrollment_type: enrollmentType,
-        selected_subjects: selectedSubjects.map(subject => subject.id),
-      };
+      // Create a FormData object for file uploads
+      const formDataObj = new FormData();
+      
+      // Add all text fields to the FormData
+      formDataObj.append('course_id', formData.courseId);
+      formDataObj.append('last_name', formData.lastName);
+      formDataObj.append('first_name', formData.firstName);
+      formDataObj.append('middle_name', formData.middleName || '');
+      formDataObj.append('gender', formData.gender);
+      formDataObj.append('birth_date', formData.birthDate);
+      formDataObj.append('birth_place', formData.birthPlace);
+      formDataObj.append('nationality', formData.nationality);
+      formDataObj.append('civil_status', formData.civilStatus);
+      formDataObj.append('religion', formData.religion || '');
+      formDataObj.append('address', formData.address);
+      formDataObj.append('contact_number', formData.contactNumber);
+      formDataObj.append('email_address', formData.emailAddress);
+      formDataObj.append('father_name', formData.fatherName || '');
+      formDataObj.append('father_occupation', formData.fatherOccupation || '');
+      formDataObj.append('father_contact_number', formData.fatherContactNumber || '');
+      formDataObj.append('mother_name', formData.motherName || '');
+      formDataObj.append('mother_occupation', formData.motherOccupation || '');
+      formDataObj.append('mother_contact_number', formData.motherContactNumber || '');
+      formDataObj.append('parents_address', formData.parentsAddress || '');
+      formDataObj.append('emergency_contact_name', formData.emergencyContactName);
+      formDataObj.append('emergency_contact_number', formData.emergencyContactNumber);
+      formDataObj.append('emergency_contact_address', formData.emergencyContactAddress);
+      formDataObj.append('elementary', formData.elementary || '');
+      formDataObj.append('elementary_date_completed', formData.elementaryDateCompleted || '');
+      formDataObj.append('junior_high_school', formData.juniorHighSchool || '');
+      formDataObj.append('junior_high_date_completed', formData.juniorHighDateCompleted || '');
+      formDataObj.append('senior_high_school', formData.seniorHighSchool || '');
+      formDataObj.append('senior_high_date_completed', formData.seniorHighDateCompleted || '');
+      formDataObj.append('high_school_non_k12', formData.highSchoolNonK12 || '');
+      formDataObj.append('high_school_non_k12_date_completed', formData.highSchoolNonK12DateCompleted || '');
+      formDataObj.append('college', formData.college || '');
+      formDataObj.append('college_date_completed', formData.collegeDateCompleted || '');
+      formDataObj.append('semester', formData.semester);
+      formDataObj.append('school_year', formData.schoolYear);
+      formDataObj.append('enrollment_type', enrollmentType);
+      
+      // Add the selected subjects as an array
+      // Use the correct format for arrays in FormData
+      const subjectIds = selectedSubjects.map(subject => subject.id);
+      
+      // Append each subject ID with the same key name to create an array on the server
+      subjectIds.forEach(id => {
+        formDataObj.append('selected_subjects[]', id);
+      });
+      
+      // Don't append the JSON string version as it causes confusion in the backend
+      
+      
+      // Add the file uploads if they exist
+      if (formData.idPhoto) {
+        formDataObj.append('id_photo', formData.idPhoto);
+      }
+      
+      if (formData.signature) {
+        formDataObj.append('signature', formData.signature);
+      }
       
       // Submit the enrollment data
-      const response = await enrollmentAPI.submitEnrollment(enrollmentData);
+      const response = await enrollmentAPI.submitEnrollment(formDataObj);
       
       // Set the enrollment code and open the confirmation modal
       setEnrollmentCode(response.data.enrollment_code);
@@ -1481,6 +1510,136 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                       />
                     </div>
                   </div>
+                  
+                  {/* ID Photo and Signature Upload */}
+                  <div className="mt-6 mb-4">
+                    <h4 className="text-base font-semibold text-gray-800 mb-3">Identification Documents</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* ID Photo Upload */}
+                      <div className="border-2 border-dashed border-gray-300 rounded-2xl p-4 hover:border-[var(--dominant-red)] transition-all duration-300">
+                        <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
+                          ID Photo
+                        </label>
+                        <div className="flex flex-col items-center justify-center py-4">
+                          {formData.idPhoto ? (
+                            <div className="relative w-full">
+                              <img 
+                                src={URL.createObjectURL(formData.idPhoto)} 
+                                alt="ID Preview" 
+                                className="w-32 h-32 object-cover mx-auto rounded-lg shadow-md" 
+                              />
+                              <button 
+                                onClick={() => handleFormDataChange('idPhoto', null)}
+                                className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 transform translate-x-1/2 -translate-y-1/2 hover:bg-red-600 transition-colors"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <Upload className="w-12 h-12 text-gray-400 mb-2" />
+                              <p className="text-sm text-gray-600 text-center mb-2">Click or drag to upload your ID photo</p>
+                              <p className="text-xs text-gray-500 text-center">PNG only, max 5MB</p>
+                            </>
+                          )}
+                          <input 
+                            type="file" 
+                            id="idPhoto"
+                            accept="image/png"
+                            className="hidden" 
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                if (file.type !== 'image/png') {
+                                  setValidationErrorMessage('Only PNG images are allowed for ID Photo');
+                                  setShowValidationErrorModal(true);
+                                  return;
+                                }
+                                if (file.size > 5 * 1024 * 1024) { // 5MB in bytes
+                                  setValidationErrorMessage('ID Photo file size must be less than 5MB');
+                                  setShowValidationErrorModal(true);
+                                  return;
+                                }
+                                handleFormDataChange('idPhoto', file);
+                              }
+                            }}
+                          />
+                          <label 
+                            htmlFor="idPhoto"
+                            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-blue-600 transition-colors"
+                          >
+                            {formData.idPhoto ? 'Replace Photo' : 'Select Photo'}
+                          </label>
+                        </div>
+                        <p className="text-xs text-red-500 mt-2 text-center">
+                          <AlertCircle className="w-3 h-3 inline mr-1" />
+                          Only PNG format, maximum 5MB file size
+                        </p>
+                      </div>
+                      
+                      {/* Signature Upload */}
+                      <div className="border-2 border-dashed border-gray-300 rounded-2xl p-4 hover:border-[var(--dominant-red)] transition-all duration-300">
+                        <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
+                          Signature
+                        </label>
+                        <div className="flex flex-col items-center justify-center py-4">
+                          {formData.signature ? (
+                            <div className="relative w-full">
+                              <img 
+                                src={URL.createObjectURL(formData.signature)} 
+                                alt="Signature Preview" 
+                                className="w-32 h-32 object-contain mx-auto rounded-lg shadow-md bg-white" 
+                              />
+                              <button 
+                                onClick={() => handleFormDataChange('signature', null)}
+                                className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 transform translate-x-1/2 -translate-y-1/2 hover:bg-red-600 transition-colors"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <FileSignature className="w-12 h-12 text-gray-400 mb-2" />
+                              <p className="text-sm text-gray-600 text-center mb-2">Click or drag to upload your signature</p>
+                              <p className="text-xs text-gray-500 text-center">PNG only, max 5MB</p>
+                            </>
+                          )}
+                          <input 
+                            type="file" 
+                            id="signature"
+                            accept="image/png"
+                            className="hidden" 
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                if (file.type !== 'image/png') {
+                                  setValidationErrorMessage('Only PNG images are allowed for Signature');
+                                  setShowValidationErrorModal(true);
+                                  return;
+                                }
+                                if (file.size > 5 * 1024 * 1024) { // 5MB in bytes
+                                  setValidationErrorMessage('Signature file size must be less than 5MB');
+                                  setShowValidationErrorModal(true);
+                                  return;
+                                }
+                                handleFormDataChange('signature', file);
+                              }
+                            }}
+                          />
+                          <label 
+                            htmlFor="signature"
+                            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-blue-600 transition-colors"
+                          >
+                            {formData.signature ? 'Replace Signature' : 'Select Signature'}
+                          </label>
+                        </div>
+                        <p className="text-xs text-red-500 mt-2 text-center">
+                          <AlertCircle className="w-3 h-3 inline mr-1" />
+                          Only PNG format, maximum 5MB file size
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Continue Button */}
@@ -1871,6 +2030,44 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                   </div>
                 </div>
 
+                {/* Identification Documents */}
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-200 mt-4">
+                  <h3 className="text-lg font-bold heading-bold text-gray-900 mb-3 flex items-center">
+                    <FileSignature className="w-5 h-5 mr-2 text-[var(--dominant-red)]" />
+                    Identification Documents
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">ID Photo</label>
+                      {formData.idPhoto ? (
+                        <div className="mt-2">
+                          <img 
+                            src={URL.createObjectURL(formData.idPhoto)} 
+                            alt="ID Preview" 
+                            className="w-32 h-32 object-cover rounded-lg shadow-md mx-auto" 
+                          />
+                        </div>
+                      ) : (
+                        <p className="text-base font-semibold text-gray-900 mt-2">Not uploaded</p>
+                      )}
+                    </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                      <label className="text-xs font-bold text-gray-600">Signature</label>
+                      {formData.signature ? (
+                        <div className="mt-2">
+                          <img 
+                            src={URL.createObjectURL(formData.signature)} 
+                            alt="Signature Preview" 
+                            className="w-32 h-32 object-contain rounded-lg shadow-md mx-auto bg-white" 
+                          />
+                        </div>
+                      ) : (
+                        <p className="text-base font-semibold text-gray-900 mt-2">Not uploaded</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Selected Subjects */}
                 <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-2xl p-4 border border-purple-200">
                   <h3 className="text-lg font-bold heading-bold text-gray-900 mb-3 flex items-center">
@@ -1970,7 +2167,10 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
         isOpen={isConfirmationModalOpen}
         onClose={() => {
           setIsConfirmationModalOpen(false);
-          onBack(); // Navigate back to landing page
+          // Only navigate back to landing page if enrollment was successful (no error)
+          if (!submissionError) {
+            onBack(); // Navigate back to landing page
+          }
         }}
         enrollmentCode={enrollmentCode}
         isLoading={isSubmitting}
