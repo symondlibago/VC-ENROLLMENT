@@ -60,6 +60,7 @@ class EnrollmentController extends Controller
             'signature' => 'nullable|file|mimes:png|max:5120', // 5MB max size, PNG only
             'semester' => 'required|string|max:255',
             'school_year' => 'required|string|max:255',
+            'year' => 'required|string|max:255',
             'enrollment_type' => 'required|string|max:255',
             'selected_subjects' => 'required|array',
             'selected_subjects.*' => 'exists:subjects,id',

@@ -37,6 +37,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
   const [isSemesterOpen, setIsSemesterOpen] = useState(false);
   const [isCourseOpen, setIsCourseOpen] = useState(false);
   const [isGenderOpen, setIsGenderOpen] = useState(false);
+  const [isYearOpen, setIsYearOpen] = useState(false);
 
   // Step 3 subject selection states
   const [selectedSubjects, setSelectedSubjects] = useState([]);
@@ -62,6 +63,8 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
   const [formData, setFormData] = useState({
     // Basic Information
     course: '',
+    courseProgram: '',
+    year: '',
     semester: '',
     schoolYear: '',
     lastName: '',
@@ -125,34 +128,51 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
   const semesters = ['1st Semester', '2nd Semester', 'Summer'];
   const genders = ['Male', 'Female'];
   const [formErrors, setFormErrors] = useState({});
+  
+  // Get year options based on program type
+  const getYearOptions = () => {
+    // Extract program type from the course selection
+    const programType = formData.courseProgram || '';
+    
+    switch (programType) {
+      case 'SHS':
+        return ['Grade 11', 'Grade 12'];
+      case 'Bachelor':
+        return ['1st Year', '2nd Year', '3rd Year', '4th Year'];
+      case 'Diploma':
+      default:
+        return ['1st Year', '2nd Year', '1st Year Summer', '2nd Year Summer'];
+    }
+  };
 
   // Fetch subjects when course is selected and user reaches step 3
   useEffect(() => {
-    if (currentStep === 3 && formData.courseId) {
-      fetchSubjectsByCourse(formData.courseId);
+    if (currentStep === 3 && formData.courseId && formData.year && formData.semester) {
+      fetchSubjectsByCourse(formData.courseId, formData.year, formData.semester);
     }
-  }, [currentStep, formData.courseId]);
+  }, [currentStep, formData.courseId, formData.year, formData.semester]);
+
   
-  // Function to fetch subjects by course ID
-  const fetchSubjectsByCourse = async (courseId) => {
+  const fetchSubjectsByCourse = async (courseId, year, semester) => { 
     setIsLoadingSubjects(true);
     setSubjectError(null);
     
     try {
-      const response = await subjectAPI.getByCourse(courseId);
+      // Pass all three parameters to the API call
+      const response = await subjectAPI.getByCourse(courseId, year, semester);
       
       if (response.success) {
-        // Organize subjects by semester
+        // Organize subjects by semester (this logic remains the same)
         const subjectsBySemester = {};
         
         response.data.forEach(subject => {
-          const semester = subject.semester;
+          const sem = subject.semester;
           
-          if (!subjectsBySemester[semester]) {
-            subjectsBySemester[semester] = [];
+          if (!subjectsBySemester[sem]) {
+            subjectsBySemester[sem] = [];
           }
           
-          subjectsBySemester[semester].push({
+          subjectsBySemester[sem].push({
             id: subject.id,
             code: subject.subject_code,
             name: subject.descriptive_title,
@@ -163,14 +183,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
         
         setAvailableSubjects(subjectsBySemester);
         
-        // Set default semester filter if current one has no subjects
         if (subjectsBySemester && Object.keys(subjectsBySemester).length > 0) {
           if (!subjectsBySemester[currentSemesterFilter]) {
             setCurrentSemesterFilter(Object.keys(subjectsBySemester)[0]);
           }
         }
       } else {
-        setSubjectError('Failed to fetch subjects for this course');
+        setSubjectError('Failed to fetch subjects for the selected criteria.');
       }
     } catch (error) {
       console.error('Error fetching subjects:', error);
@@ -192,7 +211,8 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
     setFormData(prev => ({
       ...prev,
       courseId: course.id,
-      course: course.course_name
+      course: course.course_name,
+      courseProgram: course.program ? course.program.program_code : ''
     }));
     setIsCourseChoicesModalOpen(false);
   };
@@ -321,6 +341,11 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
   const handleCourseSelect = (course) => {
     handleFormDataChange('course', course);
     setIsCourseOpen(false);
+  };
+  
+  const handleYearSelect = (year) => {
+    handleFormDataChange('year', year);
+    setIsYearOpen(false);
   };
 
   const handleGenderSelect = (gender) => {
@@ -813,7 +838,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                 <div className="bg-[#FFFAFA] rounded-2xl p-4 border border-black-200 shadow-md">
                   <h3 className="text-lg font-bold heading-bold text-gray-900 mb-4">Academic Information</h3>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
                         Semester
@@ -893,6 +918,51 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                                   key={year}
                                   className="px-4 py-3 hover:bg-gradient-to-r hover:from-[var(--whitish-pink)] hover:to-white cursor-pointer transition-all duration-200 text-gray-800 border-b border-gray-100 last:border-b-0 font-medium text-sm"
                                   onClick={() => handleSchoolYearSelect(year)}
+                                  whileHover={{ x: 5 }}
+                                >
+                                  {year}
+                                </motion.div>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
+                        Year Level
+                      </label>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.year ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-left text-gray-800 flex justify-between items-center focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg text-sm`}
+                          onClick={() => setIsYearOpen(!isYearOpen)}
+                          name="year"
+                          data-field="year"
+                        >
+                          <span className="font-semibold">
+                            {formData.year || 'Select Year Level'}
+                          </span>
+                          <ChevronDown className={`w-4 h-4 text-[var(--dominant-red)] transition-transform duration-300 ${isYearOpen ? 'rotate-180' : 'rotate-0'}`} />
+                        </button>
+                        {formErrors.year && (
+                          <p className="text-red-500 text-xs mt-1">{formErrors.year}</p>
+                        )}
+                        <AnimatePresence>
+                          {isYearOpen && (
+                            <motion.div
+                              variants={dropdownVariants}
+                              initial="hidden"
+                              animate="visible"
+                              exit="exit"
+                              className="absolute z-20 w-full bg-white border-2 border-gray-200 rounded-2xl shadow-2xl mt-2 max-h-80 overflow-auto"
+                            >
+                              {getYearOptions().map((year, index) => (
+                                <motion.div
+                                  key={year}
+                                  className="px-4 py-3 hover:bg-gradient-to-r hover:from-[var(--whitish-pink)] hover:to-white cursor-pointer transition-all duration-200 text-gray-800 border-b border-gray-100 last:border-b-0 font-medium text-sm"
+                                  onClick={() => handleYearSelect(year)}
                                   whileHover={{ x: 5 }}
                                 >
                                   {year}

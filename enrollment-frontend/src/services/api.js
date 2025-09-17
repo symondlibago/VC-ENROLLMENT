@@ -256,9 +256,11 @@ export const subjectAPI = {
   },
 
   // Get subjects by course ID
-  getByCourse: async (courseId) => {
+  getByCourse: async (courseId, year, semester) => {
     try {
-      const response = await api.get(`/courses/${courseId}/subjects`);
+      const response = await api.get(`/courses/${courseId}/subjects`, {
+        params: { year, semester } 
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || { success: false, message: 'Failed to fetch subjects for this course' };

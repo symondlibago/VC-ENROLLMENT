@@ -35,10 +35,22 @@ class SubjectController extends Controller
     /**
      * Get subjects by course ID.
      */
-    public function getByCourse(Course $course): JsonResponse
+    public function getByCourse(Request $request, Course $course): JsonResponse
     {
         try {
-            $subjects = $course->subjects()->orderBy('year')->orderBy('semester')->get();
+            // Start querying subjects for the given course
+            $query = $course->subjects();
+
+            if ($request->has('year') && $request->year) {
+                $query->where('year', $request->year);
+            }
+
+            if ($request->has('semester') && $request->semester) {
+                $query->where('semester', $request->semester);
+            }
+
+            // Get the results
+            $subjects = $query->orderBy('year')->orderBy('semester')->get();
             
             return response()->json([
                 'success' => true,

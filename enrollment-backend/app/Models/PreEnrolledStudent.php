@@ -54,6 +54,7 @@ class PreEnrolledStudent extends Model
         'signature',
         'semester',
         'school_year',
+        'year',
         'enrollment_type',
         'selected_subjects',
         'program_head_approved',

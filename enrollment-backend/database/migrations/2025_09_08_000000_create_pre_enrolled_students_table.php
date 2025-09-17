@@ -56,6 +56,7 @@ return new class extends Migration
             // Enrollment Information
             $table->string('semester');
             $table->string('school_year');
+            $table->string('year');
             $table->string('enrollment_type');
             $table->json('selected_subjects'); // Store subject IDs as JSON array
             
