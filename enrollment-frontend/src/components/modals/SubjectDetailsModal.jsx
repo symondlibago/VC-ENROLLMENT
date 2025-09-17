@@ -43,9 +43,10 @@ const SubjectDetailsModal = ({
       case 'SHS':
         return ['Grade 11', 'Grade 12'];
       case 'Bachelor':
+        return ['1st Year', '2nd Year', '3rd Year', '4th Year'];
       case 'Diploma':
       default:
-        return ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Summer'];
+        return ['1st Year', '2nd Year', '1st Year Summer', '2nd Year Summer'];
     }
   };
 
@@ -217,7 +218,7 @@ const SubjectDetailsModal = ({
                         onClick={() => setIsYearDropdownOpen(!isYearDropdownOpen)}
                       >
                         {selectedYear}
-                        <ChevronDown className="w-4 h-4 ml-2" />
+                        <ChevronDown className="w-4 h-4 ml-1" />
                       </Button>
                       {isYearDropdownOpen && (
                         <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg">

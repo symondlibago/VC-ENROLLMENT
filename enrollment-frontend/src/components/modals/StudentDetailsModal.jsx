@@ -45,7 +45,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
           <h2 className="text-xl font-semibold">Student Details</h2>
           <button
             onClick={onClose}
-            className="p-1 rounded-full hover:bg-gray-100"
+            className="p-1 rounded-full hover:text-red-800 hover:bg-white transition-colors"
           >
             <X size={20} />
           </button>
@@ -62,7 +62,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
             <div className="space-y-6">
               {/* Basic Information */}
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium mb-3 text-blue-800">Basic Information</h3>
+                <h3 className="text-xl font-medium mb-3 text-black">BASIC INFORMATION</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Full Name</p>
@@ -109,7 +109,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
 
               {/* Enrollment Information */}
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium mb-3 text-blue-800">Enrollment Information</h3>
+                <h3 className="text-lg font-medium mb-3 text-black">ENROLLMENT INFORMATION</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Course</p>
@@ -145,7 +145,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
 
               {/* Approval Status */}
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium mb-3 text-blue-800">Approval Status</h3>
+                <h3 className="text-lg font-medium mb-3 text-black">APPROVAL STATUS</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Program Head</p>
@@ -170,7 +170,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
 
               {/* Selected Subjects */}
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium mb-3 text-blue-800">Selected Subjects</h3>
+                <h3 className="text-lg font-medium mb-3 text-black">SELECTED SUBJECTS</h3>
                 {subjects.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
@@ -199,7 +199,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
 
               {/* Parent/Guardian Information */}
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium mb-3 text-blue-800">Parent/Guardian Information</h3>
+                <h3 className="text-lg font-medium mb-3 text-black">PARENT/GUARDIAN INFORMATION</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Father's Name</p>
@@ -234,7 +234,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
 
               {/* Emergency Contact */}
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium mb-3 text-blue-800">Emergency Contact</h3>
+                <h3 className="text-lg font-medium mb-3 text-black">EMERGENCY CONTACT</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Name</p>
@@ -253,7 +253,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
 
               {/* Educational Background */}
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium mb-3 text-blue-800">Educational Background</h3>
+                <h3 className="text-lg font-medium mb-3 text-black">EDUCATIONAL BACKGROUND</h3>
                 <div className="space-y-4">
                   {student.elementary && (
                     <div>

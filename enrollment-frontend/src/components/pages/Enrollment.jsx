@@ -498,21 +498,21 @@ const Enrollment = () => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
                           <DropdownMenuItem onClick={() => handleViewDetails(enrollment.id)}>
-                            <Eye className="mr-2 h-4 w-4" />
+                            <Eye className="mr-2 h-4 w-4 hover:text-white" />
                             View Details
                           </DropdownMenuItem>
                           <DropdownMenuItem>
-                            <Edit className="mr-2 h-4 w-4" />
+                            <Edit className="mr-2 h-4 w-4 hover:text-white" />
                             Edit Enrollment
                           </DropdownMenuItem>
                           {enrollment.status === 'pending' && (
                             <>
-                              <DropdownMenuItem className="text-green-600">
-                                <CheckCircle className="mr-2 h-4 w-4" />
+                              <DropdownMenuItem className="text-green-600 ">
+                                <CheckCircle className="mr-2 h-4 w-4 hover:text-white" />
                                 Approve
                               </DropdownMenuItem>
                               <DropdownMenuItem className="text-red-600">
-                                <XCircle className="mr-2 h-4 w-4" />
+                                <XCircle className="mr-2 h-4 w-4 hover:text-white" />
                                 Reject
                               </DropdownMenuItem>
                             </>
@@ -557,7 +557,7 @@ const Enrollment = () => {
         </motion.div>
       ) : filteredEnrollments.length === 0 && (
         <motion.div
-          variants={itemVariants}
+          variants={itemVariants} 
           className="text-center py-12"
         >
           <GraduationCap className="w-16 h-16 text-gray-300 mx-auto mb-4" />

@@ -63,6 +63,10 @@ return new class extends Migration
             $table->boolean('program_head_approved')->default(false);
             $table->boolean('registrar_approved')->default(false);
             $table->boolean('cashier_approved')->default(false);
+
+            // Add identification fields after educational background
+            $table->string('id_photo')->nullable();
+            $table->string('signature')->nullable();
             
             $table->timestamps();
         });

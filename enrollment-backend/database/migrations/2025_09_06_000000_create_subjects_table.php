@@ -20,7 +20,7 @@ return new class extends Migration
             $table->float('total_units')->nullable();
             $table->float('number_of_hours')->nullable();
             $table->string('pre_req')->nullable();
-            $table->enum('year', ['Grade 11', 'Grade 12', '1st Year', '2nd Year', '3rd Year', '4th Year', 'Summer']);
+            $table->enum('year', ['Grade 11', 'Grade 12', '1st Year', '2nd Year', '3rd Year', '4th Year', '1st Year Summer', '2nd Year Summer',]);
             $table->enum('semester', ['1st Semester', '2nd Semester']);
             $table->foreignId('course_id')->constrained('courses')->onDelete('cascade');
             $table->timestamps();
