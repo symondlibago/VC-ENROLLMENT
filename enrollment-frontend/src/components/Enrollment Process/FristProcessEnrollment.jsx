@@ -264,6 +264,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
       formDataObj.append('college_date_completed', formData.collegeDateCompleted || '');
       formDataObj.append('semester', formData.semester);
       formDataObj.append('school_year', formData.schoolYear);
+      formDataObj.append('year', formData.year);
       formDataObj.append('enrollment_type', enrollmentType);
       
       // Add the selected subjects as an array
@@ -801,16 +802,17 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
 
                 {/* Continue Button */}
                 <div className="text-center pt-4">
-                  <motion.button 
-                    onClick={handleContinueEnrollment}
-                    className="bg-gradient-to-r from-[var(--dominant-red)] to-red-600 text-white px-8 py-3 rounded-2xl text-base font-bold heading-bold shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center justify-center mx-auto group"
-                    whileHover={{ scale: 1.05, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    Continue Enrollment
-                    <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                  </motion.button>
-                </div>
+                <motion.button 
+                  onClick={handleContinueEnrollment}
+                  // Add the `border` or `border-2` class here
+                  className="bg-gradient-to-r from-[var(--dominant-red)] to-red-600 text-white px-8 py-3 rounded-2xl text-base font-bold heading-bold shadow-2xl hover:shadow-3xl flex items-center justify-center mx-auto group border-2 border-[var(--dominant-red)]"
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Continue Enrollment
+                  <ArrowRight className="text-[var(--dominant-red)] ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </motion.button>
+              </div>
               </div>
             </div>
           </motion.div>
@@ -1716,12 +1718,12 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
                 <div className="text-center pt-4">
                   <motion.button 
                     onClick={handleContinueToSubjectSetup}
-                    className="bg-gradient-to-r from-[var(--dominant-red)] to-red-600 text-white px-8 py-3 rounded-2xl text-base font-bold heading-bold shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center justify-center mx-auto group"
+                    className="bg-gradient-to-r from-[var(--dominant-red)] to-red-600 text-white px-8 py-3 rounded-2xl text-base font-bold heading-bold shadow-2xl hover:shadow-3xl flex items-center justify-center mx-auto group border-2 border-[var(--dominant-red)]"
                     whileHover={{ scale: 1.05, y: -2 }}
                     whileTap={{ scale: 0.98 }}
                   >
                     Continue to Subject Setup
-                    <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    <ArrowRight className="text-[var(--dominant-red)] ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </motion.button>
                 </div>
               </div>

@@ -172,6 +172,7 @@ class EnrollmentController extends Controller
                 ->map(function ($student) {
                     return [
                         'id' => $student->id,
+                        'student_id_number' => $student->student_id_number,
                         'name' => $student->getFullNameAttribute(),
                         'email' => $student->email_address,
                         'contact' => $student->contact_number,

@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('pre_enrolled_students', function (Blueprint $table) {
             $table->id();
+            $table->string('student_id_number')->unique();
             $table->foreignId('course_id')->constrained('courses');
             $table->string('last_name');
             $table->string('first_name');

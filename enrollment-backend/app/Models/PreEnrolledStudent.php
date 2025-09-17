@@ -75,6 +75,25 @@ class PreEnrolledStudent extends Model
         'cashier_approved' => 'boolean',
     ];
 
+    protected static function booted(): void
+    {
+        static::creating(function ($student) {
+            $currentYear = date('Y');
+            
+            $lastStudentOfTheYear = self::where('student_id_number', 'like', $currentYear . '-%')
+                                        ->orderBy('id', 'desc')
+                                        ->first();
+            
+            $nextNumber = 1;
+            if ($lastStudentOfTheYear) {
+                $lastNumber = (int) substr($lastStudentOfTheYear->student_id_number, 5);
+                $nextNumber = $lastNumber + 1;
+            }
+            
+            $student->student_id_number = $currentYear . '-' . $nextNumber;
+        });
+    }
+
     /**
      * Get the course that the student is enrolling in.
      */
