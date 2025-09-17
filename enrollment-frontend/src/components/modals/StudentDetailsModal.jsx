@@ -251,47 +251,76 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
                 </div>
               </div>
 
-              {/* Educational Background */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium mb-3 text-black">EDUCATIONAL BACKGROUND</h3>
-                <div className="space-y-4">
-                  {student.elementary && (
-                    <div>
-                      <p className="text-sm font-medium">Elementary</p>
-                      <p className="text-sm">{student.elementary}</p>
-                      <p className="text-xs text-gray-500">Completed: {student.elementary_date_completed || 'Not specified'}</p>
-                    </div>
-                  )}
-                  {student.junior_high_school && (
-                    <div>
-                      <p className="text-sm font-medium">Junior High School</p>
-                      <p className="text-sm">{student.junior_high_school}</p>
-                      <p className="text-xs text-gray-500">Completed: {student.junior_high_date_completed || 'Not specified'}</p>
-                    </div>
-                  )}
-                  {student.senior_high_school && (
-                    <div>
-                      <p className="text-sm font-medium">Senior High School</p>
-                      <p className="text-sm">{student.senior_high_school}</p>
-                      <p className="text-xs text-gray-500">Completed: {student.senior_high_date_completed || 'Not specified'}</p>
-                    </div>
-                  )}
-                  {student.high_school_non_k12 && (
-                    <div>
-                      <p className="text-sm font-medium">High School (Non-K12)</p>
-                      <p className="text-sm">{student.high_school_non_k12}</p>
-                      <p className="text-xs text-gray-500">Completed: {student.high_school_non_k12_date_completed || 'Not specified'}</p>
-                    </div>
-                  )}
-                  {student.college && (
-                    <div>
-                      <p className="text-sm font-medium">College</p>
-                      <p className="text-sm">{student.college}</p>
-                      <p className="text-xs text-gray-500">Completed: {student.college_date_completed || 'Not specified'}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
+              {/* Educational Background with Images */}
+<div className="bg-gray-50 p-4 rounded-lg">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    {/* Left Side: Educational Background Header + Details */}
+    <div>
+      <h3 className="text-lg font-semibold mb-3 text-black border-b pb-1">
+        EDUCATIONAL BACKGROUND
+      </h3>
+      <div className="space-y-4">
+        {student.elementary && (
+          <div>
+            <p className="text-sm font-medium">Elementary</p>
+            <p className="text-sm">{student.elementary}</p>
+            <p className="text-xs text-gray-500">Completed: {student.elementary_date_completed || 'Not specified'}</p>
+          </div>
+        )}
+        {student.junior_high_school && (
+          <div>
+            <p className="text-sm font-medium">Junior High School</p>
+            <p className="text-sm">{student.junior_high_school}</p>
+            <p className="text-xs text-gray-500">Completed: {student.junior_high_date_completed || 'Not specified'}</p>
+          </div>
+        )}
+        {student.senior_high_school && (
+          <div>
+            <p className="text-sm font-medium">Senior High School</p>
+            <p className="text-sm">{student.senior_high_school}</p>
+            <p className="text-xs text-gray-500">Completed: {student.senior_high_date_completed || 'Not specified'}</p>
+          </div>
+        )}
+        {student.high_school_non_k12 && (
+          <div>
+            <p className="text-sm font-medium">High School (Non-K12)</p>
+            <p className="text-sm">{student.high_school_non_k12}</p>
+            <p className="text-xs text-gray-500">Completed: {student.high_school_non_k12_date_completed || 'Not specified'}</p>
+          </div>
+        )}
+        {student.college && (
+          <div>
+            <p className="text-sm font-medium">College</p>
+            <p className="text-sm">{student.college}</p>
+            <p className="text-xs text-gray-500">Completed: {student.college_date_completed || 'Not specified'}</p>
+          </div>
+        )}
+      </div>
+    </div>
+
+    {/* Right Side: Header + ID Photo & Signature Side by Side */}
+    <div>
+      <h3 className="text-lg font-semibold mb-3 text-black border-b pb-1 text-right">
+        IDENTIFICATION & SIGNATURE
+      </h3>
+      <div className="flex justify-end gap-4">
+        {student.id_photo_url && (
+          <div className="w-40 h-40 border rounded-lg overflow-hidden shadow-md">
+            <img src={student.id_photo_url} alt="ID Photo" className="w-full h-full object-cover" />
+          </div>
+        )}
+        {student.signature_url && (
+          <div className="w-40 h-40 border rounded-lg overflow-hidden shadow-md">
+            <img src={student.signature_url} alt="Signature" className="w-full h-full object-contain" />
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
             </div>
           ) : (
             <div className="text-center p-4">No student data found</div>

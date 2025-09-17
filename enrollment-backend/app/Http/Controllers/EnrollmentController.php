@@ -211,41 +211,46 @@ class EnrollmentController extends Controller
      * @return \Illuminate\Http\JsonResponse
      */
     public function getPreEnrolledStudentDetails($id)
-    {
-        try {
-            $student = PreEnrolledStudent::with(['course.program', 'enrollmentCode'])->findOrFail($id);
-            
-            // Get subject details for the selected subjects
-            $subjectIds = $student->selected_subjects;
-            $subjects = [];
-            
-            if (is_array($subjectIds) && count($subjectIds) > 0) {
-                $subjects = DB::table('subjects')
-                    ->whereIn('id', $subjectIds)
-                    ->get();
-            }
-            
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'student' => $student,
-                    'subjects' => $subjects,
-                    'approval_status' => [
-                        'program_head_approved' => $student->program_head_approved,
-                        'registrar_approved' => $student->registrar_approved,
-                        'cashier_approved' => $student->cashier_approved,
-                        'fully_approved' => $student->isFullyApproved(),
-                    ],
-                ],
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch student details',
-                'error' => $e->getMessage(),
-            ], 500);
+{
+    try {
+        $student = PreEnrolledStudent::with(['course.program', 'enrollmentCode'])->findOrFail($id);
+
+        // Add full URLs for images
+        $student->id_photo_url = $student->id_photo ? asset('storage/' . $student->id_photo) : null;
+        $student->signature_url = $student->signature ? asset('storage/' . $student->signature) : null;
+
+        // Get subject details for the selected subjects
+        $subjectIds = $student->selected_subjects;
+        $subjects = [];
+
+        if (is_array($subjectIds) && count($subjectIds) > 0) {
+            $subjects = DB::table('subjects')
+                ->whereIn('id', $subjectIds)
+                ->get();
         }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'student' => $student,
+                'subjects' => $subjects,
+                'approval_status' => [
+                    'program_head_approved' => $student->program_head_approved,
+                    'registrar_approved' => $student->registrar_approved,
+                    'cashier_approved' => $student->cashier_approved,
+                    'fully_approved' => $student->isFullyApproved(),
+                ],
+            ],
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to fetch student details',
+            'error' => $e->getMessage(),
+        ], 500);
     }
+}
+
 
     /**
      * Get the enrollment status based on approvals.

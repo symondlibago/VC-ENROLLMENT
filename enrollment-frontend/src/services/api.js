@@ -35,15 +35,15 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid, clear storage and redirect to login
+    if (error.response?.status === 401 && error.config.url !== '/login') {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_data');
-      window.location.href = '/login';
+      window.location.reload();
     }
     return Promise.reject(error);
   }
 );
+
 
 // Auth API methods
 export const authAPI = {

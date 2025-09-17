@@ -1,3 +1,5 @@
+// src/components/auth/LoginPage.jsx
+
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -10,23 +12,26 @@ import {
   GraduationCap,
   Github,
   Chrome,
-  ArrowLeft,
-  CheckCircle,
-  AlertCircle
+  ArrowLeft
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { authAPI } from '../../services/api';
+
+import SuccessAlert from '../modals/SuccessAlert'; 
+import ValidationErrorModal from '../modals/ValidationErrorModal'; 
 
 const LoginPage = ({ onLogin, onBack }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const [isLoading, setIsLoading] = useState(false);
-  const [alert, setAlert] = useState(null);
+  
+  // --- Step 2: Replace the old 'alert' state with state for the new components ---
+  const [successAlert, setSuccessAlert] = useState({ isVisible: false, message: '' });
+  const [modalError, setModalError] = useState(''); // Use a string to hold the error message
   
   const [loginForm, setLoginForm] = useState({
     email: '',
@@ -44,28 +49,37 @@ const LoginPage = ({ onLogin, onBack }) => {
     email: ''
   });
 
+  // --- Step 3: Update the handleLogin function to use the new components ---
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setAlert(null);
+    setModalError(''); // Clear previous errors
     
     try {
       const result = await authAPI.login(loginForm);
       if (result.success) {
-        setAlert({ type: 'success', message: 'Login successful! Redirecting...' });
+        // Show the success alert
+        setSuccessAlert({ isVisible: true, message: 'Login successful! Redirecting...' });
         setTimeout(() => {
           onLogin();
-        }, 1000);
+        }, 1500); // Give a little more time for the user to see the alert
       } else {
-        setAlert({ type: 'error', message: result.message || 'Login failed' });
+        // This case is for non-exception errors, still show the modal
+        setModalError(result.message || 'Login failed');
         setIsLoading(false);
       }
     } catch (error) {
       console.error('Login error:', error);
-      setAlert({ 
-        type: 'error', 
-        message: error.message || 'Login failed. Please check your credentials.' 
-      });
+      let errorMessage = 'Login failed. Please check your credentials.';
+      
+      if (error.errors) {
+        const firstErrorKey = Object.keys(error.errors)[0];
+        errorMessage = error.errors[firstErrorKey][0];
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setModalError(errorMessage);
       setIsLoading(false);
     }
   };
@@ -73,10 +87,10 @@ const LoginPage = ({ onLogin, onBack }) => {
   const handleRegister = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setAlert(null);
+    setModalError('');
     
     if (registerForm.password !== registerForm.confirmPassword) {
-      setAlert({ type: 'error', message: 'Passwords do not match' });
+      setModalError('Passwords do not match');
       setIsLoading(false);
       return;
     }
@@ -84,60 +98,43 @@ const LoginPage = ({ onLogin, onBack }) => {
     try {
       const result = await authAPI.register(registerForm);
       if (result.success) {
-        setAlert({ type: 'success', message: 'Registration successful! Redirecting...' });
+        setSuccessAlert({ isVisible: true, message: 'Registration successful! Redirecting...' });
         setTimeout(() => {
           onLogin();
-        }, 1000);
+        }, 1500);
       } else {
-        setAlert({ type: 'error', message: result.message || 'Registration failed' });
+        setModalError(result.message || 'Registration failed');
         setIsLoading(false);
       }
     } catch (error) {
       console.error('Registration error:', error);
       let errorMessage = 'Registration failed. Please try again.';
-      
       if (error.errors) {
-        // Handle validation errors
-        const firstError = Object.values(error.errors)[0];
-        if (Array.isArray(firstError) && firstError.length > 0) {
-          errorMessage = firstError[0];
-        }
+        errorMessage = Object.values(error.errors)[0][0];
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
-      setAlert({ type: 'error', message: errorMessage });
+      setModalError(errorMessage);
       setIsLoading(false);
     }
   };
-
+  
+  // (No changes needed for handleReset, but you could update it to use the modal too)
   const handleReset = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setAlert(null);
-    
+    setModalError('');
     try {
       const result = await authAPI.resetPassword(resetForm.email);
       if (result.success) {
-        setAlert({ type: 'success', message: result.message || 'Password reset link sent to your email!' });
+        setSuccessAlert({ isVisible: true, message: result.message || 'Password reset link sent!' });
       } else {
-        setAlert({ type: 'error', message: result.message || 'Reset password failed' });
+        setModalError(result.message || 'Reset password failed');
       }
       setIsLoading(false);
     } catch (error) {
       console.error('Reset password error:', error);
-      let errorMessage = 'Reset password failed. Please try again.';
-      
-      if (error.errors) {
-        const firstError = Object.values(error.errors)[0];
-        if (Array.isArray(firstError) && firstError.length > 0) {
-          errorMessage = firstError[0];
-        }
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      setAlert({ type: 'error', message: errorMessage });
+      setModalError(error.message || 'Failed to send reset link.');
       setIsLoading(false);
     }
   };
@@ -175,6 +172,18 @@ const LoginPage = ({ onLogin, onBack }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[var(--snowy-white)] via-[var(--whitish-pink)] to-white flex items-center justify-center p-4">
+      {/* --- Step 4: Render the new components at the top level --- */}
+      <SuccessAlert
+        isVisible={successAlert.isVisible}
+        message={successAlert.message}
+        onClose={() => setSuccessAlert({ ...successAlert, isVisible: false })}
+      />
+      <ValidationErrorModal
+        isOpen={!!modalError}
+        message={modalError}
+        onClose={() => setModalError('')}
+      />
+
       {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-20 left-20 w-72 h-72 bg-[var(--dominant-red)] opacity-10 rounded-full blur-3xl"></div>
@@ -213,38 +222,13 @@ const LoginPage = ({ onLogin, onBack }) => {
             Access your enrollment management dashboard
           </p>
         </motion.div>
-
-        {/* Alert */}
-        <AnimatePresence>
-          {alert && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="mb-6"
-            >
-              <Alert className={`border-l-4 ${
-                alert.type === 'success' 
-                  ? 'border-l-green-500 bg-green-50' 
-                  : 'border-l-red-500 bg-red-50'
-              }`}>
-                {alert.type === 'success' ? (
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 text-red-600" />
-                )}
-                <AlertDescription className={
-                  alert.type === 'success' ? 'text-green-800' : 'text-red-800'
-                }>
-                  {alert.message}
-                </AlertDescription>
-              </Alert>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        
+        {/* --- Step 5: Remove the old Alert component --- */}
+        {/* The old AnimatePresence block for the inline alert has been removed from here */}
 
         {/* Main Card */}
         <Card className="card-hover border-0 shadow-2xl">
+          {/* ... The rest of your JSX remains the same ... */}
           <CardContent className="p-0">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3 rounded-t-lg h-12">
@@ -523,4 +507,3 @@ const LoginPage = ({ onLogin, onBack }) => {
 };
 
 export default LoginPage;
-
