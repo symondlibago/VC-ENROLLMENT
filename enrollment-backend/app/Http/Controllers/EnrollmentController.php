@@ -80,15 +80,14 @@ class EnrollmentController extends Controller
             // Process the data
             $data = $request->all();
             
-            // Handle ID photo upload
             if ($request->hasFile('id_photo') && $request->file('id_photo')->isValid()) {
-                $idPhotoPath = $request->file('id_photo')->store('identification', 'public');
+                $idPhotoPath = $request->file('id_photo')->store('identification', 's3'); 
                 $data['id_photo'] = $idPhotoPath;
             }
             
             // Handle signature upload
             if ($request->hasFile('signature') && $request->file('signature')->isValid()) {
-                $signaturePath = $request->file('signature')->store('identification', 'public');
+                $signaturePath = $request->file('signature')->store('identification', 's3'); 
                 $data['signature'] = $signaturePath;
             }
 
@@ -216,8 +215,10 @@ class EnrollmentController extends Controller
         $student = PreEnrolledStudent::with(['course.program', 'enrollmentCode'])->findOrFail($id);
 
         // Add full URLs for images
-        $student->id_photo_url = $student->id_photo ? asset('storage/' . $student->id_photo) : null;
-        $student->signature_url = $student->signature ? asset('storage/' . $student->signature) : null;
+        $student->id_photo_url = $student->id_photo ? Storage::disk('s3')->url($student->id_photo) : null;
+        $student->signature_url = $student->signature ? Storage::disk('s3')->url($student->signature) : null;
+        
+
 
         // Get subject details for the selected subjects
         $subjectIds = $student->selected_subjects;
