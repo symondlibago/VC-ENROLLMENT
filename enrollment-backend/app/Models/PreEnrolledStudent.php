@@ -59,7 +59,7 @@ class PreEnrolledStudent extends Model
         'selected_subjects',
         'program_head_approved',
         'registrar_approved',
-        'cashier_approved',
+        'cashier_approved'
     ];
 
     /**

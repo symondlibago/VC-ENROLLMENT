@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
 
 class EnrollmentController extends Controller
 {
@@ -214,13 +215,10 @@ class EnrollmentController extends Controller
     try {
         $student = PreEnrolledStudent::with(['course.program', 'enrollmentCode'])->findOrFail($id);
 
-        // Add full URLs for images
         $student->id_photo_url = $student->id_photo ? Storage::disk('s3')->url($student->id_photo) : null;
         $student->signature_url = $student->signature ? Storage::disk('s3')->url($student->signature) : null;
         
 
-
-        // Get subject details for the selected subjects
         $subjectIds = $student->selected_subjects;
         $subjects = [];
 
@@ -288,5 +286,72 @@ class EnrollmentController extends Controller
         if ($student->cashier_approved) $completed++;
         
         return ($completed / $steps) * 100;
+    }
+
+    public function updateApprovalStatus(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'status' => 'required|boolean',
+            'field' => 'required|string|in:program_head,registrar,cashier',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
+        }
+
+        try {
+            $student = PreEnrolledStudent::findOrFail($id);
+            $fieldToUpdate = $request->input('field') . '_approved'; // e.g., 'program_head_approved'
+            $userRole = $user->role;
+
+            // Authorization logic based on user role
+            $allowedToUpdate = false;
+            switch ($userRole) {
+                case 'Admin':
+                    $allowedToUpdate = true;
+                    break;
+                case 'Program Head':
+                    if ($fieldToUpdate === 'program_head_approved') {
+                        $allowedToUpdate = true;
+                    }
+                    break;
+                case 'Registrar':
+                    // To enforce workflow, only allow update if program head has already approved
+                    if ($fieldToUpdate === 'registrar_approved' && $student->program_head_approved) {
+                        $allowedToUpdate = true;
+                    }
+                    break;
+                case 'Cashier':
+                     // Enforce workflow: only allow update if both head and registrar have approved
+                    if ($fieldToUpdate === 'cashier_approved' && $student->program_head_approved && $student->registrar_approved) {
+                        $allowedToUpdate = true;
+                    }
+                    break;
+            }
+
+            if (!$allowedToUpdate) {
+                return response()->json(['success' => false, 'message' => 'You are not authorized to perform this action or prerequisites are not met.'], 403);
+            }
+
+            // Update and save the student record
+            $student->{$fieldToUpdate} = $request->input('status');
+            $student->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Enrollment status updated successfully.',
+                'data' => $student,
+            ]);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Student not found.'], 404);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'An error occurred.', 'error' => $e->getMessage()], 500);
+        }
     }
 }

@@ -1,8 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { enrollmentAPI } from '../../services/api';
+import { Label } from "@/components/ui/label";
+import { 
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem 
+} from "@/components/ui/select";
 
-const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
+const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) => {
   const [loading, setLoading] = useState(true);
   const [student, setStudent] = useState(null);
   const [subjects, setSubjects] = useState([]);
@@ -23,9 +31,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
       
       if (response.success) {
         setStudent(response.data.student);
-        // Make sure we're getting the subjects from the API response
         setSubjects(response.data.subjects || []);
-        console.log('Student details:', response.data);
       } else {
         setError('Failed to load student details');
       }
@@ -34,6 +40,56 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleStatusUpdate = async (field, value) => {
+    const newStatus = value === '1'; // Convert string '1'/'0' to boolean
+    const originalStudent = { ...student }; // Backup original state
+
+    try {
+      // Optimistic UI update
+      setStudent(prev => ({ ...prev, [`${field}_approved`]: newStatus }));
+
+      // Call the API to persist the change
+      await enrollmentAPI.updateApprovalStatus(studentId, field, newStatus);
+      
+      // Optionally show a success toast here
+    } catch (err) {
+      console.error("Failed to update status:", err);
+      // Revert state on failure and show an error
+      setError(err.response?.data?.message || 'Update failed. Please try again.');
+      setStudent(originalStudent); 
+    }
+  };
+  
+  // Helper component for rendering each approval dropdown
+  const ApprovalDropdown = ({ label, field, value, disabled = false }) => {
+    // Determine if the current user has permission to edit this specific field
+    const canEdit = 
+      currentUserRole === 'Admin' ||
+      (currentUserRole === 'Program Head' && field === 'program_head') ||
+      (currentUserRole === 'Registrar' && field === 'registrar') ||
+      (currentUserRole === 'Cashier' && field === 'cashier');
+
+    return (
+      <div className="space-y-2">
+        <Label htmlFor={`${field}-approval`}>{label}</Label>
+        <Select
+          id={`${field}-approval`}
+          disabled={!canEdit || disabled}
+          value={value ? '1' : '0'} // Select component uses string values
+          onValueChange={(newValue) => handleStatusUpdate(field, newValue)}
+        >
+          <SelectTrigger className={value ? 'border-green-500' : 'border-yellow-500'}>
+            <SelectValue placeholder="Set status..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1">Approved</SelectItem>
+            <SelectItem value="0">Pending / Reject</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    );
   };
 
   if (!isOpen) return null;
@@ -133,7 +189,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Enrollment Code</p>
-                    <p className="font-medium">{student.enrollmentCode?.code || 'Not available'}</p>
+                    <p className="font-medium">{student.enrollment_code?.code || 'Not available'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Program</p>
@@ -141,31 +197,37 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
                   </div>
                 </div>
               </div>
-              
 
-              {/* Approval Status */}
+              {/* Approval Actions Section (REPLACES OLD STATIC DISPLAY AND DROPDOWN) */}
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium mb-3 text-black">APPROVAL STATUS</h3>
+                <h3 className="text-lg font-medium mb-3 text-black">APPROVAL ACTIONS</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Program Head</p>
-                    <p className={`font-medium ${student.program_head_approved ? 'text-green-600' : 'text-yellow-600'}`}>
-                      {student.program_head_approved ? 'Approved' : 'Pending'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Registrar</p>
-                    <p className={`font-medium ${student.registrar_approved ? 'text-green-600' : 'text-yellow-600'}`}>
-                      {student.registrar_approved ? 'Approved' : 'Pending'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Cashier</p>
-                    <p className={`font-medium ${student.cashier_approved ? 'text-green-600' : 'text-yellow-600'}`}>
-                      {student.cashier_approved ? 'Approved' : 'Pending'}
-                    </p>
-                  </div>
+                  <ApprovalDropdown
+                    label="Program Head"
+                    field="program_head"
+                    value={student.program_head_approved}
+                  />
+                  <ApprovalDropdown
+                    label="Registrar"
+                    field="registrar"
+                    value={student.registrar_approved}
+                    // Disable if Program Head hasn't approved yet, unless user is an Admin
+                    disabled={!student.program_head_approved && currentUserRole !== 'Admin'}
+                  />
+                  <ApprovalDropdown
+                    label="Cashier"
+                    field="cashier"
+                    value={student.cashier_approved}
+                    // Disable if prerequisites aren't met, unless user is an Admin
+                    disabled={(!student.program_head_approved || !student.registrar_approved) && currentUserRole !== 'Admin'}
+                  />
                 </div>
+                 {(!student.program_head_approved && currentUserRole === 'Registrar') && 
+                  <p className="text-xs text-yellow-600 mt-2">Waiting for Program Head approval.</p>
+                }
+                {((!student.program_head_approved || !student.registrar_approved) && currentUserRole === 'Cashier') && 
+                  <p className="text-xs text-yellow-600 mt-2">Waiting for Program Head & Registrar approval.</p>
+                }
               </div>
 
               {/* Selected Subjects */}
@@ -197,6 +259,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
                 )}
               </div>
 
+              {/* ... (Rest of the JSX remains the same) ... */}
               {/* Parent/Guardian Information */}
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h3 className="text-lg font-medium mb-3 text-black">PARENT/GUARDIAN INFORMATION</h3>
@@ -252,75 +315,72 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId }) => {
               </div>
 
               {/* Educational Background with Images */}
-<div className="bg-gray-50 p-4 rounded-lg">
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-    {/* Left Side: Educational Background Header + Details */}
-    <div>
-      <h3 className="text-lg font-semibold mb-3 text-black border-b pb-1">
-        EDUCATIONAL BACKGROUND
-      </h3>
-      <div className="space-y-4">
-        {student.elementary && (
-          <div>
-            <p className="text-sm font-medium">Elementary</p>
-            <p className="text-sm">{student.elementary}</p>
-            <p className="text-xs text-gray-500">Completed: {student.elementary_date_completed || 'Not specified'}</p>
-          </div>
-        )}
-        {student.junior_high_school && (
-          <div>
-            <p className="text-sm font-medium">Junior High School</p>
-            <p className="text-sm">{student.junior_high_school}</p>
-            <p className="text-xs text-gray-500">Completed: {student.junior_high_date_completed || 'Not specified'}</p>
-          </div>
-        )}
-        {student.senior_high_school && (
-          <div>
-            <p className="text-sm font-medium">Senior High School</p>
-            <p className="text-sm">{student.senior_high_school}</p>
-            <p className="text-xs text-gray-500">Completed: {student.senior_high_date_completed || 'Not specified'}</p>
-          </div>
-        )}
-        {student.high_school_non_k12 && (
-          <div>
-            <p className="text-sm font-medium">High School (Non-K12)</p>
-            <p className="text-sm">{student.high_school_non_k12}</p>
-            <p className="text-xs text-gray-500">Completed: {student.high_school_non_k12_date_completed || 'Not specified'}</p>
-          </div>
-        )}
-        {student.college && (
-          <div>
-            <p className="text-sm font-medium">College</p>
-            <p className="text-sm">{student.college}</p>
-            <p className="text-xs text-gray-500">Completed: {student.college_date_completed || 'Not specified'}</p>
-          </div>
-        )}
-      </div>
-    </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Left Side: Educational Background Header + Details */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 text-black border-b pb-1">
+                      EDUCATIONAL BACKGROUND
+                    </h3>
+                    <div className="space-y-4">
+                      {student.elementary && (
+                        <div>
+                          <p className="text-sm font-medium">Elementary</p>
+                          <p className="text-sm">{student.elementary}</p>
+                          <p className="text-xs text-gray-500">Completed: {student.elementary_date_completed || 'Not specified'}</p>
+                        </div>
+                      )}
+                      {student.junior_high_school && (
+                        <div>
+                          <p className="text-sm font-medium">Junior High School</p>
+                          <p className="text-sm">{student.junior_high_school}</p>
+                          <p className="text-xs text-gray-500">Completed: {student.junior_high_date_completed || 'Not specified'}</p>
+                        </div>
+                      )}
+                      {student.senior_high_school && (
+                        <div>
+                          <p className="text-sm font-medium">Senior High School</p>
+                          <p className="text-sm">{student.senior_high_school}</p>
+                          <p className="text-xs text-gray-500">Completed: {student.senior_high_date_completed || 'Not specified'}</p>
+                        </div>
+                      )}
+                      {student.high_school_non_k12 && (
+                        <div>
+                          <p className="text-sm font-medium">High School (Non-K12)</p>
+                          <p className="text-sm">{student.high_school_non_k12}</p>
+                          <p className="text-xs text-gray-500">Completed: {student.high_school_non_k12_date_completed || 'Not specified'}</p>
+                        </div>
+                      )}
+                      {student.college && (
+                        <div>
+                          <p className="text-sm font-medium">College</p>
+                          <p className="text-sm">{student.college}</p>
+                          <p className="text-xs text-gray-500">Completed: {student.college_date_completed || 'Not specified'}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-    {/* Right Side: Header + ID Photo & Signature Side by Side */}
-    <div>
-      <h3 className="text-lg font-semibold mb-3 text-black border-b pb-1 text-right">
-        IDENTIFICATION & SIGNATURE
-      </h3>
-      <div className="flex justify-end gap-4">
-        {student.id_photo_url && (
-          <div className="w-40 h-40 border rounded-lg overflow-hidden shadow-md">
-            <img src={student.id_photo_url} alt="ID Photo" className="w-full h-full object-cover" />
-          </div>
-        )}
-        {student.signature_url && (
-          <div className="w-40 h-40 border rounded-lg overflow-hidden shadow-md">
-            <img src={student.signature_url} alt="Signature" className="w-full h-full object-contain" />
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-</div>
-
-
-
+                  {/* Right Side: Header + ID Photo & Signature Side by Side */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 text-black border-b pb-1 text-right">
+                      IDENTIFICATION & SIGNATURE
+                    </h3>
+                    <div className="flex justify-end gap-4">
+                      {student.id_photo_url && (
+                        <div className="w-40 h-40 border rounded-lg overflow-hidden shadow-md">
+                          <img src={student.id_photo_url} alt="ID Photo" className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      {student.signature_url && (
+                        <div className="w-40 h-40 border rounded-lg overflow-hidden shadow-md">
+                          <img src={student.signature_url} alt="Signature" className="w-full h-full object-contain" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="text-center p-4">No student data found</div>

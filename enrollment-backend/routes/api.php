@@ -33,6 +33,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Schedule routes
     Route::apiResource('schedules', ScheduleController::class);
     Route::get('subjects/{subject}/schedules', [ScheduleController::class, 'getBySubject']);
+
+    Route::post('enrollments/{id}/status', [EnrollmentController::class, 'updateApprovalStatus']);
 });
     // Program routes
     Route::apiResource('programs', ProgramController::class);

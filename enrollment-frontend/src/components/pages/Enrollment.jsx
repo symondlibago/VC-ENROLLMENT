@@ -24,7 +24,7 @@ import {
   ChevronDown,
   Printer
 } from 'lucide-react';
-import { enrollmentAPI } from '@/services/api';
+import { enrollmentAPI, authAPI } from '@/services/api'; // Import authAPI
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -109,6 +109,9 @@ const Enrollment = () => {
   const [selectedStudentId, setSelectedStudentId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
+  // Get the current user's data from local storage
+  const currentUser = authAPI.getUserData();
+
   useEffect(() => {
     fetchEnrollments();
   }, []);
@@ -259,13 +262,20 @@ const Enrollment = () => {
   };
 
   const filteredEnrollments = enrollments.filter((enrollment) => {
-    const matchesSearch = (enrollment.full_name ? enrollment.full_name.toLowerCase().includes(searchTerm.toLowerCase()) : false) ||
+    const name = enrollment.name || `${enrollment.first_name || ''} ${enrollment.last_name || ''}`.trim();
+
+    const matchesSearch =
+      name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (enrollment.email && enrollment.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (enrollment.course && enrollment.course.name && enrollment.course.name.toLowerCase().includes(searchTerm.toLowerCase()));
+      (enrollment.course && enrollment.course.toLowerCase().includes(searchTerm.toLowerCase()));
 
     if (selectedFilter === 'all') return matchesSearch;
-    return matchesSearch && enrollment.status === selectedFilter;
-  });
+    if (!enrollment.status) return false;
+    
+    const statusMatch = enrollment.status.toLowerCase().replace(/ /g, '').includes(selectedFilter);
+    return matchesSearch && statusMatch;
+});
+
 
   return (
     <motion.div
@@ -576,6 +586,7 @@ const Enrollment = () => {
           studentId={selectedStudentId}
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
+          currentUserRole={currentUser?.role} // Pass the user role as a prop
         />
       )}
     </motion.div>

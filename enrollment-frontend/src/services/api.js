@@ -326,6 +326,14 @@ export const enrollmentAPI = {
       throw error.response?.data || { success: false, message: 'Failed to submit enrollment' };
     }
   },
+
+  updateApprovalStatus: async (studentId, field, status) => {
+    const response = await api.post(`/enrollments/${studentId}/status`, {
+        field,
+        status 
+    });
+    return response.data;
+},
   
   // Check enrollment status
   checkStatus: async (code) => {
