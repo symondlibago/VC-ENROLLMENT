@@ -365,6 +365,18 @@ export const enrollmentAPI = {
     }
   }
 };
+
+// --- Add Payment API methods ---
+export const paymentAPI = {
+  create: async (paymentData) => {
+    try {
+      const response = await api.post('/payments', paymentData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to save payment' };
+    }
+  }
+};
 // Schedule API methods
 export const scheduleAPI = {
   // Get schedules by subject ID

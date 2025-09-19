@@ -8,6 +8,7 @@ use App\Http\Controllers\CourseController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\EnrollmentController;
+use App\Http\Controllers\PaymentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -35,6 +36,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('subjects/{subject}/schedules', [ScheduleController::class, 'getBySubject']);
 
     Route::post('enrollments/{id}/status', [EnrollmentController::class, 'updateApprovalStatus']);
+
+    // Payment routes
+    Route::apiResource('payments', PaymentController::class);
 });
     // Program routes
     Route::apiResource('programs', ProgramController::class);
@@ -42,7 +46,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Course routes
     Route::apiResource('courses', CourseController::class);
 
-        // Subject routes
+    // Subject routes
     Route::apiResource('subjects', SubjectController::class);
     Route::get('courses/{course}/subjects', [SubjectController::class, 'getByCourse']);
     
@@ -52,4 +56,3 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('enrollments', [EnrollmentController::class, 'getPreEnrolledStudents']);
     Route::get('enrollments/{id}/details', [EnrollmentController::class, 'getPreEnrolledStudentDetails']);
     Route::get('enrollments/{id}', [EnrollmentController::class, 'getPreEnrolledStudentDetails']);
-
