@@ -61,10 +61,8 @@ return new class extends Migration
             $table->string('enrollment_type');
             $table->json('selected_subjects'); // Store subject IDs as JSON array
             
-            // Approval Status
-            $table->boolean('program_head_approved')->default(false);
-            $table->boolean('registrar_approved')->default(false);
-            $table->boolean('cashier_approved')->default(false);
+            // ADDED: Main enrollment status column
+            $table->enum('enrollment_status', ['pending', 'enrolled', 'rejected'])->default('pending');
 
             // Add identification fields after educational background
             $table->string('id_photo')->nullable();
@@ -82,3 +80,4 @@ return new class extends Migration
         Schema::dropIfExists('pre_enrolled_students');
     }
 };
+

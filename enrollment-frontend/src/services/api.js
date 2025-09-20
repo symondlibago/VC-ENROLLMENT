@@ -310,7 +310,6 @@ export const subjectAPI = {
 
 // Enrollment API methods
 export const enrollmentAPI = {
-  // Submit enrollment
   submitEnrollment: async (enrollmentData) => {
     try {
       const response = await api.post('/enrollments', enrollmentData);
@@ -327,15 +326,14 @@ export const enrollmentAPI = {
     }
   },
 
-  updateApprovalStatus: async (studentId, field, status) => {
-    const response = await api.post(`/enrollments/${studentId}/status`, {
-        field,
-        status 
+  submitApproval: async (studentId, { status, remarks }) => {
+    const response = await api.post(`/enrollments/${studentId}/approval`, {
+        status,
+        remarks 
     });
     return response.data;
-},
+  },
   
-  // Check enrollment status
   checkStatus: async (code) => {
     try {
       const response = await api.get(`/enrollments/code/${code}`);
@@ -345,7 +343,6 @@ export const enrollmentAPI = {
     }
   },
 
-  // Get all pre-enrolled students
   getPreEnrolledStudents: async () => {
     try {
       const response = await api.get('/enrollments');
@@ -355,7 +352,6 @@ export const enrollmentAPI = {
     }
   },
 
-  // Get pre-enrolled student details
   getStudentDetails: async (id) => {
     try {
       const response = await api.get(`/enrollments/${id}/details`);

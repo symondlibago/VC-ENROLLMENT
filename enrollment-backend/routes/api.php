@@ -36,6 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('subjects/{subject}/schedules', [ScheduleController::class, 'getBySubject']);
 
     Route::post('enrollments/{id}/status', [EnrollmentController::class, 'updateApprovalStatus']);
+    Route::post('enrollments/{id}/approval', [EnrollmentController::class, 'submitApproval']);
 
     // Payment routes
     Route::apiResource('payments', PaymentController::class);

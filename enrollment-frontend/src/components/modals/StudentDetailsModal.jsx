@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { X, Save, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { X, Save, Loader2, Clock} from 'lucide-react';
 import { enrollmentAPI, paymentAPI } from '../../services/api'; 
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea"; // <-- Import Textarea
 import { 
   Select,
   SelectTrigger,
@@ -16,6 +17,132 @@ import SuccessAlert from './SuccessAlert';
 import ValidationErrorModal from './ValidationErrorModal';
 import CustomCalendar from '../layout/CustomCalendar';
 import DownloadCOR from '../layout/DownloadCOR';
+
+// NEW: A more robust component for handling individual approvals
+const ApprovalAction = ({
+  roleLabel,
+  roleName,
+  studentId,
+  studentApprovals,
+  currentUserRole,
+  disabled = false,
+  onApprovalSaved,
+}) => {
+  const currentApproval = studentApprovals.find(a => a.role === roleName);
+  
+  const [status, setStatus] = useState(currentApproval?.status || 'pending');
+  const [remarks, setRemarks] = useState(currentApproval?.remarks || '');
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  // Update local state if the student data is externally refreshed
+  useEffect(() => {
+    const updatedApproval = studentApprovals.find(a => a.role === roleName);
+    setStatus(updatedApproval?.status || 'pending');
+    setRemarks(updatedApproval?.remarks || '');
+  }, [studentApprovals, roleName]);
+  
+  const canEdit = currentUserRole === 'Admin' || currentUserRole === roleName;
+  const isModified = status !== (currentApproval?.status || 'pending') || remarks !== (currentApproval?.remarks || '');
+
+  const handleSave = async () => {
+    if (!status || status === 'pending') {
+      setError('Please select a status (Approved or Rejected).');
+      return;
+    }
+    setError('');
+    setIsSaving(true);
+    try {
+      await enrollmentAPI.submitApproval(studentId, { status, remarks });
+      onApprovalSaved(); // This will trigger a full data refresh in the parent
+    } catch (err) {
+      setError(err.message || 'Failed to save approval.');
+      console.error("Approval save error:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const getStatusColorClass = (currentStatus) => {
+    if (currentStatus === 'approved') return 'border-green-500';
+    if (currentStatus === 'rejected') return 'border-red-500';
+    return 'border-yellow-500';
+  };
+
+  const approvalDate = currentApproval?.updated_at;
+  let formattedDate = '';
+  if (approvalDate) {
+    formattedDate = new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(new Date(approvalDate));
+  }
+
+  return (
+    <div className="bg-white p-4 rounded-md border space-y-3">
+      <Label htmlFor={`${roleName}-approval`} className="font-semibold text-gray-800">{roleLabel}</Label>
+      <Select
+        id={`${roleName}-approval`}
+        disabled={!canEdit || disabled}
+        value={status}
+        onValueChange={setStatus}
+      >
+        <SelectTrigger className={getStatusColorClass(currentApproval?.status)}>
+          <SelectValue placeholder="Set status..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="pending">Pending</SelectItem>
+          <SelectItem value="approved">Approved</SelectItem>
+          <SelectItem value="rejected">Rejected</SelectItem>
+        </SelectContent>
+      </Select>
+      
+      <div className="space-y-1">
+        <Label htmlFor={`${roleName}-remarks`} className="text-sm text-gray-600">Remarks</Label>
+        <Textarea
+          id={`${roleName}-remarks`}
+          placeholder="Add remarks (optional for approval, recommended for rejection)..."
+          value={remarks}
+          onChange={(e) => setRemarks(e.target.value)}
+          disabled={!canEdit || disabled}
+          className="min-h-[80px]"
+        />
+      </div>
+
+      <div className="flex items-center justify-between pt-1 min-h-[36px]"> {/* Added min-height for layout consistency */}
+        {/* Left side: Date display (Always visible if a date exists) */}
+        <div className="text-xs text-gray-500 flex items-center">
+          {formattedDate && (
+            <>
+              <Clock size={12} className="mr-1.5" />
+              <span>{formattedDate}</span>
+            </>
+          )}
+        </div>
+
+        {/* Right side: Save button (Visible only if user can edit) */}
+        {canEdit && !disabled && (
+          <Button
+            onClick={handleSave}
+            disabled={isSaving || !isModified}
+            className="bg-red-700 hover:bg-red-800 text-white"
+            size="sm"
+          >
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            <span className="ml-2">Save</span>
+          </Button>
+        )}
+      </div>
+
+      {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+    </div>
+  );
+};
+
 
 const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) => {
   const [loading, setLoading] = useState(true);
@@ -46,11 +173,36 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
   const [alert, setAlert] = useState({ isVisible: false, message: '', type: 'success' });
   const [validationModal, setValidationModal] = useState({ isOpen: false, message: '' });
 
+  const fetchStudentDetails = useCallback(async () => {
+    if (!studentId) return;
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await enrollmentAPI.getStudentDetails(studentId);
+      
+      if (response.success) {
+        const studentData = response.data.student;
+        const subjectsData = response.data.subjects || [];
+
+        setStudent(studentData);
+        setSubjectsWithSchedules(subjectsData);
+
+      } else {
+        setError('Failed to load student details');
+      }
+    } catch (error) {
+      setError(error.message || 'An error occurred while fetching student details');
+    } finally {
+      setLoading(false);
+    }
+  }, [studentId]);
+
   useEffect(() => {
-    if (isOpen && studentId) {
+    if (isOpen) {
       fetchStudentDetails();
     }
-  }, [isOpen, studentId]);
+  }, [isOpen, fetchStudentDetails]);
 
   useEffect(() => {
     if (!student || !subjectsWithSchedules) return;
@@ -103,53 +255,13 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     paymentData.discount
   ]);
 
-  const fetchStudentDetails = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await enrollmentAPI.getStudentDetails(studentId);
-      
-      if (response.success) {
-        const studentData = response.data.student;
-        const subjectsData = response.data.subjects || [];
-
-        setStudent(studentData);
-        setSubjectsWithSchedules(subjectsData);
-
-      } else {
-        setError('Failed to load student details');
-      }
-    } catch (error) {
-      setError(error.message || 'An error occurred while fetching student details');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStatusUpdate = async (field, value, label) => {
-    const newStatus = value === '1';
-    const originalStudent = { ...student };
-
-    try {
-      setStudent(prev => ({ ...prev, [`${field}_approved`]: newStatus }));
-      await enrollmentAPI.updateApprovalStatus(studentId, field, newStatus);
-      
-      setAlert({
+  const handleApprovalUpdated = () => {
+    setAlert({
         isVisible: true,
-        message: `${label} status updated to ${newStatus ? 'Approved' : 'Pending'}.`,
+        message: 'Approval status saved successfully!',
         type: 'success',
-      });
-
-    } catch (err) {
-      console.error("Failed to update status:", err);
-      setStudent(originalStudent); 
-      setAlert({
-        isVisible: true,
-        message: err.response?.data?.message || 'Update failed. Please try again.',
-        type: 'error',
-      });
-    }
+    });
+    fetchStudentDetails(); // Re-fetch all data to ensure UI consistency
   };
 
   const handlePaymentInputChange = (field, value) => {
@@ -203,32 +315,6 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
       setPaymentSaving(false);
     }
   };
-  
-  const ApprovalDropdown = ({ label, field, value, disabled = false }) => {
-    const canEdit = currentUserRole === 'Admin' ||
-      (currentUserRole === 'Program Head' && field === 'program_head') ||
-      (currentUserRole === 'Registrar' && field === 'registrar') ||
-      (currentUserRole === 'Cashier' && field === 'cashier');
-    return (
-      <div className="space-y-2">
-        <Label htmlFor={`${field}-approval`}>{label}</Label>
-        <Select
-          id={`${field}-approval`}
-          disabled={!canEdit || disabled}
-          value={value ? '1' : '0'}
-          onValueChange={(newValue) => handleStatusUpdate(field, newValue, label)}
-        >
-          <SelectTrigger className={value ? 'border-green-500' : 'border-yellow-500'}>
-            <SelectValue placeholder="Set status..." />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1">Approved</SelectItem>
-            <SelectItem value="0">Pending / Reject</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-    );
-  };
 
   if (!isOpen) return null;
 
@@ -245,7 +331,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
         </div>
         <div className="p-6">
           {loading ? (
-            <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div></div>
+            <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div></div>
           ) : error ? (
             <div className="text-red-500 text-center p-4">{error}</div>
           ) : student ? (
@@ -253,6 +339,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
               
               {/* Basic Information */}
               <div className="bg-gray-50 p-4 rounded-lg">
+                {/* ... (No changes in this section) ... */}
                 <h3 className="text-xl font-medium mb-3 text-black">BASIC INFORMATION</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div><p className="text-sm text-gray-500">Student ID No.</p><p className="font-medium">{student.student_id_number}</p></div>
@@ -293,16 +380,41 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                 </div>
               </div>
 
-              {/* Approval Actions Section */}
+              {/* MODIFIED: Approval Actions Section */}
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h3 className="text-lg font-medium mb-3 text-black">APPROVAL ACTIONS</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <ApprovalDropdown label="Program Head" field="program_head" value={student.program_head_approved} />
-                  <ApprovalDropdown label="Registrar" field="registrar" value={student.registrar_approved} disabled={!student.program_head_approved && currentUserRole !== 'Admin'} />
-                  <ApprovalDropdown label="Cashier" field="cashier" value={student.cashier_approved} disabled={(!student.program_head_approved || !student.registrar_approved) && currentUserRole !== 'Admin'} />
+                  <ApprovalAction
+                    roleLabel="Program Head"
+                    roleName="Program Head"
+                    studentId={student.id}
+                    studentApprovals={student.enrollment_approvals || []}
+                    currentUserRole={currentUserRole}
+                    onApprovalSaved={handleApprovalUpdated}
+                  />
+                  <ApprovalAction
+                    roleLabel="Registrar"
+                    roleName="Registrar"
+                    studentId={student.id}
+                    studentApprovals={student.enrollment_approvals || []}
+                    currentUserRole={currentUserRole}
+                    onApprovalSaved={handleApprovalUpdated}
+                    disabled={student.enrollment_approvals?.find(a => a.role === 'Program Head')?.status !== 'approved' && currentUserRole !== 'Admin'}
+                  />
+                  <ApprovalAction
+                    roleLabel="Cashier"
+                    roleName="Cashier"
+                    studentId={student.id}
+                    studentApprovals={student.enrollment_approvals || []}
+                    currentUserRole={currentUserRole}
+                    onApprovalSaved={handleApprovalUpdated}
+                    disabled={(student.enrollment_approvals?.find(a => a.role === 'Program Head')?.status !== 'approved' || student.enrollment_approvals?.find(a => a.role === 'Registrar')?.status !== 'approved') && currentUserRole !== 'Admin'}
+                  />
                 </div>
-                {(!student.program_head_approved && currentUserRole === 'Registrar') && <p className="text-xs text-yellow-600 mt-2">Waiting for Program Head approval.</p>}
-                {((!student.program_head_approved || !student.registrar_approved) && currentUserRole === 'Cashier') && <p className="text-xs text-yellow-600 mt-2">Waiting for Program Head & Registrar approval.</p>}
+                {student.enrollment_approvals?.find(a => a.role === 'Program Head')?.status !== 'approved' && currentUserRole === 'Registrar' &&
+                  <p className="text-xs text-yellow-600 mt-2">Waiting for Program Head approval.</p>}
+                {((student.enrollment_approvals?.find(a => a.role === 'Program Head')?.status !== 'approved' || student.enrollment_approvals?.find(a => a.role === 'Registrar')?.status !== 'approved') && currentUserRole === 'Cashier') &&
+                  <p className="text-xs text-yellow-600 mt-2">Waiting for Program Head & Registrar approval.</p>}
               </div>
 
               {/* Selected Subjects */}

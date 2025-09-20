@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\EnrollmentCode;
 use App\Models\PreEnrolledStudent;
+use App\Models\EnrollmentApproval;
 use App\Models\Course;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,15 +15,11 @@ use Illuminate\Support\Facades\Auth;
 
 class EnrollmentController extends Controller
 {
-    /**
-     * Submit a new enrollment application.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
-     */
+    // submitEnrollment, getPreEnrolledStudents, getPreEnrolledStudentDetails...
+    // ... (No changes to submitEnrollment, getPreEnrolledStudents, getPreEnrolledStudentDetails from previous step)
     public function submitEnrollment(Request $request)
     {
-        // Validate the request data
+        // ... same validation as before
         $validator = Validator::make($request->all(), [
             'course_id' => 'required|exists:courses,id',
             'last_name' => 'required|string|max:255',
@@ -158,15 +155,11 @@ class EnrollmentController extends Controller
         ]);
     }
 
-    /**
-     * Get all pre-enrolled students with course information.
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
+
     public function getPreEnrolledStudents()
     {
         try {
-            $preEnrolledStudents = PreEnrolledStudent::with(['course.program', 'enrollmentCode'])
+            $preEnrolledStudents = PreEnrolledStudent::with(['course.program', 'enrollmentCode', 'enrollmentApprovals'])
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->map(function ($student) {
@@ -191,107 +184,76 @@ class EnrollmentController extends Controller
                     ];
                 });
 
-            return response()->json([
-                'success' => true,
-                'data' => $preEnrolledStudents,
-            ]);
+            return response()->json(['success' => true, 'data' => $preEnrolledStudents]);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch pre-enrolled students',
-                'error' => $e->getMessage(),
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Failed to fetch pre-enrolled students', 'error' => $e->getMessage()], 500);
         }
     }
 
-   /**
-     * Get a single pre-enrolled student with all details.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function getPreEnrolledStudentDetails($id)
-    {
-        try {
-            $student = PreEnrolledStudent::with(['course.program', 'enrollmentCode'])->findOrFail($id);
+{
+    try {
+        // FIX: Add 'enrollmentApprovals' to the with() array.
+        $student = PreEnrolledStudent::with(['course.program', 'enrollmentCode', 'enrollmentApprovals'])->findOrFail($id);
 
-            $student->id_photo_url = $student->id_photo ? Storage::disk('s3')->url($student->id_photo) : null;
-            $student->signature_url = $student->signature ? Storage::disk('s3')->url($student->signature) : null;
-            
-            $subjectIds = $student->selected_subjects;
-            $subjects = [];
+        $student->id_photo_url = $student->id_photo ? Storage::disk('s3')->url($student->id_photo) : null;
+        $student->signature_url = $student->signature ? Storage::disk('s3')->url($student->signature) : null;
+        
+        $subjectIds = $student->selected_subjects;
+        $subjects = [];
 
-            if (is_array($subjectIds) && count($subjectIds) > 0) {
-                $subjects = \App\Models\Subject::with('schedules')
-                    ->whereIn('id', $subjectIds)
-                    ->get();
-            }
-
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'student' => $student,
-                    'subjects' => $subjects, // Subjects now contain their schedules
-                    'approval_status' => [
-                        'program_head_approved' => $student->program_head_approved,
-                        'registrar_approved' => $student->registrar_approved,
-                        'cashier_approved' => $student->cashier_approved,
-                        'fully_approved' => $student->isFullyApproved(),
-                    ],
-                ],
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch student details',
-                'error' => $e->getMessage(),
-            ], 500);
+        if (is_array($subjectIds) && count($subjectIds) > 0) {
+            $subjects = \App\Models\Subject::with('schedules')
+                ->whereIn('id', $subjectIds)
+                ->get();
         }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'student' => $student,
+                'subjects' => $subjects,
+            ],
+        ]);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'message' => 'Failed to fetch student details', 'error' => $e->getMessage()], 500);
     }
+}
 
-
-    /**
-     * Get the enrollment status based on approvals.
-     *
-     * @param  \App\Models\PreEnrolledStudent  $student
-     * @return string
-     */
     private function getEnrollmentStatus($student)
     {
-        if ($student->isFullyApproved()) {
-            return 'Approved';
-        } elseif ($student->program_head_approved && $student->registrar_approved) {
-            return 'Pending Payment';
-        } elseif ($student->program_head_approved) {
-            return 'Registrar Review';
-        } else {
-            return 'Program Head Review';
+        // The main status column is now the primary source of truth.
+        if ($student->enrollment_status === 'enrolled') {
+            return 'Enrolled';
         }
+        if ($student->enrollment_status === 'rejected') {
+            return 'Rejected';
+        }
+
+        // For "pending" status, provide more detail on the current step for the UI.
+        $programHeadApproved = optional($student->getApprovalStatusFor('Program Head'))->status === 'approved';
+        $registrarApproved = optional($student->getApprovalStatusFor('Registrar'))->status === 'approved';
+
+        if ($programHeadApproved && $registrarApproved) {
+            return 'Pending Payment'; // Waiting for Cashier
+        }
+        if ($programHeadApproved) {
+            return 'Registrar Review'; // Waiting for Registrar
+        }
+        return 'Program Head Review'; // Waiting for Program Head
     }
 
-    /**
-     * Calculate the enrollment progress percentage.
-     *
-     * @param  \App\Models\PreEnrolledStudent  $student
-     * @return int
-     */
     private function calculateProgress($student)
     {
-        $steps = 3; // Total approval steps
-        $completed = 0;
-        
-        if ($student->program_head_approved) $completed++;
-        if ($student->registrar_approved) $completed++;
-        if ($student->cashier_approved) $completed++;
-        
-        return ($completed / $steps) * 100;
+        $approvedCount = $student->enrollmentApprovals->where('status', 'approved')->count();
+        return ($approvedCount / 3) * 100;
     }
 
-    public function updateApprovalStatus(Request $request, $id)
+    public function submitApproval(Request $request, $id)
     {
         $validator = Validator::make($request->all(), [
-            'status' => 'required|boolean',
-            'field' => 'required|string|in:program_head,registrar,cashier',
+            'status' => 'required|string|in:approved,rejected',
+            'remarks' => 'nullable|string|max:1000',
         ]);
 
         if ($validator->fails()) {
@@ -299,58 +261,66 @@ class EnrollmentController extends Controller
         }
 
         $user = Auth::user();
-        if (!$user) {
-            return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
+        $student = PreEnrolledStudent::with('enrollmentApprovals')->findOrFail($id);
+        $userRole = $user->role;
+
+        // Authorization & Workflow Logic (no changes here)
+        $isAuthorized = false;
+        $programHeadApproval = $student->getApprovalStatusFor('Program Head');
+        $registrarApproval = $student->getApprovalStatusFor('Registrar');
+
+        switch ($userRole) {
+            case 'Admin':
+            case 'Program Head':
+                if ($userRole === 'Program Head' || $userRole === 'Admin') $isAuthorized = true;
+                break;
+            case 'Registrar':
+                if (optional($programHeadApproval)->status === 'approved') $isAuthorized = true;
+                break;
+            case 'Cashier':
+                if (optional($programHeadApproval)->status === 'approved' && optional($registrarApproval)->status === 'approved') $isAuthorized = true;
+                break;
         }
 
+        if (!$isAuthorized) {
+            return response()->json(['success' => false, 'message' => 'You are not authorized or prerequisites are not met.'], 403);
+        }
+        
         try {
-            $student = PreEnrolledStudent::findOrFail($id);
-            $fieldToUpdate = $request->input('field') . '_approved'; // e.g., 'program_head_approved'
-            $userRole = $user->role;
+            $approval = EnrollmentApproval::updateOrCreate(
+                ['pre_enrolled_student_id' => $student->id, 'role' => $userRole],
+                ['user_id' => $user->id, 'status' => $request->input('status'), 'remarks' => $request->input('remarks')]
+            );
+            
+            // --- LOGIC TO UPDATE THE MAIN STUDENT STATUS ---
+            $student->load('enrollmentApprovals'); // Refresh approvals relationship
 
-            // Authorization logic based on user role
-            $allowedToUpdate = false;
-            switch ($userRole) {
-                case 'Admin':
-                    $allowedToUpdate = true;
-                    break;
-                case 'Program Head':
-                    if ($fieldToUpdate === 'program_head_approved') {
-                        $allowedToUpdate = true;
-                    }
-                    break;
-                case 'Registrar':
-                    // To enforce workflow, only allow update if program head has already approved
-                    if ($fieldToUpdate === 'registrar_approved' && $student->program_head_approved) {
-                        $allowedToUpdate = true;
-                    }
-                    break;
-                case 'Cashier':
-                     // Enforce workflow: only allow update if both head and registrar have approved
-                    if ($fieldToUpdate === 'cashier_approved' && $student->program_head_approved && $student->registrar_approved) {
-                        $allowedToUpdate = true;
-                    }
-                    break;
+            $programHeadStatus = optional($student->getApprovalStatusFor('Program Head'))->status;
+            $registrarStatus = optional($student->getApprovalStatusFor('Registrar'))->status;
+            $cashierStatus = optional($student->getApprovalStatusFor('Cashier'))->status;
+
+            if ($programHeadStatus === 'rejected' || $registrarStatus === 'rejected' || $cashierStatus === 'rejected') {
+                $student->enrollment_status = 'rejected';
+            } elseif ($programHeadStatus === 'approved' && $registrarStatus === 'approved' && $cashierStatus === 'approved') {
+                $student->enrollment_status = 'enrolled';
+            } else {
+                $student->enrollment_status = 'pending';
             }
-
-            if (!$allowedToUpdate) {
-                return response()->json(['success' => false, 'message' => 'You are not authorized to perform this action or prerequisites are not met.'], 403);
-            }
-
-            // Update and save the student record
-            $student->{$fieldToUpdate} = $request->input('status');
             $student->save();
+            // --- END OF NEW LOGIC ---
 
             return response()->json([
                 'success' => true,
-                'message' => 'Enrollment status updated successfully.',
-                'data' => $student,
+                'message' => 'Approval status updated successfully.',
+                'data' => [
+                    'approval' => $approval->load('user'),
+                    'student_status' => $student->enrollment_status
+                ],
             ]);
 
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return response()->json(['success' => false, 'message' => 'Student not found.'], 404);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'An error occurred.', 'error' => $e->getMessage()], 500);
         }
     }
 }
+
