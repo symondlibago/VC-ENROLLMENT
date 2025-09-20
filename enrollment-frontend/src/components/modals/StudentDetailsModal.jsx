@@ -274,7 +274,11 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="text-lg font-medium text-black">ENROLLMENT INFORMATION</h3>
                   {student.cashier_approved && (
-                    <DownloadCOR student={student} subjectsWithSchedules={subjectsWithSchedules} />
+                    <DownloadCOR 
+                      student={student} 
+                      subjectsWithSchedules={subjectsWithSchedules} 
+                      paymentData={paymentData} // <-- FIX: Pass paymentData as a prop
+                    />
                   )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
