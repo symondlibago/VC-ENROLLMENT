@@ -222,7 +222,6 @@ class EnrollmentController extends Controller
             $subjects = [];
 
             if (is_array($subjectIds) && count($subjectIds) > 0) {
-                // EFFICIENT CHANGE: Use the Subject model to eager-load schedules in a single query
                 $subjects = \App\Models\Subject::with('schedules')
                     ->whereIn('id', $subjectIds)
                     ->get();

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Loader2 } from 'lucide-react';
-import { enrollmentAPI, paymentAPI, scheduleAPI } from '../../services/api';
+import { enrollmentAPI, paymentAPI } from '../../services/api'; 
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { 
@@ -12,15 +12,14 @@ import {
 } from "@/components/ui/select";
 
 // Import the new components
-import SuccessAlert from './SuccessAlert'; // Make sure the path is correct
-import ValidationErrorModal from './ValidationErrorModal'; // Make sure the path is correct
-import CustomCalendar from '../layout/CustomCalendar'; // Make sure the path is correct
-import DownloadCOR from '../layout/DownloadCOR'; // Import the new COR component
+import SuccessAlert from './SuccessAlert'; 
+import ValidationErrorModal from './ValidationErrorModal';
+import CustomCalendar from '../layout/CustomCalendar';
+import DownloadCOR from '../layout/DownloadCOR';
 
 const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) => {
   const [loading, setLoading] = useState(true);
   const [student, setStudent] = useState(null);
-  const [subjects, setSubjects] = useState([]);
   const [subjectsWithSchedules, setSubjectsWithSchedules] = useState([]);
   const [error, setError] = useState(null);
   
@@ -39,12 +38,11 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     discount_deduction: 0,
     remaining_amount: 0,
     term_payment: 0,
-    payment_date: new Date().toISOString().split('T')[0] // Today's date
+    payment_date: new Date().toISOString().split('T')[0]
   });
   
   const [paymentSaving, setPaymentSaving] = useState(false);
   
-  // State for new alert and validation modal components
   const [alert, setAlert] = useState({ isVisible: false, message: '', type: 'success' });
   const [validationModal, setValidationModal] = useState({ isOpen: false, message: '' });
 
@@ -55,12 +53,12 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
   }, [isOpen, studentId]);
 
   useEffect(() => {
-    if (!student || !subjects) return;
+    if (!student || !subjectsWithSchedules) return;
 
-    const totalLecHrs = subjects.reduce((sum, subject) => sum + (parseFloat(subject.lec_hrs) || 0), 0);
+    const totalLecHrs = subjectsWithSchedules.reduce((sum, subject) => sum + (parseFloat(subject.lec_hrs) || 0), 0);
     const newTuitionFee = totalLecHrs * 528;
 
-    const totalLabHrs = subjects.reduce((sum, subject) => sum + (parseFloat(subject.lab_hrs) || 0), 0);
+    const totalLabHrs = subjectsWithSchedules.reduce((sum, subject) => sum + (parseFloat(subject.lab_hrs) || 0), 0);
     const newLaboratoryFee = totalLabHrs * 350; 
 
     let newBundledProgramFee = 0;
@@ -96,7 +94,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
 
   }, [
     student, 
-    subjects, 
+    subjectsWithSchedules, 
     paymentData.previous_account, 
     paymentData.registration_fee, 
     paymentData.miscellaneous_fee, 
@@ -117,27 +115,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
         const subjectsData = response.data.subjects || [];
 
         setStudent(studentData);
-        setSubjects(subjectsData);
-
-        if (subjectsData.length > 0) {
-            const schedulePromises = subjectsData.map(async (subject) => {
-                try {
-                    const scheduleResponse = await scheduleAPI.getBySubject(subject.id);
-                    return {
-                        ...subject,
-                        schedules: scheduleResponse.data || [],
-                    };
-                } catch (scheduleError) {
-                    console.error(`Failed to fetch schedule for subject ${subject.id}`, scheduleError);
-                    return { ...subject, schedules: [] };
-                }
-            });
-            
-            const resolvedSubjects = await Promise.all(schedulePromises);
-            setSubjectsWithSchedules(resolvedSubjects);
-        } else {
-            setSubjectsWithSchedules([]);
-        }
+        setSubjectsWithSchedules(subjectsData);
 
       } else {
         setError('Failed to load student details');
@@ -272,6 +250,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
             <div className="text-red-500 text-center p-4">{error}</div>
           ) : student ? (
             <div className="space-y-6">
+              
               {/* Basic Information */}
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h3 className="text-xl font-medium mb-3 text-black">BASIC INFORMATION</h3>
@@ -404,7 +383,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                   </div>
                 </div>
               )}
-
+              
               {/* Parent/Guardian Information */}
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h3 className="text-lg font-medium mb-3 text-black">PARENT/GUARDIAN INFORMATION</h3>
