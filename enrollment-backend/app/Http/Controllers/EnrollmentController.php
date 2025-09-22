@@ -322,5 +322,29 @@ class EnrollmentController extends Controller
             return response()->json(['success' => false, 'message' => 'An error occurred.', 'error' => $e->getMessage()], 500);
         }
     }
+
+    public function getEnrolledStudents()
+    {
+        try {
+            $enrolledStudents = PreEnrolledStudent::with('course') // Optional: include course info
+                ->where('enrollment_status', 'enrolled')
+                ->get()
+                ->map(function ($student) {
+                    // Format the data as needed by the frontend
+                    return [
+                        'id' => $student->id,
+                        'name' => $student->getFullNameAttribute(),
+                        'email' => $student->email_address,
+                        'avatar' => strtoupper(substr($student->first_name, 0, 1) . substr($student->last_name, 0, 1)),
+                        'courseCode' => $student->course ? $student->course->course_code : 'N/A',
+                        'status' => 'active', // Assuming 'enrolled' maps to 'active' on the frontend
+                    ];
+                });
+
+            return response()->json(['success' => true, 'data' => $enrolledStudents]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Failed to fetch enrolled students', 'error' => $e->getMessage()], 500);
+        }
+    }
 }
 

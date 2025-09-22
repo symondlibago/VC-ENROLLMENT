@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class PreEnrolledStudent extends Model
 {
     use HasFactory;
@@ -112,6 +112,11 @@ class PreEnrolledStudent extends Model
     public function isFullyApproved(): bool
     {
         return $this->enrollment_status === 'enrolled';
+    }
+
+    public function sections(): BelongsToMany
+    {
+    return $this->belongsToMany(Section::class, 'section_student');
     }
 }
 

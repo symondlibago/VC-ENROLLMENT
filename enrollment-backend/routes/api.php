@@ -9,6 +9,7 @@ use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\SectionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -37,9 +38,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('enrollments/{id}/status', [EnrollmentController::class, 'updateApprovalStatus']);
     Route::post('enrollments/{id}/approval', [EnrollmentController::class, 'submitApproval']);
+    Route::get('/enrolled-students', [EnrollmentController::class, 'getEnrolledStudents']);
 
     // Payment routes
     Route::apiResource('payments', PaymentController::class);
+
+    // Section routes
+    Route::apiResource('sections', SectionController::class);
+    Route::post('sections/{section}/students', [SectionController::class, 'addStudents']);
 });
     // Program routes
     Route::apiResource('programs', ProgramController::class);

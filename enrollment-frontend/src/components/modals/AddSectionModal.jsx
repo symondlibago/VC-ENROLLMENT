@@ -9,17 +9,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-// Static course data
-const courses = [
-  { id: 1, name: 'Mathematics 101', code: 'MATH101' },
-  { id: 2, name: 'Physics 201', code: 'PHY201' },
-  { id: 3, name: 'Chemistry 301', code: 'CHEM301' },
-  { id: 4, name: 'Biology 101', code: 'BIO101' },
-  { id: 5, name: 'Computer Science 201', code: 'CS201' },
-  { id: 6, name: 'English Literature 301', code: 'ENG301' },
-];
+// The static 'courses' array has been removed.
+// The component now receives courses as a prop.
 
-const AddSectionModal = ({ isOpen, onClose, onAddSection }) => {
+const AddSectionModal = ({ isOpen, onClose, onAddSection, courses = [] }) => {
   const [sectionName, setSectionName] = useState('');
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -35,7 +28,7 @@ const AddSectionModal = ({ isOpen, onClose, onAddSection }) => {
       setSectionName('');
       setSelectedCourse(null);
       setIsDropdownOpen(false);
-      onClose();
+      // No need to call onClose(), the parent handler will do it.
     }
   };
 
@@ -208,7 +201,7 @@ const AddSectionModal = ({ isOpen, onClose, onAddSection }) => {
                     whileTap={{ scale: 0.98 }}
                   >
                     <span className={selectedCourse ? 'text-gray-900' : 'text-gray-500'}>
-                      {selectedCourse ? `${selectedCourse.name} (${selectedCourse.code})` : 'Select a course...'}
+                      {selectedCourse ? `${selectedCourse.course_name} (${selectedCourse.course_code})` : 'Select a course...'}
                     </span>
                     <motion.div
                       animate={{ rotate: isDropdownOpen ? 180 : 0 }}
@@ -244,8 +237,8 @@ const AddSectionModal = ({ isOpen, onClose, onAddSection }) => {
                               <BookOpen className="w-4 h-4 text-white" />
                             </div>
                             <div>
-                              <div className="font-medium text-gray-900">{course.name}</div>
-                              <div className="text-sm text-gray-500">{course.code}</div>
+                              <div className="font-medium text-gray-900">{course.course_name}</div>
+                              <div className="text-sm text-gray-500">{course.course_code}</div>
                             </div>
                           </motion.button>
                         ))}

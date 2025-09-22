@@ -359,6 +359,54 @@ export const enrollmentAPI = {
     } catch (error) {
       throw error.response?.data || { success: false, message: 'Failed to fetch student details' };
     }
+  },
+
+  getEnrolledStudents: async () => {
+    try {
+      const response = await api.get('/enrolled-students');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch enrolled students' };
+    }
+  },
+};
+
+// Section API methods
+export const sectionAPI = {
+  getAll: async () => {
+    try {
+      const response = await api.get('/sections');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch sections' };
+    }
+  },
+
+  getById: async (id) => {
+    try {
+      const response = await api.get(`/sections/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch section details' };
+    }
+  },
+
+  create: async (sectionData) => {
+    try {
+      const response = await api.post('/sections', sectionData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to create section' };
+    }
+  },
+
+  addStudents: async (sectionId, studentIds) => {
+    try {
+      const response = await api.post(`/sections/${sectionId}/students`, { student_ids: studentIds });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to add students to section' };
+    }
   }
 };
 

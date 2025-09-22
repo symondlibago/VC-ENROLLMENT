@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Users, 
@@ -11,183 +11,15 @@ import {
   Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import SectionDetailsModal from '../modals/SectionDetailsModal';
 import AddSectionModal from '../modals/AddSectionModal';
 
-// Static sample data
-const initialSections = [
-  {
-    id: 1,
-    name: 'Mathematics 101',
-    studentIds: [1, 2, 6],
-    description: 'Introduction to Calculus and Algebra',
-    instructor: 'Dr. Smith',
-    schedule: 'MWF 9:00-10:00 AM'
-  },
-  {
-    id: 2,
-    name: 'Physics 201',
-    studentIds: [3, 4],
-    description: 'Classical Mechanics and Thermodynamics',
-    instructor: 'Prof. Johnson',
-    schedule: 'TTh 2:00-3:30 PM'
-  },
-  {
-    id: 3,
-    name: 'Chemistry 301',
-    studentIds: [5],
-    description: 'Organic Chemistry Fundamentals',
-    instructor: 'Dr. Williams',
-    schedule: 'MWF 11:00-12:00 PM'
-  },
-  {
-    id: 4,
-    name: 'Biology 101',
-    studentIds: [],
-    description: 'Introduction to Cell Biology',
-    instructor: 'Dr. Brown',
-    schedule: 'TTh 10:00-11:30 AM'
-  },
-  {
-    id: 5,
-    name: 'Computer Science 201',
-    studentIds: [],
-    description: 'Data Structures and Algorithms',
-    instructor: 'Prof. Davis',
-    schedule: 'MWF 1:00-2:00 PM'
-  },
-  {
-    id: 6,
-    name: 'English Literature 301',
-    studentIds: [],
-    description: 'Modern American Literature',
-    instructor: 'Dr. Wilson',
-    schedule: 'TTh 3:30-5:00 PM'
-  }
-];
-
-const allStudents = [
-  {
-    id: 1,
-    name: 'Sarah Johnson',
-    email: 'sarah.johnson@email.com',
-    phone: '+1 (555) 123-4567',
-    address: 'New York, NY',
-    enrollmentDate: '2024-01-15',
-    status: 'active',
-    courses: 3,
-    gpa: '3.8',
-    avatar: 'SJ',
-    courseCode: 'MATH101'
-  },
-  {
-    id: 2,
-    name: 'Michael Chen',
-    email: 'michael.chen@email.com',
-    phone: '+1 (555) 234-5678',
-    address: 'San Francisco, CA',
-    enrollmentDate: '2024-01-10',
-    status: 'active',
-    courses: 4,
-    gpa: '3.9',
-    avatar: 'MC',
-    courseCode: 'MATH101'
-  },
-  {
-    id: 3,
-    name: 'Emily Davis',
-    email: 'emily.davis@email.com',
-    phone: '+1 (555) 345-6789',
-    address: 'Chicago, IL',
-    enrollmentDate: '2024-01-08',
-    status: 'inactive',
-    courses: 2,
-    gpa: '3.6',
-    avatar: 'ED',
-    courseCode: 'PHY201'
-  },
-  {
-    id: 4,
-    name: 'James Wilson',
-    email: 'james.wilson@email.com',
-    phone: '+1 (555) 456-7890',
-    address: 'Boston, MA',
-    enrollmentDate: '2024-01-12',
-    status: 'active',
-    courses: 5,
-    gpa: '4.0',
-    avatar: 'JW',
-    courseCode: 'PHY201'
-  },
-  {
-    id: 5,
-    name: 'Lisa Anderson',
-    email: 'lisa.anderson@email.com',
-    phone: '+1 (555) 567-8901',
-    address: 'Seattle, WA',
-    enrollmentDate: '2024-01-05',
-    status: 'graduated',
-    courses: 6,
-    gpa: '3.7',
-    avatar: 'LA',
-    courseCode: 'CHEM301'
-  },
-  {
-    id: 6,
-    name: 'David Brown',
-    email: 'david.brown@email.com',
-    phone: '+1 (555) 678-9012',
-    address: 'Austin, TX',
-    enrollmentDate: '2024-01-20',
-    status: 'active',
-    courses: 2,
-    gpa: '3.5',
-    avatar: 'DB',
-    courseCode: 'MATH101'
-  },
-  {
-    id: 7,
-    name: 'Olivia White',
-    email: 'olivia.white@email.com',
-    phone: '+1 (555) 789-0123',
-    address: 'Miami, FL',
-    enrollmentDate: '2024-02-01',
-    status: 'active',
-    courses: 1,
-    gpa: '3.2',
-    avatar: 'OW',
-    courseCode: 'BIO101'
-  },
-  {
-    id: 8,
-    name: 'Daniel Green',
-    email: 'daniel.green@email.com',
-    phone: '+1 (555) 890-1234',
-    address: 'Denver, CO',
-    enrollmentDate: '2024-02-05',
-    status: 'active',
-    courses: 2,
-    gpa: '3.5',
-    avatar: 'DG',
-    courseCode: 'CS201'
-  },
-  {
-    id: 9,
-    name: 'Sophia Hall',
-    email: 'sophia.hall@email.com',
-    phone: '+1 (555) 901-2345',
-    address: 'Portland, OR',
-    enrollmentDate: '2024-02-10',
-    status: 'inactive',
-    courses: 1,
-    gpa: '3.0',
-    avatar: 'SH',
-    courseCode: 'ENG301'
-  }
-];
+// Import your API methods
+import { sectionAPI, enrollmentAPI , courseAPI } from '@/services/api';
+import { toast } from 'sonner';
 
 const Students = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -195,37 +27,68 @@ const Students = () => {
   const [selectedSection, setSelectedSection] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false);
-  const [sections, setSections] = useState(initialSections);
+
+  // State for data from backend
+  const [sections, setSections] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [enrolledStudents, setEnrolledStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isSectionLoading, setIsSectionLoading] = useState(false); // For modal loading state
+
+  // ... useEffect and stats hooks remain the same ...
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [sectionsRes, coursesRes, studentsRes] = await Promise.all([
+          sectionAPI.getAll(),
+          courseAPI.getAll(),
+          enrollmentAPI.getEnrolledStudents(),
+        ]);
+        
+        setSections(sectionsRes.data || []);
+        setCourses(coursesRes.data || []);
+        setEnrolledStudents(studentsRes.data || []);
+      } catch (error) {
+        toast.error('Failed to load data. Please try again.');
+        console.error("Data fetching error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const stats = [
     {
       title: 'Total Sections',
       value: sections.length.toString(),
-      change: '+2 new',
+      change: `+${sections.filter(s => new Date(s.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length} this week`,
       icon: BookOpen,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50'
     },
     {
-      title: 'Total Students',
-      value: allStudents.length.toString(),
-      change: '+12.5%',
+      title: 'Enrolled Students',
+      value: enrolledStudents.length.toString(),
+      change: 'All active',
       icon: Users,
       color: 'text-green-600',
       bgColor: 'bg-green-50'
     },
     {
-      title: 'Active Students',
-      value: allStudents.filter(s => s.status === 'active').length.toString(),
-      change: '+8.2%',
-      icon: GraduationCap,
-      color: 'text-[var(--dominant-red)]',
-      bgColor: 'bg-red-50'
+        title: 'Total Courses',
+        value: courses.length.toString(),
+        change: 'Available',
+        icon: GraduationCap,
+        color: 'text-[var(--dominant-red)]',
+        bgColor: 'bg-red-50'
     },
     {
-      title: 'Enrolled Students',
-      value: allStudents.filter(s => s.status !== 'graduated').length.toString(),
-      change: '+5.4%',
+      title: 'Empty Sections',
+      value: sections.filter(s => s.students_count === 0).length.toString(),
+      change: 'Needs students',
       icon: UserPlus,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50'
@@ -255,9 +118,25 @@ const Students = () => {
     }
   };
 
-  const handleSectionClick = (section) => {
-    setSelectedSection(section);
-    setIsModalOpen(true);
+
+  // FIX: Updated handleSectionClick to fetch details before opening modal
+  const handleSectionClick = async (section) => {
+    setIsSectionLoading(true);
+    setIsModalOpen(true); // Open modal shell immediately
+    try {
+      const response = await sectionAPI.getById(section.id);
+      if (response.success) {
+        setSelectedSection(response.data);
+      } else {
+        toast.error('Could not load section details.');
+        setIsModalOpen(false); // Close modal on error
+      }
+    } catch (error) {
+      toast.error('An error occurred while fetching details.');
+      setIsModalOpen(false);
+    } finally {
+      setIsSectionLoading(false);
+    }
   };
 
   const handleCloseModal = () => {
@@ -273,47 +152,72 @@ const Students = () => {
     setIsAddSectionModalOpen(false);
   };
 
-  const handleAddSection = (sectionData) => {
-    const newSection = {
-      id: sections.length + 1,
-      name: sectionData.name,
-      studentIds: [],
-      description: `Course description for ${sectionData.course.name}`,
-      instructor: 'TBD',
-      schedule: 'TBD'
-    };
-    
-    setSections([...sections, newSection]);
-  };
+  const handleAddSection = async (sectionData) => {
+    try {
+      const response = await sectionAPI.create({
+        name: sectionData.name,
+        course_id: sectionData.course.id,
+      });
 
-  const handleAddStudentsToSection = (sectionId, studentIds) => {
-    setSections(prevSections => 
-      prevSections.map(section => 
-        section.id === sectionId 
-          ? { ...section, studentIds: [...section.studentIds, ...studentIds] }
-          : section
-      )
-    );
-    
-    // Update the selected section if it's currently open
-    if (selectedSection && selectedSection.id === sectionId) {
-      setSelectedSection(prevSection => ({
-        ...prevSection,
-        studentIds: [...prevSection.studentIds, ...studentIds]
-      }));
+      if (response.success) {
+        setSections(prevSections => [response.data, ...prevSections]);
+        toast.success('Section added successfully!');
+        handleCloseAddSectionModal();
+      } else {
+        toast.error('Failed to add section.');
+      }
+    } catch (error) {
+      toast.error('An error occurred while adding the section.');
+      console.error("Add section error:", error);
     }
   };
 
+  const handleAddStudentsToSection = async (sectionId, studentIds) => {
+    try {
+      const response = await sectionAPI.addStudents(sectionId, studentIds);
+      if (response.success) {
+        // The response from addStudents now contains the updated section with the full student list
+        const updatedSection = response.data;
+
+        // Update the main sections list with the new student count
+        setSections(prevSections =>
+          prevSections.map(sec =>
+            sec.id === sectionId
+              ? { ...sec, students_count: updatedSection.students.length }
+              : sec
+          )
+        );
+
+        // Update the selected section in the modal with the full new data
+        setSelectedSection(updatedSection);
+
+        toast.success('Students added successfully!');
+      } else {
+        toast.error('Failed to add students.');
+      }
+    } catch (error) {
+      toast.error('An error occurred while adding students.');
+      console.error("Add students error:", error);
+    }
+  };
+  
+  // ... filteredSections and loading checks remain the same ...
   const filteredSections = sections.filter(section => {
+    const courseName = section.course?.course_name || '';
     const matchesSearch = section.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         section.instructor.toLowerCase().includes(searchTerm.toLowerCase());
+                         courseName.toLowerCase().includes(searchTerm.toLowerCase());
     
     if (selectedFilter === 'all') return matchesSearch;
-    if (selectedFilter === 'with-students') return matchesSearch && section.studentIds.length > 0;
-    if (selectedFilter === 'empty') return matchesSearch && section.studentIds.length === 0;
+    if (selectedFilter === 'with-students') return matchesSearch && section.students_count > 0;
+    if (selectedFilter === 'empty') return matchesSearch && section.students_count === 0;
     
     return matchesSearch;
   });
+
+  if (loading) {
+    return <div className='p-6'>Loading...</div>;
+  }
+
 
   return (
     <motion.div
@@ -322,6 +226,8 @@ const Students = () => {
       initial="hidden"
       animate="visible"
     >
+      {/* ... The rest of the JSX is unchanged ... */}
+      {/* Header, Stats, Search, and Sections Grid remain the same */}
       {/* Header Section */}
       <motion.div variants={itemVariants} className="animate-fade-in">
         <div className="gradient-soft rounded-2xl p-8 border border-gray-100">
@@ -343,10 +249,6 @@ const Students = () => {
                 <Plus className="w-4 h-4 mr-2" />
                 Add Section
               </Button>
-              <Button variant="outline" className="liquid-button">
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add Student
-              </Button>
             </div>
           </div>
         </div>
@@ -354,7 +256,7 @@ const Students = () => {
 
       {/* Stats Grid */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => {
+        {stats.map((stat) => {
           const Icon = stat.icon;
           return (
             <motion.div
@@ -392,11 +294,11 @@ const Students = () => {
         <Card className="card-hover border-0 shadow-sm">
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-              <div className="flex-1 max-w-md">
+              <div className="flex-1 w-full md:max-w-md">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
-                    placeholder="Search sections by name or instructor..."
+                    placeholder="Search sections by name or course..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10 liquid-morph"
@@ -413,14 +315,6 @@ const Students = () => {
                   <option value="with-students">With Students</option>
                   <option value="empty">Empty Sections</option>
                 </select>
-                <Button variant="outline" className="liquid-button">
-                  <Filter className="w-4 h-4 mr-2" />
-                  Filter
-                </Button>
-                <Button variant="outline" className="liquid-button">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
               </div>
             </div>
           </CardContent>
@@ -447,67 +341,45 @@ const Students = () => {
               className="liquid-hover cursor-pointer"
               onClick={() => handleSectionClick(section)}
             >
-              <Card className="card-hover border-0 shadow-sm h-full">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-[var(--dominant-red)] rounded-xl flex items-center justify-center">
-                        <BookOpen className="w-6 h-6 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-gray-900 text-lg">{section.name}</h3>
-                        <Badge 
-                          className={`text-xs mt-1 ${
-                            section.studentIds.length > 0 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-gray-100 text-gray-800'
-                          }`}
-                        >
-                          {section.studentIds.length} student{section.studentIds.length !== 1 ? 's' : ''}
-                        </Badge>
+              <Card className="card-hover border-0 shadow-sm h-full flex flex-col">
+                <CardContent className="p-6 flex-grow flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-12 h-12 bg-[var(--dominant-red)] rounded-xl flex items-center justify-center shrink-0">
+                          <BookOpen className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-gray-900 text-lg">{section.name}</h3>
+                           {/* FIX: Used students_count from API instead of studentIds.length */}
+                          <Badge 
+                            className={`text-xs mt-1 ${
+                              section.students_count > 0 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            {section.students_count} student{section.students_count !== 1 ? 's' : ''}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-3">
-                    <p className="text-sm text-gray-600 line-clamp-2">
-                      {section.description}
-                    </p>
-                    
                     <div className="space-y-2">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <GraduationCap className="w-4 h-4 mr-2 text-gray-400" />
-                        {section.instructor}
-                      </div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Users className="w-4 h-4 mr-2 text-gray-400" />
-                        {section.schedule}
-                      </div>
+                        <div className="flex items-center text-sm text-gray-600">
+                            <GraduationCap className="w-4 h-4 mr-2 text-gray-400" />
+                            <span className="truncate">{section.course?.course_name || 'N/A'}</span>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-600">
+                            <Users className="w-4 h-4 mr-2 text-gray-400" />
+                            <span>{section.course?.program?.program_code || 'No Program'}</span>
+                        </div>
                     </div>
                   </div>
 
+                  {/* FIX: Removed avatar preview since student details are not in this API call */}
                   <div className="mt-4 pt-4 border-t border-gray-100">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500">Click to view students</span>
-                      <div className="flex -space-x-2">
-                        {section.studentIds.slice(0, 3).map((studentId, idx) => {
-                          const student = allStudents.find(s => s.id === studentId);
-                          return student ? (
-                            <div
-                              key={studentId}
-                              className="w-8 h-8 bg-[var(--dominant-red)] rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-white"
-                            >
-                              {student.avatar}
-                            </div>
-                          ) : null;
-                        })}
-                        {section.studentIds.length > 3 && (
-                          <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 text-xs font-bold border-2 border-white">
-                            +{section.studentIds.length - 3}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <span className="text-sm text-gray-500">Click to view students</span>
                   </div>
                 </CardContent>
               </Card>
@@ -517,7 +389,7 @@ const Students = () => {
       </motion.div>
 
       {/* Empty State */}
-      {filteredSections.length === 0 && (
+      {filteredSections.length === 0 && !loading && (
         <motion.div
           variants={itemVariants}
           className="text-center py-12"
@@ -535,25 +407,24 @@ const Students = () => {
         </motion.div>
       )}
 
-      {/* Section Details Modal */}
+      {/* FIX: Updated props passed to SectionDetailsModal */}
       <SectionDetailsModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         section={selectedSection}
-        students={allStudents}
-        allStudents={allStudents}
+        isLoading={isSectionLoading} // Pass loading state
+        allStudents={enrolledStudents} // This is the list of ALL students available to be added
         onAddStudentsToSection={handleAddStudentsToSection}
       />
 
-      {/* Add Section Modal */}
       <AddSectionModal
         isOpen={isAddSectionModalOpen}
         onClose={handleCloseAddSectionModal}
         onAddSection={handleAddSection}
+        courses={courses}
       />
     </motion.div>
   );
 };
 
 export default Students;
-
