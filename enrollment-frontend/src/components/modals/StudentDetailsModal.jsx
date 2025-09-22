@@ -339,7 +339,6 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
               
               {/* Basic Information */}
               <div className="bg-gray-50 p-4 rounded-lg">
-                {/* ... (No changes in this section) ... */}
                 <h3 className="text-xl font-medium mb-3 text-black">BASIC INFORMATION</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div><p className="text-sm text-gray-500">Student ID No.</p><p className="font-medium">{student.student_id_number}</p></div>
@@ -360,11 +359,11 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="text-lg font-medium text-black">ENROLLMENT INFORMATION</h3>
-                  {student.cashier_approved && (
+                  {student.enrollment_approvals && (
                     <DownloadCOR 
                       student={student} 
                       subjectsWithSchedules={subjectsWithSchedules} 
-                      paymentData={paymentData} // <-- FIX: Pass paymentData as a prop
+                      paymentData={paymentData} 
                     />
                   )}
                 </div>

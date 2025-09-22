@@ -3,8 +3,8 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
-import vineyardLogo from '../../assets/vineyard.png'; // Main logo
-import circleLogo from '../../assets/circlelogo.jpg'; // The new circular logo for the second section
+import vineyardLogo from '../../assets/vineyard.png';
+import circleLogo from '../../assets/circlelogo.jpg';
 
 const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
 
@@ -13,7 +13,6 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 14;
 
-    // Header for the first section (Registrar's Copy)
     const drawBrandingAndTitle = (startY) => {
       const imgWidth = 80; const imgHeight = 15;
       const imgX = (pageWidth - imgWidth) / 2;
@@ -35,7 +34,6 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
       return y;
     };
     
-    // Draws student details, used in both sections
     const drawStudentDetails = (startY) => {
       let y = startY + 7;
       doc.setFontSize(8);
@@ -51,7 +49,6 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
       return y;
     };
 
-    // Header for the second section (Student's Copy)
     const drawSecondSectionHeader = (startY) => {
         const logoSize = 15;
         doc.addImage(circleLogo, 'JPG', margin, startY, logoSize, logoSize);
@@ -72,6 +69,150 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
         doc.setFontSize(10).setFont('helvetica', 'bold');
         doc.text('CERTIFICATE OF REGISTRATION', pageWidth / 2, finalY, { align: 'center' });
         return finalY;
+    };
+
+    // --- UPDATED drawStudentPersonalDetails function ---
+    const drawStudentPersonalDetails = () => {
+      doc.addPage();
+      const startY = 15;
+      let y = startY;
+      const smallMargin = 10;
+      const contentWidth = pageWidth - 2 * smallMargin;
+
+      // Title
+      doc.setFontSize(10).setFont('helvetica', 'bold').text('STUDENT PERSONAL DATA', pageWidth / 2, y, { align: 'center' });
+      y += 8;
+
+      // Basic Info Fields
+      const fieldSpacing = 5;
+      const labelFontSize = 8;
+      const valueFontSize = 9;
+
+      // Name
+      const nameLineY = y + 1;
+      doc.setFontSize(labelFontSize).text('Name:', smallMargin, y);
+      doc.setFontSize(valueFontSize).text(student.last_name || 'N/A', smallMargin + 18, y);
+      doc.setFontSize(valueFontSize).text(student.first_name || 'N/A', smallMargin + 65, y);
+      doc.setFontSize(valueFontSize).text(student.middle_name || 'N/A', smallMargin + 112, y);
+      doc.setFontSize(6).text('(Last Name)', smallMargin + 18, y + 4);
+      doc.setFontSize(6).text('(First Name)', smallMargin + 65, y + 4);
+      doc.setFontSize(6).text('(Middle Name)', smallMargin + 112, y + 4);
+      doc.line(smallMargin + 18, nameLineY, smallMargin + 60, nameLineY);
+      doc.line(smallMargin + 65, nameLineY, smallMargin + 107, nameLineY);
+      doc.line(smallMargin + 112, nameLineY, smallMargin + 154, nameLineY);
+      y += fieldSpacing * 2;
+
+      // Birth Date and Place
+      doc.setFontSize(labelFontSize).text('Birth Date:', smallMargin, y);
+      doc.setFontSize(valueFontSize).text(new Date(student.birth_date).toLocaleDateString() || 'N/A', smallMargin + 25, y);
+      doc.setFontSize(labelFontSize).text('Birth Place:', pageWidth / 2, y);
+      doc.setFontSize(valueFontSize).text(student.birth_place || 'N/A', pageWidth / 2 + 25, y);
+      doc.line(smallMargin + 25, y + 1, smallMargin + 60, y + 1);
+      doc.line(pageWidth / 2 + 25, y + 1, pageWidth - smallMargin, y + 1);
+      y += fieldSpacing;
+
+      // Nationality, Civil Status, Religion
+      doc.setFontSize(labelFontSize).text('Nationality:', smallMargin, y);
+      doc.setFontSize(valueFontSize).text(student.nationality || 'N/A', smallMargin + 25, y);
+      doc.setFontSize(labelFontSize).text('Civil Status:', smallMargin + 60, y);
+      doc.setFontSize(valueFontSize).text(student.civil_status || 'N/A', smallMargin + 85, y);
+      doc.setFontSize(labelFontSize).text('Religion:', smallMargin + 120, y);
+      doc.setFontSize(valueFontSize).text(student.religion || 'N/A', smallMargin + 140, y);
+      doc.line(smallMargin + 25, y + 1, smallMargin + 55, y + 1);
+      doc.line(smallMargin + 85, y + 1, smallMargin + 115, y + 1);
+      doc.line(smallMargin + 140, y + 1, smallMargin + 170, y + 1);
+      y += fieldSpacing;
+
+      // Address
+      doc.setFontSize(labelFontSize).text('Address:', smallMargin, y);
+      doc.setFontSize(valueFontSize).text(student.address || 'N/A', smallMargin + 25, y);
+      doc.line(smallMargin + 25, y + 1, pageWidth - smallMargin, y + 1);
+      y += fieldSpacing;
+
+      // Contact Number & Email
+      doc.setFontSize(labelFontSize).text('Contact No.:', smallMargin, y);
+      doc.setFontSize(valueFontSize).text(student.contact_number || 'N/A', smallMargin + 28, y);
+      doc.setFontSize(labelFontSize).text('Email Address:', pageWidth / 2, y);
+      doc.setFontSize(valueFontSize).text(student.email_address || 'N/A', pageWidth / 2 + 28, y);
+      doc.line(smallMargin + 28, y + 1, smallMargin + 70, y + 1);
+      doc.line(pageWidth / 2 + 28, y + 1, pageWidth - smallMargin, y + 1);
+      y += fieldSpacing * 2;
+
+      // Parents Information Header
+      doc.setFontSize(10).setFont('helvetica', 'bold').text('PARENT\'S INFORMATION', smallMargin, y);
+      y += 3;
+      doc.line(smallMargin, y, pageWidth - smallMargin, y);
+      y += 5;
+
+      // Father's Details
+      doc.setFontSize(labelFontSize).setFont('helvetica', 'normal');
+      doc.text('Father\'s Name:', smallMargin, y);
+      doc.setFontSize(valueFontSize).text(student.father_name || 'N/A', smallMargin + 30, y);
+      doc.setFontSize(labelFontSize).text('Occupation:', smallMargin + 80, y);
+      doc.setFontSize(valueFontSize).text(student.father_occupation || 'N/A', smallMargin + 100, y);
+      doc.setFontSize(labelFontSize).text('Contact No.:', smallMargin + 140, y);
+      doc.setFontSize(valueFontSize).text(student.father_contact_number || 'N/A', smallMargin + 162, y);
+      doc.line(smallMargin + 30, y + 1, smallMargin + 70, y + 1);
+      doc.line(smallMargin + 100, y + 1, smallMargin + 135, y + 1);
+      doc.line(smallMargin + 162, y + 1, pageWidth - smallMargin, y + 1);
+      y += fieldSpacing;
+
+      // Mother's Details
+      doc.setFontSize(labelFontSize).text('Mother\'s Name:', smallMargin, y);
+      doc.setFontSize(valueFontSize).text(student.mother_name || 'N/A', smallMargin + 30, y);
+      doc.setFontSize(labelFontSize).text('Occupation:', smallMargin + 80, y);
+      doc.setFontSize(valueFontSize).text(student.mother_occupation || 'N/A', smallMargin + 100, y);
+      doc.setFontSize(labelFontSize).text('Contact No.:', smallMargin + 140, y);
+      doc.setFontSize(valueFontSize).text(student.mother_contact_number || 'N/A', smallMargin + 162, y);
+      doc.line(smallMargin + 30, y + 1, smallMargin + 70, y + 1);
+      doc.line(smallMargin + 100, y + 1, smallMargin + 135, y + 1);
+      doc.line(smallMargin + 162, y + 1, pageWidth - smallMargin, y + 1);
+      y += fieldSpacing * 2;
+
+      // School Attended Header
+      doc.setFontSize(10).setFont('helvetica', 'bold').text('SCHOOL ATTENDED', smallMargin, y);
+      y += 3;
+      doc.line(smallMargin, y, pageWidth - smallMargin, y);
+      y += 5;
+
+      // Educational Background Table
+      const schools = [
+          { label: 'Elementary', name: student.elementary, date: student.elementary_date_completed },
+          { label: 'Junior High School', name: student.junior_high_school, date: student.junior_high_date_completed },
+          { label: 'Senior High School (SHS)', name: student.senior_high_school, date: student.senior_high_date_completed },
+          { label: 'High School (Non-K12)', name: student.high_school_non_k12, date: student.high_school_non_k12_date_completed },
+          { label: 'College', name: student.college, date: student.college_date_completed },
+      ].filter(s => s.name);
+
+      const tableData = schools.map(s => [s.label, s.name, s.date]);
+
+      autoTable(doc, {
+          startY: y,
+          head: [['Level', 'School Name', 'Date Completed']],
+          body: tableData,
+          margin: { left: smallMargin, right: smallMargin },
+          theme: 'striped',
+          headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 8, fontStyle: 'bold' },
+          styles: { fontSize: 8, cellPadding: 2 },
+          didDrawPage: (data) => {
+            if (data.pageNumber > 1) {
+                doc.setFontSize(10).setFont('helvetica', 'bold').text('SCHOOL ATTENDED', smallMargin, 10);
+                doc.line(smallMargin, 13, pageWidth - smallMargin, 13);
+            }
+          }
+      });
+      y = doc.lastAutoTable.finalY + 10;
+      
+      // Final Certification Line
+      doc.setFontSize(7).setFont('helvetica', 'normal');
+      doc.text('I hereby certify to the truth of the foregoing information and with my enrollment, I hereby bind myself to abide by', smallMargin, y);
+      y += 3;
+      doc.text('and comply with the rules and policies of Vineyard International Polytechnic College.', smallMargin, y);
+      y += 10;
+
+      // Student's Signature
+      doc.line(smallMargin, y, smallMargin + 50, y);
+      doc.setFontSize(7).text('Student\'s Signature over Printed Name', smallMargin, y + 3);
     };
 
     // --- Section 1: Registrar's Copy ---
@@ -95,7 +236,6 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
       didParseCell: (data) => { if (data.row.index === subjectsTableRows.length - 1) data.cell.styles.fontStyle = 'bold'; },
     });
     
-    // --- MODIFICATION START: Replaced "REGISTRAR'S COPY" with approval lines ---
     const finalY1 = doc.lastAutoTable.finalY;
     const approvalY = finalY1 + 15;
     
@@ -112,7 +252,7 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
     
     drawApproval('Approved by: Program Head', margin);
     drawApproval(approvalText2, (pageWidth / 2) - (textWidth2 / 2));
-    drawApproval('Approved by: Cashier', pageWidth - margin - 40); // Right aligned with a fixed width for the signature
+    drawApproval('Approved by: Cashier', pageWidth - margin - 40);
     
     const separatorY = approvalY + 5;
     doc.setLineDashPattern([2, 1], 0).line(margin, separatorY, pageWidth - margin, separatorY).setLineDashPattern([], 0);
@@ -148,10 +288,9 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
 
     let finalY2 = doc.lastAutoTable.finalY;
 
-    // Check if there is enough space for the footer, if not, add a new page.
     if (finalY2 > 250) {
         doc.addPage();
-        finalY2 = 10; // Reset Y position for the new page
+        finalY2 = 10;
     }
     
     doc.setFontSize(9).setFont('helvetica', 'normal').text('This is to certify that the information indicated above are true and correct.', margin, finalY2 + 8);
@@ -167,8 +306,11 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
     doc.line(releaseX, signatureLineY, pageWidth - margin, signatureLineY);
     doc.setFont('helvetica', 'bold').text(releaseName, releaseX, signatureLineY);
     doc.setFont('helvetica', 'normal').text(releaseTitle, releaseX, signatureLineY + 4);
-    
-    doc.save(`COR_${student.student_id_number}_${student.school_year}.pdf`);
+
+    // Call the updated function to draw the second page
+    drawStudentPersonalDetails();
+
+    doc.save(`COR_${student.last_name}_${student.school_year}.pdf`);
   };
 
   return (
