@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+
 class PreEnrolledStudent extends Model
 {
     use HasFactory;
@@ -52,13 +53,11 @@ class PreEnrolledStudent extends Model
         'school_year', 
         'year', 
         'enrollment_type', 
-        'selected_subjects',
         'enrollment_status',
     ];
 
     protected $casts = [
         'birth_date' => 'date',
-        'selected_subjects' => 'array',
     ];
 
     protected static function booted(): void
@@ -98,6 +97,13 @@ class PreEnrolledStudent extends Model
     {
         return $this->hasMany(EnrollmentApproval::class);
     }
+    
+    public function subjects(): BelongsToMany
+    {
+        return $this->belongsToMany(Subject::class, 'student_subject', 'pre_enrolled_student_id', 'subject_id')
+                    ->withPivot('status') 
+                    ->withTimestamps();
+    }
 
     public function getFullNameAttribute(): string
     {
@@ -119,4 +125,3 @@ class PreEnrolledStudent extends Model
     return $this->belongsToMany(Section::class, 'section_student');
     }
 }
-

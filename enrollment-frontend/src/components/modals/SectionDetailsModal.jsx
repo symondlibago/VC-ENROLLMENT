@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react'; // MODIFIED: Removed useState
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X,
@@ -9,7 +9,6 @@ import {
   Phone,
   UserPlus,
   MoreVertical,
-
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,17 +19,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import AddStudentsToSectionModal from './AddStudentsToSectionModal';
 import LoadingSpinner from '../layout/LoadingSpinner';
 
-
-// FIX: Removed 'students' prop, added 'isLoading' prop
-const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, allStudents, onAddStudentsToSection }) => {
-  const [isAddStudentsModalOpen, setIsAddStudentsModalOpen] = useState(false);
-
-  // The modal can be open but the section data is still loading
+// MODIFIED: Simplified props
+const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, onOpenAddStudents }) => {
   const sectionStudents = section?.students || [];
 
+  // ... getStatusColor function remains the same ...
   const getStatusColor = (status) => {
     switch (status) {
       case 'enrolled':
@@ -42,19 +37,6 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, allStudents,
       default:
         return 'bg-gray-100 text-gray-800';
     }
-  };
-
-  const handleInsertStudentClick = () => {
-    setIsAddStudentsModalOpen(true);
-  };
-
-  const handleCloseAddStudentsModal = () => {
-    setIsAddStudentsModalOpen(false);
-  };
-
-  const handleAddStudents = (selectedStudentIds) => {
-    onAddStudentsToSection(section.id, selectedStudentIds);
-    setIsAddStudentsModalOpen(false);
   };
 
   const modalVariants = {
@@ -73,9 +55,7 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, allStudents,
     if (isLoading) {
       return (
         <div className="flex items-center justify-center h-full">
-          <div className="flex justify-center items-center h-100">
-        <LoadingSpinner size="lg" color="red" />
-      </div>
+          <LoadingSpinner size="lg" color="red" />
         </div>
       );
     }
@@ -89,10 +69,8 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, allStudents,
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No students enrolled</h3>
             <p className="text-gray-500 mb-4">This section doesn't have any students yet.</p>
-            <Button
-              onClick={handleInsertStudentClick}
-              className="gradient-primary text-white liquid-button"
-            >
+            {/* MODIFIED: Uses the prop function to open the modal */}
+            <Button onClick={onOpenAddStudents} className="gradient-primary text-white liquid-button">
               <UserPlus className="w-4 h-4 mr-2" />
               Add First Student
             </Button>
@@ -103,9 +81,9 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, allStudents,
 
     return (
       <div className="h-full overflow-y-auto p-6">
+        {/* ... Table rendering remains the same ... */}
         <div className="overflow-x-auto">
           <table className="w-full">
-            {/* ... Table Head remains the same ... */}
             <thead className="sticky top-0 bg-white z-10">
               <tr className="border-b border-gray-200">
                 <th className="text-left py-4 px-4 font-semibold text-gray-900">ID No.</th>
@@ -125,7 +103,7 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, allStudents,
                 >
                   <td className="py-4 px-4">
                     <span className="font-mono text-sm text-gray-600">
-                      #{student.id.toString().padStart(4, '0')}
+                      #{student.student_id_number || student.id.toString().padStart(4, '0')}
                     </span>
                   </td>
                   <td className="py-4 px-4">
@@ -204,59 +182,40 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, allStudents,
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={onClose}
           />
-          
           <motion.div
             variants={modalVariants}
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="relative bg-white rounded-b-2xl shadow-2xl max-w-5xl w-full mx-4 h-[80vh] flex flex-col"
-            >
-            <div className="gradient-soft p-6 border-b border-gray-100 flex-shrink-0 ">
+            className="relative bg-white rounded-2xl shadow-2xl max-w-5xl w-full mx-4 h-[80vh] flex flex-col"
+          >
+            <div className="gradient-soft p-6 border-b border-gray-100 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div>
+                  {/* MODIFIED: This now correctly displays the name immediately */}
                   <h2 className="text-2xl font-bold heading-bold text-gray-900">
-                    {section?.name || 'Loading...'}
+                    {section?.name || 'Loading Section...'}
                   </h2>
                   <p className="text-gray-600 mt-1">
-                    {isLoading ? '...' : `${sectionStudents.length} student${sectionStudents.length !== 1 ? 's' : ''} enrolled`}
+                    {isLoading ? 'Loading students...' : `${sectionStudents.length} student${sectionStudents.length !== 1 ? 's' : ''} enrolled`}
                   </p>
                 </div>
                 <div className="flex items-center space-x-3">
-                  <Button
-                    onClick={handleInsertStudentClick}
-                    className="gradient-primary text-white liquid-button cursor-pointer"
-                    disabled={isLoading}
-                  >
+                  {/* MODIFIED: Uses the prop function */}
+                  <Button onClick={onOpenAddStudents} className="gradient-primary text-white liquid-button cursor-pointer" disabled={isLoading}>
                     <UserPlus className="w-4 h-4 mr-2" />
                     Insert Student
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onClose}
-                    className="liquid-button hover:bg-red-800 cursor-pointer"
-                  >
+                  <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
                     <X className="w-5 h-5" />
                   </Button>
                 </div>
               </div>
             </div>
-
             <div className="flex-1 overflow-hidden">
               {renderContent()}
             </div>
           </motion.div>
-
-          <AddStudentsToSectionModal
-            isOpen={isAddStudentsModalOpen}
-            onClose={handleCloseAddStudentsModal}
-            section={section}
-            allStudents={allStudents}
-            // FIX: Get enrolled IDs from the fetched section data
-            enrolledStudentIds={sectionStudents.map(s => s.id)}
-            onAddStudents={handleAddStudents}
-          />
         </div>
       )}
     </AnimatePresence>

@@ -12,11 +12,10 @@ class SectionController extends Controller
      * Display a listing of the resource.
      */
     public function index()
-    {
-        // Eager load course and the count of students for each section
-        $sections = Section::with('course')->withCount('students')->orderBy('created_at', 'desc')->get();
-        return response()->json(['success' => true, 'data' => $sections]);
-    }
+{
+    $sections = Section::with('course', 'students')->orderBy('created_at', 'desc')->get();
+    return response()->json(['success' => true, 'data' => $sections]);
+}
 
     public function show(Section $section)
     {

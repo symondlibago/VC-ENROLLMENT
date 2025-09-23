@@ -75,29 +75,29 @@ class EnrollmentController extends Controller
         try {
             DB::beginTransaction();
             
-            // Process the data
             $data = $request->all();
+            $data = $request->except('selected_subjects');
             
             if ($request->hasFile('id_photo') && $request->file('id_photo')->isValid()) {
                 $idPhotoPath = $request->file('id_photo')->store('identification', 's3'); 
                 $data['id_photo'] = $idPhotoPath;
             }
             
-            // Handle signature upload
             if ($request->hasFile('signature') && $request->file('signature')->isValid()) {
                 $signaturePath = $request->file('signature')->store('identification', 's3'); 
                 $data['signature'] = $signaturePath;
             }
 
-            // Create pre-enrolled student record
             $preEnrolledStudent = PreEnrolledStudent::create($data);
 
-            // Generate enrollment code
+            if ($request->has('selected_subjects')) {
+                $preEnrolledStudent->subjects()->attach($request->input('selected_subjects'));
+            }
+
             $enrollmentCode = new EnrollmentCode([
                 'code' => EnrollmentCode::generateUniqueCode(),
             ]);
 
-            // Associate the enrollment code with the pre-enrolled student
             $preEnrolledStudent->enrollmentCode()->save($enrollmentCode);
 
             DB::commit();
@@ -191,34 +191,32 @@ class EnrollmentController extends Controller
     }
 
     public function getPreEnrolledStudentDetails($id)
-{
-    try {
-        // FIX: Add 'enrollmentApprovals' to the with() array.
-        $student = PreEnrolledStudent::with(['course.program', 'enrollmentCode', 'enrollmentApprovals'])->findOrFail($id);
+    {
+        try {
+            $student = PreEnrolledStudent::with([
+                'course.program', 
+                'enrollmentCode', 
+                'enrollmentApprovals', 
+                'subjects.schedules'
+            ])->findOrFail($id);
 
-        $student->id_photo_url = $student->id_photo ? Storage::disk('s3')->url($student->id_photo) : null;
-        $student->signature_url = $student->signature ? Storage::disk('s3')->url($student->signature) : null;
-        
-        $subjectIds = $student->selected_subjects;
-        $subjects = [];
+            $student->id_photo_url = $student->id_photo ? Storage::disk('s3')->url($student->id_photo) : null;
+            $student->signature_url = $student->signature ? Storage::disk('s3')->url($student->signature) : null;
+            
 
-        if (is_array($subjectIds) && count($subjectIds) > 0) {
-            $subjects = \App\Models\Subject::with('schedules')
-                ->whereIn('id', $subjectIds)
-                ->get();
+            $subjects = $student->subjects;
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'student' => $student,
+                    'subjects' => $subjects, // This now contains the correct data
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Failed to fetch student details', 'error' => $e->getMessage()], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'student' => $student,
-                'subjects' => $subjects,
-            ],
-        ]);
-    } catch (\Exception $e) {
-        return response()->json(['success' => false, 'message' => 'Failed to fetch student details', 'error' => $e->getMessage()], 500);
     }
-}
 
     private function getEnrollmentStatus($student)
     {
@@ -323,28 +321,31 @@ class EnrollmentController extends Controller
         }
     }
 
-    public function getEnrolledStudents()
-    {
-        try {
-            $enrolledStudents = PreEnrolledStudent::with('course') // Optional: include course info
-                ->where('enrollment_status', 'enrolled')
-                ->get()
-                ->map(function ($student) {
-                    // Format the data as needed by the frontend
-                    return [
-                        'id' => $student->id,
-                        'name' => $student->getFullNameAttribute(),
-                        'email' => $student->email_address,
-                        'avatar' => strtoupper(substr($student->first_name, 0, 1) . substr($student->last_name, 0, 1)),
-                        'courseCode' => $student->course ? $student->course->course_code : 'N/A',
-                        'status' => 'active', // Assuming 'enrolled' maps to 'active' on the frontend
-                    ];
-                });
 
-            return response()->json(['success' => true, 'data' => $enrolledStudents]);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Failed to fetch enrolled students', 'error' => $e->getMessage()], 500);
-        }
+public function getEnrolledStudents()
+{
+    try {
+        $enrolledStudents = PreEnrolledStudent::with(['course', 'sections'])
+            ->where('enrollment_status', 'enrolled')
+            ->orderBy('last_name', 'asc')
+            ->get()
+            ->map(function ($student) {
+                return [
+                    'id' => $student->id,
+                    'student_id_number' => $student->student_id_number,
+                    'name' => $student->getFullNameAttribute(),
+                    'email' => $student->email_address,
+                    'courseId' => $student->course->id ?? null,
+                    'courseName' => $student->course ? $student->course->course_name : 'N/A',
+                    'sectionId' => $student->sections->first()->id ?? null,
+                    'sectionName' => $student->sections->isNotEmpty() ? $student->sections->first()->name : 'Unassigned',
+                ];
+            });
+
+        return response()->json(['success' => true, 'data' => $enrolledStudents]);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'message' => 'Failed to fetch enrolled students', 'error' => $e->getMessage()], 500);
     }
+}
 }
 

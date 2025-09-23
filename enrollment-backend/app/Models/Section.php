@@ -26,9 +26,6 @@ class Section extends Model
      */
     public function students(): BelongsToMany
     {
-        // The second argument is the pivot table name.
-        // The third is the foreign key for this model (Section).
-        // The fourth is the foreign key for the related model (PreEnrolledStudent).
         return $this->belongsToMany(PreEnrolledStudent::class, 'section_student');
     }
 }

@@ -59,9 +59,8 @@ return new class extends Migration
             $table->string('school_year');
             $table->string('year');
             $table->string('enrollment_type');
-            $table->json('selected_subjects'); // Store subject IDs as JSON array
             
-            // ADDED: Main enrollment status column
+            // Enrollment Status
             $table->enum('enrollment_status', ['pending', 'enrolled', 'rejected'])->default('pending');
 
             // Add identification fields after educational background
@@ -80,4 +79,3 @@ return new class extends Migration
         Schema::dropIfExists('pre_enrolled_students');
     }
 };
-

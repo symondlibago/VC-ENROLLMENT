@@ -1,42 +1,64 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, 
   Search, 
-  Filter,
   Plus,
   BookOpen,
   GraduationCap,
   UserPlus,
-  Download
+  ChevronDown,
+  MoreHorizontal
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import SectionDetailsModal from '../modals/SectionDetailsModal';
 import AddSectionModal from '../modals/AddSectionModal';
+import AddStudentsToSectionModal from '../modals/AddStudentsToSectionModal'; // MODIFIED: Import the modal here
 import LoadingSpinner from '../layout/LoadingSpinner';
-
-// Import your API methods
-import { sectionAPI, enrollmentAPI , courseAPI } from '@/services/api';
+import { sectionAPI, enrollmentAPI, courseAPI } from '@/services/api';
 import { toast } from 'sonner';
 
+// Main Component
 const Students = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState('all');
-  const [selectedSection, setSelectedSection] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false);
+  const [activeView, setActiveView] = useState('sections');
+  const [loading, setLoading] = useState(true);
 
-  // State for data from backend
+  // Data states
   const [sections, setSections] = useState([]);
   const [courses, setCourses] = useState([]);
   const [enrolledStudents, setEnrolledStudents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isSectionLoading, setIsSectionLoading] = useState(false); // For modal loading state
+  
+  // Modal states
+  const [selectedSection, setSelectedSection] = useState(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false);
+  const [isAddStudentsModalOpen, setIsAddStudentsModalOpen] = useState(false); // MODIFIED: State is now managed here
+  const [isSectionLoading, setIsSectionLoading] = useState(false);
 
-  // ... useEffect and stats hooks remain the same ...
+  // Filter & Search states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sectionCourseFilter, setSectionCourseFilter] = useState('all');
+  const [studentCourseFilter, setStudentCourseFilter] = useState('all');
+  const [studentSectionFilter, setStudentSectionFilter] = useState('all');
+
+  // Initial data fetching
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -61,393 +83,296 @@ const Students = () => {
     fetchData();
   }, []);
 
-  const stats = [
-    {
-      title: 'Total Sections',
-      value: sections.length.toString(),
-      change: `+${sections.filter(s => new Date(s.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length} this week`,
-      icon: BookOpen,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50'
-    },
-    {
-      title: 'Enrolled Students',
-      value: enrolledStudents.length.toString(),
-      change: 'All active',
-      icon: Users,
-      color: 'text-green-600',
-      bgColor: 'bg-green-50'
-    },
-    {
-        title: 'Total Courses',
-        value: courses.length.toString(),
-        change: 'Available',
-        icon: GraduationCap,
-        color: 'text-[var(--dominant-red)]',
-        bgColor: 'bg-red-50'
-    },
-    {
-      title: 'Empty Sections',
-      value: sections.filter(s => s.students_count === 0).length.toString(),
-      change: 'Needs students',
-      icon: UserPlus,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50'
-    }
-  ];
+  // Memoized stats (no change)
+  const stats = useMemo(() => [
+    { title: 'Total Sections', value: sections.length.toString(), icon: BookOpen, color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    { title: 'Enrolled Students', value: enrolledStudents.length.toString(), icon: Users, color: 'text-green-600', bgColor: 'bg-green-50' },
+    { title: 'Total Courses', value: courses.length.toString(), icon: GraduationCap, color: 'text-[var(--dominant-red)]', bgColor: 'bg-red-50' },
+    { title: 'Empty Sections', value: sections.filter(s => s.students_count === 0).length.toString(), icon: UserPlus, color: 'text-purple-600', bgColor: 'bg-purple-50' }
+  ], [sections, enrolledStudents, courses]);
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2
-      }
-    }
-  };
+  // Framer Motion Variants (no change)
+  const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
+  const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
+  const pageVariants = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -20 } };
 
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: {
-        duration: 0.6,
-        ease: [0.23, 1, 0.32, 1]
-      }
-    }
-  };
-
-
-  // FIX: Updated handleSectionClick to fetch details before opening modal
+  // Handlers for Modals
   const handleSectionClick = async (section) => {
+    // MODIFIED: Set basic section data immediately so the title appears
+    setSelectedSection(section);
+    setIsDetailsModalOpen(true);
     setIsSectionLoading(true);
-    setIsModalOpen(true); // Open modal shell immediately
     try {
+      // Then fetch the full data with the student list
       const response = await sectionAPI.getById(section.id);
-      if (response.success) {
-        setSelectedSection(response.data);
-      } else {
-        toast.error('Could not load section details.');
-        setIsModalOpen(false); // Close modal on error
-      }
+      setSelectedSection(response.data.success ? response.data.data : section); // Fallback to original section data on fail
     } catch (error) {
       toast.error('An error occurred while fetching details.');
-      setIsModalOpen(false);
+      setIsDetailsModalOpen(false);
     } finally {
       setIsSectionLoading(false);
     }
   };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setSelectedSection(null);
-  };
-
-  const handleAddSectionClick = () => {
-    setIsAddSectionModalOpen(true);
-  };
-
-  const handleCloseAddSectionModal = () => {
-    setIsAddSectionModalOpen(false);
-  };
-
   const handleAddSection = async (sectionData) => {
+    // ... (no change to this function)
     try {
-      const response = await sectionAPI.create({
-        name: sectionData.name,
-        course_id: sectionData.course.id,
-      });
-
+      const response = await sectionAPI.create({ name: sectionData.name, course_id: sectionData.course.id });
       if (response.success) {
-        setSections(prevSections => [response.data, ...prevSections]);
+        setSections(prev => [response.data, ...prev]);
         toast.success('Section added successfully!');
-        handleCloseAddSectionModal();
+        setIsAddSectionModalOpen(false);
       } else {
-        toast.error('Failed to add section.');
+        toast.error(response.message || 'Failed to add section.');
       }
     } catch (error) {
-      toast.error('An error occurred while adding the section.');
-      console.error("Add section error:", error);
+      toast.error('An error occurred.');
     }
   };
-
+  
   const handleAddStudentsToSection = async (sectionId, studentIds) => {
     try {
       const response = await sectionAPI.addStudents(sectionId, studentIds);
       if (response.success) {
-        // The response from addStudents now contains the updated section with the full student list
         const updatedSection = response.data;
-
-        // Update the main sections list with the new student count
-        setSections(prevSections =>
-          prevSections.map(sec =>
-            sec.id === sectionId
-              ? { ...sec, students_count: updatedSection.students.length }
-              : sec
-          )
-        );
-
-        // Update the selected section in the modal with the full new data
+        setSections(prev => prev.map(s => s.id === sectionId ? updatedSection : s));
         setSelectedSection(updatedSection);
-
         toast.success('Students added successfully!');
+        setIsAddStudentsModalOpen(false); 
       } else {
         toast.error('Failed to add students.');
       }
     } catch (error) {
       toast.error('An error occurred while adding students.');
-      console.error("Add students error:", error);
     }
   };
-  
-  // ... filteredSections and loading checks remain the same ...
-  const filteredSections = sections.filter(section => {
+
+  // Filtering Logic (no change)
+  const filteredSections = useMemo(() => sections.filter(section => {
     const courseName = section.course?.course_name || '';
-    const matchesSearch = section.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         courseName.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    if (selectedFilter === 'all') return matchesSearch;
-    if (selectedFilter === 'with-students') return matchesSearch && section.students_count > 0;
-    if (selectedFilter === 'empty') return matchesSearch && section.students_count === 0;
-    
-    return matchesSearch;
-  });
+    const matchesSearch = section.name.toLowerCase().includes(searchTerm.toLowerCase()) || courseName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = sectionCourseFilter === 'all' || section.course_id.toString() === sectionCourseFilter;
+    return matchesSearch && matchesFilter;
+  }), [sections, searchTerm, sectionCourseFilter]);
+
+  const filteredStudents = useMemo(() => enrolledStudents.filter(student => {
+    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || student.student_id_number.toLowerCase().includes(searchTerm.toLowerCase());
+    const courseMatch = studentCourseFilter === 'all' || student.courseId?.toString() === studentCourseFilter;
+    const sectionMatch = studentSectionFilter === 'all' || student.sectionId?.toString() === studentSectionFilter;
+    return matchesSearch && courseMatch && sectionMatch;
+  }), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter]);
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-100">
-        <LoadingSpinner size="lg" color="red" />
-      </div>
-    );
+    return <div className="flex justify-center items-center h-full"><LoadingSpinner size="lg" color="red" /></div>;
   }
 
-
   return (
-    <motion.div
-      className="p-6 space-y-6 max-w-7xl mx-auto"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      {/* Header Section */}
-      <motion.div variants={itemVariants} className="animate-fade-in">
-        <div className="gradient-soft rounded-2xl p-8 border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold heading-bold text-gray-900 mb-2 flex items-center">
-                <BookOpen className="w-8 h-8 text-[var(--dominant-red)] mr-3" />
-                Students & Sections
-              </h1>
-              <p className="text-gray-600 text-lg">
-                Manage sections and view enrolled students by clicking on section cards.
-              </p>
-            </div>
-            <div className="flex space-x-3">
-            <Button 
-                className="gradient-primary text-white liquid-button"
-                onClick={handleAddSectionClick}
-                disabled={loading}
-              >
-                {loading ? <LoadingSpinner size="sm" color="white" /> : <Plus className="w-4 h-4 mr-2" />}
-                Add Section
-              </Button>
-              <Button variant="outline" className="liquid-button">
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add Student
-              </Button>
-            </div>
+    <motion.div className="p-6 space-y-6 max-w-7xl mx-auto" variants={containerVariants} initial="hidden" animate="visible">
+      <motion.div variants={itemVariants}>
+      <div className="gradient-soft rounded-2xl p-8 border border-gray-100">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold heading-bold text-gray-900 flex items-center">
+              <BookOpen className="w-8 h-8 text-[var(--dominant-red)] mr-3" />
+              Students & Sections
+            </h1>
+            <p className="text-gray-600">Manage student sections and view enrollment lists.</p>
+          </div>
+          <div className="flex items-center space-x-2">
+             
+             <div className="relative bg-gray-100 rounded-2xl p-1 inline-flex">
+                <motion.div
+                  className="absolute top-1 bottom-1 bg-white rounded-xl shadow-md"
+                  initial={false}
+                  animate={{
+                    left: activeView === 'sections' ? '4px' : '50%',
+                    right: activeView === 'sections' ? '50%' : '4px',
+                  }}
+                  transition={{ type: "spring", stiffness: 300, damping: 30, mass: 0.8 }}
+                />
+                <motion.button
+                  onClick={() => setActiveView('sections')}
+                  className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${
+                    activeView === 'sections' 
+                      ? 'text-[var(--dominant-red)]' 
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  title="Sections"
+                >
+                  <BookOpen className="w-5 h-5" />
+                </motion.button>
+                <motion.button
+                  onClick={() => setActiveView('students')}
+                  className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${
+                    activeView === 'students' 
+                      ? 'text-[var(--dominant-red)]' 
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  title="Students"
+                >
+                  <Users className="w-5 h-5" />
+                </motion.button>
+             </div>
+             <Button className="gradient-primary text-white" onClick={() => setIsAddSectionModalOpen(true)}>
+             <Plus className="w-4 h-4 mr-2" />Add Section
+             </Button>
           </div>
         </div>
+      </div>
       </motion.div>
-
-      {/* Stats Grid */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => {
+      <motion.div
+       variants={itemVariants}
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map(stat => {
           const Icon = stat.icon;
-          return (
-            <motion.div
-              key={stat.title}
-              whileHover={{ scale: 1.02 }}
-              className="liquid-hover"
-            >
-              <Card className="card-hover border-0 shadow-sm">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 mb-1">
-                        {stat.title}
-                      </p>
-                      <p className="text-2xl font-bold heading-bold text-gray-900">
-                        {stat.value}
-                      </p>
-                      <p className="text-sm text-green-600 font-medium mt-1">
-                        {stat.change}
-                      </p>
-                    </div>
+          return <Card key={stat.title}>
+          <CardContent 
+            className="p-6 flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-gray-600">{stat.title}</p><p className="text-2xl font-bold heading-bold text-gray-900">{stat.value}</p>
+                  </div>
                     <div className={`p-3 rounded-xl ${stat.bgColor}`}>
-                      <Icon className={`w-6 h-6 ${stat.color}`} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
-      </motion.div>
-
-      {/* Search and Filter Section */}
-      <motion.div variants={itemVariants}>
-        <Card className="card-hover border-0 shadow-sm">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-              <div className="flex-1 w-full md:max-w-md">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Search sections by name or course..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 liquid-morph"
-                  />
-                </div>
+                  <Icon className={`w-6 h-6 ${stat.color}`} />
               </div>
-              <div className="flex items-center space-x-3">
-                <select
-                  value={selectedFilter}
-                  onChange={(e) => setSelectedFilter(e.target.value)}
-                  className="px-4 py-2 border border-gray-200 rounded-lg focus:border-[var(--dominant-red)] focus:ring-[var(--dominant-red)] liquid-morph"
-                >
-                  <option value="all">All Sections</option>
-                  <option value="with-students">With Students</option>
-                  <option value="empty">Empty Sections</option>
-                </select>
-              </div>
-            </div>
           </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Sections Grid */}
-      <motion.div variants={itemVariants}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredSections.map((section, index) => (
-            <motion.div
-              key={section.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ 
-                opacity: 1, 
-                y: 0,
-                transition: {
-                  duration: 0.6,
-                  delay: index * 0.1,
-                  ease: [0.23, 1, 0.32, 1]
-                }
-              }}
-              whileHover={{ scale: 1.02, y: -4 }}
-              className="liquid-hover cursor-pointer"
-              onClick={() => handleSectionClick(section)}
-            >
-              <Card className="card-hover border-0 shadow-sm h-full flex flex-col">
-                <CardContent className="p-6 flex-grow flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-[var(--dominant-red)] rounded-xl flex items-center justify-center shrink-0">
-                          <BookOpen className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                          <h3 className="font-bold text-gray-900 text-lg">{section.name}</h3>
-                           {/* FIX: Used students_count from API instead of studentIds.length */}
-                          <Badge 
-                            className={`text-xs mt-1 ${
-                              section.students_count > 0 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-gray-100 text-gray-800'
-                            }`}
-                          >
-                            {section.students_count} student{section.students_count !== 1 ? 's' : ''}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <div className="flex items-center text-sm text-gray-600">
-                            <GraduationCap className="w-4 h-4 mr-2 text-gray-400" />
-                            <span className="truncate">{section.course?.course_name || 'N/A'}</span>
-                        </div>
-                        <div className="flex items-center text-sm text-gray-600">
-                            <Users className="w-4 h-4 mr-2 text-gray-400" />
-                            <span>{section.course?.program?.program_code || 'No Program'}</span>
-                        </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-gray-100">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500">Click to view students</span>
-                      <div className="flex -space-x-2">
-                        {Array.from({ length: Math.min(section.students_count || 0, 3) }).map((_, idx) => (
-                          <div
-                            key={idx}
-                            className="w-8 h-8 bg-[var(--dominant-red)] rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-white"
-                          >
-                            {String.fromCharCode(65 + idx)}
-                          </div>
-                        ))}
-                        {(section.students_count || 0) > 3 && (
-                          <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 text-xs font-bold border-2 border-white">
-                            +{(section.students_count || 0) - 3}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Empty State */}
-      {filteredSections.length === 0 && !loading && (
-        <motion.div
-          variants={itemVariants}
-          className="text-center py-12"
-        >
-          <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No sections found</h3>
-          <p className="text-gray-500 mb-4">Try adjusting your search or filter criteria.</p>
-          <Button 
-            className="gradient-primary text-white liquid-button"
-            onClick={handleAddSectionClick}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add First Section
-          </Button>
+        </Card>;
+        })}
+        
+    </motion.div>
+      <AnimatePresence mode="wait">
+        <motion.div key={activeView} variants={pageVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.3 }}>
+          {activeView === 'sections' 
+            ? <SectionPage sections={filteredSections} courses={courses} searchTerm={searchTerm} setSearchTerm={setSearchTerm} courseFilter={sectionCourseFilter} setCourseFilter={setSectionCourseFilter} onSectionClick={handleSectionClick} onAddSectionClick={() => setIsAddSectionModalOpen(true)} />
+            : <StudentPage students={filteredStudents} sections={sections} courses={courses} searchTerm={searchTerm} setSearchTerm={setSearchTerm} courseFilter={studentCourseFilter} setCourseFilter={setStudentCourseFilter} sectionFilter={studentSectionFilter} setSectionFilter={setStudentSectionFilter} />
+          }
         </motion.div>
-      )}
+      </AnimatePresence>
 
-      <SectionDetailsModal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        section={selectedSection}
+      {/* MODALS ARE NOW ALL DECLARED HERE IN THE PARENT */}
+      <SectionDetailsModal 
+        isOpen={isDetailsModalOpen} 
+        onClose={() => setIsDetailsModalOpen(false)} 
+        section={selectedSection} 
         isLoading={isSectionLoading} 
-        allStudents={enrolledStudents} 
-        onAddStudentsToSection={handleAddStudentsToSection}
+        onOpenAddStudents={() => setIsAddStudentsModalOpen(true)} // Pass function to open the other modal
+      />
+      
+      <AddSectionModal 
+        isOpen={isAddSectionModalOpen} 
+        onClose={() => setIsAddSectionModalOpen(false)} 
+        onAddSection={handleAddSection} 
+        courses={courses} 
       />
 
-      <AddSectionModal
-        isOpen={isAddSectionModalOpen}
-        onClose={handleCloseAddSectionModal}
-        onAddSection={handleAddSection}
-        courses={courses}
+      <AddStudentsToSectionModal
+        isOpen={isAddStudentsModalOpen}
+        onClose={() => setIsAddStudentsModalOpen(false)}
+        section={selectedSection}
+        allStudents={enrolledStudents}
+        enrolledStudentIds={selectedSection?.students?.map(s => s.id) || []}
+        onAddStudents={(studentIds) => handleAddStudentsToSection(selectedSection.id, studentIds)}
       />
     </motion.div>
   );
 };
+
+// ... SectionPage and StudentPage sub-components remain unchanged ...
+// Sub-component for Section Page View
+const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, onSectionClick, onAddSectionClick }) => (
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="flex-1 w-full">
+              <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" /><Input placeholder="Search sections by name or course..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" /></div>
+            </div>
+            <div className="relative w-full md:w-auto">
+              <select value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)} className="w-full px-4 py-2 border border-gray-200 rounded-lg appearance-none focus:border-[var(--dominant-red)] focus:ring-[var(--dominant-red)]">
+                <option value="all">Filter by All Courses</option>
+                {courses.map(course => <option key={course.id} value={course.id}>{course.course_name}</option>)}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+  
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {sections.map((section, index) => (
+          <motion.div key={section.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0, transition: { duration: 0.5, delay: index * 0.05 }}} whileHover={{ y: -5 }} className="cursor-pointer" onClick={() => onSectionClick(section)}>
+            <Card className="h-full flex flex-col"><CardContent className="p-6 flex-grow flex flex-col justify-between">
+              <div>
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center space-x-3"><div className="w-12 h-12 bg-[var(--dominant-red)] rounded-xl flex items-center justify-center shrink-0"><BookOpen className="w-6 h-6 text-white" /></div><div><h3 className="font-bold text-gray-900 text-lg">{section.name}</h3>
+                  <Badge className={`text-xs mt-1 ${section.students.length > 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                    {section.students.length} student{section.students.length !== 1 ? 's' : ''}
+                    </Badge>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2"><div className="flex items-center text-sm text-gray-600"><GraduationCap className="w-4 h-4 mr-2 text-gray-400" /><span className="truncate">{section.course?.course_name || 'N/A'}</span></div><div className="flex items-center text-sm text-gray-600"><Users className="w-4 h-4 mr-2 text-gray-400" /><span>{section.course?.program?.program_code || 'No Program'}</span></div></div>
+              </div>
+              <div className="mt-4 pt-4 border-t"><div className="flex items-center justify-between"><span className="text-sm text-gray-500">Click to view students</span></div></div>
+            </CardContent></Card>
+          </motion.div>
+        ))}
+      </div>
+      
+      {sections.length === 0 && <div className="text-center py-12"><BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-900 mb-2">No sections found</h3><p className="text-gray-500 mb-4">Try adjusting your search or filter criteria.</p><Button className="gradient-primary text-white" onClick={onAddSectionClick}><Plus className="w-4 h-4 mr-2" />Add First Section</Button></div>}
+    </div>
+  );
+  
+  // Sub-component for Student Page View
+  const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter }) => (
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="p-6 space-y-4">
+          <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" /><Input placeholder="Search students by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" /></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="relative">
+              <select value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)} className="w-full px-4 py-2 border border-gray-200 rounded-lg appearance-none focus:border-[var(--dominant-red)] focus:ring-[var(--dominant-red)]">
+                <option value="all">Filter by All Courses</option>
+                {courses.map(course => <option key={course.id} value={course.id}>{course.course_name}</option>)}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+            <div className="relative">
+              <select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)} className="w-full px-4 py-2 border border-gray-200 rounded-lg appearance-none focus:border-[var(--dominant-red)] focus:ring-[var(--dominant-red)]">
+                <option value="all">Filter by All Sections</option>
+                {sections.filter(s => courseFilter === 'all' || s.course_id.toString() === courseFilter).map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+  
+      <Card>
+        <Table>
+          <TableHeader><TableRow><TableHead>Student ID</TableHead><TableHead>Name</TableHead><TableHead>Course</TableHead><TableHead>Section</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+          <TableBody>
+            {students.length > 0 ? students.map(student => (
+              <TableRow key={student.id}>
+                <TableCell className="font-medium">{student.student_id_number}</TableCell>
+                <TableCell>{student.name}</TableCell>
+                <TableCell>{student.courseName}</TableCell>
+                <TableCell><Badge variant="secondary">{student.sectionName || 'Unassigned'}</Badge></TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Open menu</span><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="end"><DropdownMenuItem>View Details</DropdownMenuItem><DropdownMenuItem>Edit Student</DropdownMenuItem><DropdownMenuItem className="text-red-500">Remove from Section</DropdownMenuItem></DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            )) : <TableRow><TableCell colSpan="5" className="text-center h-24">No students found.</TableCell></TableRow>}
+          </TableBody>
+        </Table>
+      </Card>
+    </div>
+  );
 
 export default Students;

@@ -4,7 +4,6 @@ import {
   X,
   UserPlus,
   Search,
-  Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +14,6 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Reset state when the modal is opened for a new section
   useEffect(() => {
     if (isOpen) {
       setSelectedStudentIds([]);
@@ -23,26 +21,30 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
     }
   }, [isOpen]);
   
-  // Memoize the list of available students to prevent re-filtering on every render
   const availableStudents = useMemo(() => {
-    if (!allStudents || !enrolledStudentIds) return [];
-    return allStudents.filter(student => !enrolledStudentIds.includes(student.id));
-  }, [allStudents, enrolledStudentIds]);
+    // MODIFIED: Ensure enrolledStudentIds is always an array to prevent errors
+    const currentEnrolledIds = enrolledStudentIds || [];
+    if (!allStudents) return [];
+    // Only show students that belong to the same course as the section
+    return allStudents.filter(student => 
+      !currentEnrolledIds.includes(student.id) && student.courseId === section?.course_id
+    );
+  }, [allStudents, enrolledStudentIds, section]);
 
-  // Memoize the searched list for better performance on search input
   const filteredStudents = useMemo(() => {
     const term = searchTerm.toLowerCase();
     if (!term) return availableStudents;
     return availableStudents.filter(student =>
       student.name.toLowerCase().includes(term) ||
       student.email.toLowerCase().includes(term) ||
-      (student.courseCode && student.courseCode.toLowerCase().includes(term))
+      (student.student_id_number && student.student_id_number.toLowerCase().includes(term))
     );
   }, [availableStudents, searchTerm]);
 
 
   if (!section || !allStudents) return null;
 
+  // ... rest of the component is unchanged ...
   const getStatusColor = (status) => {
     switch (status) {
       case 'active':
@@ -75,67 +77,33 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
   const handleSubmit = () => {
     if (selectedStudentIds.length > 0) {
       onAddStudents(selectedStudentIds);
-      // Parent will close the modal
     }
-  };
-
-  const handleCancel = () => {
-    onClose();
   };
 
   const modalVariants = {
-    hidden: {
-      opacity: 0,
-      scale: 0.8,
-      y: 50
-    },
-    visible: {
-      opacity: 1,
-      scale: 1,
-      y: 0,
-      transition: {
-        duration: 0.4,
-        ease: [0.23, 1, 0.32, 1]
-      }
-    },
-    exit: {
-      opacity: 0,
-      scale: 0.8,
-      y: 50,
-      transition: {
-        duration: 0.3,
-        ease: [0.23, 1, 0.32, 1]
-      }
-    }
+    hidden: { opacity: 0, scale: 0.8, y: 50 },
+    visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.4, ease: [0.23, 1, 0.32, 1] } },
+    exit: { opacity: 0, scale: 0.8, y: 50, transition: { duration: 0.3, ease: [0.23, 1, 0.32, 1] } }
   };
 
   const overlayVariants = {
     hidden: { opacity: 0 },
-    visible: { 
-      opacity: 1,
-      transition: { duration: 0.3 }
-    },
-    exit: { 
-      opacity: 0,
-      transition: { duration: 0.3 }
-    }
+    visible: { opacity: 1, transition: { duration: 0.3 } },
+    exit: { opacity: 0, transition: { duration: 0.3 } }
   };
 
   return (
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-60 flex items-center justify-center">
-          {/* Backdrop */}
           <motion.div
             variants={overlayVariants}
             initial="hidden"
             animate="visible"
             exit="exit"
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={handleCancel}
+            onClick={onClose}
           />
-          
-          {/* Modal */}
           <motion.div
             variants={modalVariants}
             initial="hidden"
@@ -143,7 +111,6 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
             exit="exit"
             className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full mx-4 h-[80vh] flex flex-col"
           >
-            {/* Header */}
             <div className="gradient-soft p-6 border-b border-gray-100 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -159,52 +126,42 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
                     </p>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCancel}
-                  className="liquid-button hover:bg-gray-100"
-                >
+                <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
                   <X className="w-5 h-5" />
                 </Button>
               </div>
             </div>
-
-            {/* Search Bar */}
             <div className="p-6 border-b border-gray-100 flex-shrink-0">
               <div className="flex items-center space-x-4">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
-                    placeholder="Search students by name, email, or course code..."
+                    placeholder="Search students by name, email, or ID..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 liquid-morph"
+                    className="pl-10"
                   />
                 </div>
                 <Button
                   variant="outline"
                   onClick={handleSelectAll}
-                  className="liquid-button"
                   disabled={filteredStudents.length === 0}
                 >
                   {selectedStudentIds.length === filteredStudents.length && filteredStudents.length > 0 ? 'Deselect All' : 'Select All'}
                 </Button>
               </div>
             </div>
-
-            {/* Content */}
             <div className="flex-1 overflow-hidden">
               {filteredStudents.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center py-12">
                     <UserPlus className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      {availableStudents.length === 0 ? 'All students are enrolled' : 'No students found'}
+                      {availableStudents.length === 0 ? 'No available students' : 'No students found'}
                     </h3>
                     <p className="text-gray-500">
                       {availableStudents.length === 0 
-                        ? 'All available students are already enrolled in this section.'
+                        ? 'All students for this course are already in a section.'
                         : 'Try adjusting your search criteria.'
                       }
                     </p>
@@ -224,10 +181,9 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
                               className="w-4 h-4 text-[var(--dominant-red)] border-gray-300 rounded focus:ring-[var(--dominant-red)]"
                             />
                           </th>
-                          <th className="text-left py-4 px-4 font-semibold text-gray-900">ID No.</th>
+                          <th className="text-left py-4 px-4 font-semibold text-gray-900">Student ID</th>
                           <th className="text-left py-4 px-4 font-semibold text-gray-900">Name</th>
-                          <th className="text-left py-4 px-4 font-semibold text-gray-900">Course Code</th>
-                          <th className="text-left py-4 px-4 font-semibold text-gray-900">Status</th>
+                          <th className="text-left py-4 px-4 font-semibold text-gray-900">Course</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -235,15 +191,7 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
                           <motion.tr
                             key={student.id}
                             initial={{ opacity: 0, y: 20 }}
-                            animate={{ 
-                              opacity: 1, 
-                              y: 0,
-                              transition: {
-                                duration: 0.4,
-                                delay: index * 0.05,
-                                ease: [0.23, 1, 0.32, 1]
-                              }
-                            }}
+                            animate={{ opacity: 1, y: 0, transition: { duration: 0.4, delay: index * 0.05, ease: [0.23, 1, 0.32, 1] }}}
                             className={`border-b border-gray-100 hover:bg-gray-50 transition-colors duration-200 cursor-pointer ${
                               selectedStudentIds.includes(student.id) ? 'bg-blue-50' : ''
                             }`}
@@ -261,7 +209,7 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
                             </td>
                             <td className="py-4 px-4">
                               <span className="font-mono text-sm text-gray-600">
-                                #{student.id.toString().padStart(4, '0')}
+                                {student.student_id_number}
                               </span>
                             </td>
                             <td className="py-4 px-4">
@@ -269,7 +217,7 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
                                 <Avatar className="w-10 h-10">
                                   <AvatarImage src={`/api/placeholder/40/40`} alt={student.name} />
                                   <AvatarFallback className="bg-[var(--dominant-red)] text-white font-bold text-sm">
-                                    {student.avatar}
+                                    {student.name.split(',')[0].charAt(0)}{student.name.split(',')[1]?.trim().charAt(0)}
                                   </AvatarFallback>
                                 </Avatar>
                                 <div>
@@ -280,12 +228,7 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
                             </td>
                             <td className="py-4 px-4">
                               <Badge variant="outline" className="font-mono">
-                                {student.courseCode}
-                              </Badge>
-                            </td>
-                            <td className="py-4 px-4">
-                              <Badge className={`${getStatusColor(student.status)} text-xs`}>
-                                {student.status}
+                                {student.courseName}
                               </Badge>
                             </td>
                           </motion.tr>
@@ -296,25 +239,19 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
                 </div>
               )}
             </div>
-
-            {/* Footer */}
             <div className="p-6 border-t border-gray-100 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-gray-600">
                   {selectedStudentIds.length} student{selectedStudentIds.length !== 1 ? 's' : ''} selected
                 </p>
                 <div className="flex space-x-3">
-                  <Button
-                    variant="outline"
-                    onClick={handleCancel}
-                    className="liquid-button"
-                  >
+                  <Button variant="outline" onClick={onClose}>
                     Cancel
                   </Button>
                   <Button
                     onClick={handleSubmit}
                     disabled={selectedStudentIds.length === 0}
-                    className="gradient-primary text-white liquid-button"
+                    className="gradient-primary text-white"
                   >
                     <UserPlus className="w-4 h-4 mr-2" />
                     Add {selectedStudentIds.length} Student{selectedStudentIds.length !== 1 ? 's' : ''}
