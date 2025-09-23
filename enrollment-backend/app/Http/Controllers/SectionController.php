@@ -8,14 +8,13 @@ use Illuminate\Support\Facades\Validator;
 
 class SectionController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+
     public function index()
-{
-    $sections = Section::with('course', 'students')->orderBy('created_at', 'desc')->get();
-    return response()->json(['success' => true, 'data' => $sections]);
-}
+    {
+
+        $sections = Section::with('course', 'students')->orderBy('created_at', 'desc')->get();
+        return response()->json(['success' => true, 'data' => $sections]);
+    }
 
     public function show(Section $section)
     {
@@ -27,9 +26,7 @@ class SectionController extends Controller
         }
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -40,16 +37,13 @@ class SectionController extends Controller
         if ($validator->fails()) {
             return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
         }
-
+        
         $section = Section::create($validator->validated());
-        $section->load('course')->loadCount('students'); // Load relations for the response
+        $section->load('course', 'students');
 
         return response()->json(['success' => true, 'message' => 'Section created successfully', 'data' => $section], 201);
     }
 
-    /**
-     * Add an array of students to a specific section.
-     */
     public function addStudents(Request $request, Section $section)
     {
         $validator = Validator::make($request->all(), [
@@ -61,14 +55,10 @@ class SectionController extends Controller
             return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
         }
 
-        // syncWithoutDetaching prevents duplicate entries and doesn't remove existing ones
         $section->students()->syncWithoutDetaching($request->student_ids);
-
-        // Load the updated student list for the response
-        $section->load('students');
+        
+        $section->load('course', 'students');
 
         return response()->json(['success' => true, 'message' => 'Students added successfully', 'data' => $section]);
     }
-
-    // You can add show, update, and destroy methods here as needed
 }

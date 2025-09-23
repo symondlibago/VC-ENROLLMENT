@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
-
+use Illuminate\Http\JsonResponse;
 class EnrollmentController extends Controller
 {
     // submitEnrollment, getPreEnrolledStudents, getPreEnrolledStudentDetails...
@@ -127,32 +127,47 @@ class EnrollmentController extends Controller
      * @param  string  $code
      * @return \Illuminate\Http\JsonResponse
      */
-    public function checkEnrollmentStatus($code)
+    public function checkEnrollmentStatus($code): JsonResponse
     {
-        $enrollmentCode = EnrollmentCode::where('code', $code)->first();
+        // Eager load all necessary relationships to avoid multiple queries
+        $enrollmentCode = EnrollmentCode::where('code', $code)->with([
+            'preEnrolledStudent.course', 
+            'preEnrolledStudent.enrollmentApprovals.user'
+        ])->first();
 
-        if (!$enrollmentCode) {
+        if (!$enrollmentCode || !$enrollmentCode->preEnrolledStudent) {
             return response()->json([
                 'success' => false,
-                'message' => 'Enrollment code not found',
+                'message' => 'Invalid or not found reference number.',
             ], 404);
         }
 
-        $preEnrolledStudent = $enrollmentCode->preEnrolledStudent;
+        $student = $enrollmentCode->preEnrolledStudent;
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'student' => $preEnrolledStudent,
-                'enrollment_code' => $enrollmentCode->code,
-                'approval_status' => [
-                    'program_head_approved' => $preEnrolledStudent->program_head_approved,
-                    'registrar_approved' => $preEnrolledStudent->registrar_approved,
-                    'cashier_approved' => $preEnrolledStudent->cashier_approved,
-                    'fully_approved' => $preEnrolledStudent->isFullyApproved(),
-                ],
+        // Prepare the data for the frontend
+        $data = [
+            'student' => [
+                'fullName' => $student->getFullNameAttribute(),
+                'course' => $student->course->course_name ?? 'N/A',
+                'semester' => $student->semester,
+                'schoolYear' => $student->school_year,
+                'submissionDate' => $student->created_at->format('F d, Y'),
             ],
-        ]);
+            'referenceNumber' => $enrollmentCode->code,
+            'detailedStatus' => $this->getEnrollmentStatus($student),
+            'lastUpdated' => $student->updated_at->format('F d, Y h:i A'),
+            'approvals' => $student->enrollmentApprovals->map(function ($approval) {
+                return [
+                    'role' => $approval->role,
+                    'status' => $approval->status,
+                    'remarks' => $approval->remarks,
+                    'processedBy' => $approval->user->name ?? 'System',
+                    'date' => $approval->updated_at->format('M d, Y'),
+                ];
+            }),
+        ];
+
+        return response()->json(['success' => true, 'data' => $data]);
     }
 
 
@@ -220,25 +235,23 @@ class EnrollmentController extends Controller
 
     private function getEnrollmentStatus($student)
     {
-        // The main status column is now the primary source of truth.
         if ($student->enrollment_status === 'enrolled') {
-            return 'Enrolled';
+            return 'Successfully Enrolled'; 
         }
         if ($student->enrollment_status === 'rejected') {
-            return 'Rejected';
+            return 'Application Rejected'; 
         }
 
-        // For "pending" status, provide more detail on the current step for the UI.
         $programHeadApproved = optional($student->getApprovalStatusFor('Program Head'))->status === 'approved';
         $registrarApproved = optional($student->getApprovalStatusFor('Registrar'))->status === 'approved';
 
         if ($programHeadApproved && $registrarApproved) {
-            return 'Pending Payment'; // Waiting for Cashier
+            return 'Pending Payment'; 
         }
         if ($programHeadApproved) {
-            return 'Registrar Review'; // Waiting for Registrar
+            return 'For Registrar Review'; 
         }
-        return 'Program Head Review'; // Waiting for Program Head
+        return 'For Program Head Review'; 
     }
 
     private function calculateProgress($student)

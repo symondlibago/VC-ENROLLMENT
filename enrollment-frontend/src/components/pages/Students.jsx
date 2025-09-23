@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -34,6 +35,71 @@ import AddStudentsToSectionModal from '../modals/AddStudentsToSectionModal'; // 
 import LoadingSpinner from '../layout/LoadingSpinner';
 import { sectionAPI, enrollmentAPI, courseAPI } from '@/services/api';
 import { toast } from 'sonner';
+
+// Custom Framer Motion Dropdown Component (Copied from Enrollment.jsx)
+const MotionDropdown = ({ value, onChange, options, placeholder }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedOption, setSelectedOption] = useState(
+    options.find(opt => opt.value === value) || { label: placeholder, value: '' }
+  );
+
+  useEffect(() => {
+    setSelectedOption(options.find(opt => opt.value === value) || { label: placeholder, value: '' });
+  }, [value, options, placeholder]);
+
+  const handleSelect = (option) => {
+    setSelectedOption(option);
+    onChange(option.value);
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="relative">
+      <motion.button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-4 py-2 text-left bg-white border border-gray-200 rounded-lg focus:border-[var(--dominant-red)] focus:ring-2 focus:ring-[var(--dominant-red)]/20 liquid-morph flex items-center justify-between min-w-[200px]"
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+      >
+        <span className="text-gray-900">{selectedOption.label}</span>
+        <motion.div
+          animate={{ rotate: isOpen ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <ChevronDown className="w-4 h-4 text-gray-500" />
+        </motion.div>
+      </motion.button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+            transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+            className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden"
+          >
+            {options.map((option, index) => (
+              <motion.button
+                key={option.value}
+                type="button"
+                onClick={() => handleSelect(option)}
+                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors duration-200 border-b border-gray-100 last:border-b-0"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
+                whileHover={{ backgroundColor: '#f9fafb', x: 4 }}
+              >
+                <span className="text-gray-900">{option.label}</span>
+              </motion.button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 // Main Component
 const Students = () => {
@@ -155,12 +221,17 @@ const Students = () => {
     return matchesSearch && matchesFilter;
   }), [sections, searchTerm, sectionCourseFilter]);
 
-  const filteredStudents = useMemo(() => enrolledStudents.filter(student => {
-    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || student.student_id_number.toLowerCase().includes(searchTerm.toLowerCase());
-    const courseMatch = studentCourseFilter === 'all' || student.courseId?.toString() === studentCourseFilter;
-    const sectionMatch = studentSectionFilter === 'all' || student.sectionId?.toString() === studentSectionFilter;
-    return matchesSearch && courseMatch && sectionMatch;
-  }), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter]);
+  // In your main Students component...
+
+const filteredStudents = useMemo(() => enrolledStudents.filter(student => {
+  const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                        (student.student_id_number && student.student_id_number.toLowerCase().includes(searchTerm.toLowerCase()));
+  const courseMatch = studentCourseFilter === 'all' || student.courseId?.toString() === studentCourseFilter;
+  const sectionMatch = studentSectionFilter === 'all' || 
+                       (studentSectionFilter === 'unassigned' && !student.sectionId) || 
+                       (student.sectionId?.toString() === studentSectionFilter);
+  return matchesSearch && courseMatch && sectionMatch;
+}), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter]);
 
   if (loading) {
     return <div className="flex justify-center items-center h-full"><LoadingSpinner size="lg" color="red" /></div>;
@@ -280,26 +351,42 @@ const Students = () => {
   );
 };
 
-// ... SectionPage and StudentPage sub-components remain unchanged ...
 // Sub-component for Section Page View
-const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, onSectionClick, onAddSectionClick }) => (
+const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, onSectionClick, onAddSectionClick }) => {
+  const courseOptions = useMemo(() => [
+    { label: 'Filter by All Courses', value: 'all' },
+    ...courses.map(course => ({ label: course.course_code, value: course.id.toString() }))
+  ], [courses]);
+
+  return (
     <div className="space-y-6">
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div className="flex-1 w-full">
-              <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" /><Input placeholder="Search sections by name or course..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" /></div>
+              <Card>
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+              <div className="flex-1 w-full">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search sections by name or course..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 border-1 border-gray-200 focus:ring-red-800 focus:border-red-800"
+                  />
+                </div>
+              </div>
+              <div className="relative w-full md:w-auto">
+                <MotionDropdown
+                  value={courseFilter}
+                  onChange={setCourseFilter}
+                  options={courseOptions}
+                  placeholder="Filter by All Courses"
+                />
+              </div>
             </div>
-            <div className="relative w-full md:w-auto">
-              <select value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)} className="w-full px-4 py-2 border border-gray-200 rounded-lg appearance-none focus:border-[var(--dominant-red)] focus:ring-[var(--dominant-red)]">
-                <option value="all">Filter by All Courses</option>
-                {courses.map(course => <option key={course.id} value={course.id}>{course.course_name}</option>)}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+
   
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {sections.map((section, index) => (
@@ -325,46 +412,94 @@ const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilte
       {sections.length === 0 && <div className="text-center py-12"><BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-900 mb-2">No sections found</h3><p className="text-gray-500 mb-4">Try adjusting your search or filter criteria.</p><Button className="gradient-primary text-white" onClick={onAddSectionClick}><Plus className="w-4 h-4 mr-2" />Add First Section</Button></div>}
     </div>
   );
+};
   
-  // Sub-component for Student Page View
-  const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter }) => (
+// Sub-component for Student Page View
+const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter }) => {
+  const courseOptions = useMemo(() => [
+    { label: 'Filter by All Courses', value: 'all' },
+    ...courses.map(course => ({ label: course.course_code, value: course.id.toString() }))
+  ], [courses]);
+  
+
+  const sectionOptions = useMemo(() => [
+    { label: 'Filter by All Sections', value: 'all' },
+    { label: 'Filter by Unassigned', value: 'unassigned' },
+    ...sections.map(section => ({ label: section.name, value: section.id.toString() }))
+  ], [sections]);
+
+  return (
     <div className="space-y-6">
-      <Card>
-        <CardContent className="p-6 space-y-4">
-          <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" /><Input placeholder="Search students by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" /></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="relative">
-              <select value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)} className="w-full px-4 py-2 border border-gray-200 rounded-lg appearance-none focus:border-[var(--dominant-red)] focus:ring-[var(--dominant-red)]">
-                <option value="all">Filter by All Courses</option>
-                {courses.map(course => <option key={course.id} value={course.id}>{course.course_name}</option>)}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <Card>
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="flex-1 w-full">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Search students by name or ID..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 border-1 border-gray-300 focus:border-red-800 focus:ring-1 focus:ring-red-800 rounded-lg"
+                />
+              </div>
             </div>
-            <div className="relative">
-              <select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)} className="w-full px-4 py-2 border border-gray-200 rounded-lg appearance-none focus:border-[var(--dominant-red)] focus:ring-[var(--dominant-red)]">
-                <option value="all">Filter by All Sections</option>
-                {sections.filter(s => courseFilter === 'all' || s.course_id.toString() === courseFilter).map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative w-full sm:w-auto">
+                <MotionDropdown
+                  value={courseFilter}
+                  onChange={setCourseFilter}
+                  options={courseOptions}
+                  placeholder="Filter by All Courses"
+                />
+              </div>
+              <div className="relative w-full sm:w-auto">
+                <MotionDropdown
+                  value={sectionFilter}
+                  onChange={setSectionFilter}
+                  options={sectionOptions}
+                  placeholder="Filter by All Sections"
+                />
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
+
   
       <Card>
         <Table>
-          <TableHeader><TableRow><TableHead>Student ID</TableHead><TableHead>Name</TableHead><TableHead>Course</TableHead><TableHead>Section</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+          <TableHeader>
+          <TableRow>
+          <TableHead>Student ID</TableHead>
+          <TableHead>Name</TableHead>
+          <TableHead>Course</TableHead>
+          <TableHead>Section</TableHead>
+          <TableHead className="text-right">Action</TableHead>
+          </TableRow>
+          </TableHeader>
           <TableBody>
             {students.length > 0 ? students.map(student => (
               <TableRow key={student.id}>
                 <TableCell className="font-medium">{student.student_id_number}</TableCell>
                 <TableCell>{student.name}</TableCell>
                 <TableCell>{student.courseName}</TableCell>
-                <TableCell><Badge variant="secondary">{student.sectionName || 'Unassigned'}</Badge></TableCell>
+                <TableCell>
+                  <Badge variant={student.sectionName ? "secondary" : "destructive"}>
+                    {student.sectionName || 'Unassigned'}
+                  </Badge>
+                </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Open menu</span><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                    <DropdownMenuContent align="end"><DropdownMenuItem>View Details</DropdownMenuItem><DropdownMenuItem>Edit Student</DropdownMenuItem><DropdownMenuItem className="text-red-500">Remove from Section</DropdownMenuItem></DropdownMenuContent>
+                    <DropdownMenuContent align="end">
+                    <DropdownMenuItem>View Details
+                      </DropdownMenuItem>
+                    <DropdownMenuItem>Edit Student
+                      </DropdownMenuItem>
+                    <DropdownMenuItem className="text-red-500">Remove from Section
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
               </TableRow>
@@ -374,5 +509,5 @@ const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilte
       </Card>
     </div>
   );
-
+            }
 export default Students;

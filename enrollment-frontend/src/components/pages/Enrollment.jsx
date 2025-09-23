@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   GraduationCap, 
@@ -45,6 +45,10 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
   const [selectedOption, setSelectedOption] = useState(
     options.find(opt => opt.value === value) || { label: placeholder, value: '' }
   );
+
+  useEffect(() => {
+    setSelectedOption(options.find(opt => opt.value === value) || { label: placeholder, value: '' });
+  }, [value, options, placeholder]);
 
   const handleSelect = (option) => {
     setSelectedOption(option);
@@ -108,6 +112,12 @@ const Enrollment = () => {
   const [error, setError] = useState(null);
   const [selectedStudentId, setSelectedStudentId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [enrollmentStats, setEnrollmentStats] = useState({
+    total: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+  });
   
   // Get the current user's data from local storage
   const currentUser = authAPI.getUserData();
@@ -124,6 +134,20 @@ const Enrollment = () => {
       
       if (response.success) {
         setEnrollments(response.data);
+        
+        // Calculate dynamic stats
+        const total = response.data.length;
+        const pending = response.data.filter(e => e.status === 'Program Head Review' || e.status === 'Registrar Review' || e.status === 'Pending Payment').length;
+        const approved = response.data.filter(e => e.status === 'Enrolled').length;
+        const rejected = response.data.filter(e => e.status === 'Rejected').length;
+
+        setEnrollmentStats({
+          total,
+          pending,
+          approved,
+          rejected,
+        });
+
       } else {
         setError('Failed to load enrollments');
       }
@@ -141,47 +165,42 @@ const Enrollment = () => {
   };
   
   // Stats based on real data
-  const stats = [
+  const stats = useMemo(() => [
     {
       title: 'Total Enrollments',
-      value: '1,247',
-      change: '+23.1%',
+      value: enrollmentStats.total.toLocaleString(),
       icon: GraduationCap,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50'
     },
     {
       title: 'Pending Approval',
-      value: '45',
-      change: '+12.5%',
+      value: enrollmentStats.pending.toLocaleString(),
       icon: AlertCircle,
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-50'
     },
     {
-      title: 'Active Students',
-      value: '892',
-      change: '+8.2%',
-      icon: UserCheck,
+      title: 'Approved Enrollments',
+      value: enrollmentStats.approved.toLocaleString(),
+      icon: CheckCircle,
       color: 'text-green-600',
       bgColor: 'bg-green-50'
     },
     {
-      title: 'Completion Rate',
-      value: '94.2%',
-      change: '+5.4%',
-      icon: CheckCircle,
+      title: 'Rejected Enrollments',
+      value: enrollmentStats.rejected.toLocaleString(),
+      icon: XCircle,
       color: 'text-[var(--dominant-red)]',
       bgColor: 'bg-red-50'
     }
-  ];
+  ], [enrollmentStats]);
 
   const filterOptions = [
     { label: 'All Enrollments', value: 'all' },
-    { label: 'Pending', value: 'pending' },
-    { label: 'Approved', value: 'approved' },
+    { label: 'Pending Review', value: 'pending' },
+    { label: 'Approved', value: 'enrolled' }, // Changed to 'enrolled' to match backend status
     { label: 'Rejected', value: 'rejected' },
-    { label: 'Completed', value: 'completed' }
   ];
 
   const containerVariants = {
@@ -212,14 +231,12 @@ const Enrollment = () => {
     
     status = status.toLowerCase();
     
-    if (status.includes('approved')) {
+    if (status.includes('enrolled')) {
       return 'bg-green-100 text-green-800';
     } else if (status.includes('pending') || status.includes('review')) {
       return 'bg-yellow-100 text-yellow-800';
     } else if (status.includes('rejected')) {
       return 'bg-red-100 text-red-800';
-    } else if (status.includes('completed')) {
-      return 'bg-blue-100 text-blue-800';
     } else {
       return 'bg-gray-100 text-gray-800';
     }
@@ -242,24 +259,25 @@ const Enrollment = () => {
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'approved':
+      case 'Enrolled':
         return <CheckCircle className="w-4 h-4" />;
-      case 'pending':
+      case 'Program Head Review':
+      case 'Registrar Review':
+      case 'Pending Payment':
         return <AlertCircle className="w-4 h-4" />;
-      case 'rejected':
+      case 'Rejected':
         return <XCircle className="w-4 h-4" />;
-      case 'completed':
-        return <CheckCircle className="w-4 h-4" />;
       default:
         return <AlertCircle className="w-4 h-4" />;
     }
   };
 
   const getInitials = (firstName, lastName) => {
-    const first = firstName ? firstName.charAt(0).toUpperCase() : '';
-    const last = lastName ? lastName.charAt(0).toUpperCase() : '';
-    return first + last || 'U';
+    const first = firstName?.trim()?.charAt(0).toUpperCase() || '';
+    const last = lastName?.trim()?.charAt(0).toUpperCase() || '';
+    return (first + last) || 'U';
   };
+  
 
   const filteredEnrollments = enrollments.filter((enrollment) => {
     const name = enrollment.name || `${enrollment.first_name || ''} ${enrollment.last_name || ''}`.trim();
@@ -272,7 +290,16 @@ const Enrollment = () => {
     if (selectedFilter === 'all') return matchesSearch;
     if (!enrollment.status) return false;
     
-    const statusMatch = enrollment.status.toLowerCase().replace(/ /g, '').includes(selectedFilter);
+    // Handle specific statuses for filtering
+    let statusMatch = false;
+    if (selectedFilter === 'pending') {
+      statusMatch = (enrollment.status === 'Program Head Review' || enrollment.status === 'Registrar Review' || enrollment.status === 'Pending Payment');
+    } else if (selectedFilter === 'enrolled') { // Changed from 'approved' to 'enrolled'
+      statusMatch = (enrollment.status === 'Enrolled');
+    } else if (selectedFilter === 'rejected') {
+      statusMatch = (enrollment.status === 'Rejected');
+    }
+
     return matchesSearch && statusMatch;
 });
 
@@ -305,7 +332,6 @@ const Enrollment = () => {
         </div>
       </motion.div>
 
-      {/* Stats Grid */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => {
           const Icon = stat.icon;
@@ -415,13 +441,13 @@ const Enrollment = () => {
                       {/* Enhanced Avatar */}
                       <motion.div>
                         <Avatar className="w-10 h-10 ring-1 ring-gray-100 ring-offset-1">
-                          <AvatarImage 
-                            src={enrollment.avatar || `/api/placeholder/56/56`} 
-                            alt={enrollment.first_name || 'Student'} 
-                          />
+                        <AvatarImage 
+                          src={enrollment.student?.avatar || `/api/placeholder/56/56`} 
+                          alt={enrollment.student?.first_name || 'Student'} 
+                        />
                           <AvatarFallback className="bg-gradient-to-br from-[var(--dominant-red)] to-red-600 text-white font-bold text-sm">
-                            {getInitials(enrollment.first_name, enrollment.last_name)}
-                          </AvatarFallback>
+                        {getInitials(enrollment.student?.first_name, enrollment.student?.last_name)}
+                      </AvatarFallback>
                         </Avatar>
                       </motion.div>
 
@@ -442,8 +468,6 @@ const Enrollment = () => {
                           </motion.div>
                           
                           <motion.div
-                            whileHover={{ x: 4 }}
-                            transition={{ duration: 0.2 }}
                             className="space-y-1"
                           >
                             <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">Course Details</p>
@@ -457,8 +481,6 @@ const Enrollment = () => {
                           </motion.div>
                           
                           <motion.div
-                            whileHover={{ x: 4 }}
-                            transition={{ duration: 0.2 }}
                             className="space-y-1"
                           >
                             <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">Timeline</p>
