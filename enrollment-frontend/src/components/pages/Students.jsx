@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import SectionDetailsModal from '../modals/SectionDetailsModal';
 import AddSectionModal from '../modals/AddSectionModal';
+import LoadingSpinner from '../layout/LoadingSpinner';
 
 // Import your API methods
 import { sectionAPI, enrollmentAPI , courseAPI } from '@/services/api';
@@ -215,7 +216,11 @@ const Students = () => {
   });
 
   if (loading) {
-    return <div className='p-6'>Loading...</div>;
+    return (
+      <div className="flex justify-center items-center h-100">
+        <LoadingSpinner size="lg" color="red" />
+      </div>
+    );
   }
 
 
@@ -226,8 +231,6 @@ const Students = () => {
       initial="hidden"
       animate="visible"
     >
-      {/* ... The rest of the JSX is unchanged ... */}
-      {/* Header, Stats, Search, and Sections Grid remain the same */}
       {/* Header Section */}
       <motion.div variants={itemVariants} className="animate-fade-in">
         <div className="gradient-soft rounded-2xl p-8 border border-gray-100">
@@ -242,12 +245,17 @@ const Students = () => {
               </p>
             </div>
             <div className="flex space-x-3">
-              <Button 
+            <Button 
                 className="gradient-primary text-white liquid-button"
                 onClick={handleAddSectionClick}
+                disabled={loading}
               >
-                <Plus className="w-4 h-4 mr-2" />
+                {loading ? <LoadingSpinner size="sm" color="white" /> : <Plus className="w-4 h-4 mr-2" />}
                 Add Section
+              </Button>
+              <Button variant="outline" className="liquid-button">
+                <UserPlus className="w-4 h-4 mr-2" />
+                Add Student
               </Button>
             </div>
           </div>
@@ -377,9 +385,25 @@ const Students = () => {
                     </div>
                   </div>
 
-                  {/* FIX: Removed avatar preview since student details are not in this API call */}
                   <div className="mt-4 pt-4 border-t border-gray-100">
-                    <span className="text-sm text-gray-500">Click to view students</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-500">Click to view students</span>
+                      <div className="flex -space-x-2">
+                        {Array.from({ length: Math.min(section.students_count || 0, 3) }).map((_, idx) => (
+                          <div
+                            key={idx}
+                            className="w-8 h-8 bg-[var(--dominant-red)] rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-white"
+                          >
+                            {String.fromCharCode(65 + idx)}
+                          </div>
+                        ))}
+                        {(section.students_count || 0) > 3 && (
+                          <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 text-xs font-bold border-2 border-white">
+                            +{(section.students_count || 0) - 3}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -407,13 +431,12 @@ const Students = () => {
         </motion.div>
       )}
 
-      {/* FIX: Updated props passed to SectionDetailsModal */}
       <SectionDetailsModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         section={selectedSection}
-        isLoading={isSectionLoading} // Pass loading state
-        allStudents={enrolledStudents} // This is the list of ALL students available to be added
+        isLoading={isSectionLoading} 
+        allStudents={enrolledStudents} 
         onAddStudentsToSection={handleAddStudentsToSection}
       />
 

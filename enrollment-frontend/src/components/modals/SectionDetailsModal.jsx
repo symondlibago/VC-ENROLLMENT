@@ -8,7 +8,8 @@ import {
   Mail,
   Phone,
   UserPlus,
-  Loader2, // Import loader icon
+  MoreVertical,
+
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +21,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import AddStudentsToSectionModal from './AddStudentsToSectionModal';
+import LoadingSpinner from '../layout/LoadingSpinner';
+
 
 // FIX: Removed 'students' prop, added 'isLoading' prop
 const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, allStudents, onAddStudentsToSection }) => {
@@ -70,10 +73,9 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, allStudents,
     if (isLoading) {
       return (
         <div className="flex items-center justify-center h-full">
-          <div className="text-center py-12">
-            <Loader2 className="w-12 h-12 text-[var(--dominant-red)] mx-auto mb-4 animate-spin" />
-            <h3 className="text-lg font-medium text-gray-900">Loading Students...</h3>
-          </div>
+          <div className="flex justify-center items-center h-100">
+        <LoadingSpinner size="lg" color="red" />
+      </div>
         </div>
       );
     }
@@ -160,13 +162,13 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, allStudents,
                     <div className="flex justify-center">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="liquid-button">
-                            ...
+                        <Button variant="ghost" size="sm" className="liquid-button h-10 w-10 rounded-full cursor-pointer">
+                        <MoreVertical className="w-4 h-4" />
                         </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                         <DropdownMenuItem>
-                            <Eye className="mr-2 h-4 w-4" />
+                            <Eye className="mr-2 h-4 w-4 " />
                             View Details
                         </DropdownMenuItem>
                         <DropdownMenuItem>
@@ -208,9 +210,9 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, allStudents,
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="relative bg-white rounded-2xl shadow-2xl max-w-5xl w-full mx-4 h-[80vh] flex flex-col"
-          >
-            <div className="gradient-soft p-6 border-b border-gray-100 flex-shrink-0">
+            className="relative bg-white rounded-b-2xl shadow-2xl max-w-5xl w-full mx-4 h-[80vh] flex flex-col"
+            >
+            <div className="gradient-soft p-6 border-b border-gray-100 flex-shrink-0 ">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold heading-bold text-gray-900">
@@ -223,7 +225,7 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, allStudents,
                 <div className="flex items-center space-x-3">
                   <Button
                     onClick={handleInsertStudentClick}
-                    className="gradient-primary text-white liquid-button"
+                    className="gradient-primary text-white liquid-button cursor-pointer"
                     disabled={isLoading}
                   >
                     <UserPlus className="w-4 h-4 mr-2" />
@@ -233,7 +235,7 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, allStudents,
                     variant="ghost"
                     size="sm"
                     onClick={onClose}
-                    className="liquid-button hover:bg-gray-100"
+                    className="liquid-button hover:bg-red-800 cursor-pointer"
                   >
                     <X className="w-5 h-5" />
                   </Button>

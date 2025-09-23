@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X,
@@ -22,20 +22,26 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
       setSearchTerm('');
     }
   }, [isOpen]);
+  
+  // Memoize the list of available students to prevent re-filtering on every render
+  const availableStudents = useMemo(() => {
+    if (!allStudents || !enrolledStudentIds) return [];
+    return allStudents.filter(student => !enrolledStudentIds.includes(student.id));
+  }, [allStudents, enrolledStudentIds]);
+
+  // Memoize the searched list for better performance on search input
+  const filteredStudents = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    if (!term) return availableStudents;
+    return availableStudents.filter(student =>
+      student.name.toLowerCase().includes(term) ||
+      student.email.toLowerCase().includes(term) ||
+      (student.courseCode && student.courseCode.toLowerCase().includes(term))
+    );
+  }, [availableStudents, searchTerm]);
+
 
   if (!section || !allStudents) return null;
-
-  // Filter out students already enrolled in this section
-  const availableStudents = allStudents.filter(student => 
-    !enrolledStudentIds.includes(student.id)
-  );
-
-  // Filter students based on search term
-  const filteredStudents = availableStudents.filter(student =>
-    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (student.courseCode && student.courseCode.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -243,13 +249,13 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
                             }`}
                             onClick={() => handleStudentToggle(student.id)}
                           >
-                            <td className="py-4 px-4">
+                            <td className="py-4 px-4" onClick={(e) => e.stopPropagation()}>
                               <div className="relative flex items-center justify-center h-full">
                                 <input
                                   type="checkbox"
                                   checked={selectedStudentIds.includes(student.id)}
-                                  readOnly
-                                  className="w-4 h-4 text-[var(--dominant-red)] border-gray-300 rounded focus:ring-[var(--dominant-red)]"
+                                  onChange={() => handleStudentToggle(student.id)}
+                                  className="w-4 h-4 text-[var(--dominant-red)] border-gray-300 rounded focus:ring-[var(--dominant-red)] cursor-pointer"
                                 />
                               </div>
                             </td>
