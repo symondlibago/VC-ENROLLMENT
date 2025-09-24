@@ -47,6 +47,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Section routes
     Route::apiResource('sections', SectionController::class);
     Route::post('sections/{section}/students', [SectionController::class, 'addStudents']);
+
+    Route::get('enrollments', [EnrollmentController::class, 'getPreEnrolledStudents']);
+
 });
     // Program routes
     Route::apiResource('programs', ProgramController::class);
@@ -61,7 +64,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Enrollment routes
     Route::post('enrollments', [EnrollmentController::class, 'submitEnrollment']);
     Route::get('enrollments/code/{code}', [EnrollmentController::class, 'checkEnrollmentStatus']);
-    Route::get('enrollments', [EnrollmentController::class, 'getPreEnrolledStudents']);
     Route::get('enrollments/{id}/details', [EnrollmentController::class, 'getPreEnrolledStudentDetails']);
     Route::get('enrollments/{id}', [EnrollmentController::class, 'getPreEnrolledStudentDetails']);
 

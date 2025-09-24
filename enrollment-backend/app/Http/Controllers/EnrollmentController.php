@@ -15,8 +15,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
 class EnrollmentController extends Controller
 {
-    // submitEnrollment, getPreEnrolledStudents, getPreEnrolledStudentDetails...
-    // ... (No changes to submitEnrollment, getPreEnrolledStudents, getPreEnrolledStudentDetails from previous step)
     public function submitEnrollment(Request $request)
     {
         // ... same validation as before
@@ -171,39 +169,71 @@ class EnrollmentController extends Controller
     }
 
 
-    public function getPreEnrolledStudents()
-    {
-        try {
-            $preEnrolledStudents = PreEnrolledStudent::with(['course.program', 'enrollmentCode', 'enrollmentApprovals'])
-                ->orderBy('created_at', 'desc')
-                ->get()
-                ->map(function ($student) {
-                    return [
-                        'id' => $student->id,
-                        'student_id_number' => $student->student_id_number,
-                        'name' => $student->getFullNameAttribute(),
-                        'email' => $student->email_address,
-                        'contact' => $student->contact_number,
-                        'course' => $student->course ? $student->course->course_name : null,
-                        'course_code' => $student->course ? $student->course->course_code : null,
-                        'program' => $student->course && $student->course->program ? $student->course->program->program_name : null,
-                        'enrollment_date' => $student->created_at->format('Y-m-d'),
-                        'semester' => $student->semester,
-                        'school_year' => $student->school_year,
-                        'enrollment_type' => $student->enrollment_type,
-                        'status' => $this->getEnrollmentStatus($student),
-                        'progress' => $this->calculateProgress($student),
-                        'enrollment_code' => $student->enrollmentCode ? $student->enrollmentCode->code : null,
-                        'gender' => $student->gender,
-                        // Include only necessary fields for the table view
-                    ];
-                });
+public function getPreEnrolledStudents()
+{
+    try {
+        $user = Auth::user(); 
 
-            return response()->json(['success' => true, 'data' => $preEnrolledStudents]);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Failed to fetch pre-enrolled students', 'error' => $e->getMessage()], 500);
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
         }
+
+        $query = PreEnrolledStudent::with(['course.program', 'enrollmentCode', 'enrollmentApprovals'])
+                                  ->orderBy('created_at', 'desc');
+
+        switch ($user->role) {
+            case 'Program Head':
+                $query->whereDoesntHave('enrollmentApprovals', function ($q) {
+                    $q->where('status', 'approved');
+                });
+                break;
+            case 'Registrar':
+                $query->whereHas('enrollmentApprovals', function ($q) {
+                    $q->where('role', 'Program Head')->where('status', 'approved');
+                })->whereDoesntHave('enrollmentApprovals', function ($q) {
+                    $q->where('role', 'Registrar')->where('status', 'approved');
+                });
+                break;
+            case 'Cashier':
+                $query->whereHas('enrollmentApprovals', function ($q) {
+                    $q->where('role', 'Program Head')->where('status', 'approved');
+                })->whereHas('enrollmentApprovals', function ($q) {
+                    $q->where('role', 'Registrar')->where('status', 'approved');
+                })->whereDoesntHave('enrollmentApprovals', function ($q) {
+                    $q->where('role', 'Cashier')->where('status', 'approved');
+                });
+                break;
+        }
+
+        if ($user->role !== 'Admin') {
+            $query->where('enrollment_status', '!=', 'enrolled');
+        }
+        $preEnrolledStudents = $query->get()->map(function ($student) {
+            return [
+                'id' => $student->id,
+                'student_id_number' => $student->student_id_number,
+                'name' => $student->getFullNameAttribute(),
+                'email' => $student->email_address,
+                'contact' => $student->contact_number,
+                'course' => $student->course ? $student->course->course_name : null,
+                'course_code' => $student->course ? $student->course->course_code : null,
+                'program' => $student->course && $student->course->program ? $student->course->program->program_name : null,
+                'enrollment_date' => $student->created_at->format('Y-m-d'),
+                'semester' => $student->semester,
+                'school_year' => $student->school_year,
+                'enrollment_type' => $student->enrollment_type,
+                'status' => $this->getEnrollmentStatus($student),
+                'progress' => $this->calculateProgress($student),
+                'enrollment_code' => $student->enrollmentCode ? $student->enrollmentCode->code : null,
+                'gender' => $student->gender,
+            ];
+        });
+
+        return response()->json(['success' => true, 'data' => $preEnrolledStudents]);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'message' => 'Failed to fetch pre-enrolled students', 'error' => $e->getMessage()], 500);
     }
+}
 
     public function getPreEnrolledStudentDetails($id)
     {

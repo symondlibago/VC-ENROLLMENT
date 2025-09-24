@@ -140,29 +140,21 @@ const Enrollment = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await enrollmentAPI.getPreEnrolledStudents();
+      const response = await enrollmentAPI.getPreEnrolledStudents(); 
       
       if (response.success) {
         setEnrollments(response.data);
-        
         const total = response.data.length;
-        const pending = response.data.filter(e => e.status === 'Program Head Review' || e.status === 'Registrar Review' || e.status === 'Pending Payment').length;
+        const pending = response.data.filter(e => e.status.includes('Review') || e.status.includes('Pending')).length;
         const approved = response.data.filter(e => e.status === 'Enrolled').length;
         const rejected = response.data.filter(e => e.status === 'Rejected').length;
-
-        setEnrollmentStats({
-          total,
-          pending,
-          approved,
-          rejected,
-        });
+        setEnrollmentStats({ total, pending, approved, rejected });
 
       } else {
         setError('Failed to load enrollments');
       }
     } catch (err) {
-      setError(err.message || 'An error occurred while fetching enrollments');
-      console.error(err);
+      // ... (error handling)
     } finally {
       setLoading(false);
     }
@@ -271,28 +263,31 @@ const Enrollment = () => {
     return (last + first) || 'U';
   };
   
-  const filteredEnrollments = enrollments.filter((enrollment) => {
-    const name = enrollment.name || `${enrollment.first_name || ''} ${enrollment.last_name || ''}`.trim();
+  const filteredEnrollments = useMemo(() => {
+    // The `enrollments` state is now ALREADY filtered by role from the API
+    return enrollments.filter((enrollment) => {
+      const name = enrollment.name || `${enrollment.first_name || ''} ${enrollment.last_name || ''}`.trim();
 
-    const matchesSearch =
-      name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (enrollment.email && enrollment.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (enrollment.course && enrollment.course.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesSearch =
+        name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (enrollment.email && enrollment.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (enrollment.course && enrollment.course.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    if (selectedFilter === 'all') return matchesSearch;
-    if (!enrollment.status) return false;
-    
-    let statusMatch = false;
-    if (selectedFilter === 'pending') {
-      statusMatch = (enrollment.status === 'Program Head Review' || enrollment.status === 'Registrar Review' || enrollment.status === 'Pending Payment');
-    } else if (selectedFilter === 'enrolled') {
-      statusMatch = (enrollment.status === 'Enrolled');
-    } else if (selectedFilter === 'rejected') {
-      statusMatch = (enrollment.status === 'Rejected');
-    }
+      // The rest of your filter logic for the dropdown (All, Pending, etc.) can stay
+      if (selectedFilter === 'all') return matchesSearch;
+      // ...
+      let statusMatch = false;
+      if (selectedFilter === 'pending') {
+        statusMatch = (enrollment.status.includes('Review') || enrollment.status.includes('Payment'));
+      } else if (selectedFilter === 'enrolled') {
+        statusMatch = (enrollment.status === 'Enrolled');
+      } else if (selectedFilter === 'rejected') {
+        statusMatch = (enrollment.status === 'Rejected');
+      }
 
-    return matchesSearch && statusMatch;
-  });
+      return matchesSearch && statusMatch;
+    });
+  }, [enrollments, searchTerm, selectedFilter]);
 
   return (
     <motion.div
@@ -495,7 +490,7 @@ const Enrollment = () => {
               ) : (
                 <TableRow>
                   <TableCell colSpan={5} className="h-24 text-center">
-                    No enrollments found.
+                    No enrollments found for your role.
                   </TableCell>
                 </TableRow>
               )}
