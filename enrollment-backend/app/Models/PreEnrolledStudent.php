@@ -124,4 +124,9 @@ class PreEnrolledStudent extends Model
     {
     return $this->belongsToMany(Section::class, 'section_student');
     }
+
+    public function uploadReceipts(): HasMany
+    {
+        return $this->hasMany(UploadReceipt::class);
+    }
 }

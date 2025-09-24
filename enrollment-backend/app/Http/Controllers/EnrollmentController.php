@@ -236,22 +236,22 @@ class EnrollmentController extends Controller
     private function getEnrollmentStatus($student)
     {
         if ($student->enrollment_status === 'enrolled') {
-            return 'Successfully Enrolled'; 
+            return 'Enrolled';
         }
         if ($student->enrollment_status === 'rejected') {
-            return 'Application Rejected'; 
+            return 'Rejected';
         }
 
         $programHeadApproved = optional($student->getApprovalStatusFor('Program Head'))->status === 'approved';
         $registrarApproved = optional($student->getApprovalStatusFor('Registrar'))->status === 'approved';
 
         if ($programHeadApproved && $registrarApproved) {
-            return 'Pending Payment'; 
+            return 'Pending Payment';
         }
         if ($programHeadApproved) {
-            return 'For Registrar Review'; 
+            return 'Registrar Review';
         }
-        return 'For Program Head Review'; 
+        return 'Program Head Review';
     }
 
     private function calculateProgress($student)
@@ -361,4 +361,3 @@ public function getEnrolledStudents()
     }
 }
 }
-

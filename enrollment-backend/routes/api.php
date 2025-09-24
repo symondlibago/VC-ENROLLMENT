@@ -10,6 +10,7 @@ use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\SectionController;
+use App\Http\Controllers\UploadReceiptController;
 
 /*
 |--------------------------------------------------------------------------
@@ -63,3 +64,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('enrollments', [EnrollmentController::class, 'getPreEnrolledStudents']);
     Route::get('enrollments/{id}/details', [EnrollmentController::class, 'getPreEnrolledStudentDetails']);
     Route::get('enrollments/{id}', [EnrollmentController::class, 'getPreEnrolledStudentDetails']);
+
+    // Upload Receipts
+    Route::post('upload-receipts', [UploadReceiptController::class, 'store']);
+    Route::get('upload-receipts/search-students', [UploadReceiptController::class, 'searchStudents']);
+    

@@ -6,12 +6,13 @@ import {
 } from 'lucide-react';
 import { enrollmentAPI } from '@/services/api'; // Make sure this path is correct
 
-// NEW: Internal component to display contextual descriptions
+// Internal component to display contextual descriptions
 const TimelineDescription = ({ status }) => {
   let Icon, bgColor, borderColor, iconColor, title, text;
 
+  // MODIFIED: Status cases now match backend response
   switch (status) {
-    case 'For Program Head Review':
+    case 'Program Head Review':
       Icon = UserCheck;
       bgColor = 'bg-blue-50';
       borderColor = 'border-blue-200';
@@ -19,7 +20,7 @@ const TimelineDescription = ({ status }) => {
       title = "Next Step: Program Head's Review";
       text = "Your application is being reviewed by the Program Head to verify your information and selected subjects. Please check back for updates.";
       break;
-    case 'For Registrar Review':
+    case 'Registrar Review':
       Icon = Building;
       bgColor = 'bg-indigo-50';
       borderColor = 'border-indigo-200';
@@ -35,7 +36,7 @@ const TimelineDescription = ({ status }) => {
       title = "Final Step: Payment";
       text = "Your application is fully approved! Please proceed to the Cashier's Office to settle your payment and become officially enrolled.";
       break;
-    case 'Successfully Enrolled':
+    case 'Enrolled': // MODIFIED: Changed from 'Successfully Enrolled'
       Icon = PartyPopper;
       bgColor = 'bg-emerald-50';
       borderColor = 'border-emerald-200';
@@ -43,7 +44,7 @@ const TimelineDescription = ({ status }) => {
       title = "Enrollment Complete!";
       text = "Congratulations and welcome! You are officially enrolled for the new semester. We wish you the best of luck in your studies.";
       break;
-    case 'Application Rejected':
+    case 'Rejected': // MODIFIED: Changed from 'Application Rejected'
       Icon = UserX;
       bgColor = 'bg-red-50';
       borderColor = 'border-red-200';
@@ -85,10 +86,13 @@ const CheckStatus = ({ onBack }) => {
     setError(null);
     
     try {
+      // Assuming enrollmentAPI.checkStatus is already set up to call your backend
       const response = await enrollmentAPI.checkStatus(referenceNumber);
       if (response.success) {
         setSearchResult(response.data);
         setShowResult(true);
+      } else {
+        setError(response.message || 'Reference number not found.');
       }
     } catch (err) {
       setError(err.message || 'An unexpected error occurred.');
@@ -103,13 +107,13 @@ const CheckStatus = ({ onBack }) => {
     }
   };
 
-  // Variants for animation
   const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 }}};
   const itemVariants = { hidden: { opacity: 0, y: 30 }, visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.23, 1, 0.32, 1] }}};
 
+  // MODIFIED: Status strings now match the backend's simplified output
   const getStatusType = (detailedStatus) => {
-    if (detailedStatus === 'Successfully Enrolled') return 'success';
-    if (detailedStatus === 'Application Rejected') return 'error';
+    if (detailedStatus === 'Enrolled') return 'success';
+    if (detailedStatus === 'Rejected') return 'error';
     return 'warning'; // All other pending statuses
   };
   
@@ -130,17 +134,30 @@ const CheckStatus = ({ onBack }) => {
       default: return <FileText className="w-5 h-5" />;
     }
   };
+  
+  // MODIFICATION: This function now also returns a background color class
+  const getApprovalStepPresentation = (role, status) => {
+    let Icon;
+    let bgColorClass;
 
-  const getApprovalStepIcon = (role) => {
     switch (role) {
-      case 'Program Head': return <UserCheck className="w-5 h-5 text-white" />;
-      case 'Registrar': return <Building className="w-5 h-5 text-white" />;
-      case 'Cashier': return <CreditCard className="w-5 h-5 text-white" />;
-      default: return <User className="w-5 h-5 text-white" />;
+      case 'Program Head': Icon = UserCheck; break;
+      case 'Registrar': Icon = Building; break;
+      case 'Cashier': Icon = CreditCard; break;
+      default: Icon = User; break;
     }
+
+    switch (status) {
+      case 'approved': bgColorClass = 'bg-gradient-to-br from-green-500 to-emerald-600'; break;
+      case 'rejected': bgColorClass = 'bg-gradient-to-br from-red-500 to-red-600'; break;
+      default: bgColorClass = 'bg-gradient-to-br from-gray-400 to-gray-500'; break; // for pending/null status
+    }
+    
+    return { Icon: <Icon className="w-5 h-5 text-white" />, bgColorClass };
   };
   
   const roleOrder = { 'Program Head': 1, 'Registrar': 2, 'Cashier': 3 };
+  const allRoles = ['Program Head', 'Registrar', 'Cashier'];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[var(--snowy-white)] via-[var(--whitish-pink)] to-white">
@@ -149,30 +166,28 @@ const CheckStatus = ({ onBack }) => {
        </motion.div>
        <motion.div className="container mx-auto px-4 py-8 max-w-4xl" variants={containerVariants} initial="hidden" animate="visible">
 
-        {/* Hero Section and Reminders (No changes needed) */}
+        {/* Hero Section */}
         <motion.div className="text-center mb-8" variants={itemVariants}>
             <div className="flex justify-center mb-4">
-                <div className="relative">
-                    <div className="w-16 h-16 bg-gradient-to-br from-[var(--dominant-red)] to-red-600 rounded-2xl flex items-center justify-center shadow-xl"><Search className="w-8 h-8 text-white" /></div>
-                    <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full flex items-center justify-center shadow-md"><Sparkles className="w-3 h-3 text-white" /></div>
-                </div>
+              <div className="w-16 h-16 bg-gradient-to-br from-[var(--dominant-red)] to-red-600 rounded-2xl flex items-center justify-center shadow-xl">
+                <Search className="w-8 h-8 text-white" />
+              </div>
             </div>
-            <h1 className="text-2xl md:text-4xl font-bold heading-bold text-gray-900 mb-2">
-                <span className="bg-gradient-to-r from-[var(--dominant-red)] to-red-600 bg-clip-text text-transparent">Enrollment Status</span>
-                <span className="block text-xl md:text-2xl mt-1 text-gray-700">Tracking Center</span>
+            <h1 className="text-3xl font-bold heading-bold text-gray-900">
+                Enrollment Status Tracker
             </h1>
-            <p className="text-base text-gray-600 max-w-xl mx-auto leading-relaxed">Track your enrollment application progress in real-time<br /><span className="text-sm font-semibold text-[var(--dominant-red)]">2nd Semester, School Year 2025 - 2026</span></p>
+            <p className="text-gray-600 max-w-xl mx-auto leading-relaxed mt-2">Enter your reference number to track your application progress in real-time.</p>
         </motion.div>
 
-        {/* Search Section (No changes needed) */}
+        {/* Search Section */}
         <motion.div className="max-w-2xl mx-auto mb-8" variants={itemVariants}>
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 overflow-hidden">
             <div className="bg-gradient-to-r from-[var(--dominant-red)] to-red-600 p-5 text-white">
                 <h2 className="text-xl font-bold heading-bold mb-1 flex items-center"><Search className="w-5 h-5 mr-2" />Check Your Status</h2>
-                <p className="text-red-100 text-sm">Enter your reference number to track your enrollment</p>
+                <p className="text-red-100 text-sm">Enter the reference number provided upon submission</p>
             </div>
             <div className="p-6">
-                <div className="space-y-5">
+              <div className="space-y-5">
                 <div>
                     <label className="text-gray-800 text-base font-bold heading-bold mb-3 flex items-center"><FileText className="w-4 h-4 mr-2 text-[var(--dominant-red)]" />Enter Reference Number</label>
                     <div className="relative">
@@ -183,12 +198,12 @@ const CheckStatus = ({ onBack }) => {
                 <motion.button onClick={handleSearch} disabled={!referenceNumber.trim() || isSearching} className="w-full bg-gradient-to-r from-[var(--dominant-red)] to-red-600 text-white py-3 px-5 rounded-xl font-bold text-base shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-3" whileHover={{ scale: referenceNumber.trim() ? 1.02 : 1 }} whileTap={{ scale: referenceNumber.trim() ? 0.98 : 1 }}>
                     {isSearching ? (<><RefreshCw className="w-4 h-4 animate-spin" /><span>Searching...</span></>) : (<><Search className="w-4 h-4" /><span>Get Status</span></>)}
                 </motion.button>
-                </div>
+              </div>
             </div>
           </div>
         </motion.div>
 
-        {/* Error Message Display (No changes needed) */}
+        {/* Error Message Display */}
         <AnimatePresence>
             {error && (
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="max-w-2xl mx-auto mb-8 text-center bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl relative">
@@ -209,7 +224,7 @@ const CheckStatus = ({ onBack }) => {
               className="max-w-3xl mx-auto"
             >
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 overflow-hidden">
-                {/* Status Header (No changes needed) */}
+                {/* Status Header */}
                 <div className={`bg-gradient-to-r ${getStatusColor(getStatusType(searchResult.detailedStatus))} p-5 text-white`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
@@ -227,7 +242,7 @@ const CheckStatus = ({ onBack }) => {
                 </div>
 
                 <div className="p-6 space-y-6">
-                  {/* Student Information (No changes needed) */}
+                  {/* Student Information */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-200">
                       <div className="flex items-center mb-3">
@@ -258,33 +273,39 @@ const CheckStatus = ({ onBack }) => {
                       <h4 className="text-base font-bold heading-bold text-gray-900 ml-2">Approval Timeline</h4>
                     </div>
                     <div className="space-y-4">
-                      {/* ADDED: Contextual Description */}
                       <TimelineDescription status={searchResult.detailedStatus} />
 
-                      {searchResult.approvals.sort((a, b) => roleOrder[a.role] - roleOrder[b.role]).map((approval, index) => (
-                        <div key={index} className="flex items-start space-x-4">
-                            <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center ${
-                                approval.status === 'approved' ? 'bg-gradient-to-br from-green-500 to-emerald-600' : 'bg-gradient-to-br from-red-500 to-red-600'
-                            }`}>
-                                {getApprovalStepIcon(approval.role)}
-                            </div>
-                            <div>
-                                <div className="flex items-center space-x-2">
-                                    <h5 className="font-bold text-gray-900">{approval.role}</h5>
-                                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                                        approval.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                    }`}>
-                                        {approval.status === 'approved' ? 'Approved' : 'Rejected'}
-                                    </span>
+                      {/* MODIFICATION: Display all steps, showing pending ones */}
+                      {allRoles.map((role, index) => {
+                          const approval = searchResult.approvals.find(a => a.role === role);
+                          const { Icon, bgColorClass } = getApprovalStepPresentation(role, approval?.status);
+                          
+                          return (
+                            <div key={index} className="flex items-start space-x-4">
+                                <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center ${bgColorClass}`}>
+                                    {Icon}
                                 </div>
-                                {approval.remarks && <p className="text-sm text-gray-700 mt-1 italic">"{approval.remarks}"</p>}
-                                <p className="text-xs text-gray-500 mt-1">Processed by {approval.processedBy} on {approval.date}</p>
+                                <div>
+                                    <div className="flex items-center space-x-2">
+                                        <h5 className="font-bold text-gray-900">{role}</h5>
+                                        {approval && (
+                                          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                              approval.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                          }`}>
+                                              {approval.status === 'approved' ? 'Approved' : 'Rejected'}
+                                          </span>
+                                        )}
+                                        {!approval && <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-600">Pending</span>}
+                                    </div>
+                                    {approval?.remarks && <p className="text-sm text-gray-700 mt-1 italic">"{approval.remarks}"</p>}
+                                    {approval ? 
+                                      <p className="text-xs text-gray-500 mt-1">Processed by {approval.processedBy} on {approval.date}</p>
+                                      : <p className="text-xs text-gray-500 mt-1">Awaiting review from this office.</p>
+                                    }
+                                </div>
                             </div>
-                        </div>
-                      ))}
-                       {searchResult.approvals.length === 0 && searchResult.detailedStatus === 'For Program Head Review' && (
-                          <p className="text-sm text-gray-600 text-center py-2">Your application has been submitted and is awaiting its first review.</p>
-                       )}
+                          );
+                      })}
                     </div>
                   </div>
 
@@ -293,10 +314,9 @@ const CheckStatus = ({ onBack }) => {
                     {searchResult.detailedStatus === 'Pending Payment' && (
                        <motion.button className="bg-gradient-to-r from-[var(--dominant-red)] to-red-600 text-white px-6 py-2.5 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all duration-300 flex items-center space-x-2 text-sm" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                          <CreditCard className="w-4 h-4" />
-                         <span>Make Payment</span>
+                         <span>Proceed to Payment</span>
                        </motion.button>
                     )}
-                    {/* REMOVED the "View Full Details" button */}
                   </div>
                 </div>
               </div>
@@ -304,14 +324,7 @@ const CheckStatus = ({ onBack }) => {
           )}
         </AnimatePresence>
         
-        {/* Quick Help Section (No changes needed) */}
-        <motion.div 
-          className="max-w-3xl mx-auto mt-8"
-          variants={itemVariants}
-        >
-         {/* ... (rest of the component is unchanged) ... */}
-        </motion.div>
-      </motion.div>
+       </motion.div>
     </div>
   );
 };

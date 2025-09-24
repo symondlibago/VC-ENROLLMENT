@@ -16,6 +16,7 @@ import LandingPage from './components/auth/LandingPage';
 import LoginPage from './components/auth/LoginPage';
 import FristProcessEnrollment from './components/Enrollment Process/FristProcessEnrollment';
 import CheckStatus from './components/pages/CheckStatus';
+import UploadReceipt from './components/pages/UploadReceipt';
 import { authAPI } from './services/api';
 import './App.css';
 
@@ -57,6 +58,8 @@ function App() {
   const handleGetStarted = () => setCurrentView('login');
   const handleEnrollNow = () => setCurrentView('enrollment');
   const handleCheckStatus = () => setCurrentView('checkstatus');
+  const handleUploadReceipt = () => setCurrentView('uploadreceipt');
+
   const handleLogin = () => {
     const userData = authAPI.getUserData();
     setUser(userData);
@@ -168,7 +171,23 @@ function App() {
           initial="initial"
           animate="animate"
         >
-          <FristProcessEnrollment onBack={handleBack} onCheckStatus={handleCheckStatus} />
+          <FristProcessEnrollment 
+            onBack={handleBack} 
+            onCheckStatus={handleCheckStatus}
+            onUploadReceipt={handleUploadReceipt}
+          />
+        </motion.div>
+      )}
+
+      {/* Upload Receipt View */}
+      {currentView === 'uploadreceipt' && (
+        <motion.div
+          className="min-h-screen"
+          variants={layoutVariants}
+          initial="initial"
+          animate="animate"
+        >
+          <UploadReceipt onBack={handleBackToEnrollment} /> 
         </motion.div>
       )}
 
@@ -326,6 +345,14 @@ function App() {
                     element={
                       <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
                         <CheckStatus />
+                      </motion.div>
+                    }
+                  />
+                  <Route
+                    path="/upload-receipt"
+                    element={
+                      <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
+                        <UploadReceipt />
                       </motion.div>
                     }
                   />

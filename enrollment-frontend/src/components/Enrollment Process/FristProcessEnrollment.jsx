@@ -25,7 +25,7 @@ import EnrollmentConfirmationModal from '../modals/EnrollmentConfirmationModal';
 import ValidationErrorModal from '../modals/ValidationErrorModal';
 import { subjectAPI, enrollmentAPI } from '@/services/api';
 
-const EnrollmentPage = ({ onBack, onCheckStatus }) => {
+const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
   const [department, setDepartment] = useState('');
   const [enrollmentType, setEnrollmentType] = useState('');
   const [isCourseChoicesModalOpen, setIsCourseChoicesModalOpen] = useState(false);
@@ -202,6 +202,12 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
   const handleCheckStatusClick = () => {
     if (onCheckStatus) {
       onCheckStatus();
+    }
+  };
+
+  const handleUploadReceiptClick = () => {
+    if (onUploadReceipt) {
+      onUploadReceipt();
     }
   };
 
@@ -665,6 +671,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus }) => {
           <motion.div 
             className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-white/20 liquid-hover cursor-pointer"
             whileHover={{ y: -5 }}
+            onClick={handleUploadReceiptClick}
           >
             <div className="flex items-center mb-3">
               <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">

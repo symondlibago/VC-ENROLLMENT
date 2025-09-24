@@ -410,6 +410,31 @@ export const sectionAPI = {
   }
 };
 
+// --- Upload Receipt API methods ---
+export const uploadReceiptAPI = {
+
+  searchStudents: async (name) => {
+    try {
+      const response = await api.get('/upload-receipts/search-students', {
+        params: { name }
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to search students' };
+    }
+  },
+
+
+  upload: async (formData) => {
+    try {
+      const response = await api.post('/upload-receipts', formData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to save receipt' };
+    }
+  }
+};
+
 // --- Add Payment API methods ---
 export const paymentAPI = {
   create: async (paymentData) => {

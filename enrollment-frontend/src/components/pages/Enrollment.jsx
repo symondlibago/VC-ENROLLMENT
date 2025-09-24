@@ -22,9 +22,12 @@ import {
   FileText,
   ChevronRight,
   ChevronDown,
-  Printer
+  Printer,
+  User, // Added for icon
+  Mail, // Added for icon
+  Book, // Added for icon
 } from 'lucide-react';
-import { enrollmentAPI, authAPI } from '@/services/api'; // Import authAPI
+import { enrollmentAPI, authAPI } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -37,6 +40,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import StudentDetailsModal from '../modals/StudentDetailsModal';
 
 // Custom Framer Motion Dropdown Component
@@ -119,7 +130,6 @@ const Enrollment = () => {
     rejected: 0,
   });
   
-  // Get the current user's data from local storage
   const currentUser = authAPI.getUserData();
 
   useEffect(() => {
@@ -135,7 +145,6 @@ const Enrollment = () => {
       if (response.success) {
         setEnrollments(response.data);
         
-        // Calculate dynamic stats
         const total = response.data.length;
         const pending = response.data.filter(e => e.status === 'Program Head Review' || e.status === 'Registrar Review' || e.status === 'Pending Payment').length;
         const approved = response.data.filter(e => e.status === 'Enrolled').length;
@@ -164,7 +173,6 @@ const Enrollment = () => {
     setIsModalOpen(true);
   };
   
-  // Stats based on real data
   const stats = useMemo(() => [
     {
       title: 'Total Enrollments',
@@ -199,7 +207,7 @@ const Enrollment = () => {
   const filterOptions = [
     { label: 'All Enrollments', value: 'all' },
     { label: 'Pending Review', value: 'pending' },
-    { label: 'Approved', value: 'enrolled' }, // Changed to 'enrolled' to match backend status
+    { label: 'Approved', value: 'enrolled' },
     { label: 'Rejected', value: 'rejected' },
   ];
 
@@ -242,43 +250,27 @@ const Enrollment = () => {
     }
   };
 
-  const getPaymentStatusColor = (status) => {
-    switch (status) {
-      case 'paid':
-        return 'bg-green-100 text-green-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'refunded':
-        return 'bg-red-100 text-red-800';
-      case 'overdue':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   const getStatusIcon = (status) => {
     switch (status) {
       case 'Enrolled':
-        return <CheckCircle className="w-4 h-4" />;
+        return <CheckCircle className="w-4 h-4 mr-2" />;
       case 'Program Head Review':
       case 'Registrar Review':
       case 'Pending Payment':
-        return <AlertCircle className="w-4 h-4" />;
+        return <AlertCircle className="w-4 h-4 mr-2" />;
       case 'Rejected':
-        return <XCircle className="w-4 h-4" />;
+        return <XCircle className="w-4 h-4 mr-2" />;
       default:
-        return <AlertCircle className="w-4 h-4" />;
+        return <AlertCircle className="w-4 h-4 mr-2" />;
     }
   };
 
   const getInitials = (firstName, lastName) => {
     const first = firstName?.trim()?.charAt(0).toUpperCase() || '';
     const last = lastName?.trim()?.charAt(0).toUpperCase() || '';
-    return (first + last) || 'U';
+    return (last + first) || 'U';
   };
   
-
   const filteredEnrollments = enrollments.filter((enrollment) => {
     const name = enrollment.name || `${enrollment.first_name || ''} ${enrollment.last_name || ''}`.trim();
 
@@ -290,19 +282,17 @@ const Enrollment = () => {
     if (selectedFilter === 'all') return matchesSearch;
     if (!enrollment.status) return false;
     
-    // Handle specific statuses for filtering
     let statusMatch = false;
     if (selectedFilter === 'pending') {
       statusMatch = (enrollment.status === 'Program Head Review' || enrollment.status === 'Registrar Review' || enrollment.status === 'Pending Payment');
-    } else if (selectedFilter === 'enrolled') { // Changed from 'approved' to 'enrolled'
+    } else if (selectedFilter === 'enrolled') {
       statusMatch = (enrollment.status === 'Enrolled');
     } else if (selectedFilter === 'rejected') {
       statusMatch = (enrollment.status === 'Rejected');
     }
 
     return matchesSearch && statusMatch;
-});
-
+  });
 
   return (
     <motion.div
@@ -332,14 +322,12 @@ const Enrollment = () => {
         </div>
       </motion.div>
 
+      {/* Stats Section */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => {
+        {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <motion.div
-              key={stat.title}
-              className="liquid-hover"
-            >
+            <motion.div key={stat.title} className="liquid-hover">
               <Card className="card-hover border-0 shadow-sm overflow-hidden">
                 <CardContent className="p-6 relative">
                   <motion.div 
@@ -350,22 +338,11 @@ const Enrollment = () => {
                   />
                   <div className="flex items-center justify-between relative z-10">
                     <div>
-                      <p className="text-sm font-medium text-gray-600 mb-1">
-                        {stat.title}
-                      </p>
-                      <motion.p 
-                        className="text-2xl font-bold heading-bold text-gray-900"
-                        initial={{ scale: 1 }}
-                      >
-                        {stat.value}
-                      </motion.p>
-                      <p className="text-sm text-green-600 font-medium mt-1">
-                        {stat.change}
-                      </p>
+                      <p className="text-sm font-medium text-gray-600 mb-1">{stat.title}</p>
+                      <motion.p className="text-2xl font-bold heading-bold text-gray-900">{stat.value}</motion.p>
+                      <p className="text-sm text-green-600 font-medium mt-1">{stat.change}</p>
                     </div>
-                    <motion.div 
-                      className={`p-3 rounded-xl ${stat.bgColor}`}
-                    >
+                    <motion.div className={`p-3 rounded-xl ${stat.bgColor}`}>
                       <Icon className={`w-6 h-6 ${stat.color}`} />
                     </motion.div>
                   </div>
@@ -376,25 +353,22 @@ const Enrollment = () => {
         })}
       </motion.div>
 
-      {/* Search and Filter Section - No Hover */}
+      {/* Search and Filter Section */}
       <motion.div variants={itemVariants}>
         <Card className="border-0 shadow-sm no-hover">
           <CardContent className="p-6">
             <div className="flex flex-col lg:flex-row gap-4 items-center">
-              {/* Full Width Search Bar */}
               <div className="flex-1 w-full">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <Input
-                    placeholder="Search by student name, email, course, or instructor..."
+                    placeholder="Search by student name, email, or course..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-12 pr-4 py-3 text-base liquid-morph border-gray-200 focus:border-[var(--dominant-red)] focus:ring-2 focus:ring-[var(--dominant-red)]/20"
                   />
                 </div>
               </div>
-              
-              {/* Filter and Action Buttons */}
               <div className="flex items-center space-x-3 flex-shrink-0">
                 <MotionDropdown
                   value={selectedFilter}
@@ -416,139 +390,95 @@ const Enrollment = () => {
         </Card>
       </motion.div>
 
-      {/* Enrollments List */}
+      {/* Enrollments List Table */}
       <motion.div variants={itemVariants}>
-        <div className="space-y-4">
-          {filteredEnrollments.map((enrollment, index) => (
-            <motion.div
-              key={enrollment.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ 
-                opacity: 1, 
-                x: 0,
-                transition: {
-                  duration: 0.6,
-                  delay: index * 0.1,
-                  ease: [0.23, 1, 0.32, 1]
-                }
-              }}
-              className="liquid-hover"
-            >
-              <Card className="card-hover border-0 shadow-sm overflow-hidden">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4 flex-1">
-                      {/* Enhanced Avatar */}
-                      <motion.div>
-                        <Avatar className="w-10 h-10 ring-1 ring-gray-100 ring-offset-1">
-                        <AvatarImage 
-                          src={enrollment.student?.avatar || `/api/placeholder/56/56`} 
-                          alt={enrollment.student?.first_name || 'Student'} 
-                        />
+        <Card className="border-0 shadow-sm">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[300px]">Student</TableHead>
+                <TableHead>Course</TableHead>
+                <TableHead>Enrollment Date</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredEnrollments.length > 0 ? (
+                filteredEnrollments.map((enrollment) => (
+                  <motion.tr 
+                    key={enrollment.id}
+                    className="hover:bg-red-50/50"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <TableCell className="font-medium">
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="w-10 h-10">
+                          <AvatarImage 
+                            src={enrollment.student?.avatar || `/api/placeholder/40/40`} 
+                            alt={enrollment.student?.first_name || 'Student'} 
+                          />
                           <AvatarFallback className="bg-gradient-to-br from-[var(--dominant-red)] to-red-600 text-white font-bold text-sm">
-                        {getInitials(enrollment.student?.first_name, enrollment.student?.last_name)}
-                      </AvatarFallback>
+                            {getInitials(enrollment.student?.first_name, enrollment.student?.last_name)}
+                          </AvatarFallback>
                         </Avatar>
-                      </motion.div>
-
-                      <div className="flex-1">
-                        
-                        {/* Enhanced Details Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <motion.div
-                            className="space-y-1"
-                          >
-                            <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">Student</p>
-                            <p className="font-bold text-gray-900 text-base">
-                              {enrollment.name || `${enrollment.first_name || ''} ${enrollment.middle_name || ''} ${enrollment.last_name || ''}`.trim() || 'Unknown Student'}
+                        <div>
+                          <div className="flex items-center">
+                            <User className="w-3 h-3 mr-2 text-red-800" />
+                            <p className="font-bold text-gray-900">
+                              {enrollment.name || `${enrollment.first_name || ''} ${enrollment.last_name || ''}`.trim()}
                             </p>
-                            <p className="text-xs text-gray-500">
-                              Program: {enrollment.program || 'Not specified'}
+                          </div>
+                          <div className="flex items-center">
+                            <Mail className="w-3 h-3 mr-2 text-red-800" />
+                            <p className="text-sm text-gray-500">
+                              {enrollment.email || 'No email'}
                             </p>
-                          </motion.div>
-                          
-                          <motion.div
-                            className="space-y-1"
-                          >
-                            <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">Course Details</p>
-                            <p className="font-bold text-gray-900 text-base">
-                              {enrollment.course || 'Course not assigned'}
-                            </p>
-                            <p className="text-xs text-gray-600">
-                              Code: {enrollment.course_code || 'N/A'}
-                            </p>
-                            
-                          </motion.div>
-                          
-                          <motion.div
-                            className="space-y-1"
-                          >
-                            <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">Timeline</p>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-2">
-                                <Calendar className="w-4 h-4 text-gray-400" />
-                                <p className="font-medium text-gray-900">
-                                  {enrollment.enrollment_date || 'Date not set'}
-                                </p>
-                              </div>
-                              <motion.div>
-                                <Badge className={`${getStatusColor(enrollment.status)} text-xs flex items-center space-x-1 px-2 py-1`}>
-                                  {getStatusIcon(enrollment.status)}
-                                  <span className="font-medium">{enrollment.status || 'Pending'}</span>
-                                </Badge>
-                              </motion.div>
-                            </div>
-                            
-                            {enrollment.payment_status && (
-                              <motion.div
-                                whileHover={{ scale: 1.05 }}
-                                transition={{ duration: 0.2 }}
-                              >
-                                <Badge className={`${getPaymentStatusColor(enrollment.payment_status)} text-xs mt-2`}>
-                                  <CreditCard className="w-3 h-3 mr-1" />
-                                  {enrollment.payment_status}
-                                </Badge>
-                              </motion.div>
-                            )}
-                          </motion.div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-
-                    {/* Enhanced Action Menu */}
-                    <div className="flex items-center space-x-3">
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center font-medium text-gray-800">
+                        <GraduationCap className="w-4 h-4 mr-2 text-red-800 flex-shrink-0" />
+                        <span>{enrollment.course || 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center text-xs text-gray-500 mt-1">
+                        <Book className="w-3 h-3 mr-2 text-red-800 flex-shrink-0" />
+                        <span>Program: {enrollment.program || 'N/A'}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center">
+                        <Calendar className="w-4 h-4 mr-2 text-red-800" />
+                        <span>{enrollment.enrollment_date || 'N/A'}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={`${getStatusColor(enrollment.status)} font-medium`}>
+                        {getStatusIcon(enrollment.status)}
+                        {enrollment.status || 'Pending'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <motion.div
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.95 }}
-                          >
-                            <Button variant="ghost" size="sm" className="liquid-button h-10 w-10 rounded-full">
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
-                          </motion.div>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => handleViewDetails(enrollment.id)}>
-                            <Eye className="mr-2 h-4 w-4 hover:text-white" />
+                            <Eye className="mr-2 h-4 w-4" />
                             View Details
                           </DropdownMenuItem>
                           <DropdownMenuItem>
-                            <Edit className="mr-2 h-4 w-4 hover:text-white" />
+                            <Edit className="mr-2 h-4 w-4" />
                             Edit Enrollment
                           </DropdownMenuItem>
-                          {enrollment.status === 'pending' && (
-                            <>
-                              <DropdownMenuItem className="text-green-600 ">
-                                <CheckCircle className="mr-2 h-4 w-4 hover:text-white" />
-                                Approve
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="text-red-600">
-                                <XCircle className="mr-2 h-4 w-4 hover:text-white" />
-                                Reject
-                              </DropdownMenuItem>
-                            </>
-                          )}
                           <DropdownMenuItem>
                             <FileText className="mr-2 h-4 w-4" />
                             Generate Report
@@ -559,16 +489,22 @@ const Enrollment = () => {
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
+                    </TableCell>
+                  </motion.tr>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center">
+                    No enrollments found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </Card>
       </motion.div>
 
-      {/* Empty State */}
+      {/* Empty State, Loading, and Error handlers */}
       {loading ? (
         <motion.div variants={itemVariants} className="text-center py-12">
           <motion.div 
@@ -587,20 +523,7 @@ const Enrollment = () => {
             Try Again
           </Button>
         </motion.div>
-      ) : filteredEnrollments.length === 0 && (
-        <motion.div
-          variants={itemVariants} 
-          className="text-center py-12"
-        >
-          <GraduationCap className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No enrollments found</h3>
-          <p className="text-gray-500 mb-4">Try adjusting your search or filter criteria.</p>
-          <Button className="gradient-primary text-white liquid-button">
-            <Plus className="w-4 h-4 mr-2" />
-            Create First Enrollment
-          </Button>
-        </motion.div>
-      )}
+      ) : null}
 
       {/* Student Details Modal */}
       {isModalOpen && (
@@ -608,7 +531,7 @@ const Enrollment = () => {
           studentId={selectedStudentId}
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          currentUserRole={currentUser?.role} // Pass the user role as a prop
+          currentUserRole={currentUser?.role}
         />
       )}
     </motion.div>
