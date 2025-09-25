@@ -381,40 +381,45 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
 
               
 
-              {/* Selected Subjects */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium mb-3 text-black">SELECTED SUBJECTS & SCHEDULE</h3>
-                {subjectsWithSchedules.length > 0 ? (
-                  <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descriptive Title</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lecture</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Laboratory</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Units</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Schedule (Day / Time / Room)</th>
+             {/* Selected Subjects */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="text-lg font-medium mb-3 text-black">SELECTED SUBJECTS & SCHEDULE</h3>
+              {subjectsWithSchedules.length > 0 ? (
+                <div className="overflow-x-auto">
+                  {/* 1. Added 'table-fixed' to enforce column widths */}
+                  <table className="min-w-full divide-y divide-gray-200 table-fixed">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                        {/* 2. Added a width class (e.g., w-2/5) to the title header */}
+                        <th className="w-2/5 px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descriptive Title</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lecture</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Laboratory</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Units</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Schedule (Day / Time / Room)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {subjectsWithSchedules.map((subject) => (
+                        <tr key={subject.id}>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.subject_code}</td>
+                          {/* 3. Replaced 'whitespace-nowrap' with 'whitespace-normal' and 'break-words' */}
+                          <td className="px-4 py-2 whitespace-normal break-words text-sm">{subject.descriptive_title}</td>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lec_hrs}</td>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lab_hrs}</td>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.total_units}</td>
+                          <td className="px-4 py-2 whitespace-pre-wrap text-xs">
+                              {subject.schedules && subject.schedules.length > 0
+                                  ? subject.schedules.map(s => `${s.day || 'TBA'} / ${s.time || 'TBA'} / ${s.room_no || 'TBA'}`).join('\n')
+                                  : 'TBA'}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {subjectsWithSchedules.map((subject) => (
-                          <tr key={subject.id}>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.subject_code}</td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.descriptive_title}</td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lec_hrs}</td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lab_hrs}</td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.total_units}</td>
-                            <td className="px-4 py-2 whitespace-pre-wrap text-xs">
-                                {subject.schedules && subject.schedules.length > 0
-                                    ? subject.schedules.map(s => `${s.day || 'TBA'} / ${s.time || 'TBA'} / ${s.room_no || 'TBA'}`).join('\n')
-                                    : 'TBA'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table></div>
-                ) : <p className="text-gray-500">No subjects selected</p>}
-              </div>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <p className="text-gray-500">No subjects selected</p>}
+            </div>
 
               {/* MODIFIED: Approval Actions Section */}
               <div className="bg-gray-50 p-4 rounded-lg">

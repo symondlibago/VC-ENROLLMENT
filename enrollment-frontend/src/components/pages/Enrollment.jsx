@@ -19,6 +19,29 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import StudentDetailsModal from '../modals/StudentDetailsModal';
 import { toast } from 'sonner';
 
+// --- HELPER FUNCTIONS FOR STATUS STYLING (accessible by both list components) ---
+const getStatusColor = (status) => {
+    if (!status) return 'bg-gray-100 text-gray-800';
+    status = status.toLowerCase();
+    if (status.includes('enrolled')) return 'bg-green-100 text-green-800';
+    if (status.includes('pending') || status.includes('review') || status.includes('payment')) return 'bg-yellow-100 text-yellow-800';
+    if (status.includes('rejected')) return 'bg-red-100 text-red-800';
+    return 'bg-gray-100 text-gray-800';
+};
+
+const getStatusIcon = (status) => {
+    if (!status) return <AlertCircle className="w-4 h-4 mr-2" />;
+    switch (status) {
+        case 'Enrolled': return <CheckCircle className="w-4 h-4 mr-2" />;
+        case 'Program Head Review':
+        case 'Registrar Review':
+        case 'Pending Payment': return <AlertCircle className="w-4 h-4 mr-2" />;
+        case 'Rejected': return <XCircle className="w-4 h-4 mr-2" />;
+        default: return <AlertCircle className="w-4 h-4 mr-2" />;
+    }
+};
+
+
 // --- MAIN ENROLLMENT COMPONENT (Handles state and layout) ---
 const Enrollment = () => {
     const [activeView, setActiveView] = useState('enrollments');
@@ -156,9 +179,22 @@ const Enrollment = () => {
                 <AnimatePresence mode="wait">
                     <motion.div key={activeView} variants={pageVariants} initial="initial" animate="animate" exit="exit">
                         {(isCashierOrAdmin && activeView === 'receipts') ? (
-                            <UploadedReceiptsPage receipts={receipts} onViewImages={handleViewImages} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+                            <UploadedReceiptsPage 
+                                receipts={receipts} 
+                                enrollments={enrollments} // Pass enrollments data
+                                onViewImages={handleViewImages} 
+                                searchTerm={searchTerm} 
+                                setSearchTerm={setSearchTerm} 
+                            />
                         ) : (
-                            <EnrollmentListPage enrollments={enrollments} onViewDetails={handleViewDetails} searchTerm={searchTerm} setSearchTerm={setSearchTerm} selectedFilter={selectedFilter} setSelectedFilter={setSelectedFilter} />
+                            <EnrollmentListPage 
+                                enrollments={enrollments} 
+                                onViewDetails={handleViewDetails} 
+                                searchTerm={searchTerm} 
+                                setSearchTerm={setSearchTerm} 
+                                selectedFilter={selectedFilter} 
+                                setSelectedFilter={setSelectedFilter} 
+                            />
                         )}
                     </motion.div>
                 </AnimatePresence>
@@ -185,26 +221,6 @@ const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchT
         else if (selectedFilter === 'rejected') statusMatch = (enrollment.status === 'Rejected');
         return matchesSearch && statusMatch;
     }), [enrollments, searchTerm, selectedFilter]);
-    
-    const getStatusColor = (status) => {
-        if (!status) return 'bg-gray-100 text-gray-800';
-        status = status.toLowerCase();
-        if (status.includes('enrolled')) return 'bg-green-100 text-green-800';
-        if (status.includes('pending') || status.includes('review')) return 'bg-yellow-100 text-yellow-800';
-        if (status.includes('rejected')) return 'bg-red-100 text-red-800';
-        return 'bg-gray-100 text-gray-800';
-    };
-
-    const getStatusIcon = (status) => {
-        switch (status) {
-            case 'Enrolled': return <CheckCircle className="w-4 h-4 mr-2" />;
-            case 'Program Head Review':
-            case 'Registrar Review':
-            case 'Pending Payment': return <AlertCircle className="w-4 h-4 mr-2" />;
-            case 'Rejected': return <XCircle className="w-4 h-4 mr-2" />;
-            default: return <AlertCircle className="w-4 h-4 mr-2" />;
-        }
-    };
 
     return (
         <div className="space-y-6">
@@ -299,7 +315,15 @@ const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchT
 };
 
 // --- SUB-COMPONENT FOR UPLOADED RECEIPTS ---
-const UploadedReceiptsPage = ({ receipts, onViewImages, searchTerm, setSearchTerm }) => {
+const UploadedReceiptsPage = ({ receipts, enrollments, onViewImages, searchTerm, setSearchTerm }) => {
+    // Create a map for quick status lookup
+    const enrollmentStatusMap = useMemo(() => 
+        enrollments.reduce((acc, enrollment) => {
+            acc[enrollment.id] = enrollment.status;
+            return acc;
+        }, {}),
+    [enrollments]);
+
     const filteredReceipts = useMemo(() => receipts.filter(r =>
         r.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.studentIdNumber.includes(searchTerm)
@@ -323,33 +347,43 @@ const UploadedReceiptsPage = ({ receipts, onViewImages, searchTerm, setSearchTer
                             <TableHead>Student Name</TableHead>
                             <TableHead>Student ID</TableHead>
                             <TableHead>Latest Upload</TableHead>
-                            <TableHead>Status</TableHead>
+                            <TableHead>Enrollment Status</TableHead> 
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredReceipts.length > 0 ? filteredReceipts.map(r => (
-                            <TableRow key={r.studentId}>
-                                <TableCell>
-                                    <div className="relative w-10 h-10">
-                                        <Avatar className="h-10 w-10 rounded-md cursor-pointer hover:scale-110 transition-transform" onClick={() => onViewImages(r.receiptUrls)}>
-                                            <AvatarImage src={r.receiptUrls[0]} alt="Receipt" className="object-cover" />
-                                            <AvatarFallback className="rounded-md bg-gray-200">IMG</AvatarFallback>
-                                        </Avatar>
-                                        {r.receiptCount > 1 && (
-                                            <Badge className="absolute -top-2 -right-3 h-6 w-6 flex items-center justify-center p-0 bg-red-600 text-white rounded-full">
-                                                +{r.receiptCount - 1}
-                                            </Badge>
-                                        )}
-                                    </div>
-                                </TableCell>
-                                <TableCell className="font-medium">{r.studentName}</TableCell>
-                                <TableCell>{r.studentIdNumber}</TableCell>
-                                <TableCell>{r.latestUploadDate}</TableCell>
-                                <TableCell>{r.status}</TableCell>
-                            </TableRow>
-                        )) : (
+                        {filteredReceipts.length > 0 ? filteredReceipts.map(r => {
+                            // Find the enrollment status for the current student
+                            const studentEnrollmentStatus = enrollmentStatusMap[r.studentId] || 'Enrolled';
+                            
+                            return (
+                                <TableRow key={r.studentId}>
+                                    <TableCell>
+                                        <div className="relative w-10 h-10">
+                                            <Avatar className="h-10 w-10 rounded-md cursor-pointer hover:scale-110 transition-transform" onClick={() => onViewImages(r.receiptUrls)}>
+                                                <AvatarImage src={r.receiptUrls[0]} alt="Receipt" className="object-cover" />
+                                                <AvatarFallback className="rounded-md bg-gray-200">IMG</AvatarFallback>
+                                            </Avatar>
+                                            {r.receiptCount > 1 && (
+                                                <Badge className="absolute -top-2 -right-3 h-6 w-6 flex items-center justify-center p-0 bg-red-600 text-white rounded-full">
+                                                    +{r.receiptCount - 1}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="font-medium">{r.studentName}</TableCell>
+                                    <TableCell>{r.studentIdNumber}</TableCell>
+                                    <TableCell>{r.latestUploadDate}</TableCell>
+                                    <TableCell>
+                                        <Badge className={`${getStatusColor(studentEnrollmentStatus)} font-medium`}>
+                                            {getStatusIcon(studentEnrollmentStatus)}
+                                            {studentEnrollmentStatus}
+                                        </Badge>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        }) : (
                             <TableRow>
-                                <TableCell colSpan={4} className="text-center h-24">No receipts uploaded yet.</TableCell>
+                                <TableCell colSpan={5} className="text-center h-24">No receipts uploaded yet.</TableCell>
                             </TableRow>
                         )}
                     </TableBody>
