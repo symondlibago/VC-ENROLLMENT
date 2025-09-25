@@ -4,7 +4,6 @@ import { X, Save, Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 
 const SubjectModal = ({ 
   isOpen, 
@@ -113,7 +112,6 @@ const SubjectModal = ({
           pre_req: subject.pre_req || ''
         });
       } else {
-        // Create mode - initialize with defaults and course_id if available
         setFormData({
           subject_code: '',
           descriptive_title: '',
@@ -134,12 +132,25 @@ const SubjectModal = ({
 
   // Handle input changes
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    const isNumericField = ['lec_hrs', 'lab_hrs', 'number_of_hours'].includes(field);
+    const numericValue = isNumericField ? parseFloat(value) || 0 : value;
+
+    setFormData(prev => {
+      const newFormData = {
+        ...prev,
+        [field]: numericValue
+      };
+
+      // If lecture or lab hours are updated, recalculate total units
+      if (field === 'lec_hrs' || field === 'lab_hrs') {
+        const lec = field === 'lec_hrs' ? numericValue : prev.lec_hrs;
+        const lab = field === 'lab_hrs' ? numericValue : prev.lab_hrs;
+        newFormData.total_units = (Number(lec) || 0) + (Number(lab) || 0);
+      }
+      
+      return newFormData;
+    });
     
-    // Clear error for this field
     if (errors[field]) {
       setErrors(prev => ({
         ...prev,
@@ -169,18 +180,12 @@ const SubjectModal = ({
       newErrors.semester = 'Semester is required';
     }
     
-    // Conditional validation based on program type
     if (programType === 'Bachelor') {
-      // Bachelor: All fields except number_of_hours are required
-      // Additional validation can be added here if needed
     } else if (programType === 'SHS') {
-      // SHS: Subject code, descriptive title, number_of_hours, year, and semester are required
       if (!formData.number_of_hours || formData.number_of_hours <= 0) {
         newErrors.number_of_hours = 'Number of hours is required and must be greater than 0';
       }
     } else if (programType === 'Diploma') {
-      // Diploma: Subject code, descriptive title, year, and semester are required
-      // No additional validation needed
     }
     
     if (!formData.course_id) {
@@ -209,17 +214,14 @@ const SubjectModal = ({
 
   // Helper function to determine which fields to show
   const shouldShowField = (fieldName) => {
-    if (!programType) return true; // Show all fields if program type is not available
+    if (!programType) return true; 
     
     switch (programType) {
       case 'Bachelor':
-        // Show all fields except number_of_hours
         return fieldName !== 'number_of_hours';
       case 'SHS':
-        // Show subject_code, descriptive_title, number_of_hours, year, and semester
         return ['subject_code', 'descriptive_title', 'number_of_hours', 'year', 'semester'].includes(fieldName);
       case 'Diploma':
-        // Show subject_code, descriptive_title, year, and semester
         return ['subject_code', 'descriptive_title', 'year', 'semester'].includes(fieldName);
       default:
         return true;
@@ -435,15 +437,14 @@ const SubjectModal = ({
                           min="0"
                           step="0.5"
                           value={formData.total_units}
-                          onChange={(e) => handleInputChange('total_units', e.target.value)}
                           placeholder="0"
-                          disabled={isLoading}
+                          disabled 
                           className={`
-                            w-full px-3 py-2 text-left bg-white border rounded-lg
-                            focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] focus:border-[var(--dominant-red)]
+                            w-full px-3 py-2 text-left bg-gray-100 border rounded-lg
+                            focus:outline-none 
                             liquid-morph
                             ${errors.total_units ? 'border-red-500' : 'border-gray-300'}
-                            ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}
+                            cursor-not-allowed
                           `}
                         />
                         {errors.total_units && (
@@ -613,4 +614,3 @@ const SubjectModal = ({
 };
 
 export default SubjectModal;
-

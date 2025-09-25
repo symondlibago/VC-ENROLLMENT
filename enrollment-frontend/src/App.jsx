@@ -7,7 +7,7 @@ import Dashboard from './components/pages/Dashboard';
 import Students from './components/pages/Students';
 import Courses from './components/pages/Courses';
 import Enrollment from './components/pages/Enrollment';
-import Schedule from './components/pages/Schedule';
+import AddingDroppingSubjects from './components/pages/AddingDroppingSubjects';
 import Reports from './components/pages/Reports';
 import Documents from './components/pages/Documents';
 import Notifications from './components/pages/Notifications';
@@ -293,10 +293,10 @@ function App() {
                     }
                   />
                   <Route
-                    path="/schedule"
+                    path="/addingdroppingsubjects"
                     element={
                       <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                        <Schedule />
+                        <AddingDroppingSubjects />
                       </motion.div>
                     }
                   />

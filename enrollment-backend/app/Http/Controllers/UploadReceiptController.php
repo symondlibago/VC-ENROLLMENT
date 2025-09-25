@@ -16,23 +16,32 @@ class UploadReceiptController extends Controller
     public function index()
     {
         try {
-            $receipts = UploadReceipt::with('preEnrolledStudent') // Eager load student data
-                ->latest() // Show the newest receipts first
+            $receiptsByStudent = UploadReceipt::with('preEnrolledStudent')
+                ->latest() // Important: ensures the first item in each group is the latest
                 ->get()
-                ->map(function ($receipt) {
-                    if (!$receipt->preEnrolledStudent) {
-                        return null; // Skip if student relationship is broken
-                    }
-                    return [
-                        'id' => $receipt->id,
-                        'studentIdNumber' => $receipt->preEnrolledStudent->student_id_number,
-                        'studentName' => $receipt->preEnrolledStudent->getFullNameAttribute(),
-                        'uploadDate' => $receipt->created_at->format('Y-m-d H:i'),
-                        'receiptUrl' => Storage::disk('s3')->url($receipt->receipt_photo_path),
-                    ];
-                })->filter(); // Remove null entries
+                ->groupBy('pre_enrolled_student_id');
 
-            return response()->json(['success' => true, 'data' => $receipts]);
+            $groupedData = $receiptsByStudent->map(function ($studentReceipts, $studentId) {
+                $firstReceipt = $studentReceipts->first(); // This is the latest receipt
+
+                if (!$firstReceipt || !$firstReceipt->preEnrolledStudent) {
+                    return null; 
+                }
+
+                return [
+                    'studentId' => $studentId,
+                    'studentIdNumber' => $firstReceipt->preEnrolledStudent->student_id_number,
+                    'studentName' => $firstReceipt->preEnrolledStudent->getFullNameAttribute(),
+                    'latestUploadDate' => $firstReceipt->created_at->format('Y-m-d H:i'),
+                    'receiptCount' => $studentReceipts->count(),
+                    'receiptUrls' => $studentReceipts->map(function ($receipt) {
+                        return Storage::disk('s3')->url($receipt->receipt_photo_path);
+                    })->all(),
+                ];
+            })->filter()->values(); 
+
+            return response()->json(['success' => true, 'data' => $groupedData]);
+
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Failed to fetch receipts', 'error' => $e->getMessage()], 500);
         }

@@ -228,7 +228,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     const paymentAmount = parseFloat(paymentData.payment_amount) || 0;
     const discountPercent = parseFloat(paymentData.discount) || 0;
 
-    const newTotalAmount = prevAccount + newTuitionFee + newLaboratoryFee + miscFee + otherFee + newBundledProgramFee - regFee;
+    const newTotalAmount = prevAccount + newTuitionFee + newLaboratoryFee + miscFee + otherFee + newBundledProgramFee + regFee;
     const newDiscountDeduction = newTotalAmount * (discountPercent / 100);
     const newRemainingAmount = newTotalAmount - newDiscountDeduction - paymentAmount;
     const newTermPayment = newRemainingAmount > 0 ? newRemainingAmount / 4 : 0;
@@ -390,7 +390,9 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                         <tr>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descriptive Title</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Units</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lecture</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Laboratory</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Units</th>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Schedule (Day / Time / Room)</th>
                         </tr>
                       </thead>
@@ -399,6 +401,8 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                           <tr key={subject.id}>
                             <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.subject_code}</td>
                             <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.descriptive_title}</td>
+                            <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lec_hrs}</td>
+                            <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lab_hrs}</td>
                             <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.total_units}</td>
                             <td className="px-4 py-2 whitespace-pre-wrap text-xs">
                                 {subject.schedules && subject.schedules.length > 0
