@@ -12,12 +12,35 @@ use Illuminate\Support\Facades\DB;
 
 class UploadReceiptController extends Controller
 {
-    /**
-     * Search for students who are pending payment.
-     */
+
+    public function index()
+    {
+        try {
+            $receipts = UploadReceipt::with('preEnrolledStudent') // Eager load student data
+                ->latest() // Show the newest receipts first
+                ->get()
+                ->map(function ($receipt) {
+                    if (!$receipt->preEnrolledStudent) {
+                        return null; // Skip if student relationship is broken
+                    }
+                    return [
+                        'id' => $receipt->id,
+                        'studentIdNumber' => $receipt->preEnrolledStudent->student_id_number,
+                        'studentName' => $receipt->preEnrolledStudent->getFullNameAttribute(),
+                        'uploadDate' => $receipt->created_at->format('Y-m-d H:i'),
+                        'receiptUrl' => Storage::disk('s3')->url($receipt->receipt_photo_path),
+                    ];
+                })->filter(); // Remove null entries
+
+            return response()->json(['success' => true, 'data' => $receipts]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Failed to fetch receipts', 'error' => $e->getMessage()], 500);
+        }
+    }
+
+
     public function searchStudents(Request $request)
     {
-        // This logic remains the same as it queries students, not receipts.
         $validator = Validator::make($request->all(), ['name' => 'required|string|min:2']);
 
         if ($validator->fails()) {
@@ -55,9 +78,6 @@ class UploadReceiptController extends Controller
         return response()->json(['success' => true, 'data' => $formattedData->values()]);
     }
 
-    /**
-     * Store a newly uploaded payment receipt.
-     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [

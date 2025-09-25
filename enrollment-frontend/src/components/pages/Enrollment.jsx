@@ -1,536 +1,416 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  GraduationCap, 
-  Search, 
-  Filter,
-  Plus,
-  MoreVertical,
-  Clock,
-  Users,
-  Calendar,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Edit,
-  Trash2,
-  Eye,
-  Download,
-  UserCheck,
-  BookOpen,
-  CreditCard,
-  FileText,
-  ChevronRight,
-  ChevronDown,
-  Printer,
-  User, // Added for icon
-  Mail, // Added for icon
-  Book, // Added for icon
+  GraduationCap, Search, Filter, MoreVertical, Eye, Edit, Trash2, FileText,
+  AlertCircle, CheckCircle, XCircle, Calendar, Mail, User, Book,
+  CreditCard, // For the new toggle
+  Receipt,    // For the new toggle
 } from 'lucide-react';
-import { enrollmentAPI, authAPI } from '@/services/api';
+import { enrollmentAPI, authAPI, uploadReceiptAPI } from '@/services/api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import StudentDetailsModal from '../modals/StudentDetailsModal';
+import { toast } from 'sonner';
 
-// Custom Framer Motion Dropdown Component
-const MotionDropdown = ({ value, onChange, options, placeholder }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [selectedOption, setSelectedOption] = useState(
-    options.find(opt => opt.value === value) || { label: placeholder, value: '' }
-  );
+// --- MAIN ENROLLMENT COMPONENT (Handles state and layout) ---
+const Enrollment = () => {
+  const [activeView, setActiveView] = useState('enrollments');
+  const [loading, setLoading] = useState(true);
+  
+  // Data states
+  const [enrollments, setEnrollments] = useState([]);
+  const [receipts, setReceipts] = useState([]);
+  
+  // Modal states
+  const [selectedStudentId, setSelectedStudentId] = useState(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState('');
+
+  // Filter & Search states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedFilter, setSelectedFilter] = useState('all');
+
+  const currentUser = authAPI.getUserData();
 
   useEffect(() => {
-    setSelectedOption(options.find(opt => opt.value === value) || { label: placeholder, value: '' });
-  }, [value, options, placeholder]);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const enrollmentsPromise = enrollmentAPI.getPreEnrolledStudents();
+        const receiptsPromise = (currentUser.role === 'Cashier' || currentUser.role === 'Admin') 
+          ? uploadReceiptAPI.getAll() 
+          : Promise.resolve({ success: true, data: [] });
 
-  const handleSelect = (option) => {
-    setSelectedOption(option);
-    onChange(option.value);
-    setIsOpen(false);
+        const [enrollmentsRes, receiptsRes] = await Promise.all([enrollmentsPromise, receiptsPromise]);
+        
+        if (enrollmentsRes.success) {
+          setEnrollments(enrollmentsRes.data);
+        } else {
+          toast.error("Failed to load enrollment data.");
+        }
+        
+        if (receiptsRes.success) {
+          setReceipts(receiptsRes.data);
+        } else {
+          toast.error("Failed to load receipt data.");
+        }
+
+      } catch (error) {
+        toast.error('An error occurred while fetching data.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [currentUser.role]);
+
+  const handleViewDetails = (studentId) => {
+    setSelectedStudentId(studentId);
+    setIsDetailsModalOpen(true);
+  };
+  
+  const handleViewImage = (imageUrl) => {
+    setSelectedImageUrl(imageUrl);
+    setIsImageModalOpen(true);
   };
 
-  return (
-    <div className="relative">
-      <motion.button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-2 text-left bg-white border border-gray-200 rounded-lg focus:border-[var(--dominant-red)] focus:ring-2 focus:ring-[var(--dominant-red)]/20 liquid-morph flex items-center justify-between min-w-[200px]"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-      >
-        <span className="text-gray-900">{selectedOption.label}</span>
-        <motion.div
-          animate={{ rotate: isOpen ? 180 : 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          <ChevronDown className="w-4 h-4 text-gray-500" />
-        </motion.div>
-      </motion.button>
+  const enrollmentStats = useMemo(() => {
+      const total = enrollments.length;
+      const pending = enrollments.filter(e => e.status.includes('Review') || e.status.includes('Pending')).length;
+      const approved = enrollments.filter(e => e.status === 'Enrolled').length;
+      const rejected = enrollments.filter(e => e.status === 'Rejected').length;
+      return { total, pending, approved, rejected };
+  }, [enrollments]);
 
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.95 }}
-            transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-            className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden"
-          >
-            {options.map((option, index) => (
-              <motion.button
-                key={option.value}
-                type="button"
-                onClick={() => handleSelect(option)}
-                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors duration-200 border-b border-gray-100 last:border-b-0"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-                whileHover={{ backgroundColor: '#f9fafb', x: 4 }}
-              >
-                <span className="text-gray-900">{option.label}</span>
-              </motion.button>
-            ))}
+  const stats = useMemo(() => [
+    { title: 'Total Enrollments', value: enrollmentStats.total, icon: GraduationCap, color: 'text-blue-600' },
+    { title: 'Pending Approval', value: enrollmentStats.pending, icon: AlertCircle, color: 'text-yellow-600' },
+    { title: 'Enrolled Students', value: enrollmentStats.approved, icon: CheckCircle, color: 'text-green-600' },
+    { title: 'Uploaded Receipts', value: receipts.length, icon: Receipt, color: 'text-purple-600' }
+  ], [enrollmentStats, receipts]);
+  
+  const pageVariants = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -20 } };
+
+  const isCashierOrAdmin = currentUser.role === 'Cashier' || currentUser.role === 'Admin';
+  
+  const pageTitle = isCashierOrAdmin ? "Cashier Dashboard" : "Enrollment Management";
+  const pageDescription = isCashierOrAdmin 
+    ? "Manage student enrollments and process uploaded payment receipts."
+    : "Process and manage student course enrollments and registrations.";
+
+
+  return (
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="gradient-soft rounded-2xl p-8 border border-gray-100">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold heading-bold text-gray-900 flex items-center">
+              {isCashierOrAdmin ? 
+                <CreditCard className="w-8 h-8 text-[var(--dominant-red)] mr-3" /> :
+                <GraduationCap className="w-8 h-8 text-[var(--dominant-red)] mr-3" />
+              }
+              {pageTitle}
+            </h1>
+            <p className="text-gray-600">{pageDescription}</p>
+          </div>
+          {isCashierOrAdmin && (
+            <div className="relative bg-gray-100 rounded-2xl p-1 inline-flex">
+              <motion.div
+                className="absolute top-1 bottom-1 bg-white rounded-xl shadow-md"
+                animate={{
+                  left: activeView === 'enrollments' ? '4px' : '50%',
+                  right: activeView === 'enrollments' ? '50%' : '4px',
+                }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              />
+              <button onClick={() => setActiveView('enrollments')} className={`relative z-10 p-3 rounded-xl transition-colors ${activeView === 'enrollments' ? 'text-[var(--dominant-red)]' : 'text-gray-600'}`} title="Enrollments"><GraduationCap className="w-5 h-5" /></button>
+              <button onClick={() => setActiveView('receipts')} className={`relative z-10 p-3 rounded-xl transition-colors ${activeView === 'receipts' ? 'text-[var(--dominant-red)]' : 'text-gray-600'}`} title="Receipts"><Receipt className="w-5 h-5" /></button>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map(stat => (
+          <Card key={stat.title} className="card-hover">
+            <CardContent className="p-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                <p className="text-2xl font-bold heading-bold text-gray-900">{stat.value}</p>
+              </div>
+              <div className={`p-3 rounded-xl bg-${stat.color.split('-')[1]}-50`}><stat.icon className={`w-6 h-6 ${stat.color}`} /></div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Content Area */}
+      {loading ? (
+        <LoadingSpinner />
+      ) : (
+        <AnimatePresence mode="wait">
+          <motion.div key={activeView} variants={pageVariants} initial="initial" animate="animate" exit="exit">
+            {(isCashierOrAdmin && activeView === 'receipts') ? (
+              <UploadedReceiptsPage 
+                receipts={receipts} 
+                onViewImage={handleViewImage} 
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm}
+              />
+            ) : (
+              <EnrollmentListPage 
+                enrollments={enrollments} 
+                onViewDetails={handleViewDetails} 
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm}
+                selectedFilter={selectedFilter}
+                setSelectedFilter={setSelectedFilter}
+              />
+            )}
           </motion.div>
-        )}
-      </AnimatePresence>
+        </AnimatePresence>
+      )}
+      
+      {/* Modals */}
+      {isDetailsModalOpen && (
+        <StudentDetailsModal studentId={selectedStudentId} isOpen={isDetailsModalOpen} onClose={() => setIsDetailsModalOpen(false)} currentUserRole={currentUser?.role} />
+      )}
+      {isImageModalOpen && (
+        <ImageZoomModal isOpen={isImageModalOpen} onClose={() => setIsImageModalOpen(false)} imageUrl={selectedImageUrl} />
+      )}
     </div>
   );
 };
 
-const Enrollment = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState('all');
-  const [enrollments, setEnrollments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [selectedStudentId, setSelectedStudentId] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [enrollmentStats, setEnrollmentStats] = useState({
-    total: 0,
-    pending: 0,
-    approved: 0,
-    rejected: 0,
-  });
-  
-  const currentUser = authAPI.getUserData();
-
-  useEffect(() => {
-    fetchEnrollments();
-  }, []);
-
-  const fetchEnrollments = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await enrollmentAPI.getPreEnrolledStudents(); 
-      
-      if (response.success) {
-        setEnrollments(response.data);
-        const total = response.data.length;
-        const pending = response.data.filter(e => e.status.includes('Review') || e.status.includes('Pending')).length;
-        const approved = response.data.filter(e => e.status === 'Enrolled').length;
-        const rejected = response.data.filter(e => e.status === 'Rejected').length;
-        setEnrollmentStats({ total, pending, approved, rejected });
-
-      } else {
-        setError('Failed to load enrollments');
-      }
-    } catch (err) {
-      // ... (error handling)
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const handleViewDetails = (studentId) => {
-    setSelectedStudentId(studentId);
-    setIsModalOpen(true);
-  };
-  
-  const stats = useMemo(() => [
-    {
-      title: 'Total Enrollments',
-      value: enrollmentStats.total.toLocaleString(),
-      icon: GraduationCap,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50'
-    },
-    {
-      title: 'Pending Approval',
-      value: enrollmentStats.pending.toLocaleString(),
-      icon: AlertCircle,
-      color: 'text-yellow-600',
-      bgColor: 'bg-yellow-50'
-    },
-    {
-      title: 'Approved Enrollments',
-      value: enrollmentStats.approved.toLocaleString(),
-      icon: CheckCircle,
-      color: 'text-green-600',
-      bgColor: 'bg-green-50'
-    },
-    {
-      title: 'Rejected Enrollments',
-      value: enrollmentStats.rejected.toLocaleString(),
-      icon: XCircle,
-      color: 'text-[var(--dominant-red)]',
-      bgColor: 'bg-red-50'
-    }
-  ], [enrollmentStats]);
-
-  const filterOptions = [
-    { label: 'All Enrollments', value: 'all' },
-    { label: 'Pending Review', value: 'pending' },
-    { label: 'Approved', value: 'enrolled' },
-    { label: 'Rejected', value: 'rejected' },
-  ];
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2
-      }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: {
-        duration: 0.6,
-        ease: [0.23, 1, 0.32, 1]
-      }
-    }
-  };
+// --- SUB-COMPONENT FOR ENROLLMENT LIST (YOUR ORIGINAL TABLE) ---
+const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchTerm, selectedFilter, setSelectedFilter }) => {
+  const filteredEnrollments = useMemo(() => enrollments.filter(enrollment => {
+      const name = enrollment.name || '';
+      const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            (enrollment.email && enrollment.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                            (enrollment.course && enrollment.course.toLowerCase().includes(searchTerm.toLowerCase()));
+      if (selectedFilter === 'all') return matchesSearch;
+      let statusMatch = false;
+      if (selectedFilter === 'pending') statusMatch = (enrollment.status.includes('Review') || enrollment.status.includes('Payment'));
+      else if (selectedFilter === 'enrolled') statusMatch = (enrollment.status === 'Enrolled');
+      else if (selectedFilter === 'rejected') statusMatch = (enrollment.status === 'Rejected');
+      return matchesSearch && statusMatch;
+  }), [enrollments, searchTerm, selectedFilter]);
 
   const getStatusColor = (status) => {
     if (!status) return 'bg-gray-100 text-gray-800';
-    
     status = status.toLowerCase();
-    
-    if (status.includes('enrolled')) {
-      return 'bg-green-100 text-green-800';
-    } else if (status.includes('pending') || status.includes('review')) {
-      return 'bg-yellow-100 text-yellow-800';
-    } else if (status.includes('rejected')) {
-      return 'bg-red-100 text-red-800';
-    } else {
-      return 'bg-gray-100 text-gray-800';
-    }
+    if (status.includes('enrolled')) return 'bg-green-100 text-green-800';
+    if (status.includes('pending') || status.includes('review')) return 'bg-yellow-100 text-yellow-800';
+    if (status.includes('rejected')) return 'bg-red-100 text-red-800';
+    return 'bg-gray-100 text-gray-800';
   };
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'Enrolled':
-        return <CheckCircle className="w-4 h-4 mr-2" />;
+      case 'Enrolled': return <CheckCircle className="w-4 h-4 mr-2" />;
       case 'Program Head Review':
       case 'Registrar Review':
-      case 'Pending Payment':
-        return <AlertCircle className="w-4 h-4 mr-2" />;
-      case 'Rejected':
-        return <XCircle className="w-4 h-4 mr-2" />;
-      default:
-        return <AlertCircle className="w-4 h-4 mr-2" />;
+      case 'Pending Payment': return <AlertCircle className="w-4 h-4 mr-2" />;
+      case 'Rejected': return <XCircle className="w-4 h-4 mr-2" />;
+      default: return <AlertCircle className="w-4 h-4 mr-2" />;
     }
   };
 
-  const getInitials = (firstName, lastName) => {
-    const first = firstName?.trim()?.charAt(0).toUpperCase() || '';
-    const last = lastName?.trim()?.charAt(0).toUpperCase() || '';
-    return (last + first) || 'U';
-  };
-  
-  const filteredEnrollments = useMemo(() => {
-    // The `enrollments` state is now ALREADY filtered by role from the API
-    return enrollments.filter((enrollment) => {
-      const name = enrollment.name || `${enrollment.first_name || ''} ${enrollment.last_name || ''}`.trim();
-
-      const matchesSearch =
-        name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (enrollment.email && enrollment.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (enrollment.course && enrollment.course.toLowerCase().includes(searchTerm.toLowerCase()));
-
-      // The rest of your filter logic for the dropdown (All, Pending, etc.) can stay
-      if (selectedFilter === 'all') return matchesSearch;
-      // ...
-      let statusMatch = false;
-      if (selectedFilter === 'pending') {
-        statusMatch = (enrollment.status.includes('Review') || enrollment.status.includes('Payment'));
-      } else if (selectedFilter === 'enrolled') {
-        statusMatch = (enrollment.status === 'Enrolled');
-      } else if (selectedFilter === 'rejected') {
-        statusMatch = (enrollment.status === 'Rejected');
-      }
-
-      return matchesSearch && statusMatch;
-    });
-  }, [enrollments, searchTerm, selectedFilter]);
-
   return (
-    <motion.div
-      className="p-6 space-y-6 max-w-7xl mx-auto"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      {/* Header Section */}
-      <motion.div variants={itemVariants} className="animate-fade-in">
-        <div className="gradient-soft rounded-2xl p-8 border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold heading-bold text-gray-900 mb-2 flex items-center">
-                <GraduationCap className="w-8 h-8 text-[var(--dominant-red)] mr-3" />
-                Enrollment Management
-              </h1>
-              <p className="text-gray-600 text-lg">
-                Process and manage student course enrollments and registrations.
-              </p>
-            </div>
-            <Button className="gradient-primary text-white liquid-button">
-              <Plus className="w-4 h-4 mr-2" />
-              New Enrollment
-            </Button>
+    <div className="space-y-6">
+      <Card><CardContent className="p-6">
+        <div className="flex items-center gap-4">
+          <div className="relative flex-grow">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <Input 
+              placeholder="Search by name, email, or course..." 
+              value={searchTerm} 
+              onChange={e => setSearchTerm(e.target.value)} 
+              className="pl-10" 
+            />
           </div>
         </div>
-      </motion.div>
-
-      {/* Stats Section */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <motion.div key={stat.title} className="liquid-hover">
-              <Card className="card-hover border-0 shadow-sm overflow-hidden">
-                <CardContent className="p-6 relative">
-                  <motion.div 
-                    className="absolute inset-0 bg-gradient-to-br from-transparent to-gray-50/50"
-                    initial={{ opacity: 0 }}
-                    whileHover={{ opacity: 1 }}
-                    transition={{ duration: 0.3 }}
-                  />
-                  <div className="flex items-center justify-between relative z-10">
+      </CardContent></Card>
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[300px]">Student</TableHead>
+              <TableHead>Course</TableHead>
+              <TableHead>Enrollment Date</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredEnrollments.length > 0 ? filteredEnrollments.map(e => (
+              <TableRow key={e.id} className="hover:bg-red-50/50">
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="bg-red-100 text-red-800 font-bold">{e.name?.charAt(0)}</AvatarFallback>
+                    </Avatar>
                     <div>
-                      <p className="text-sm font-medium text-gray-600 mb-1">{stat.title}</p>
-                      <motion.p className="text-2xl font-bold heading-bold text-gray-900">{stat.value}</motion.p>
-                      <p className="text-sm text-green-600 font-medium mt-1">{stat.change}</p>
-                    </div>
-                    <motion.div className={`p-3 rounded-xl ${stat.bgColor}`}>
-                      <Icon className={`w-6 h-6 ${stat.color}`} />
-                    </motion.div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
-      </motion.div>
-
-      {/* Search and Filter Section */}
-      <motion.div variants={itemVariants}>
-        <Card className="border-0 shadow-sm no-hover">
-          <CardContent className="p-6">
-            <div className="flex flex-col lg:flex-row gap-4 items-center">
-              <div className="flex-1 w-full">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <Input
-                    placeholder="Search by student name, email, or course..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-12 pr-4 py-3 text-base liquid-morph border-gray-200 focus:border-[var(--dominant-red)] focus:ring-2 focus:ring-[var(--dominant-red)]/20"
-                  />
-                </div>
-              </div>
-              <div className="flex items-center space-x-3 flex-shrink-0">
-                <MotionDropdown
-                  value={selectedFilter}
-                  onChange={setSelectedFilter}
-                  options={filterOptions}
-                  placeholder="Filter by status"
-                />
-                <Button variant="outline" className="liquid-button">
-                  <Filter className="w-4 h-4 mr-2" />
-                  Advanced Filter
-                </Button>
-                <Button variant="outline" className="liquid-button">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Enrollments List Table */}
-      <motion.div variants={itemVariants}>
-        <Card className="border-0 shadow-sm">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[300px]">Student</TableHead>
-                <TableHead>Course</TableHead>
-                <TableHead>Enrollment Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredEnrollments.length > 0 ? (
-                filteredEnrollments.map((enrollment) => (
-                  <motion.tr 
-                    key={enrollment.id}
-                    className="hover:bg-red-50/50"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <TableCell className="font-medium">
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="w-10 h-10">
-                          <AvatarImage 
-                            src={enrollment.student?.avatar || `/api/placeholder/40/40`} 
-                            alt={enrollment.student?.first_name || 'Student'} 
-                          />
-                          <AvatarFallback className="bg-gradient-to-br from-[var(--dominant-red)] to-red-600 text-white font-bold text-sm">
-                            {getInitials(enrollment.student?.first_name, enrollment.student?.last_name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="flex items-center">
-                            <User className="w-3 h-3 mr-2 text-red-800" />
-                            <p className="font-bold text-gray-900">
-                              {enrollment.name || `${enrollment.first_name || ''} ${enrollment.last_name || ''}`.trim()}
-                            </p>
-                          </div>
-                          <div className="flex items-center">
-                            <Mail className="w-3 h-3 mr-2 text-red-800" />
-                            <p className="text-sm text-gray-500">
-                              {enrollment.email || 'No email'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center font-medium text-gray-800">
-                        <GraduationCap className="w-4 h-4 mr-2 text-red-800 flex-shrink-0" />
-                        <span>{enrollment.course || 'N/A'}</span>
-                      </div>
-                      <div className="flex items-center text-xs text-gray-500 mt-1">
-                        <Book className="w-3 h-3 mr-2 text-red-800 flex-shrink-0" />
-                        <span>Program: {enrollment.program || 'N/A'}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
                       <div className="flex items-center">
-                        <Calendar className="w-4 h-4 mr-2 text-red-800" />
-                        <span>{enrollment.enrollment_date || 'N/A'}</span>
+                        <User className="w-3 h-3 mr-2 text-red-800" />
+                        <p className="font-bold text-gray-900">{e.name}</p>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={`${getStatusColor(enrollment.status)} font-medium`}>
-                        {getStatusIcon(enrollment.status)}
-                        {enrollment.status || 'Pending'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleViewDetails(enrollment.id)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit Enrollment
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <FileText className="mr-2 h-4 w-4" />
-                            Generate Report
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Cancel Enrollment
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </motion.tr>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
-                    No enrollments found for your role.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </Card>
-      </motion.div>
-
-      {/* Empty State, Loading, and Error handlers */}
-      {loading ? (
-        <motion.div variants={itemVariants} className="text-center py-12">
-          <motion.div 
-            className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--dominant-red)] mx-auto"
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          />
-          <p className="mt-4 text-gray-500">Loading enrollments...</p>
-        </motion.div>
-      ) : error ? (
-        <motion.div variants={itemVariants} className="text-center py-12">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Error loading enrollments</h3>
-          <p className="text-gray-500 mb-4">{error}</p>
-          <Button onClick={fetchEnrollments} className="gradient-primary text-white liquid-button">
-            Try Again
-          </Button>
-        </motion.div>
-      ) : null}
-
-      {/* Student Details Modal */}
-      {isModalOpen && (
-        <StudentDetailsModal
-          studentId={selectedStudentId}
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          currentUserRole={currentUser?.role}
-        />
-      )}
-    </motion.div>
+                      <div className="flex items-center">
+                        <Mail className="w-3 h-3 mr-2 text-red-800" />
+                        <p className="text-sm text-gray-500">{e.email}</p>
+                      </div>
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center font-medium text-gray-800">
+                    <GraduationCap className="w-4 h-4 mr-2 text-red-800 flex-shrink-0" />
+                    <span>{e.course || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center text-xs text-gray-500 mt-1">
+                    <Book className="w-3 h-3 mr-2 text-red-800 flex-shrink-0" />
+                    <span>Program: {e.program || 'N/A'}</span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center">
+                    <Calendar className="w-4 h-4 mr-2 text-red-800" />
+                    <span>{e.enrollment_date}</span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge className={`${getStatusColor(e.status)} font-medium`}>
+                    {getStatusIcon(e.status)}
+                    {e.status}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0">
+                        <MoreVertical size={16} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onViewDetails(e.id)}>
+                        <Eye size={14} className="mr-2" />View Details
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            )) : (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center h-24">
+                  No enrollments found.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </Card>
+    </div>
   );
-};  
+};
+
+// --- SUB-COMPONENT FOR UPLOADED RECEIPTS ---
+const UploadedReceiptsPage = ({ receipts, onViewImage, searchTerm, setSearchTerm }) => {
+  const filteredReceipts = useMemo(() => receipts.filter(r => 
+    r.studentName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    r.studentIdNumber.includes(searchTerm)
+  ), [receipts, searchTerm]);
+
+  return (
+    <div className="space-y-6">
+      <Card><CardContent className="p-6">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+          <Input 
+            placeholder="Search by student name or ID..." 
+            value={searchTerm} 
+            onChange={e => setSearchTerm(e.target.value)} 
+            className="pl-10" 
+          />
+        </div>
+      </CardContent></Card>
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Receipt</TableHead>
+              <TableHead>Student Name</TableHead>
+              <TableHead>Student ID</TableHead>
+              <TableHead>Upload Date</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredReceipts.length > 0 ? filteredReceipts.map(r => (
+              <TableRow key={r.id}>
+                <TableCell>
+                  <Avatar className="h-10 w-10 rounded-md cursor-pointer hover:scale-110 transition-transform" onClick={() => onViewImage(r.receiptUrl)}>
+                    <AvatarImage src={r.receiptUrl} alt="Receipt" className="object-cover" />
+                    <AvatarFallback className="rounded-md bg-gray-200">IMG</AvatarFallback>
+                  </Avatar>
+                </TableCell>
+                <TableCell className="font-medium">{r.studentName}</TableCell>
+                <TableCell>{r.studentIdNumber}</TableCell>
+                <TableCell>{r.uploadDate}</TableCell>
+              </TableRow>
+            )) : (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center h-24">
+                  No receipts uploaded yet.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </Card>
+    </div>
+  );
+};
+
+// --- HELPER COMPONENT FOR LOADING SPINNER ---
+const LoadingSpinner = () => (
+  <div className="text-center py-12">
+    <motion.div 
+      className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--dominant-red)] mx-auto"
+      animate={{ rotate: 360 }}
+      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+    />
+    <p className="mt-4 text-gray-500">Loading data...</p>
+  </div>
+);
+
+// --- HELPER COMPONENT FOR IMAGE ZOOM MODAL ---
+const ImageZoomModal = ({ isOpen, onClose, imageUrl }) => (
+  <AnimatePresence>
+    {isOpen && (
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+      >
+        <motion.img
+          initial={{ scale: 0.5, y: 50 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.5, y: 50 }}
+          transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+          src={imageUrl} alt="Receipt Zoomed"
+          className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+          onClick={e => e.stopPropagation()} // Prevent closing when clicking on the image
+        />
+        <button onClick={onClose} className="absolute top-4 right-4 text-white bg-black/50 p-2 rounded-full"><XCircle /></button>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
 
 export default Enrollment;

@@ -413,6 +413,15 @@ export const sectionAPI = {
 // --- Upload Receipt API methods ---
 export const uploadReceiptAPI = {
 
+  getAll: async () => {
+    try {
+      const response = await api.get('/upload-receipts');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch receipts' };
+    }
+  },
+
   searchStudents: async (name) => {
     try {
       const response = await api.get('/upload-receipts/search-students', {

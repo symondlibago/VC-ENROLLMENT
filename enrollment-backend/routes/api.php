@@ -48,7 +48,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('sections', SectionController::class);
     Route::post('sections/{section}/students', [SectionController::class, 'addStudents']);
 
+    // Enrollment routes
     Route::get('enrollments', [EnrollmentController::class, 'getPreEnrolledStudents']);
+
+    // Upload Receipts
+    Route::get('upload-receipts', [UploadReceiptController::class, 'index']);
 
 });
     // Program routes
