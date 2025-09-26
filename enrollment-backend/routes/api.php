@@ -50,6 +50,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Enrollment routes
     Route::get('enrollments', [EnrollmentController::class, 'getPreEnrolledStudents']);
+    Route::put('enrollments/{id}/details', [EnrollmentController::class, 'updateStudentDetails']);
 
     // Upload Receipts
     Route::get('upload-receipts', [UploadReceiptController::class, 'index']);

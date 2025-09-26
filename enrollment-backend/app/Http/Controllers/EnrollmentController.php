@@ -390,4 +390,86 @@ public function getEnrolledStudents()
         return response()->json(['success' => false, 'message' => 'Failed to fetch enrolled students', 'error' => $e->getMessage()], 500);
     }
 }
+
+public function updateStudentDetails(Request $request, $id)
+{
+    $user = Auth::user();
+
+    // Authorization: Only Admin or Registrar can update details
+    if (!$user || !in_array($user->role, ['Admin', 'Registrar'])) {
+        return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+    }
+
+    // Find the student or fail
+    $student = PreEnrolledStudent::findOrFail($id);
+
+    // EXPANDED Validation rules to include all editable fields
+    $validator = Validator::make($request->all(), [
+        // Basic Info
+        'last_name' => 'required|string|max:255',
+        'first_name' => 'required|string|max:255',
+        'middle_name' => 'nullable|string|max:255',
+        'gender' => 'required|string|max:255',
+        'birth_date' => 'required|date',
+        'birth_place' => 'required|string|max:255',
+        'nationality' => 'required|string|max:255',
+        'civil_status' => 'required|string|max:255',
+        'religion' => 'nullable|string|max:255',
+        'address' => 'required|string|max:255',
+        'contact_number' => 'required|string|max:255',
+        'email_address' => 'required|email|max:255|unique:pre_enrolled_students,email_address,' . $student->id,
+        
+        // Parent Info
+        'father_name' => 'nullable|string|max:255',
+        'father_occupation' => 'nullable|string|max:255',
+        'father_contact_number' => 'nullable|string|max:255',
+        'mother_name' => 'nullable|string|max:255',
+        'mother_occupation' => 'nullable|string|max:255',
+        'mother_contact_number' => 'nullable|string|max:255',
+        'parents_address' => 'nullable|string|max:255',
+        
+        // Emergency Contact
+        'emergency_contact_name' => 'required|string|max:255',
+        'emergency_contact_number' => 'required|string|max:255',
+        'emergency_contact_address' => 'required|string|max:255',
+        
+        // Educational Background
+        'elementary' => 'nullable|string|max:255',
+        'elementary_date_completed' => 'nullable|string|max:255',
+        'junior_high_school' => 'nullable|string|max:255',
+        'junior_high_date_completed' => 'nullable|string|max:255',
+        'senior_high_school' => 'nullable|string|max:255',
+        'senior_high_date_completed' => 'nullable|string|max:255',
+        'high_school_non_k12' => 'nullable|string|max:255',
+        'high_school_non_k12_date_completed' => 'nullable|string|max:255',
+        'college' => 'nullable|string|max:255',
+        'college_date_completed' => 'nullable|string|max:255',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation failed',
+            'errors' => $validator->errors(),
+        ], 422);
+    }
+
+    try {
+        // Update the student with all validated data
+        $student->update($validator->validated());
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Student details updated successfully.',
+            'data' => $student,
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to update student details.',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+}
 }

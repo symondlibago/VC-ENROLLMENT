@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, 
@@ -9,7 +8,8 @@ import {
   GraduationCap,
   UserPlus,
   ChevronDown,
-  MoreHorizontal
+  MoreHorizontal,
+  Edit // Make sure Edit icon is imported
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,12 +31,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import SectionDetailsModal from '../modals/SectionDetailsModal';
 import AddSectionModal from '../modals/AddSectionModal';
-import AddStudentsToSectionModal from '../modals/AddStudentsToSectionModal'; // MODIFIED: Import the modal here
+import AddStudentsToSectionModal from '../modals/AddStudentsToSectionModal';
+import EditStudentModal from '../modals/EditStudentModal'; // Import the Edit modal
 import LoadingSpinner from '../layout/LoadingSpinner';
-import { sectionAPI, enrollmentAPI, courseAPI } from '@/services/api';
+import { sectionAPI, enrollmentAPI, courseAPI, authAPI } from '@/services/api'; // Import authAPI
 import { toast } from 'sonner';
 
-// Custom Framer Motion Dropdown Component (Copied from Enrollment.jsx)
+// Custom Framer Motion Dropdown Component (No changes needed)
 const MotionDropdown = ({ value, onChange, options, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOption, setSelectedOption] = useState(
@@ -115,8 +116,12 @@ const Students = () => {
   const [selectedSection, setSelectedSection] = useState(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false);
-  const [isAddStudentsModalOpen, setIsAddStudentsModalOpen] = useState(false); // MODIFIED: State is now managed here
+  const [isAddStudentsModalOpen, setIsAddStudentsModalOpen] = useState(false);
   const [isSectionLoading, setIsSectionLoading] = useState(false);
+  
+  // States for the Edit Student Modal
+  const [selectedStudentId, setSelectedStudentId] = useState(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Filter & Search states
   const [searchTerm, setSearchTerm] = useState('');
@@ -124,30 +129,35 @@ const Students = () => {
   const [studentCourseFilter, setStudentCourseFilter] = useState('all');
   const [studentSectionFilter, setStudentSectionFilter] = useState('all');
 
+  // Get current user for role-based access
+  const currentUser = authAPI.getUserData();
+
+  // Wrap fetchData in useCallback to allow re-fetching without re-creating the function
+  const fetchData = useCallback(async () => {
+    try {
+      // Set loading to true only for the very first fetch
+      if (loading) setLoading(true); 
+      const [sectionsRes, coursesRes, studentsRes] = await Promise.all([
+        sectionAPI.getAll(),
+        courseAPI.getAll(),
+        enrollmentAPI.getEnrolledStudents(),
+      ]);
+      
+      setSections(sectionsRes.data || []);
+      setCourses(coursesRes.data || []);
+      setEnrolledStudents(studentsRes.data || []);
+    } catch (error) {
+      toast.error('Failed to load data. Please try again.');
+      console.error("Data fetching error:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [loading]); // Only re-create this function if the 'loading' state changes
+
   // Initial data fetching
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [sectionsRes, coursesRes, studentsRes] = await Promise.all([
-          sectionAPI.getAll(),
-          courseAPI.getAll(),
-          enrollmentAPI.getEnrolledStudents(),
-        ]);
-        
-        setSections(sectionsRes.data || []);
-        setCourses(coursesRes.data || []);
-        setEnrolledStudents(studentsRes.data || []);
-      } catch (error) {
-        toast.error('Failed to load data. Please try again.');
-        console.error("Data fetching error:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   // Memoized stats (no change)
   const stats = useMemo(() => [
@@ -164,14 +174,12 @@ const Students = () => {
 
   // Handlers for Modals
   const handleSectionClick = async (section) => {
-    // MODIFIED: Set basic section data immediately so the title appears
     setSelectedSection(section);
     setIsDetailsModalOpen(true);
     setIsSectionLoading(true);
     try {
-      // Then fetch the full data with the student list
       const response = await sectionAPI.getById(section.id);
-      setSelectedSection(response.data.success ? response.data.data : section); // Fallback to original section data on fail
+      setSelectedSection(response.data.success ? response.data.data : section);
     } catch (error) {
       toast.error('An error occurred while fetching details.');
       setIsDetailsModalOpen(false);
@@ -181,7 +189,6 @@ const Students = () => {
   };
 
   const handleAddSection = async (sectionData) => {
-    // ... (no change to this function)
     try {
       const response = await sectionAPI.create({ name: sectionData.name, course_id: sectionData.course.id });
       if (response.success) {
@@ -212,8 +219,20 @@ const Students = () => {
       toast.error('An error occurred while adding students.');
     }
   };
+  
+  // Handlers for the Edit Student Modal
+  const handleEditStudent = (studentId) => {
+    setSelectedStudentId(studentId);
+    setIsEditModalOpen(true);
+  };
 
-  // Filtering Logic (no change)
+  const handleUpdateSuccess = () => {
+    fetchData(); // This re-fetches all data to show the latest updates
+  };
+
+
+  // **THIS IS THE FIX**: All useMemo hooks must be inside the component body
+  // where their dependencies (like searchTerm) are defined.
   const filteredSections = useMemo(() => sections.filter(section => {
     const courseName = section.course?.course_name || '';
     const matchesSearch = section.name.toLowerCase().includes(searchTerm.toLowerCase()) || courseName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -221,17 +240,15 @@ const Students = () => {
     return matchesSearch && matchesFilter;
   }), [sections, searchTerm, sectionCourseFilter]);
 
-  // In your main Students component...
-
-const filteredStudents = useMemo(() => enrolledStudents.filter(student => {
-  const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                        (student.student_id_number && student.student_id_number.toLowerCase().includes(searchTerm.toLowerCase()));
-  const courseMatch = studentCourseFilter === 'all' || student.courseId?.toString() === studentCourseFilter;
-  const sectionMatch = studentSectionFilter === 'all' || 
-                       (studentSectionFilter === 'unassigned' && !student.sectionId) || 
-                       (student.sectionId?.toString() === studentSectionFilter);
-  return matchesSearch && courseMatch && sectionMatch;
-}), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter]);
+  const filteredStudents = useMemo(() => enrolledStudents.filter(student => {
+    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          (student.student_id_number && student.student_id_number.toLowerCase().includes(searchTerm.toLowerCase()));
+    const courseMatch = studentCourseFilter === 'all' || student.courseId?.toString() === studentCourseFilter;
+    const sectionMatch = studentSectionFilter === 'all' || 
+                         (studentSectionFilter === 'unassigned' && !student.sectionId) || 
+                         (student.sectionId?.toString() === studentSectionFilter);
+    return matchesSearch && courseMatch && sectionMatch;
+  }), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter]);
 
   if (loading) {
     return <div className="flex justify-center items-center h-full"><LoadingSpinner size="lg" color="red" /></div>;
@@ -240,105 +257,85 @@ const filteredStudents = useMemo(() => enrolledStudents.filter(student => {
   return (
     <motion.div className="p-6 space-y-6 max-w-7xl mx-auto" variants={containerVariants} initial="hidden" animate="visible">
       <motion.div variants={itemVariants}>
-      <div className="gradient-soft rounded-2xl p-8 border border-gray-100">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold heading-bold text-gray-900 flex items-center">
-              <BookOpen className="w-8 h-8 text-[var(--dominant-red)] mr-3" />
-              Students & Sections
-            </h1>
-            <p className="text-gray-600">Manage student sections and view enrollment lists.</p>
-          </div>
-          <div className="flex items-center space-x-2">
-             
-             <div className="relative bg-gray-100 rounded-2xl p-1 inline-flex">
-                <motion.div
-                  className="absolute top-1 bottom-1 bg-white rounded-xl shadow-md"
-                  initial={false}
-                  animate={{
-                    left: activeView === 'sections' ? '4px' : '50%',
-                    right: activeView === 'sections' ? '50%' : '4px',
-                  }}
-                  transition={{ type: "spring", stiffness: 300, damping: 30, mass: 0.8 }}
-                />
-                <motion.button
-                  onClick={() => setActiveView('sections')}
-                  className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${
-                    activeView === 'sections' 
-                      ? 'text-[var(--dominant-red)]' 
-                      : 'text-gray-600 hover:text-gray-800'
-                  }`}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  title="Sections"
-                >
-                  <BookOpen className="w-5 h-5" />
-                </motion.button>
-                <motion.button
-                  onClick={() => setActiveView('students')}
-                  className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${
-                    activeView === 'students' 
-                      ? 'text-[var(--dominant-red)]' 
-                      : 'text-gray-600 hover:text-gray-800'
-                  }`}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  title="Students"
-                >
-                  <Users className="w-5 h-5" />
-                </motion.button>
-             </div>
-             <Button className="gradient-primary text-white" onClick={() => setIsAddSectionModalOpen(true)}>
-             <Plus className="w-4 h-4 mr-2" />Add Section
-             </Button>
+        <div className="gradient-soft rounded-2xl p-8 border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold heading-bold text-gray-900 flex items-center">
+                <BookOpen className="w-8 h-8 text-[var(--dominant-red)] mr-3" />
+                Students & Sections
+              </h1>
+              <p className="text-gray-600">Manage student sections and view enrollment lists.</p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="relative bg-gray-100 rounded-2xl p-1 inline-flex">
+                  <motion.div
+                    className="absolute top-1 bottom-1 bg-white rounded-xl shadow-md"
+                    initial={false}
+                    animate={{ left: activeView === 'sections' ? '4px' : '50%', right: activeView === 'sections' ? '50%' : '4px' }}
+                    transition={{ type: "spring", stiffness: 300, damping: 30, mass: 0.8 }}
+                  />
+                  <motion.button
+                    onClick={() => setActiveView('sections')}
+                    className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${activeView === 'sections' ? 'text-[var(--dominant-red)]' : 'text-gray-600 hover:text-gray-800'}`}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    title="Sections"
+                  > <BookOpen className="w-5 h-5" /> </motion.button>
+                  <motion.button
+                    onClick={() => setActiveView('students')}
+                    className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${activeView === 'students' ? 'text-[var(--dominant-red)]' : 'text-gray-600 hover:text-gray-800'}`}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    title="Students"
+                  > <Users className="w-5 h-5" /> </motion.button>
+              </div>
+              <Button className="gradient-primary text-white" onClick={() => setIsAddSectionModalOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />Add Section
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
       </motion.div>
-      <motion.div
-       variants={itemVariants}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map(stat => {
           const Icon = stat.icon;
           return <Card key={stat.title}>
-          <CardContent 
-            className="p-6 flex items-center justify-between">
+            <CardContent className="p-6 flex items-center justify-between">
               <div className="space-y-1">
-                <p className="text-sm font-medium text-gray-600">{stat.title}</p><p className="text-2xl font-bold heading-bold text-gray-900">{stat.value}</p>
-                  </div>
-                    <div className={`p-3 rounded-xl ${stat.bgColor}`}>
-                  <Icon className={`w-6 h-6 ${stat.color}`} />
+                <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                <p className="text-2xl font-bold heading-bold text-gray-900">{stat.value}</p>
               </div>
-          </CardContent>
-        </Card>;
+              <div className={`p-3 rounded-xl ${stat.bgColor}`}>
+                <Icon className={`w-6 h-6 ${stat.color}`} />
+              </div>
+            </CardContent>
+          </Card>;
         })}
-        
-    </motion.div>
+      </motion.div>
+
       <AnimatePresence mode="wait">
         <motion.div key={activeView} variants={pageVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.3 }}>
           {activeView === 'sections' 
             ? <SectionPage sections={filteredSections} courses={courses} searchTerm={searchTerm} setSearchTerm={setSearchTerm} courseFilter={sectionCourseFilter} setCourseFilter={setSectionCourseFilter} onSectionClick={handleSectionClick} onAddSectionClick={() => setIsAddSectionModalOpen(true)} />
-            : <StudentPage students={filteredStudents} sections={sections} courses={courses} searchTerm={searchTerm} setSearchTerm={setSearchTerm} courseFilter={studentCourseFilter} setCourseFilter={setStudentCourseFilter} sectionFilter={studentSectionFilter} setSectionFilter={setStudentSectionFilter} />
+            : <StudentPage students={filteredStudents} sections={sections} courses={courses} searchTerm={searchTerm} setSearchTerm={setSearchTerm} courseFilter={studentCourseFilter} setCourseFilter={setStudentCourseFilter} sectionFilter={studentSectionFilter} setSectionFilter={setStudentSectionFilter} onEditStudent={handleEditStudent} currentUser={currentUser} />
           }
         </motion.div>
       </AnimatePresence>
 
-      {/* MODALS ARE NOW ALL DECLARED HERE IN THE PARENT */}
+      {/* Modals are all declared here in the parent */}
       <SectionDetailsModal 
         isOpen={isDetailsModalOpen} 
         onClose={() => setIsDetailsModalOpen(false)} 
         section={selectedSection} 
         isLoading={isSectionLoading} 
-        onOpenAddStudents={() => setIsAddStudentsModalOpen(true)} // Pass function to open the other modal
+        onOpenAddStudents={() => setIsAddStudentsModalOpen(true)}
       />
-      
       <AddSectionModal 
         isOpen={isAddSectionModalOpen} 
         onClose={() => setIsAddSectionModalOpen(false)} 
         onAddSection={handleAddSection} 
         courses={courses} 
       />
-
       <AddStudentsToSectionModal
         isOpen={isAddStudentsModalOpen}
         onClose={() => setIsAddStudentsModalOpen(false)}
@@ -347,11 +344,20 @@ const filteredStudents = useMemo(() => enrolledStudents.filter(student => {
         enrolledStudentIds={selectedSection?.students?.map(s => s.id) || []}
         onAddStudents={(studentIds) => handleAddStudentsToSection(selectedSection.id, studentIds)}
       />
+      {/* Render the Edit Student Modal */}
+      {isEditModalOpen && (
+        <EditStudentModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          studentId={selectedStudentId}
+          onUpdateSuccess={handleUpdateSuccess}
+        />
+      )}
     </motion.div>
   );
 };
 
-// Sub-component for Section Page View
+// Sub-component for Section Page View (No changes)
 const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, onSectionClick, onAddSectionClick }) => {
   const courseOptions = useMemo(() => [
     { label: 'Filter by All Courses', value: 'all' },
@@ -360,123 +366,98 @@ const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilte
 
   return (
     <div className="space-y-6">
-              <Card>
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-              <div className="flex-1 w-full">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Search sections by name or course..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 border-1 border-gray-200 focus:ring-red-800 focus:border-red-800"
-                  />
-                </div>
-              </div>
-              <div className="relative w-full md:w-auto">
-                <MotionDropdown
-                  value={courseFilter}
-                  onChange={setCourseFilter}
-                  options={courseOptions}
-                  placeholder="Filter by All Courses"
-                />
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="flex-1 w-full">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input placeholder="Search sections by name or course..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border-1 border-gray-200 focus:ring-red-800 focus:border-red-800"/>
               </div>
             </div>
-          </CardContent>
-        </Card>
-
-
-  
+            <div className="relative w-full md:w-auto">
+              <MotionDropdown value={courseFilter} onChange={setCourseFilter} options={courseOptions} placeholder="Filter by All Courses"/>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {sections.map((section, index) => (
           <motion.div key={section.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0, transition: { duration: 0.5, delay: index * 0.05 }}} whileHover={{ y: -5 }} className="cursor-pointer" onClick={() => onSectionClick(section)}>
             <Card className="h-full flex flex-col"><CardContent className="p-6 flex-grow flex flex-col justify-between">
               <div>
                 <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-3"><div className="w-12 h-12 bg-[var(--dominant-red)] rounded-xl flex items-center justify-center shrink-0"><BookOpen className="w-6 h-6 text-white" /></div><div><h3 className="font-bold text-gray-900 text-lg">{section.name}</h3>
-                  <Badge className={`text-xs mt-1 ${section.students.length > 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                    {section.students.length} student{section.students.length !== 1 ? 's' : ''}
-                    </Badge>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-[var(--dominant-red)] rounded-xl flex items-center justify-center shrink-0"><BookOpen className="w-6 h-6 text-white" /></div>
+                    <div>
+                      <h3 className="font-bold text-gray-900 text-lg">{section.name}</h3>
+                      <Badge className={`text-xs mt-1 ${section.students.length > 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{section.students.length} student{section.students.length !== 1 ? 's' : ''}</Badge>
                     </div>
                   </div>
                 </div>
-                <div className="space-y-2"><div className="flex items-center text-sm text-gray-600"><GraduationCap className="w-4 h-4 mr-2 text-gray-400" /><span className="truncate">{section.course?.course_name || 'N/A'}</span></div><div className="flex items-center text-sm text-gray-600"><Users className="w-4 h-4 mr-2 text-gray-400" /><span>{section.course?.program?.program_code || 'No Program'}</span></div></div>
+                <div className="space-y-2">
+                  <div className="flex items-center text-sm text-gray-600"><GraduationCap className="w-4 h-4 mr-2 text-gray-400" /><span className="truncate">{section.course?.course_name || 'N/A'}</span></div>
+                  <div className="flex items-center text-sm text-gray-600"><Users className="w-4 h-4 mr-2 text-gray-400" /><span>{section.course?.program?.program_code || 'No Program'}</span></div>
+                </div>
               </div>
               <div className="mt-4 pt-4 border-t"><div className="flex items-center justify-between"><span className="text-sm text-gray-500">Click to view students</span></div></div>
             </CardContent></Card>
           </motion.div>
         ))}
       </div>
-      
       {sections.length === 0 && <div className="text-center py-12"><BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-900 mb-2">No sections found</h3><p className="text-gray-500 mb-4">Try adjusting your search or filter criteria.</p><Button className="gradient-primary text-white" onClick={onAddSectionClick}><Plus className="w-4 h-4 mr-2" />Add First Section</Button></div>}
     </div>
   );
 };
   
-// Sub-component for Student Page View
-const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter }) => {
+// Sub-component for Student Page View (Now with functional dropdown)
+const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter, onEditStudent, currentUser }) => {
   const courseOptions = useMemo(() => [
     { label: 'Filter by All Courses', value: 'all' },
     ...courses.map(course => ({ label: course.course_code, value: course.id.toString() }))
   ], [courses]);
-  
 
   const sectionOptions = useMemo(() => [
     { label: 'Filter by All Sections', value: 'all' },
     { label: 'Filter by Unassigned', value: 'unassigned' },
     ...sections.map(section => ({ label: section.name, value: section.id.toString() }))
   ], [sections]);
+  
+  // Check if the current user has permission to edit
+  const canEdit = currentUser.role === 'Admin' || currentUser.role === 'Registrar';
 
   return (
     <div className="space-y-6">
-            <Card>
+      <Card>
         <CardContent className="p-6">
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
             <div className="flex-1 w-full">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Search students by name or ID..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 border-1 border-gray-300 focus:border-red-800 focus:ring-1 focus:ring-red-800 rounded-lg"
-                />
+                <Input placeholder="Search students by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border-1 border-gray-300 focus:border-red-800 focus:ring-1 focus:ring-red-800 rounded-lg"/>
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="relative w-full sm:w-auto">
-                <MotionDropdown
-                  value={courseFilter}
-                  onChange={setCourseFilter}
-                  options={courseOptions}
-                  placeholder="Filter by All Courses"
-                />
+                <MotionDropdown value={courseFilter} onChange={setCourseFilter} options={courseOptions} placeholder="Filter by All Courses"/>
               </div>
               <div className="relative w-full sm:w-auto">
-                <MotionDropdown
-                  value={sectionFilter}
-                  onChange={setSectionFilter}
-                  options={sectionOptions}
-                  placeholder="Filter by All Sections"
-                />
+                <MotionDropdown value={sectionFilter} onChange={setSectionFilter} options={sectionOptions} placeholder="Filter by All Sections"/>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
-
-  
       <Card>
         <Table>
           <TableHeader>
-          <TableRow>
-          <TableHead>Student ID</TableHead>
-          <TableHead>Name</TableHead>
-          <TableHead>Course</TableHead>
-          <TableHead>Section</TableHead>
-          <TableHead className="text-right">Action</TableHead>
-          </TableRow>
+            <TableRow>
+              <TableHead>Student ID</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Course</TableHead>
+              <TableHead>Section</TableHead>
+              <TableHead className="text-right">Action</TableHead>
+            </TableRow>
           </TableHeader>
           <TableBody>
             {students.length > 0 ? students.map(student => (
@@ -485,20 +466,24 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
                 <TableCell>{student.name}</TableCell>
                 <TableCell>{student.courseName}</TableCell>
                 <TableCell>
-                  <Badge variant={student.sectionName ? "secondary" : "destructive"}>
-                    {student.sectionName || 'Unassigned'}
+                  <Badge variant={student.sectionName === 'Unassigned' ? "destructive" : "secondary"}>
+                    {student.sectionName}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Open menu</span><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Open menu</span><MoreHorizontal className="h-4 w-4" /></Button>
+                    </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                    <DropdownMenuItem>View Details
-                      </DropdownMenuItem>
-                    <DropdownMenuItem>Edit Student
-                      </DropdownMenuItem>
-                    <DropdownMenuItem className="text-red-500">Remove from Section
-                      </DropdownMenuItem>
+                      {/* Conditionally render the Edit button */}
+                      {canEdit && (
+                        <DropdownMenuItem onClick={() => onEditStudent(student.id)}>
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit Student
+                        </DropdownMenuItem>
+                      )}
+                      {/* You can add other items like View Details here if needed */}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -509,5 +494,6 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
       </Card>
     </div>
   );
-            }
+}
+
 export default Students;

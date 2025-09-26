@@ -179,7 +179,7 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, onOpenAddStu
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm "
             onClick={onClose}
           />
           <motion.div

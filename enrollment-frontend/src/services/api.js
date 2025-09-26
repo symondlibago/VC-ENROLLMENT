@@ -369,6 +369,15 @@ export const enrollmentAPI = {
       throw error.response?.data || { success: false, message: 'Failed to fetch enrolled students' };
     }
   },
+
+  updateStudentDetails: async (id, studentData) => {
+    try {
+      const response = await api.put(`/enrollments/${id}/details`, studentData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to update student details' };
+    }
+  },
 };
 
 // Section API methods
