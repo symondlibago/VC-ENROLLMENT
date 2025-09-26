@@ -11,6 +11,7 @@ use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\SectionController;
 use App\Http\Controllers\UploadReceiptController;
+use App\Http\Controllers\SubjectChangeRequestController;
 
 /*
 |--------------------------------------------------------------------------
@@ -55,6 +56,15 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Upload Receipts
     Route::get('upload-receipts', [UploadReceiptController::class, 'index']);
+
+    // Subject Change Request
+    Route::get('/students/search', [SubjectChangeRequestController::class, 'searchStudents']);
+    Route::get('/students/{studentId}/subject-details', [SubjectChangeRequestController::class, 'getStudentSubjectDetails']);
+    
+    Route::get('/subject-change-requests', [SubjectChangeRequestController::class, 'index']);
+    Route::post('/subject-change-requests', [SubjectChangeRequestController::class, 'store']);
+    Route::get('/subject-change-requests/{id}', [SubjectChangeRequestController::class, 'show']);
+    Route::post('/subject-change-requests/{id}/process', [SubjectChangeRequestController::class, 'processRequest']);
 
 });
     // Program routes

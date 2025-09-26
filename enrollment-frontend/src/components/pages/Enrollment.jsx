@@ -19,7 +19,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import StudentDetailsModal from '../modals/StudentDetailsModal';
 import { toast } from 'sonner';
 
-// --- HELPER FUNCTIONS FOR STATUS STYLING (accessible by both list components) ---
 const getStatusColor = (status) => {
     if (!status) return 'bg-gray-100 text-gray-800';
     status = status.toLowerCase();
@@ -227,8 +226,8 @@ const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchT
             <Card>
                 <CardContent className="p-6">
                     <div className="flex items-center gap-4">
-                        <div className="relative flex-grow">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                        <div className="relative flex-grow border-1 border-gray-200 rounded-lg">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 " size={20} />
                             <Input placeholder="Search by name, email, or course..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
                         </div>
                     </div>
@@ -251,15 +250,15 @@ const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchT
                                 <TableCell className="font-medium">
                                     <div className="flex items-center gap-3">
                                         <Avatar className="h-10 w-10">
-                                            <AvatarFallback className="bg-red-100 text-red-800 font-bold">{e.name?.charAt(0)}</AvatarFallback>
+                                            <AvatarFallback className="bg-red-800 text-white font-bold">{e.name?.charAt(0)}</AvatarFallback>
                                         </Avatar>
                                         <div>
                                             <div className="flex items-center">
-                                                <User className="w-3 h-3 mr-2 text-red-800" />
+                                                <User className="w-3 h-3 mr-2 text-gray-500" />
                                                 <p className="font-bold text-gray-900">{e.name}</p>
                                             </div>
                                             <div className="flex items-center">
-                                                <Mail className="w-3 h-3 mr-2 text-red-800" />
+                                                <Mail className="w-3 h-3 mr-2 text-gray-500" />
                                                 <p className="text-sm text-gray-500">{e.email}</p>
                                             </div>
                                         </div>
@@ -267,17 +266,17 @@ const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchT
                                 </TableCell>
                                 <TableCell>
                                     <div className="flex items-center font-medium text-gray-800">
-                                        <GraduationCap className="w-4 h-4 mr-2 text-red-800 flex-shrink-0" />
+                                        <GraduationCap className="w-4 h-4 mr-2 text-gray-500 flex-shrink-0" />
                                         <span>{e.course || 'N/A'}</span>
                                     </div>
                                     <div className="flex items-center text-xs text-gray-500 mt-1">
-                                        <Book className="w-3 h-3 mr-2 text-red-800 flex-shrink-0" />
+                                        <Book className="w-3 h-3 mr-2 text-gray-500 flex-shrink-0" />
                                         <span>Program: {e.program || 'N/A'}</span>
                                     </div>
                                 </TableCell>
                                 <TableCell>
                                     <div className="flex items-center">
-                                        <Calendar className="w-4 h-4 mr-2 text-red-800" />
+                                        <Calendar className="w-4 h-4 mr-2 text-gray-500" />
                                         <span>{e.enrollment_date}</span>
                                     </div>
                                 </TableCell>

@@ -8,8 +8,9 @@ import {
   GraduationCap,
   UserPlus,
   ChevronDown,
-  MoreHorizontal,
-  Edit
+  MoreVertical, // Changed from MoreHorizontal
+  Edit,
+  Trash2 // Added Trash icon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -29,12 +30,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+// Component Imports
 import SectionDetailsModal from '../modals/SectionDetailsModal';
 import AddSectionModal from '../modals/AddSectionModal';
 import AddStudentsToSectionModal from '../modals/AddStudentsToSectionModal';
 import EditStudentModal from '../modals/EditStudentModal';
 import SuccessAlert from '../modals/SuccessAlert';
 import LoadingSpinner from '../layout/LoadingSpinner';
+import DeleteConfirmationModal from '../modals/DeleteConfirmationModal'; // Import Delete Modal
 import { sectionAPI, enrollmentAPI, courseAPI, authAPI } from '@/services/api';
 
 // Custom Framer Motion Dropdown Component (No changes)
@@ -71,7 +75,6 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
           <ChevronDown className="w-4 h-4 text-gray-500" />
         </motion.div>
       </motion.button>
-
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -83,14 +86,10 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
           >
             {options.map((option, index) => (
               <motion.button
-                key={option.value}
-                type="button"
-                onClick={() => handleSelect(option)}
+                key={option.value} type="button" onClick={() => handleSelect(option)}
                 className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors duration-200 border-b border-gray-100 last:border-b-0"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-                whileHover={{ backgroundColor: '#f9fafb', x: 4 }}
+                initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }} whileHover={{ backgroundColor: '#f9fafb', x: 4 }}
               >
                 <span className="text-gray-900">{option.label}</span>
               </motion.button>
@@ -121,9 +120,14 @@ const Students = () => {
   const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false);
   const [isAddStudentsModalOpen, setIsAddStudentsModalOpen] = useState(false);
   const [isSectionLoading, setIsSectionLoading] = useState(false);
-  
   const [selectedStudentId, setSelectedStudentId] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // States for Edit and Delete functionality
+  const [editingSection, setEditingSection] = useState(null);
+  const [deletingSection, setDeletingSection] = useState(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Filter & Search states
   const [searchTerm, setSearchTerm] = useState('');
@@ -139,7 +143,7 @@ const Students = () => {
 
   const fetchData = useCallback(async () => {
     try {
-      if (loading) setLoading(true); 
+      setLoading(true); 
       const [sectionsRes, coursesRes, studentsRes] = await Promise.all([
         sectionAPI.getAll(),
         courseAPI.getAll(),
@@ -155,11 +159,81 @@ const Students = () => {
     } finally {
       setLoading(false);
     }
-  }, [loading]);
+  }, []);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Unified handler for creating and updating sections
+  const handleSectionSubmit = async (sectionData) => {
+    setIsSubmitting(true);
+    try {
+      if (editingSection) {
+        // Update logic
+        const response = await sectionAPI.update(editingSection.id, { name: sectionData.name, course_id: sectionData.course.id });
+        if (response.success) {
+          setSections(prev => prev.map(s => s.id === editingSection.id ? response.data : s));
+          showAlert('Section updated successfully!');
+          setIsAddSectionModalOpen(false);
+          setEditingSection(null);
+        } else {
+          showAlert(response.message || 'Failed to update section.', 'error');
+        }
+      } else {
+        // Create logic
+        const response = await sectionAPI.create({ name: sectionData.name, course_id: sectionData.course.id });
+        if (response.success) {
+          setSections(prev => [response.data, ...prev]);
+          showAlert('Section added successfully!');
+          setIsAddSectionModalOpen(false);
+        } else {
+          showAlert(response.message || 'Failed to add section.', 'error');
+        }
+      }
+    } catch (error) {
+      showAlert('An error occurred while saving the section.', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // Handler to confirm and execute deletion
+  const handleConfirmDeleteSection = async () => {
+    if (!deletingSection) return;
+    setIsSubmitting(true);
+    try {
+      const response = await sectionAPI.delete(deletingSection.id);
+      if (response.success) {
+        setSections(prev => prev.filter(s => s.id !== deletingSection.id));
+        showAlert('Section deleted successfully.');
+        setIsDeleteModalOpen(false);
+        setDeletingSection(null);
+      } else {
+        showAlert(response.message || 'Failed to delete section.', 'error');
+      }
+    } catch (error) {
+      showAlert('An error occurred while deleting the section.', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // Click Handlers for Modals
+  const handleAddSectionClick = () => {
+    setEditingSection(null);
+    setIsAddSectionModalOpen(true);
+  };
+  
+  const handleEditSectionClick = (section) => {
+    setEditingSection(section);
+    setIsAddSectionModalOpen(true);
+  };
+
+  const handleDeleteSectionClick = (section) => {
+    setDeletingSection(section);
+    setIsDeleteModalOpen(true);
+  };
 
   const handleRemoveStudentFromSection = async (sectionId, studentId) => {
     try {
@@ -200,71 +274,64 @@ const Students = () => {
     }
   };
 
-  // ... (Other handlers like handleSectionClick, handleAddSection, handleEditStudent) ...
-    const handleSectionClick = async (section) => {
-        setSelectedSection(section);
-        setIsDetailsModalOpen(true);
-        setIsSectionLoading(true);
-        try {
-        const response = await sectionAPI.getById(section.id);
-        setSelectedSection(response.data.success ? response.data.data : section);
-        } catch (error) {
-        showAlert('An error occurred while fetching details.', 'error');
-        setIsDetailsModalOpen(false);
-        } finally {
-        setIsSectionLoading(false);
-        }
-    };
-    const handleAddSection = async (sectionData) => {
-        try {
-        const response = await sectionAPI.create({ name: sectionData.name, course_id: sectionData.course.id });
-        if (response.success) {
-            setSections(prev => [response.data, ...prev]);
-            showAlert('Section added successfully!');
-            setIsAddSectionModalOpen(false);
-        } else {
-            showAlert(response.message || 'Failed to add section.', 'error');
-        }
-        } catch (error) {
-        showAlert('An error occurred.', 'error');
-        }
-    };
-    const handleEditStudent = (studentId) => {
-        setSelectedStudentId(studentId);
-        setIsEditModalOpen(true);
-    };
-    const handleUpdateSuccess = () => {
-        fetchData(); 
-    };
-  // ... (Stats, variants, and filtered data useMemo hooks remain the same) ...
-    const stats = useMemo(() => [
-        { title: 'Total Sections', value: sections.length.toString(), icon: BookOpen, color: 'text-blue-600', bgColor: 'bg-blue-50' },
-        { title: 'Enrolled Students', value: enrolledStudents.length.toString(), icon: Users, color: 'text-green-600', bgColor: 'bg-green-50' },
-        { title: 'Total Courses', value: courses.length.toString(), icon: GraduationCap, color: 'text-[var(--dominant-red)]', bgColor: 'bg-red-50' },
-        { title: 'Empty Sections', value: sections.filter(s => s.students_count === 0).length.toString(), icon: UserPlus, color: 'text-purple-600', bgColor: 'bg-purple-50' }
-    ], [sections, enrolledStudents, courses]);
-    const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
-    const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
-    const pageVariants = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -20 } };
-    const filteredSections = useMemo(() => sections.filter(section => {
-        const courseName = section.course?.course_name || '';
-        const matchesSearch = section.name.toLowerCase().includes(searchTerm.toLowerCase()) || courseName.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesFilter = sectionCourseFilter === 'all' || section.course_id.toString() === sectionCourseFilter;
-        return matchesSearch && matchesFilter;
-    }), [sections, searchTerm, sectionCourseFilter]);
-    const filteredStudents = useMemo(() => enrolledStudents.filter(student => {
-        const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                (student.student_id_number && student.student_id_number.toLowerCase().includes(searchTerm.toLowerCase()));
-        const courseMatch = studentCourseFilter === 'all' || student.courseId?.toString() === studentCourseFilter;
-        const sectionMatch = studentSectionFilter === 'all' || 
-                                (studentSectionFilter === 'unassigned' && !student.sectionId) || 
-                                (student.sectionId?.toString() === studentSectionFilter);
-        return matchesSearch && courseMatch && sectionMatch;
-    }), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter]);
+  const handleSectionClick = async (section) => {
+    setSelectedSection(section);
+    setIsDetailsModalOpen(true);
+    setIsSectionLoading(true);
+    try {
+      const response = await sectionAPI.getById(section.id);
+      setSelectedSection(response.data.success ? response.data.data : section);
+    } catch (error) {
+      showAlert('An error occurred while fetching details.', 'error');
+      setIsDetailsModalOpen(false);
+    } finally {
+      setIsSectionLoading(false);
+    }
+  };
+
+  const handleEditStudent = (studentId) => {
+    setSelectedStudentId(studentId);
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateSuccess = () => {
+    fetchData(); 
+  };
+  
+  // Memoized data for performance
+  const stats = useMemo(() => [
+    { title: 'Total Sections', value: sections.length.toString(), icon: BookOpen, color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    { title: 'Enrolled Students', value: enrolledStudents.length.toString(), icon: Users, color: 'text-green-600', bgColor: 'bg-green-50' },
+    { title: 'Total Courses', value: courses.length.toString(), icon: GraduationCap, color: 'text-[var(--dominant-red)]', bgColor: 'bg-red-50' },
+    { title: 'Empty Sections', value: sections.filter(s => s.students_count === 0).length.toString(), icon: UserPlus, color: 'text-purple-600', bgColor: 'bg-purple-50' }
+  ], [sections, enrolledStudents, courses]);
+  
+  const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
+  const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
+  const pageVariants = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -20 } };
+
+  const filteredSections = useMemo(() => sections.filter(section => {
+    const courseName = section.course?.course_name || '';
+    const matchesSearch = section.name.toLowerCase().includes(searchTerm.toLowerCase()) || courseName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = sectionCourseFilter === 'all' || section.course_id.toString() === sectionCourseFilter;
+    return matchesSearch && matchesFilter;
+  }), [sections, searchTerm, sectionCourseFilter]);
+  
+  const filteredStudents = useMemo(() => enrolledStudents.filter(student => {
+    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                              (student.student_id_number && student.student_id_number.toLowerCase().includes(searchTerm.toLowerCase()));
+    const courseMatch = studentCourseFilter === 'all' || student.courseId?.toString() === studentCourseFilter;
+    const sectionMatch = studentSectionFilter === 'all' || 
+                              (studentSectionFilter === 'unassigned' && !student.sectionId) || 
+                              (student.sectionId?.toString() === studentSectionFilter);
+    return matchesSearch && courseMatch && sectionMatch;
+  }), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter]);
 
 
   if (loading) {
-    return <div className="flex justify-center items-center h-full"><LoadingSpinner size="lg" color="red" /></div>;
+    return <div className="flex justify-center items-center h-full">
+    <LoadingSpinner size="lg" color="red" />
+    </div>;
   }
 
   return (
@@ -276,7 +343,6 @@ const Students = () => {
         onClose={() => setAlert({ ...alert, isVisible: false })}
       />
       
-      {/* ... (Rest of the JSX remains the same) ... */}
       <motion.div variants={itemVariants}>
         <div className="gradient-soft rounded-2xl p-8 border border-gray-100">
           <div className="flex items-center justify-between">
@@ -298,19 +364,15 @@ const Students = () => {
                   <motion.button
                     onClick={() => setActiveView('sections')}
                     className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${activeView === 'sections' ? 'text-[var(--dominant-red)]' : 'text-gray-600 hover:text-gray-800'}`}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    title="Sections"
+                    whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} title="Sections"
                   > <BookOpen className="w-5 h-5" /> </motion.button>
                   <motion.button
                     onClick={() => setActiveView('students')}
                     className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${activeView === 'students' ? 'text-[var(--dominant-red)]' : 'text-gray-600 hover:text-gray-800'}`}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    title="Students"
+                    whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} title="Students"
                   > <Users className="w-5 h-5" /> </motion.button>
               </div>
-              <Button className="gradient-primary text-white" onClick={() => setIsAddSectionModalOpen(true)}>
+              <Button className="gradient-primary text-white" onClick={handleAddSectionClick}>
                 <Plus className="w-4 h-4 mr-2" />Add Section
               </Button>
             </div>
@@ -336,47 +398,62 @@ const Students = () => {
       <AnimatePresence mode="wait">
         <motion.div key={activeView} variants={pageVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.3 }}>
           {activeView === 'sections' 
-            ? <SectionPage sections={filteredSections} courses={courses} searchTerm={searchTerm} setSearchTerm={setSearchTerm} courseFilter={sectionCourseFilter} setCourseFilter={setSectionCourseFilter} onSectionClick={handleSectionClick} onAddSectionClick={() => setIsAddSectionModalOpen(true)} />
-            : <StudentPage students={filteredStudents} sections={sections} courses={courses} searchTerm={searchTerm} setSearchTerm={setSearchTerm} courseFilter={studentCourseFilter} setCourseFilter={setStudentCourseFilter} sectionFilter={studentSectionFilter} setSectionFilter={setStudentSectionFilter} onEditStudent={handleEditStudent} currentUser={currentUser} />
+            ? <SectionPage 
+                sections={filteredSections} courses={courses} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+                courseFilter={sectionCourseFilter} setCourseFilter={setSectionCourseFilter} onSectionClick={handleSectionClick}
+                onAddSectionClick={handleAddSectionClick}
+                onEditClick={handleEditSectionClick}
+                onDeleteClick={handleDeleteSectionClick}
+              />
+            : <StudentPage 
+                students={filteredStudents} sections={sections} courses={courses} searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm} courseFilter={studentCourseFilter} setCourseFilter={setStudentCourseFilter}
+                sectionFilter={studentSectionFilter} setSectionFilter={setStudentSectionFilter}
+                onEditStudent={handleEditStudent} currentUser={currentUser} 
+              />
           }
         </motion.div>
       </AnimatePresence>
+
+      {/* Modals */}
       <SectionDetailsModal 
-        isOpen={isDetailsModalOpen} 
-        onClose={() => setIsDetailsModalOpen(false)} 
-        section={selectedSection} 
-        isLoading={isSectionLoading} 
-        onOpenAddStudents={() => setIsAddStudentsModalOpen(true)}
+        isOpen={isDetailsModalOpen} onClose={() => setIsDetailsModalOpen(false)} section={selectedSection} 
+        isLoading={isSectionLoading} onOpenAddStudents={() => setIsAddStudentsModalOpen(true)}
         onStudentRemoved={handleRemoveStudentFromSection}
       />
       <AddSectionModal 
         isOpen={isAddSectionModalOpen} 
-        onClose={() => setIsAddSectionModalOpen(false)} 
-        onAddSection={handleAddSection} 
+        onClose={() => { setIsAddSectionModalOpen(false); setEditingSection(null); }} 
+        onSubmit={handleSectionSubmit} 
         courses={courses} 
+        sectionToEdit={editingSection}
       />
       <AddStudentsToSectionModal
-        isOpen={isAddStudentsModalOpen}
-        onClose={() => setIsAddStudentsModalOpen(false)}
-        section={selectedSection}
-        allStudents={enrolledStudents}
-        enrolledStudentIds={selectedSection?.students?.map(s => s.id) || []}
+        isOpen={isAddStudentsModalOpen} onClose={() => setIsAddStudentsModalOpen(false)} section={selectedSection}
+        allStudents={enrolledStudents} enrolledStudentIds={selectedSection?.students?.map(s => s.id) || []}
         onAddStudents={(studentIds) => handleAddStudentsToSection(selectedSection.id, studentIds)}
       />
       {isEditModalOpen && (
         <EditStudentModal
-          isOpen={isEditModalOpen}
-          onClose={() => setIsEditModalOpen(false)}
-          studentId={selectedStudentId}
-          onUpdateSuccess={handleUpdateSuccess}
+          isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)}
+          studentId={selectedStudentId} onUpdateSuccess={handleUpdateSuccess}
         />
       )}
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDeleteSection}
+        title="Delete Section"
+        message="Are you sure you want to delete this section? All student assignments will be removed. This action cannot be undone."
+        itemName={deletingSection?.name}
+        isLoading={isSubmitting}
+      />
     </motion.div>
   );
 };
 
-// ... (SectionPage and StudentPage sub-components remain unchanged) ...
-const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, onSectionClick, onAddSectionClick }) => {
+// Sub-component for Sections View
+const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, onSectionClick, onAddSectionClick, onEditClick, onDeleteClick }) => {
     const courseOptions = useMemo(() => [
       { label: 'Filter by All Courses', value: 'all' },
       ...courses.map(course => ({ label: course.course_code, value: course.id.toString() }))
@@ -401,25 +478,61 @@ const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilte
         </Card>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sections.map((section, index) => (
-            <motion.div key={section.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0, transition: { duration: 0.5, delay: index * 0.05 }}} whileHover={{ y: -5 }} className="cursor-pointer" onClick={() => onSectionClick(section)}>
-              <Card className="h-full flex flex-col"><CardContent className="p-6 flex-grow flex flex-col justify-between">
-                <div>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-[var(--dominant-red)] rounded-xl flex items-center justify-center shrink-0"><BookOpen className="w-6 h-6 text-white" /></div>
-                      <div>
-                        <h3 className="font-bold text-gray-900 text-lg">{section.name}</h3>
-                        <Badge className={`text-xs mt-1 ${section.students.length > 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{section.students.length} student{section.students.length !== 1 ? 's' : ''}</Badge>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center text-sm text-gray-600"><GraduationCap className="w-4 h-4 mr-2 text-gray-400" /><span className="truncate">{section.course?.course_name || 'N/A'}</span></div>
-                    <div className="flex items-center text-sm text-gray-600"><Users className="w-4 h-4 mr-2 text-gray-400" /><span>{section.course?.program?.program_code || 'No Program'}</span></div>
-                  </div>
-                </div>
-                <div className="mt-4 pt-4 border-t"><div className="flex items-center justify-between"><span className="text-sm text-gray-500">Click to view students</span></div></div>
-              </CardContent></Card>
+            <motion.div 
+              key={section.id} 
+              initial={{ opacity: 0, y: 20 }} 
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.5, delay: index * 0.05 }}} 
+              whileHover={{ y: -5 }} 
+              className="relative"
+            >
+              <div onClick={() => onSectionClick(section)} className="cursor-pointer h-full">
+                <Card className="h-full flex flex-col">
+                    <CardContent className="p-6 flex-grow flex flex-col justify-between">
+                        <div>
+                            <div className="flex items-start justify-between mb-4">
+                                <div className="flex items-center space-x-3">
+                                    <div className="w-12 h-12 bg-[var(--dominant-red)] rounded-xl flex items-center justify-center shrink-0"><BookOpen className="w-6 h-6 text-white" /></div>
+                                    <div>
+                                        <h3 className="font-bold text-gray-900 text-lg">{section.name}</h3>
+                                        <Badge className={`text-xs mt-1 ${section.students.length > 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{section.students.length} student{section.students.length !== 1 ? 's' : ''}</Badge>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <div className="flex items-center text-sm text-gray-600"><GraduationCap className="w-4 h-4 mr-2 text-gray-400" /><span className="truncate">{section.course?.course_name || 'N/A'}</span></div>
+                                <div className="flex items-center text-sm text-gray-600"><Users className="w-4 h-4 mr-2 text-gray-400" /><span>{section.course?.program?.program_code || 'No Program'}</span></div>
+                            </div>
+                        </div>
+                        <div className="mt-4 pt-4 border-t"><div className="flex items-center justify-between"><span className="text-sm text-gray-500">Click to view students</span></div></div>
+                    </CardContent>
+                </Card>
+              </div>
+
+              {/* Dropdown Menu for Edit/Delete */}
+              <div className="absolute top-4 right-4">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      className="h-8 w-8 p-0" // <-- CHANGE IS HERE: Removed opacity classes
+                      onClick={(e) => e.stopPropagation()} // Prevent card click
+                    >
+                      <span className="sr-only">Open menu</span>
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenuItem className="cursor-pointer" onClick={() => onEditClick(section)}>
+                      <Edit className="w-4 h-4 mr-2 hover:text-white" />
+                      <span>Edit</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="cursor-pointer" onClick={() => onDeleteClick(section)}>
+                      <Trash2 className="w-4 h-4 mr-2 hover:text-white" />
+                      <span>Delete</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </motion.div>
           ))}
         </div>
@@ -427,6 +540,9 @@ const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilte
       </div>
     );
 };
+
+
+// Sub-component for Students View
 const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter, onEditStudent, currentUser }) => {
     const courseOptions = useMemo(() => [
       { label: 'Filter by All Courses', value: 'all' },
@@ -488,7 +604,7 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Open menu</span><MoreHorizontal className="h-4 w-4" /></Button>
+                        <Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Open menu</span><MoreVertical className="h-4 w-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         {canEdit && (

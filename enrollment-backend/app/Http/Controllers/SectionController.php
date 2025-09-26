@@ -83,4 +83,35 @@ class SectionController extends Controller
             ], 500);
         }
     }
+
+    public function update(Request $request, Section $section)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'course_id' => 'required|exists:courses,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        $section->update($validator->validated());
+        $section->load('course', 'students');
+
+        return response()->json(['success' => true, 'message' => 'Section updated successfully', 'data' => $section]);
+    }
+
+    public function destroy(Section $section)
+    {
+        try {
+            $section->delete();
+            return response()->json(['success' => true, 'message' => 'Section deleted successfully']);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete section.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

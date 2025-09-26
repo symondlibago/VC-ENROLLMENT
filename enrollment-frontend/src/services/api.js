@@ -425,7 +425,25 @@ export const sectionAPI = {
     } catch (error) {
       throw error.response?.data || { success: false, message: 'Failed to remove student from section' };
     }
-  }
+  },
+
+  update: async (id, sectionData) => {
+    try {
+      const response = await api.put(`/sections/${id}`, sectionData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to update section' };
+    }
+  },
+
+  delete: async (id) => {
+    try {
+      const response = await api.delete(`/sections/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to delete section' };
+    }
+  },
 };
 
 // --- Upload Receipt API methods ---
@@ -524,6 +542,63 @@ export const scheduleAPI = {
       throw error.response?.data || { success: false, message: 'Failed to delete schedule' };
     }
   }
+};
+
+// Subject Change
+export const subjectChangeAPI = {
+  searchStudents: async (searchTerm) => {
+    try {
+      const response = await api.get('/students/search', { params: { search: searchTerm } });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to search students' };
+    }
+  },
+
+  getStudentSubjectDetails: async (studentId, year, semester) => {
+    try {
+      const response = await api.get(`/students/${studentId}/subject-details`, { params: { year, semester } });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch subject details' };
+    }
+  },
+
+  createRequest: async (requestData) => {
+    try {
+      const response = await api.post('/subject-change-requests', requestData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to create request' };
+    }
+  },
+
+  getAllRequests: async () => {
+    try {
+      const response = await api.get('/subject-change-requests');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch requests' };
+    }
+  },
+
+  getRequestDetails: async (id) => {
+    try {
+      const response = await api.get(`/subject-change-requests/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch request details' };
+    }
+  },
+
+  processRequest: async (id, { status, remarks }) => {
+    try {
+      const response = await api.post(`/subject-change-requests/${id}/process`, { status, remarks });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to process request' };
+    }
+  },
 };
 
 export default api;
