@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Section;
+use App\Models\PreEnrolledStudent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -60,5 +61,26 @@ class SectionController extends Controller
         $section->load('course', 'students');
 
         return response()->json(['success' => true, 'message' => 'Students added successfully', 'data' => $section]);
+    }
+
+    public function removeStudent(Section $section, PreEnrolledStudent $student)
+    {
+        try {
+            $section->students()->detach($student->id);
+            
+            $section->load('course', 'students');
+            
+            return response()->json([
+                'success' => true, 
+                'message' => 'Student removed from section successfully.', 
+                'data' => $section
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false, 
+                'message' => 'Failed to remove student from section.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

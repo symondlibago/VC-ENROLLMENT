@@ -9,7 +9,7 @@ import {
   UserPlus,
   ChevronDown,
   MoreHorizontal,
-  Edit // Make sure Edit icon is imported
+  Edit
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -32,12 +32,12 @@ import {
 import SectionDetailsModal from '../modals/SectionDetailsModal';
 import AddSectionModal from '../modals/AddSectionModal';
 import AddStudentsToSectionModal from '../modals/AddStudentsToSectionModal';
-import EditStudentModal from '../modals/EditStudentModal'; // Import the Edit modal
+import EditStudentModal from '../modals/EditStudentModal';
+import SuccessAlert from '../modals/SuccessAlert';
 import LoadingSpinner from '../layout/LoadingSpinner';
-import { sectionAPI, enrollmentAPI, courseAPI, authAPI } from '@/services/api'; // Import authAPI
-import { toast } from 'sonner';
+import { sectionAPI, enrollmentAPI, courseAPI, authAPI } from '@/services/api';
 
-// Custom Framer Motion Dropdown Component (No changes needed)
+// Custom Framer Motion Dropdown Component (No changes)
 const MotionDropdown = ({ value, onChange, options, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOption, setSelectedOption] = useState(
@@ -112,6 +112,9 @@ const Students = () => {
   const [courses, setCourses] = useState([]);
   const [enrolledStudents, setEnrolledStudents] = useState([]);
   
+  // Alert State
+  const [alert, setAlert] = useState({ isVisible: false, message: '', type: 'success' });
+
   // Modal states
   const [selectedSection, setSelectedSection] = useState(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -119,7 +122,6 @@ const Students = () => {
   const [isAddStudentsModalOpen, setIsAddStudentsModalOpen] = useState(false);
   const [isSectionLoading, setIsSectionLoading] = useState(false);
   
-  // States for the Edit Student Modal
   const [selectedStudentId, setSelectedStudentId] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -129,13 +131,14 @@ const Students = () => {
   const [studentCourseFilter, setStudentCourseFilter] = useState('all');
   const [studentSectionFilter, setStudentSectionFilter] = useState('all');
 
-  // Get current user for role-based access
   const currentUser = authAPI.getUserData();
 
-  // Wrap fetchData in useCallback to allow re-fetching without re-creating the function
+  const showAlert = (message, type = 'success') => {
+    setAlert({ isVisible: true, message, type });
+  };
+
   const fetchData = useCallback(async () => {
     try {
-      // Set loading to true only for the very first fetch
       if (loading) setLoading(true); 
       const [sectionsRes, coursesRes, studentsRes] = await Promise.all([
         sectionAPI.getAll(),
@@ -147,62 +150,39 @@ const Students = () => {
       setCourses(coursesRes.data || []);
       setEnrolledStudents(studentsRes.data || []);
     } catch (error) {
-      toast.error('Failed to load data. Please try again.');
+      showAlert('Failed to load data. Please try again.', 'error');
       console.error("Data fetching error:", error);
     } finally {
       setLoading(false);
     }
-  }, [loading]); // Only re-create this function if the 'loading' state changes
+  }, [loading]);
 
-  // Initial data fetching
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Memoized stats (no change)
-  const stats = useMemo(() => [
-    { title: 'Total Sections', value: sections.length.toString(), icon: BookOpen, color: 'text-blue-600', bgColor: 'bg-blue-50' },
-    { title: 'Enrolled Students', value: enrolledStudents.length.toString(), icon: Users, color: 'text-green-600', bgColor: 'bg-green-50' },
-    { title: 'Total Courses', value: courses.length.toString(), icon: GraduationCap, color: 'text-[var(--dominant-red)]', bgColor: 'bg-red-50' },
-    { title: 'Empty Sections', value: sections.filter(s => s.students_count === 0).length.toString(), icon: UserPlus, color: 'text-purple-600', bgColor: 'bg-purple-50' }
-  ], [sections, enrolledStudents, courses]);
-
-  // Framer Motion Variants (no change)
-  const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
-  const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
-  const pageVariants = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -20 } };
-
-  // Handlers for Modals
-  const handleSectionClick = async (section) => {
-    setSelectedSection(section);
-    setIsDetailsModalOpen(true);
-    setIsSectionLoading(true);
+  const handleRemoveStudentFromSection = async (sectionId, studentId) => {
     try {
-      const response = await sectionAPI.getById(section.id);
-      setSelectedSection(response.data.success ? response.data.data : section);
-    } catch (error) {
-      toast.error('An error occurred while fetching details.');
-      setIsDetailsModalOpen(false);
-    } finally {
-      setIsSectionLoading(false);
-    }
-  };
-
-  const handleAddSection = async (sectionData) => {
-    try {
-      const response = await sectionAPI.create({ name: sectionData.name, course_id: sectionData.course.id });
+      const response = await sectionAPI.removeStudent(sectionId, studentId);
       if (response.success) {
-        setSections(prev => [response.data, ...prev]);
-        toast.success('Section added successfully!');
-        setIsAddSectionModalOpen(false);
+        const updatedSectionData = response.data;
+        setSections(prevSections => 
+          prevSections.map(s => (s.id === sectionId ? updatedSectionData : s))
+        );
+        if (selectedSection && selectedSection.id === sectionId) {
+          setSelectedSection(updatedSectionData);
+        }
+        showAlert('Student removed successfully.');
       } else {
-        toast.error(response.message || 'Failed to add section.');
+        throw new Error(response.message || 'API call was not successful');
       }
     } catch (error) {
-      toast.error('An error occurred.');
+      console.error("Failed to remove student from section:", error);
+      showAlert(error.message || 'Failed to remove student. Please try again.', 'error');
+      throw error;
     }
   };
-  
+
   const handleAddStudentsToSection = async (sectionId, studentIds) => {
     try {
       const response = await sectionAPI.addStudents(sectionId, studentIds);
@@ -210,45 +190,78 @@ const Students = () => {
         const updatedSection = response.data;
         setSections(prev => prev.map(s => s.id === sectionId ? updatedSection : s));
         setSelectedSection(updatedSection);
-        toast.success('Students added successfully!');
+        showAlert('Students added successfully!');
         setIsAddStudentsModalOpen(false); 
       } else {
-        toast.error('Failed to add students.');
+        showAlert(response.message || 'Failed to add students.', 'error');
       }
     } catch (error) {
-      toast.error('An error occurred while adding students.');
+      showAlert('An error occurred while adding students.', 'error');
     }
   };
-  
-  // Handlers for the Edit Student Modal
-  const handleEditStudent = (studentId) => {
-    setSelectedStudentId(studentId);
-    setIsEditModalOpen(true);
-  };
 
-  const handleUpdateSuccess = () => {
-    fetchData(); // This re-fetches all data to show the latest updates
-  };
+  // ... (Other handlers like handleSectionClick, handleAddSection, handleEditStudent) ...
+    const handleSectionClick = async (section) => {
+        setSelectedSection(section);
+        setIsDetailsModalOpen(true);
+        setIsSectionLoading(true);
+        try {
+        const response = await sectionAPI.getById(section.id);
+        setSelectedSection(response.data.success ? response.data.data : section);
+        } catch (error) {
+        showAlert('An error occurred while fetching details.', 'error');
+        setIsDetailsModalOpen(false);
+        } finally {
+        setIsSectionLoading(false);
+        }
+    };
+    const handleAddSection = async (sectionData) => {
+        try {
+        const response = await sectionAPI.create({ name: sectionData.name, course_id: sectionData.course.id });
+        if (response.success) {
+            setSections(prev => [response.data, ...prev]);
+            showAlert('Section added successfully!');
+            setIsAddSectionModalOpen(false);
+        } else {
+            showAlert(response.message || 'Failed to add section.', 'error');
+        }
+        } catch (error) {
+        showAlert('An error occurred.', 'error');
+        }
+    };
+    const handleEditStudent = (studentId) => {
+        setSelectedStudentId(studentId);
+        setIsEditModalOpen(true);
+    };
+    const handleUpdateSuccess = () => {
+        fetchData(); 
+    };
+  // ... (Stats, variants, and filtered data useMemo hooks remain the same) ...
+    const stats = useMemo(() => [
+        { title: 'Total Sections', value: sections.length.toString(), icon: BookOpen, color: 'text-blue-600', bgColor: 'bg-blue-50' },
+        { title: 'Enrolled Students', value: enrolledStudents.length.toString(), icon: Users, color: 'text-green-600', bgColor: 'bg-green-50' },
+        { title: 'Total Courses', value: courses.length.toString(), icon: GraduationCap, color: 'text-[var(--dominant-red)]', bgColor: 'bg-red-50' },
+        { title: 'Empty Sections', value: sections.filter(s => s.students_count === 0).length.toString(), icon: UserPlus, color: 'text-purple-600', bgColor: 'bg-purple-50' }
+    ], [sections, enrolledStudents, courses]);
+    const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
+    const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
+    const pageVariants = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -20 } };
+    const filteredSections = useMemo(() => sections.filter(section => {
+        const courseName = section.course?.course_name || '';
+        const matchesSearch = section.name.toLowerCase().includes(searchTerm.toLowerCase()) || courseName.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesFilter = sectionCourseFilter === 'all' || section.course_id.toString() === sectionCourseFilter;
+        return matchesSearch && matchesFilter;
+    }), [sections, searchTerm, sectionCourseFilter]);
+    const filteredStudents = useMemo(() => enrolledStudents.filter(student => {
+        const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                (student.student_id_number && student.student_id_number.toLowerCase().includes(searchTerm.toLowerCase()));
+        const courseMatch = studentCourseFilter === 'all' || student.courseId?.toString() === studentCourseFilter;
+        const sectionMatch = studentSectionFilter === 'all' || 
+                                (studentSectionFilter === 'unassigned' && !student.sectionId) || 
+                                (student.sectionId?.toString() === studentSectionFilter);
+        return matchesSearch && courseMatch && sectionMatch;
+    }), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter]);
 
-
-  // **THIS IS THE FIX**: All useMemo hooks must be inside the component body
-  // where their dependencies (like searchTerm) are defined.
-  const filteredSections = useMemo(() => sections.filter(section => {
-    const courseName = section.course?.course_name || '';
-    const matchesSearch = section.name.toLowerCase().includes(searchTerm.toLowerCase()) || courseName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = sectionCourseFilter === 'all' || section.course_id.toString() === sectionCourseFilter;
-    return matchesSearch && matchesFilter;
-  }), [sections, searchTerm, sectionCourseFilter]);
-
-  const filteredStudents = useMemo(() => enrolledStudents.filter(student => {
-    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          (student.student_id_number && student.student_id_number.toLowerCase().includes(searchTerm.toLowerCase()));
-    const courseMatch = studentCourseFilter === 'all' || student.courseId?.toString() === studentCourseFilter;
-    const sectionMatch = studentSectionFilter === 'all' || 
-                         (studentSectionFilter === 'unassigned' && !student.sectionId) || 
-                         (student.sectionId?.toString() === studentSectionFilter);
-    return matchesSearch && courseMatch && sectionMatch;
-  }), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter]);
 
   if (loading) {
     return <div className="flex justify-center items-center h-full"><LoadingSpinner size="lg" color="red" /></div>;
@@ -256,6 +269,14 @@ const Students = () => {
 
   return (
     <motion.div className="p-6 space-y-6 max-w-7xl mx-auto" variants={containerVariants} initial="hidden" animate="visible">
+      <SuccessAlert
+        isVisible={alert.isVisible}
+        message={alert.message}
+        type={alert.type}
+        onClose={() => setAlert({ ...alert, isVisible: false })}
+      />
+      
+      {/* ... (Rest of the JSX remains the same) ... */}
       <motion.div variants={itemVariants}>
         <div className="gradient-soft rounded-2xl p-8 border border-gray-100">
           <div className="flex items-center justify-between">
@@ -312,7 +333,6 @@ const Students = () => {
           </Card>;
         })}
       </motion.div>
-
       <AnimatePresence mode="wait">
         <motion.div key={activeView} variants={pageVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.3 }}>
           {activeView === 'sections' 
@@ -321,14 +341,13 @@ const Students = () => {
           }
         </motion.div>
       </AnimatePresence>
-
-      {/* Modals are all declared here in the parent */}
       <SectionDetailsModal 
         isOpen={isDetailsModalOpen} 
         onClose={() => setIsDetailsModalOpen(false)} 
         section={selectedSection} 
         isLoading={isSectionLoading} 
         onOpenAddStudents={() => setIsAddStudentsModalOpen(true)}
+        onStudentRemoved={handleRemoveStudentFromSection}
       />
       <AddSectionModal 
         isOpen={isAddSectionModalOpen} 
@@ -344,7 +363,6 @@ const Students = () => {
         enrolledStudentIds={selectedSection?.students?.map(s => s.id) || []}
         onAddStudents={(studentIds) => handleAddStudentsToSection(selectedSection.id, studentIds)}
       />
-      {/* Render the Edit Student Modal */}
       {isEditModalOpen && (
         <EditStudentModal
           isOpen={isEditModalOpen}
@@ -357,143 +375,138 @@ const Students = () => {
   );
 };
 
-// Sub-component for Section Page View (No changes)
+// ... (SectionPage and StudentPage sub-components remain unchanged) ...
 const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, onSectionClick, onAddSectionClick }) => {
-  const courseOptions = useMemo(() => [
-    { label: 'Filter by All Courses', value: 'all' },
-    ...courses.map(course => ({ label: course.course_code, value: course.id.toString() }))
-  ], [courses]);
-
-  return (
-    <div className="space-y-6">
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div className="flex-1 w-full">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input placeholder="Search sections by name or course..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border-1 border-gray-200 focus:ring-red-800 focus:border-red-800"/>
-              </div>
-            </div>
-            <div className="relative w-full md:w-auto">
-              <MotionDropdown value={courseFilter} onChange={setCourseFilter} options={courseOptions} placeholder="Filter by All Courses"/>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {sections.map((section, index) => (
-          <motion.div key={section.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0, transition: { duration: 0.5, delay: index * 0.05 }}} whileHover={{ y: -5 }} className="cursor-pointer" onClick={() => onSectionClick(section)}>
-            <Card className="h-full flex flex-col"><CardContent className="p-6 flex-grow flex flex-col justify-between">
-              <div>
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-[var(--dominant-red)] rounded-xl flex items-center justify-center shrink-0"><BookOpen className="w-6 h-6 text-white" /></div>
-                    <div>
-                      <h3 className="font-bold text-gray-900 text-lg">{section.name}</h3>
-                      <Badge className={`text-xs mt-1 ${section.students.length > 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{section.students.length} student{section.students.length !== 1 ? 's' : ''}</Badge>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center text-sm text-gray-600"><GraduationCap className="w-4 h-4 mr-2 text-gray-400" /><span className="truncate">{section.course?.course_name || 'N/A'}</span></div>
-                  <div className="flex items-center text-sm text-gray-600"><Users className="w-4 h-4 mr-2 text-gray-400" /><span>{section.course?.program?.program_code || 'No Program'}</span></div>
+    const courseOptions = useMemo(() => [
+      { label: 'Filter by All Courses', value: 'all' },
+      ...courses.map(course => ({ label: course.course_code, value: course.id.toString() }))
+    ], [courses]);
+  
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+              <div className="flex-1 w-full">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input placeholder="Search sections by name or course..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border-1 border-gray-200 focus:ring-red-800 focus:border-red-800"/>
                 </div>
               </div>
-              <div className="mt-4 pt-4 border-t"><div className="flex items-center justify-between"><span className="text-sm text-gray-500">Click to view students</span></div></div>
-            </CardContent></Card>
-          </motion.div>
-        ))}
-      </div>
-      {sections.length === 0 && <div className="text-center py-12"><BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-900 mb-2">No sections found</h3><p className="text-gray-500 mb-4">Try adjusting your search or filter criteria.</p><Button className="gradient-primary text-white" onClick={onAddSectionClick}><Plus className="w-4 h-4 mr-2" />Add First Section</Button></div>}
-    </div>
-  );
-};
-  
-// Sub-component for Student Page View (Now with functional dropdown)
-const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter, onEditStudent, currentUser }) => {
-  const courseOptions = useMemo(() => [
-    { label: 'Filter by All Courses', value: 'all' },
-    ...courses.map(course => ({ label: course.course_code, value: course.id.toString() }))
-  ], [courses]);
-
-  const sectionOptions = useMemo(() => [
-    { label: 'Filter by All Sections', value: 'all' },
-    { label: 'Filter by Unassigned', value: 'unassigned' },
-    ...sections.map(section => ({ label: section.name, value: section.id.toString() }))
-  ], [sections]);
-  
-  // Check if the current user has permission to edit
-  const canEdit = currentUser.role === 'Admin' || currentUser.role === 'Registrar';
-
-  return (
-    <div className="space-y-6">
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div className="flex-1 w-full">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input placeholder="Search students by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border-1 border-gray-300 focus:border-red-800 focus:ring-1 focus:ring-red-800 rounded-lg"/>
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative w-full sm:w-auto">
+              <div className="relative w-full md:w-auto">
                 <MotionDropdown value={courseFilter} onChange={setCourseFilter} options={courseOptions} placeholder="Filter by All Courses"/>
               </div>
-              <div className="relative w-full sm:w-auto">
-                <MotionDropdown value={sectionFilter} onChange={setSectionFilter} options={sectionOptions} placeholder="Filter by All Sections"/>
+            </div>
+          </CardContent>
+        </Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sections.map((section, index) => (
+            <motion.div key={section.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0, transition: { duration: 0.5, delay: index * 0.05 }}} whileHover={{ y: -5 }} className="cursor-pointer" onClick={() => onSectionClick(section)}>
+              <Card className="h-full flex flex-col"><CardContent className="p-6 flex-grow flex flex-col justify-between">
+                <div>
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-12 h-12 bg-[var(--dominant-red)] rounded-xl flex items-center justify-center shrink-0"><BookOpen className="w-6 h-6 text-white" /></div>
+                      <div>
+                        <h3 className="font-bold text-gray-900 text-lg">{section.name}</h3>
+                        <Badge className={`text-xs mt-1 ${section.students.length > 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{section.students.length} student{section.students.length !== 1 ? 's' : ''}</Badge>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center text-sm text-gray-600"><GraduationCap className="w-4 h-4 mr-2 text-gray-400" /><span className="truncate">{section.course?.course_name || 'N/A'}</span></div>
+                    <div className="flex items-center text-sm text-gray-600"><Users className="w-4 h-4 mr-2 text-gray-400" /><span>{section.course?.program?.program_code || 'No Program'}</span></div>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t"><div className="flex items-center justify-between"><span className="text-sm text-gray-500">Click to view students</span></div></div>
+              </CardContent></Card>
+            </motion.div>
+          ))}
+        </div>
+        {sections.length === 0 && <div className="text-center py-12"><BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-900 mb-2">No sections found</h3><p className="text-gray-500 mb-4">Try adjusting your search or filter criteria.</p><Button className="gradient-primary text-white" onClick={onAddSectionClick}><Plus className="w-4 h-4 mr-2" />Add First Section</Button></div>}
+      </div>
+    );
+};
+const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter, onEditStudent, currentUser }) => {
+    const courseOptions = useMemo(() => [
+      { label: 'Filter by All Courses', value: 'all' },
+      ...courses.map(course => ({ label: course.course_code, value: course.id.toString() }))
+    ], [courses]);
+  
+    const sectionOptions = useMemo(() => [
+      { label: 'Filter by All Sections', value: 'all' },
+      { label: 'Filter by Unassigned', value: 'unassigned' },
+      ...sections.map(section => ({ label: section.name, value: section.id.toString() }))
+    ], [sections]);
+    
+    const canEdit = currentUser.role === 'Admin' || currentUser.role === 'Registrar';
+  
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+              <div className="flex-1 w-full">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input placeholder="Search students by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border-1 border-gray-300 focus:border-red-800 focus:ring-1 focus:ring-red-800 rounded-lg"/>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative w-full sm:w-auto">
+                  <MotionDropdown value={courseFilter} onChange={setCourseFilter} options={courseOptions} placeholder="Filter by All Courses"/>
+                </div>
+                <div className="relative w-full sm:w-auto">
+                  <MotionDropdown value={sectionFilter} onChange={setSectionFilter} options={sectionOptions} placeholder="Filter by All Sections"/>
+                </div>
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Student ID</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Course</TableHead>
-              <TableHead>Section</TableHead>
-              <TableHead className="text-right">Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {students.length > 0 ? students.map(student => (
-              <TableRow key={student.id}>
-                <TableCell className="font-medium">{student.student_id_number}</TableCell>
-                <TableCell>{student.name}</TableCell>
-                <TableCell>{student.courseName}</TableCell>
-                <TableCell>
-                  <Badge variant={student.sectionName === 'Unassigned' ? "destructive" : "secondary"}>
-                    {student.sectionName}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Open menu</span><MoreHorizontal className="h-4 w-4" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {/* Conditionally render the Edit button */}
-                      {canEdit && (
-                        <DropdownMenuItem onClick={() => onEditStudent(student.id)}>
-                          <Edit className="w-4 h-4 mr-2" />
-                          Edit Student
-                        </DropdownMenuItem>
-                      )}
-                      {/* You can add other items like View Details here if needed */}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
+          </CardContent>
+        </Card>
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Student ID</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Course</TableHead>
+                <TableHead>Section</TableHead>
+                <TableHead className="text-right">Action</TableHead>
               </TableRow>
-            )) : <TableRow><TableCell colSpan="5" className="text-center h-24">No students found.</TableCell></TableRow>}
-          </TableBody>
-        </Table>
-      </Card>
-    </div>
-  );
+            </TableHeader>
+            <TableBody>
+              {students.length > 0 ? students.map(student => (
+                <TableRow key={student.id}>
+                  <TableCell className="font-medium">{student.student_id_number}</TableCell>
+                  <TableCell>{student.name}</TableCell>
+                  <TableCell>{student.courseName}</TableCell>
+                  <TableCell>
+                    <Badge variant={student.sectionName === 'Unassigned' ? "destructive" : "secondary"}>
+                      {student.sectionName}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Open menu</span><MoreHorizontal className="h-4 w-4" /></Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {canEdit && (
+                          <DropdownMenuItem onClick={() => onEditStudent(student.id)}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit Student
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              )) : <TableRow><TableCell colSpan="5" className="text-center h-24">No students found.</TableCell></TableRow>}
+            </TableBody>
+          </Table>
+        </Card>
+      </div>
+    );
 }
 
 export default Students;

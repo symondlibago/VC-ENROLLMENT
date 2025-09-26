@@ -4,6 +4,7 @@ import {
   X,
   UserPlus,
   Search,
+  Loader2, // Import loader icon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +14,7 @@ import { Input } from '@/components/ui/input';
 const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enrolledStudentIds, onAddStudents }) => {
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false); // State to handle loading effect
 
   useEffect(() => {
     if (isOpen) {
@@ -22,10 +24,8 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
   }, [isOpen]);
   
   const availableStudents = useMemo(() => {
-    // MODIFIED: Ensure enrolledStudentIds is always an array to prevent errors
     const currentEnrolledIds = enrolledStudentIds || [];
     if (!allStudents) return [];
-    // Only show students that belong to the same course as the section
     return allStudents.filter(student => 
       !currentEnrolledIds.includes(student.id) && student.courseId === section?.course_id
     );
@@ -41,22 +41,7 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
     );
   }, [availableStudents, searchTerm]);
 
-
   if (!section || !allStudents) return null;
-
-  // ... rest of the component is unchanged ...
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'inactive':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'graduated':
-        return 'bg-blue-100 text-blue-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   const handleStudentToggle = (studentId) => {
     setSelectedStudentIds(prev => 
@@ -74,9 +59,19 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
     }
   };
 
-  const handleSubmit = () => {
-    if (selectedStudentIds.length > 0) {
-      onAddStudents(selectedStudentIds);
+  const handleSubmit = async () => {
+    if (selectedStudentIds.length === 0) return;
+
+    setIsSubmitting(true); // Start loading
+    try {
+      // onAddStudents is an async function from the parent. Await it.
+      await onAddStudents(selectedStudentIds);
+      // The success toast and modal closing are handled by the parent component.
+    } catch (error) {
+      // The parent component will show an error toast.
+      console.error("Failed to add students:", error);
+    } finally {
+      setIsSubmitting(false); // Stop loading
     }
   };
 
@@ -245,16 +240,25 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
                   {selectedStudentIds.length} student{selectedStudentIds.length !== 1 ? 's' : ''} selected
                 </p>
                 <div className="flex space-x-3">
-                  <Button variant="outline" onClick={onClose}>
+                  <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
                     Cancel
                   </Button>
                   <Button
                     onClick={handleSubmit}
-                    disabled={selectedStudentIds.length === 0}
-                    className="gradient-primary text-white"
+                    disabled={selectedStudentIds.length === 0 || isSubmitting}
+                    className="gradient-primary text-white min-w-[180px]"
                   >
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Add {selectedStudentIds.length} Student{selectedStudentIds.length !== 1 ? 's' : ''}
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Adding Students...
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Add {selectedStudentIds.length} Student{selectedStudentIds.length !== 1 ? 's' : ''}
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>

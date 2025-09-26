@@ -1,4 +1,4 @@
-import React from 'react'; // MODIFIED: Removed useState
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X,
@@ -9,6 +9,7 @@ import {
   Phone,
   UserPlus,
   MoreVertical,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,23 +22,77 @@ import {
 } from '@/components/ui/dropdown-menu';
 import LoadingSpinner from '../layout/LoadingSpinner';
 
-// MODIFIED: Simplified props
-const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, onOpenAddStudents }) => {
-  const sectionStudents = section?.students || [];
+// Helper component for the confirmation dialog
+const ConfirmationDialog = ({ isOpen, onClose, onConfirm, title, studentName, isRemoving }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-20 flex items-center justify-center p-4">
+            <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm border"
+            >
+                <div className="flex items-start sm:items-center space-x-3">
+                    <div className="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                        <Trash2 className="h-6 w-6 text-red-600" aria-hidden="true" />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 mt-2 sm:mt-0">{title}</h3>
+                </div>
+                <div className="mt-4 text-sm text-gray-600">
+                    <p>Are you sure you want to remove <strong className="text-gray-900">{studentName}</strong> from this section? This action cannot be undone.</p>
+                </div>
+                <div className="mt-6 flex justify-end space-x-3">
+                    <Button variant="outline" onClick={onClose} disabled={isRemoving}>Cancel</Button>
+                    <Button 
+                        className="bg-red-600 hover:bg-red-700 text-white min-w-[120px]" 
+                        onClick={onConfirm} 
+                        disabled={isRemoving}
+                    >
+                        {isRemoving ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Removing...
+                            </>
+                        ) : (
+                            'Yes, Remove'
+                        )}
+                    </Button>
+                </div>
+            </motion.div>
+        </div>
+    );
+};
 
-  // ... getStatusColor function remains the same ...
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'enrolled':
-        return 'bg-green-100 text-green-800';
-      case 'inactive':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'graduated':
-        return 'bg-blue-100 text-blue-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+// Main Modal Component
+const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, onOpenAddStudents, onStudentRemoved }) => {
+  const [studentToRemove, setStudentToRemove] = useState(null);
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  const handleRemoveClick = (student) => {
+    setStudentToRemove(student);
+  };
+
+  const handleConfirmRemove = async () => {
+    if (!studentToRemove) return;
+
+    setIsRemoving(true);
+    try {
+      await onStudentRemoved(section.id, studentToRemove.id);
+      // The parent component now shows the success alert
+      setStudentToRemove(null); 
+    } catch (error) {
+      // The parent component now shows the error alert
+    } finally {
+      setIsRemoving(false);
     }
   };
+
+  const handleCancelRemove = () => {
+    setStudentToRemove(null);
+  };
+
+  const sectionStudents = section?.students || [];
 
   const modalVariants = {
     hidden: { opacity: 0, scale: 0.8, y: 50 },
@@ -69,7 +124,6 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, onOpenAddStu
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No students enrolled</h3>
             <p className="text-gray-500 mb-4">This section doesn't have any students yet.</p>
-            {/* MODIFIED: Uses the prop function to open the modal */}
             <Button onClick={onOpenAddStudents} className="gradient-primary text-white liquid-button">
               <UserPlus className="w-4 h-4 mr-2" />
               Add First Student
@@ -81,7 +135,6 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, onOpenAddStu
 
     return (
       <div className="h-full overflow-y-auto p-6">
-        {/* ... Table rendering remains the same ... */}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="sticky top-0 bg-white z-10">
@@ -153,7 +206,10 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, onOpenAddStu
                             <Edit className="mr-2 h-4 w-4" />
                             Edit Student
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600">
+                        <DropdownMenuItem 
+                            className="text-red-600 focus:bg-red-50 focus:text-red-700 cursor-pointer"
+                            onClick={() => handleRemoveClick(student)}
+                        >
                             <Trash2 className="mr-2 h-4 w-4" />
                             Remove from Section
                         </DropdownMenuItem>
@@ -192,7 +248,6 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, onOpenAddStu
             <div className="gradient-soft p-6 border-b border-gray-100 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div>
-                  {/* MODIFIED: This now correctly displays the name immediately */}
                   <h2 className="text-2xl font-bold heading-bold text-gray-900">
                     {section?.name || 'Loading Section...'}
                   </h2>
@@ -201,7 +256,6 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, onOpenAddStu
                   </p>
                 </div>
                 <div className="flex items-center space-x-3">
-                  {/* MODIFIED: Uses the prop function */}
                   <Button onClick={onOpenAddStudents} className="gradient-primary text-white liquid-button cursor-pointer" disabled={isLoading}>
                     <UserPlus className="w-4 h-4 mr-2" />
                     Insert Student
@@ -212,8 +266,17 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, onOpenAddStu
                 </div>
               </div>
             </div>
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden relative">
               {renderContent()}
+              
+              <ConfirmationDialog
+                isOpen={!!studentToRemove}
+                onClose={handleCancelRemove}
+                onConfirm={handleConfirmRemove}
+                title="Remove Student?"
+                studentName={studentToRemove ? `${studentToRemove.first_name} ${studentToRemove.last_name}` : ''}
+                isRemoving={isRemoving}
+              />
             </div>
           </motion.div>
         </div>

@@ -416,6 +416,15 @@ export const sectionAPI = {
     } catch (error) {
       throw error.response?.data || { success: false, message: 'Failed to add students to section' };
     }
+  },
+
+  removeStudent: async (sectionId, studentId) => {
+    try {
+      const response = await api.delete(`/sections/${sectionId}/students/${studentId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to remove student from section' };
+    }
   }
 };
 
