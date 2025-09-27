@@ -148,9 +148,9 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
             <AnimatePresence>
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
                     <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-between p-4 border-b bg-gray-50 rounded-t-lg">
-                            <h2 className="text-lg font-semibold text-gray-800">Edit Student Details</h2>
-                            <Button variant="ghost" size="sm" onClick={onClose} disabled={saving}><X className="w-5 h-5" /></Button>
+                        <div className="flex items-center justify-between p-4 border-b bg-red-800 rounded-t-lg">
+                            <h2 className="text-lg font-semibold text-white">Edit Student Details</h2>
+                            <Button className="w-7 h-7 cursor-pointer text-white hover:bg-white hover:text-red-800" variant="ghost" size="sm" onClick={onClose} disabled={saving}><X className="w-5 h-5" /></Button>
                         </div>
                         
                         <div className="p-6 overflow-y-auto space-y-6">
@@ -185,6 +185,32 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
                                             {renderInput("nationality", "Nationality", { placeholder: "Filipino" })}
                                         </div>
                                         {renderInput("address", "Address", { placeholder: "123 Main St, Brgy, City" })}
+                                    </div>
+
+                                    {/* --- Parent/Guardian Information --- */}
+                                    <div className="p-4 border rounded-lg space-y-4">
+                                        <h3 className="text-base font-semibold text-gray-900">Parent/Guardian Information</h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            {renderInput("father_name", "Father's Name")}
+                                            {renderInput("father_occupation", "Occupation")}
+                                            {renderInput("father_contact_number", "Contact Number")}
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            {renderInput("mother_name", "Mother's Name")}
+                                            {renderInput("mother_occupation", "Occupation")}
+                                            {renderInput("mother_contact_number", "Contact Number")}
+                                        </div>
+                                        {renderInput("parents_address", "Parents' Address")}
+                                    </div>
+
+                                    {/* --- Emergency Contact Information --- */}
+                                    <div className="p-4 border rounded-lg space-y-4">
+                                        <h3 className="text-base font-semibold text-gray-900">Emergency Contact Information</h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {renderInput("emergency_contact_name", "Contact Name")}
+                                            {renderInput("emergency_contact_number", "Contact Number")}
+                                        </div>
+                                        {renderInput("emergency_contact_address", "Contact Address")}
                                     </div>
 
                                     {/* --- Educational Background --- */}

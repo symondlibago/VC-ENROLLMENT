@@ -601,5 +601,71 @@ export const subjectChangeAPI = {
   },
 };
 
+// --- Shiftee API methods ---
+export const shifteeAPI = {
+  // Search for enrolled students who can shift
+  searchStudents: async (searchTerm) => {
+    try {
+      // This can reuse the same student search endpoint if the criteria are the same
+      const response = await api.get('/students/search', { params: { search: searchTerm } });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to search students' };
+    }
+  },
+
+  // Get all programs and courses available for shifting
+  getShiftingData: async () => {
+    try {
+      // You'll need to create this endpoint on your backend
+      const response = await api.get('/shifting/data'); 
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch shifting data' };
+    }
+  },
+
+  // Create a new shiftee request
+  createRequest: async (requestData) => {
+    try {
+      // Endpoint for submitting a new request
+      const response = await api.post('/shiftee-requests', requestData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to create shiftee request' };
+    }
+  },
+
+  // Get all pending and past shiftee requests
+  getAllRequests: async () => {
+    try {
+      const response = await api.get('/shiftee-requests');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch shiftee requests' };
+    }
+  },
+
+  // Get details for a single request (for the modal)
+  getRequestDetails: async (id) => {
+    try {
+      const response = await api.get(`/shiftee-requests/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch request details' };
+    }
+  },
+  
+  // Process a request (approve/reject)
+  processRequest: async (id, { status, remarks }) => {
+    try {
+      const response = await api.post(`/shiftee-requests/${id}/process`, { status, remarks });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to process request' };
+    }
+  },
+};
+
 export default api;
 

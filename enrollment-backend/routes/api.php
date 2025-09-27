@@ -12,6 +12,7 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\SectionController;
 use App\Http\Controllers\UploadReceiptController;
 use App\Http\Controllers\SubjectChangeRequestController;
+use App\Http\Controllers\ShifteeRequestController;
 
 /*
 |--------------------------------------------------------------------------
@@ -65,6 +66,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/subject-change-requests', [SubjectChangeRequestController::class, 'store']);
     Route::get('/subject-change-requests/{id}', [SubjectChangeRequestController::class, 'show']);
     Route::post('/subject-change-requests/{id}/process', [SubjectChangeRequestController::class, 'processRequest']);
+
+    // Shiftee Management Routes
+    Route::get('/shifting/data', [ShifteeRequestController::class, 'getShiftingData']);
+    Route::get('/shiftee-requests', [ShifteeRequestController::class, 'index']);
+    Route::post('/shiftee-requests', [ShifteeRequestController::class, 'store']);
+    Route::get('/shiftee-requests/{id}', [ShifteeRequestController::class, 'show']);
+    Route::post('/shiftee-requests/{id}/process', [ShifteeRequestController::class, 'processRequest']);
 
 });
     // Program routes

@@ -8,7 +8,7 @@ import Students from './components/pages/Students';
 import Courses from './components/pages/Courses';
 import Enrollment from './components/pages/Enrollment';
 import AddingDroppingSubjects from './components/pages/AddingDroppingSubjects';
-import Reports from './components/pages/Reports';
+import Shiftee from './components/pages/Shiftee';
 import Documents from './components/pages/Documents';
 import Notifications from './components/pages/Notifications';
 import Settings from './components/pages/Settings';
@@ -301,10 +301,10 @@ function App() {
                     }
                   />
                   <Route
-                    path="/reports"
+                    path="/shiftee"
                     element={
                       <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                        <Reports />
+                        <Shiftee />
                       </motion.div>
                     }
                   />

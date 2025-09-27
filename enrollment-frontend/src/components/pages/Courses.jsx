@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, 
@@ -56,8 +56,8 @@ const Courses = () => {
   const [isProgramModalOpen, setIsProgramModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState(null);
-  const [courses, setCourses] = useState();
-  const [programs, setPrograms] = useState();
+  const [courses, setCourses] = useState([]);
+  const [programs, setPrograms] = useState([]);
   const [isProgramDetailsModalOpen, setIsProgramDetailsModalOpen] = useState(false);
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
   const [isSubjectFormModalOpen, setIsSubjectFormModalOpen] = useState(false);
@@ -124,77 +124,68 @@ const Courses = () => {
     return program ? program.program_code : null;
   };
 
-  // Dropdown related effects removed as requested
-
-  const stats = [
+  const stats = useMemo(() => ([
     {
       title: 'Total Courses',
-      value: '156',
-      change: '+8.2%',
+      value: courses.length.toString(),
       icon: BookOpen,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50'
     },
     {
       title: 'Active Courses',
-      value: '124',
-      change: '+12.5%',
+      value: courses.length.toString(),
       icon: Play,
       color: 'text-green-600',
       bgColor: 'bg-green-50'
     },
     {
       title: 'Total Students',
-      value: '2,847',
-      change: '+23.1%',
+      value: '2,847', // This data is not available in this component
       icon: Users,
       color: 'text-[var(--dominant-red)]',
       bgColor: 'bg-red-50'
     },
     {
       title: 'Avg Rating',
-      value: '4.7',
-      change: '+0.3',
+      value: '4.7', // This data is not available in this component
       icon: Award,
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-50'
     }
-  ];
+  ]), [courses]);
 
-  const programStats = [
+  const programStats = useMemo(() => ([
     {
       title: 'Total Programs',
-      value: '24',
-      change: '+5.1%',
+      value: programs.length.toString(),
       icon: GraduationCap,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50'
     },
     {
       title: 'Senior High Programs',
-      value: '8',
-      change: '+2.0%',
+      value: programs.filter(p => p.program_code === 'SHS').length.toString(),
       icon: School,
       color: 'text-indigo-600',
       bgColor: 'bg-indigo-50'
     },
     {
       title: 'Diploma Programs',
-      value: '12',
-      change: '+15.2%',
+      value: programs.filter(p => p.program_code === 'Diploma').length.toString(),
       icon: Award,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50'
     },
     {
       title: 'Bachelor Programs',
-      value: '18',
-      change: '+8.7%',
+      value: programs.filter(p => p.program_code === 'Bachelor').length.toString(),
       icon: Building,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-50'
     }
-  ];
+  ]), [programs]);
+
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -250,7 +241,6 @@ const Courses = () => {
     return activeTab === 'courses' ? stats : programStats;
   };
 
-  // Add null check to prevent TypeError when courses or programs is undefined
   const currentData = getCurrentData() || [];
   
   const filteredData = currentData.filter(item => {
@@ -289,10 +279,8 @@ const Courses = () => {
       let response;
       
       if (selectedCourse) {
-        // Update existing course
         response = await courseAPI.update(selectedCourse.id, courseData);
         if (response.success) {
-          // Update the courses list
           setCourses(prevCourses => 
             prevCourses.map(course => 
               course.id === selectedCourse.id ? response.data : course
@@ -305,10 +293,8 @@ const Courses = () => {
           });
         }
       } else {
-        // Create new course
         response = await courseAPI.create(courseData);
         if (response.success) {
-          // Add the new course to the list
           setCourses(prevCourses => [...prevCourses, response.data]);
           setAlert({
             isVisible: true,
@@ -318,7 +304,6 @@ const Courses = () => {
         }
       }
       
-      // Close the modal
       closeCourseModal();
     } catch (error) {
       console.error('Error saving course:', error);
@@ -327,7 +312,7 @@ const Courses = () => {
         message: `Failed to ${selectedCourse ? 'update' : 'create'} course. ${error.message || 'Please try again.'}`,
         type: 'error'
       });
-      throw error; // Rethrow to be handled by the modal
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -340,10 +325,8 @@ const Courses = () => {
       let response;
       
       if (selectedProgram) {
-        // Update existing program
         response = await programAPI.update(selectedProgram.id, programData);
         if (response.success) {
-          // Update the programs list
           setPrograms(prevPrograms => 
             prevPrograms.map(program => 
               program.id === selectedProgram.id ? response.data : program
@@ -356,10 +339,8 @@ const Courses = () => {
           });
         }
       } else {
-        // Create new program
         response = await programAPI.create(programData);
         if (response.success) {
-          // Add the new program to the list
           setPrograms(prevPrograms => [...prevPrograms, response.data]);
           setAlert({
             isVisible: true,
@@ -369,7 +350,6 @@ const Courses = () => {
         }
       }
       
-      // Close the modal
       setIsProgramModalOpen(false);
       setSelectedProgram(null);
     } catch (error) {
@@ -379,7 +359,7 @@ const Courses = () => {
         message: `Failed to ${selectedProgram ? 'update' : 'create'} program. ${error.message || 'Please try again.'}`,
         type: 'error'
       });
-      throw error; // Rethrow to be handled by the modal
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -392,7 +372,6 @@ const Courses = () => {
       let response;
       
       if (selectedSubject) {
-        // Update existing subject
         response = await subjectAPI.update(selectedSubject.id, subjectData);
         if (response.success) {
           setAlert({
@@ -401,7 +380,6 @@ const Courses = () => {
             type: 'success'
           });
           
-          // If the subject details modal is open, refresh the course data
           if (isSubjectModalOpen && selectedCourse) {
             const updatedCourse = await courseAPI.getById(selectedCourse.id);
             if (updatedCourse.success) {
@@ -410,7 +388,6 @@ const Courses = () => {
           }
         }
       } else {
-        // Create new subject
         response = await subjectAPI.create({
           ...subjectData,
           course_id: selectedCourse.id
@@ -422,7 +399,6 @@ const Courses = () => {
             type: 'success'
           });
           
-          // If the subject details modal is open, refresh the course data
           if (isSubjectModalOpen && selectedCourse) {
             const updatedCourse = await courseAPI.getById(selectedCourse.id);
             if (updatedCourse.success) {
@@ -432,7 +408,6 @@ const Courses = () => {
         }
       }
       
-      // Close the modal
       setIsSubjectFormModalOpen(false);
       setSelectedSubject(null);
     } catch (error) {
@@ -442,7 +417,7 @@ const Courses = () => {
         message: `Failed to ${selectedSubject ? 'update' : 'create'} subject. ${error.message || 'Please try again.'}`,
         type: 'error'
       });
-      throw error; // Rethrow to be handled by the modal
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -457,10 +432,8 @@ const Courses = () => {
       let response;
       
       if (activeTab === 'courses') {
-        // Delete course
         response = await courseAPI.delete(selectedItem.id);
         if (response.success) {
-          // Remove the course from the list
           setCourses(prevCourses => prevCourses.filter(course => course.id !== selectedItem.id));
           setAlert({
             isVisible: true,
@@ -469,10 +442,8 @@ const Courses = () => {
           });
         }
       } else if (activeTab === 'programs') {
-        // Delete program
         response = await programAPI.delete(selectedItem.id);
         if (response.success) {
-          // Remove the program from the list
           setPrograms(prevPrograms => prevPrograms.filter(program => program.id !== selectedItem.id));
           setAlert({
             isVisible: true,
@@ -481,7 +452,6 @@ const Courses = () => {
           });
         }
       } else if (selectedItem && selectedItem.subject_code) {
-        // Delete subject
         response = await subjectAPI.delete(selectedItem.id);
         if (response.success) {
           setAlert({
@@ -489,9 +459,7 @@ const Courses = () => {
             message: 'Subject deleted successfully!',
             type: 'success'
           });
-          // If the subject details modal is open, we need to refresh it
           if (isSubjectModalOpen && selectedCourse) {
-            // Refresh the course data to update subjects
             const updatedCourse = await courseAPI.getById(selectedCourse.id);
             if (updatedCourse.success) {
               setSelectedCourse(updatedCourse.data);
@@ -500,7 +468,6 @@ const Courses = () => {
         }
       }
       
-      // Close the modal
       setIsDeleteModalOpen(false);
       setSelectedItem(null);
     } catch (error) {
@@ -544,9 +511,7 @@ const Courses = () => {
               </p>
             </div>
             <div className="flex items-center space-x-4">
-              {/* Toggle Buttons with Icons Only */}
               <div className="relative bg-gray-100 rounded-2xl p-1 inline-flex">
-                {/* Animated Background */}
                 <motion.div
                   className="absolute top-1 bottom-1 bg-white rounded-xl shadow-md"
                   initial={false}
@@ -561,8 +526,6 @@ const Courses = () => {
                     mass: 0.8
                   }}
                 />
-                
-                {/* Toggle Buttons - Icons Only */}
                 <motion.button
                   onClick={() => setActiveTab('courses')}
                   className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${
@@ -576,7 +539,6 @@ const Courses = () => {
                 >
                   <BookOpen className="w-5 h-5" />
                 </motion.button>
-                
                 <motion.button
                   onClick={() => setActiveTab('programs')}
                   className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${
@@ -591,7 +553,6 @@ const Courses = () => {
                   <GraduationCap className="w-5 h-5" />
                 </motion.button>
               </div>
-              
               <Button 
                 className="gradient-primary text-white liquid-button"
                 onClick={() => {
@@ -649,9 +610,11 @@ const Courses = () => {
                         <p className="text-2xl font-bold heading-bold text-gray-900">
                           {stat.value}
                         </p>
-                        <p className="text-sm text-green-600 font-medium mt-1">
-                          {stat.change}
-                        </p>
+                        {stat.change && (
+                          <p className="text-sm text-green-600 font-medium mt-1">
+                            {stat.change}
+                          </p>
+                        )}
                       </div>
                       <div className={`p-3 rounded-xl ${stat.bgColor}`}>
                         <Icon className={`w-6 h-6 ${stat.color}`} />
@@ -666,8 +629,7 @@ const Courses = () => {
       </AnimatePresence>
 
       {/* Search and Filter Section */}
-      <motion.div variants={itemVariants}>
-        <Card className="card-hover border-0 shadow-sm">
+        <Card className="border-0 shadow-sm">
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
               <div className="flex-1 max-w-5xl">
@@ -682,7 +644,6 @@ const Courses = () => {
                 </div>
               </div>
               <div className="flex items-center space-x-3">
-                {/* Course Code Dropdown removed as requested */}
                 <Button variant="outline" className="liquid-button">
                   <Filter className="w-4 h-4 mr-2" />
                   Filter
@@ -695,7 +656,6 @@ const Courses = () => {
             </div>
           </CardContent>
         </Card>
-      </motion.div>
 
       {/* Content Grid with Animation */}
       <AnimatePresence mode="wait">
@@ -724,7 +684,6 @@ const Courses = () => {
                 className="liquid-hover"
               >
                 <Card className="card-hover border-0 overflow-hidden">
-                  {/* Item Image */}
                   <div className="h-48 bg-gradient-to-br from-[var(--dominant-red)] to-red-600 relative overflow-hidden">
                     <div className="absolute inset-0 bg-black/20"></div>
                     <div className="absolute top-4 left-4">
@@ -846,7 +805,6 @@ const Courses = () => {
         </motion.div>
       )}
 
-      {/* Course Modal */}
       <CourseModal
         isOpen={isModalOpen}
         onClose={closeCourseModal}
@@ -856,7 +814,6 @@ const Courses = () => {
         isLoading={isLoading}
       />
       
-      {/* Program Modal */}
        <ProgramModal
          isOpen={isProgramModalOpen}
          onClose={() => setIsProgramModalOpen(false)}
@@ -865,7 +822,6 @@ const Courses = () => {
          isLoading={isLoading}
        />
       
-      {/* Program Details Modal */}
       <ProgramDetailsModal
         isOpen={isProgramDetailsModalOpen}
         onClose={() => setIsProgramDetailsModalOpen(false)}
@@ -873,7 +829,6 @@ const Courses = () => {
         courses={courses || []}
       />
       
-      {/* Subject Details Modal */}
       <SubjectDetailsModal
         isOpen={isSubjectModalOpen}
         onClose={() => setIsSubjectModalOpen(false)}
@@ -893,7 +848,6 @@ const Courses = () => {
         }}
       />
       
-      {/* Subject Form Modal */}
       <SubjectModal
         isOpen={isSubjectFormModalOpen}
         onClose={() => setIsSubjectFormModalOpen(false)}
@@ -904,7 +858,6 @@ const Courses = () => {
         isLoading={isLoading}
       />
       
-      {/* Delete Confirmation Modal */}
        <DeleteConfirmationModal
          isOpen={isDeleteModalOpen}
          onClose={() => setIsDeleteModalOpen(false)}
@@ -914,7 +867,6 @@ const Courses = () => {
          isLoading={isLoading}
        />
        
-       {/* Success Alert */}
        <SuccessAlert
          isVisible={alert.isVisible}
          message={alert.message}
@@ -926,4 +878,3 @@ const Courses = () => {
 };
 
 export default Courses;
-

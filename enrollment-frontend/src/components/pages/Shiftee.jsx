@@ -1,0 +1,402 @@
+// src/pages/Shiftee.jsx
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { shifteeAPI, authAPI } from '@/services/api';
+import {
+    Search, ChevronDown, Undo2, X, Save, Loader2, User, Book, Hash,
+    CheckCircle, AlertCircle, XCircle, Calendar, ArrowRightCircle
+} from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { toast } from 'sonner';
+
+// --- Styling & Icon Helper Functions ---
+const getStatusColor = (status) => {
+    if (!status) return 'bg-gray-100 text-gray-800';
+    if (status.includes('approved')) return 'bg-green-100 text-green-800';
+    if (status.includes('pending')) return 'bg-yellow-100 text-yellow-800';
+    if (status.includes('rejected')) return 'bg-red-100 text-red-800';
+    return 'bg-gray-100 text-gray-800';
+};
+
+const getStatusIcon = (status) => {
+    if (!status) return <AlertCircle className="w-4 h-4 mr-2" />;
+    if (status.includes('approved')) return <CheckCircle className="w-4 h-4 mr-2" />;
+    if (status.includes('pending')) return <AlertCircle className="w-4 h-4 mr-2" />;
+    if (status.includes('rejected')) return <XCircle className="w-4 h-4 mr-2" />;
+    return <AlertCircle className="w-4 h-4 mr-2" />;
+};
+
+// --- Modal for Viewing/Approving Shiftee Request ---
+const ShifteeRequestDetailsModal = ({ isOpen, onClose, requestDetails, currentUserRole, onStatusChange }) => {
+    const [remarks, setRemarks] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        setRemarks('');
+    }, [requestDetails]);
+
+    if (!isOpen || !requestDetails) return null;
+
+    const { student, previous_course, new_course, status } = requestDetails;
+
+    const handleProcessRequest = async (newStatus) => {
+        setIsSaving(true);
+        try {
+            await shifteeAPI.processRequest(requestDetails.id, {
+                status: newStatus,
+                remarks: remarks,
+            });
+            toast.success(`Request has been ${newStatus}.`);
+            onStatusChange();
+            onClose();
+        } catch (error) {
+            toast.error(error.message || 'Failed to process the request.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+    
+    // Only Program Head or Admin can approve
+    const canApprove = (status === 'pending_program_head' && (currentUserRole === 'Program Head' || currentUserRole === 'Admin'));
+
+    const getStatusBadge = (status) => {
+        switch (status) {
+            case 'pending_program_head': return <Badge variant="secondary">Pending Program Head</Badge>;
+            case 'approved': return <Badge className="bg-green-100 text-green-800">Approved</Badge>;
+            case 'rejected': return <Badge variant="destructive">Rejected</Badge>;
+            default: return <Badge>{status}</Badge>;
+        }
+    };
+    
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    onClick={onClose}
+                    className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+                >
+                    <motion.div
+                        initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+                    >
+                        <div className="sticky top-0 bg-red-800 z-10 flex items-center justify-between p-4 border-b text-white">
+                            <div>
+                                <h2 className="text-xl font-semibold">Shiftee Request Details</h2>
+                                {getStatusBadge(status)}
+                            </div>
+                            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 cursor-pointer hover:bg-white hover:text-red-800"><X size={20} /></Button>
+                        </div>
+
+                        <div className="p-6 space-y-6 overflow-y-auto">
+                            <div className="border rounded-lg p-4 bg-gray-50/50">
+                                <h3 className="font-semibold mb-2">Student Information</h3>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                    <p className="flex items-center"><User size={14} className="mr-2 text-gray-500" /> <b>Name:</b> &nbsp;{student.last_name}, {student.first_name}</p>
+                                    <p className="flex items-center"><Hash size={14} className="mr-2 text-gray-500" /> <b>ID Number:</b> &nbsp;{student.student_id_number}</p>
+                                </div>
+                            </div>
+                            
+                            <div className="border rounded-lg p-4">
+                                <h3 className="font-semibold mb-3">Course Shift Details</h3>
+                                <div className="flex items-center justify-around text-center">
+                                    <div>
+                                        <p className="text-sm text-gray-500">From Course</p>
+                                        <p className="font-bold">{previous_course?.course_name || 'N/A'}</p>
+                                    </div>
+                                    <ArrowRightCircle className="text-gray-400" size={24}/>
+                                    <div>
+                                        <p className="text-sm text-gray-500">To Course</p>
+                                        <p className="font-bold text-blue-600">{new_course?.course_name || 'N/A'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {canApprove && (
+                                <div className="border rounded-lg p-4 bg-gray-50">
+                                    <h3 className="font-semibold mb-2">Approval Action ({currentUserRole})</h3>
+                                    <div className="space-y-3">
+                                        <Label htmlFor="remarks">Remarks (Optional)</Label>
+                                        <Textarea id="remarks" placeholder="Add remarks for rejection or approval..." value={remarks} onChange={(e) => setRemarks(e.target.value)} />
+                                        <div className="flex justify-end gap-3">
+                                            <Button variant="destructive" onClick={() => handleProcessRequest('rejected')} disabled={isSaving}>
+                                                {isSaving ? <Loader2 className="animate-spin" /> : 'Reject'}
+                                            </Button>
+                                            <Button onClick={() => handleProcessRequest('approved')} disabled={isSaving} className="bg-green-600 hover:bg-green-700">
+                                                {isSaving ? <Loader2 className="animate-spin" /> : 'Approve'}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+};
+
+// --- Main Component ---
+const Shiftee = () => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  
+  const [programs, setPrograms] = useState([]);
+  const [availableCourses, setAvailableCourses] = useState([]);
+  const [selectedCourse, setSelectedCourse] = useState(null);
+  const [programFilter, setProgramFilter] = useState('All Programs');
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [shifteeRequests, setShifteeRequests] = useState([]);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    setCurrentUser(authAPI.getUserData());
+  }, []);
+
+  const fetchShifteeRequests = useCallback(async () => {
+    try {
+      const response = await shifteeAPI.getAllRequests();
+      if (response.success) setShifteeRequests(response.data);
+    } catch (error) { console.error("Failed to fetch shiftee requests:", error); }
+  }, []);
+
+  useEffect(() => { fetchShifteeRequests(); }, [fetchShifteeRequests]);
+
+  useEffect(() => {
+    if (searchTerm.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    const handler = setTimeout(async () => {
+      setIsLoading(true);
+      try {
+        const response = await shifteeAPI.searchStudents(searchTerm);
+        if (response.success) setSearchResults(response.data);
+      } catch (error) { console.error("Search failed:", error); setSearchResults([]); }
+      setIsLoading(false);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  const handleSelectStudent = async (student) => {
+    setSelectedStudent(student);
+    setSearchTerm('');
+    setSearchResults([]);
+    setSelectedCourse(null);
+    setProgramFilter('All Programs');
+    setIsLoading(true);
+    try {
+      const response = await shifteeAPI.getShiftingData();
+      if (response.success) {
+        setPrograms(response.data.programs || []);
+        // Exclude the student's current course from the list of available courses
+        const coursesToDisplay = response.data.courses.filter(course => course.id !== student.course_id);
+        setAvailableCourses(coursesToDisplay || []);
+      }
+    } catch (error) { 
+        toast.error("Failed to fetch available courses.");
+        console.error("Failed to fetch shifting data:", error); 
+    }
+    setIsLoading(false);
+  };
+  
+  const filteredCourses = useMemo(() => {
+    if (programFilter === 'All Programs') {
+      return availableCourses;
+    }
+    return availableCourses.filter(course => course.program_id == programFilter);
+  }, [availableCourses, programFilter]);
+
+  const handleSaveChanges = async () => {
+    if (!selectedStudent || !selectedCourse) return;
+    setIsSaving(true);
+    try {
+        const payload = {
+            student_id: selectedStudent.id,
+            new_course_id: selectedCourse.id,
+        };
+        const response = await shifteeAPI.createRequest(payload);
+        if (response.success) {
+            toast.success('Shiftee request submitted for approval!');
+            fetchShifteeRequests();
+            setSelectedStudent(null); // Reset form after submission
+            setSelectedCourse(null);
+        }
+    } catch (error) {
+        toast.error(error.message || 'Failed to submit shiftee request.');
+    } finally { setIsSaving(false); }
+  };
+
+  const handleViewDetails = async (requestId) => {
+    try {
+      const response = await shifteeAPI.getRequestDetails(requestId);
+      if (response.success) {
+        setSelectedRequest(response.data);
+        setIsDetailsModalOpen(true);
+      } else { toast.error('Failed to fetch request details.'); }
+    } catch (error) { toast.error('An error occurred while fetching details.'); }
+  };
+
+  return (
+    <>
+      <div className="p-6 space-y-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Shiftee Student Management</CardTitle>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Input placeholder="Search student by ID, first name, or last name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+              {searchResults.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg">
+                  {searchResults.map(student => (
+                    <div key={student.id} onClick={() => handleSelectStudent(student)} className="p-2 cursor-pointer hover:bg-gray-100">
+                      {student.last_name}, {student.first_name} ({student.student_id_number})
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardHeader>
+          {selectedStudent && (
+            <CardContent>
+              <div className="mb-4 p-4 border rounded-lg bg-gray-50">
+                  <h3 className="font-bold text-lg">{selectedStudent.last_name}, {selectedStudent.first_name}</h3>
+                  <p className="text-sm text-gray-600">{selectedStudent.student_id_number} • Current Course: <b>{selectedStudent.course.course_name}</b></p>
+              </div>
+              <div className="flex items-center gap-4 mb-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-64 justify-between">
+                  {programs.find(p => p.id == programFilter)?.program_name || 'All Programs'}
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64">
+                <DropdownMenuItem onSelect={() => setProgramFilter('All Programs')}>All Programs</DropdownMenuItem>
+                {programs.map(prog => (
+                  <DropdownMenuItem key={prog.id} onSelect={() => setProgramFilter(prog.id)}>{prog.program_name}</DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+              <div>
+                <h3 className="font-bold mb-2">Available Courses to Shift Into ({filteredCourses.length})</h3>
+                <div className="border rounded-md max-h-[400px] overflow-y-auto">
+                  <Table>
+                    <TableHeader><TableRow><TableHead>Course Code</TableHead><TableHead>Course Name</TableHead><TableHead>Action</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                      {filteredCourses.map(course => (
+                        <TableRow key={course.id} className={selectedCourse?.id === course.id ? 'bg-blue-50' : ''}>
+                          <TableCell>{course.course_code}</TableCell>
+                          <TableCell>{course.course_name}</TableCell>
+                          <TableCell>
+                            <Button size="sm" className="cursor-pointer" onClick={() => setSelectedCourse(course)} disabled={selectedCourse?.id === course.id}>
+                                Select
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-4 border-t">
+                  {selectedCourse &&
+                      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md space-y-2">
+                          <h4 className="font-bold text-blue-800">Pending Shift:</h4>
+                          <div className="flex items-center justify-between text-sm text-gray-800">
+                              <span>Shift to <b>{selectedCourse.course_code} - {selectedCourse.course_name}</b></span>
+                              <Button size="sm" variant="ghost" onClick={() => setSelectedCourse(null)} className="h-6 w-6 p-0"><Undo2 className="h-4 w-4"/></Button>
+                          </div>
+                      </div>
+                  }
+                  <Button onClick={handleSaveChanges} disabled={isSaving || !selectedCourse} className="w-70">
+                      {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4" />}
+                      {isSaving ? 'Submitting...' : 'Submit Shiftee Request for Approval'}
+                  </Button>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Shiftee Requests</CardTitle></CardHeader>
+          <CardContent>
+              <Table>
+                  <TableHeader><TableRow><TableHead className="w-[300px]">Student</TableHead><TableHead>New Course</TableHead><TableHead>Date</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                      {shifteeRequests.map(req => (
+                          <TableRow key={req.id}>
+                              <TableCell className="font-medium">
+                                  {/* Student Info */}
+                                  <div className="flex items-center gap-3">
+                                      <Avatar className="h-10 w-10"><AvatarFallback className="bg-red-800 text-white">{`${req.student?.first_name?.charAt(0) || ''}${req.student?.last_name?.charAt(0) || ''}`}</AvatarFallback></Avatar>
+                                      <div>
+                                      <div className="flex items-center text-sm text-gray-500">
+                                      <User size={14} className="mr-2 text-gray-500"/>
+                                          <p className="font-bold text-gray-900">{`${req.student?.last_name}, ${req.student?.first_name}`}</p>
+                                      </div>
+                                          <div className="flex items-center text-sm text-gray-500">
+                                              <Hash size={14} className="mr-2"/>
+                                              <p>{req.student?.student_id_number}</p>
+                                          </div>
+                                      </div>
+                                  </div>
+                              </TableCell>
+                              <TableCell>
+                              <div className="flex items-center text-sm text-gray-500">
+                                      <Book size={14} className="mr-2 text-gray-500"/>
+                              <p className="font-bold text-gray-900">{req.new_course?.course_name || 'N/A'}</p>
+                              </div>
+                              </TableCell>
+                              <TableCell>
+                                  <div className="flex items-center text-sm text-gray-500">
+                                      <Calendar size={14} className="mr-2 text-gray-500"/>
+                                      <p className="text-gray-900">{new Date(req.created_at).toLocaleDateString()}</p>
+                                  </div>
+                              </TableCell>     
+                                <TableCell>
+                                  <Badge className={`${getStatusColor(req.status)} font-medium`}>
+                                      {getStatusIcon(req.status)}
+                                      {req.status.replace(/_/g, ' ')}
+                                  </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="outline" size="sm" className="cursor-pointer" onClick={() => handleViewDetails(req.id)}>View Details</Button>
+                              </TableCell>
+                          </TableRow>
+                      ))}
+                  </TableBody>
+              </Table>
+          </CardContent>
+        </Card>
+      </div>
+      <ShifteeRequestDetailsModal
+        isOpen={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
+        requestDetails={selectedRequest}
+        currentUserRole={currentUser?.role}
+        onStatusChange={fetchShifteeRequests}
+      />
+    </>
+  );
+};
+
+export default Shiftee;

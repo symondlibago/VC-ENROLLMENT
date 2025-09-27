@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { subjectChangeAPI, authAPI } from '@/services/api';
-import { Search, ChevronDown, Plus, Minus, Undo2, X, Save, Loader2, User, Book, Hash, PlusCircle, MinusCircle } from 'lucide-react';
+import { 
+    Search, ChevronDown, Plus, Minus, Undo2, X, Save, Loader2, User, Book, 
+    Hash, PlusCircle, MinusCircle, CheckCircle, AlertCircle, XCircle, Calendar
+} from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,15 +13,33 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 
-// Modal Sub-Component for Viewing Details
+// --- Styling Helper Functions ---
+const getStatusColor = (status) => {
+    if (!status) return 'bg-gray-100 text-gray-800';
+    if (status.includes('approved')) return 'bg-green-100 text-green-800';
+    if (status.includes('pending')) return 'bg-yellow-100 text-yellow-800';
+    if (status.includes('rejected')) return 'bg-red-100 text-red-800';
+    return 'bg-gray-100 text-gray-800';
+};
+
+const getStatusIcon = (status) => {
+    if (!status) return <AlertCircle className="w-4 h-4 mr-2" />;
+    if (status.includes('approved')) return <CheckCircle className="w-4 h-4 mr-2" />;
+    if (status.includes('pending')) return <AlertCircle className="w-4 h-4 mr-2" />;
+    if (status.includes('rejected')) return <XCircle className="w-4 h-4 mr-2" />;
+    return <AlertCircle className="w-4 h-4 mr-2" />;
+};
+
+// --- Modal Sub-Component for Viewing Details ---
 const SubjectChangeDetailsModal = ({ isOpen, onClose, requestDetails, currentUserRole, onStatusChange }) => {
     const [remarks, setRemarks] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        setRemarks(''); // Reset remarks when a new request is opened
+        setRemarks('');
     }, [requestDetails]);
 
     if (!isOpen || !requestDetails) return null;
@@ -35,7 +56,7 @@ const SubjectChangeDetailsModal = ({ isOpen, onClose, requestDetails, currentUse
                 remarks: remarks,
             });
             toast.success(`Request has been ${newStatus}.`);
-            onStatusChange(); // This will trigger a refresh in the parent component
+            onStatusChange();
             onClose();
         } catch (error) {
             toast.error(error.message || 'Failed to process the request.');
@@ -45,7 +66,6 @@ const SubjectChangeDetailsModal = ({ isOpen, onClose, requestDetails, currentUse
         }
     };
     
-    // Determine if the current user can take action
     const canApprove = 
         (status === 'pending_program_head' && currentUserRole === 'Program Head') ||
         (status === 'pending_cashier' && currentUserRole === 'Cashier') ||
@@ -74,12 +94,12 @@ const SubjectChangeDetailsModal = ({ isOpen, onClose, requestDetails, currentUse
                         onClick={(e) => e.stopPropagation()}
                         className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
                     >
-                        <div className="sticky top-0 bg-gray-50 z-10 flex items-center justify-between p-4 border-b">
+                        <div className="sticky top-0 bg-red-800 z-10 flex items-center justify-between p-4 border-b text-white">
                             <div>
                                 <h2 className="text-xl font-semibold">Subject Change Details</h2>
                                 {getStatusBadge(status)}
                             </div>
-                            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8"><X size={20} /></Button>
+                            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 hover:bg-white hover:text-red-800 cursor-pointer"><X size={20} /></Button>
                         </div>
 
                         <div className="p-6 space-y-6 overflow-y-auto">
@@ -135,8 +155,7 @@ const SubjectChangeDetailsModal = ({ isOpen, onClose, requestDetails, currentUse
     );
 };
 
-
-// Main Component
+// --- Main Component ---
 const yearOptions = ['All Years', '1st Year', '2nd Year', '3rd Year', '4th Year'];
 const semesterOptions = ['All Semesters', '1st Semester', '2nd Semester'];
 
@@ -350,8 +369,9 @@ const AddingDroppingSubjects = () => {
                           ))}
                       </div>
                   }
-                  <Button onClick={handleSaveChanges} disabled={isSaving || (subjectsToAdd.length === 0 && subjectsToDrop.length === 0)} className="w-full">
-                      {isSaving ? 'Submitting...' : 'Submit Changes for Approval'}
+                  <Button onClick={handleSaveChanges} disabled={isSaving || (subjectsToAdd.length === 0 && subjectsToDrop.length === 0)} className="w-70 cursor-pointer">
+                  {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4" />}
+                      {isSaving ? 'Submitting...' : 'Submit Shiftee Request for Approval'}
                   </Button>
               </div>
             </CardContent>
@@ -361,16 +381,49 @@ const AddingDroppingSubjects = () => {
           <CardHeader><CardTitle>Subject Change Requests</CardTitle></CardHeader>
           <CardContent>
               <Table>
-                  <TableHeader><TableRow><TableHead>Student</TableHead><TableHead>Date</TableHead><TableHead>Status</TableHead><TableHead>Action</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead className="w-[300px]">Student</TableHead><TableHead>Date</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
                   <TableBody>
-                      {changeRequests.map(req => (
+                      {changeRequests.map(req => {
+                        const studentName = `${req.student?.last_name}, ${req.student?.first_name}, ${req.student?.middle_name.charAt(0)}.`;
+                        const studentInitial = `${req.student?.first_name?.charAt(0) || 'S'}${req.student?.last_name?.charAt(0) || 'S'}`;
+
+                        return (
                           <TableRow key={req.id}>
-                              <TableCell>{req.student?.last_name}, {req.student?.first_name}</TableCell>
-                              <TableCell>{new Date(req.created_at).toLocaleDateString()}</TableCell>
-                              <TableCell>{req.status.replace(/_/g, ' ').toUpperCase()}</TableCell>
-                              <TableCell><Button variant="outline" size="sm" onClick={() => handleViewDetails(req.id)}>View Details</Button></TableCell>
+                              <TableCell className="font-medium">
+                                  <div className="flex items-center gap-3">
+                                      <Avatar className="h-10 w-10">
+                                          <AvatarFallback className="bg-red-800 text-white font-bold">{studentInitial}</AvatarFallback>
+                                      </Avatar>
+                                      <div>
+                                          <div className="flex items-center">
+                                              <User size={14} className="mr-2 text-gray-500"/>
+                                              <p className="font-bold text-gray-900">{studentName}</p>
+                                          </div>
+                                          <div className="flex items-center text-sm text-gray-500">
+                                              <Hash size={14} className="mr-2"/>
+                                              <p>{req.student?.student_id_number}</p>
+                                          </div>
+                                      </div>
+                                  </div>
+                              </TableCell>
+                              <TableCell>
+                                  <div className="flex items-center">
+                                    <Calendar size={14} className="mr-2 text-gray-500"/>
+                                    {new Date(req.created_at).toLocaleDateString()}
+                                  </div>
+                              </TableCell>
+                              <TableCell>
+                                  <Badge className={`${getStatusColor(req.status)} font-medium`}>
+                                      {getStatusIcon(req.status)}
+                                      {req.status.replace(/_/g, ' ')}
+                                  </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="outline" size="sm" onClick={() => handleViewDetails(req.id)}>View Details</Button>
+                              </TableCell>
                           </TableRow>
-                      ))}
+                        );
+                      })}
                   </TableBody>
               </Table>
           </CardContent>
