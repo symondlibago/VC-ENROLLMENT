@@ -8,9 +8,13 @@ import {
   GraduationCap,
   UserPlus,
   ChevronDown,
-  MoreVertical, // Changed from MoreHorizontal
+  MoreVertical,
   Edit,
-  Trash2 // Added Trash icon
+  Trash2,
+  FileText,
+  User,
+  Book,
+  Hash,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -36,9 +40,10 @@ import SectionDetailsModal from '../modals/SectionDetailsModal';
 import AddSectionModal from '../modals/AddSectionModal';
 import AddStudentsToSectionModal from '../modals/AddStudentsToSectionModal';
 import EditStudentModal from '../modals/EditStudentModal';
+import ViewStudentFullDetailsModal from '../modals/ViewStudentFullDetailsModal';
 import SuccessAlert from '../modals/SuccessAlert';
 import LoadingSpinner from '../layout/LoadingSpinner';
-import DeleteConfirmationModal from '../modals/DeleteConfirmationModal'; // Import Delete Modal
+import DeleteConfirmationModal from '../modals/DeleteConfirmationModal';
 import { sectionAPI, enrollmentAPI, courseAPI, authAPI } from '@/services/api';
 
 // Custom Framer Motion Dropdown Component (No changes)
@@ -122,6 +127,7 @@ const Students = () => {
   const [isSectionLoading, setIsSectionLoading] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isViewDetailsModalOpen, setIsViewDetailsModalOpen] = useState(false);
 
   // States for Edit and Delete functionality
   const [editingSection, setEditingSection] = useState(null);
@@ -170,7 +176,6 @@ const Students = () => {
     setIsSubmitting(true);
     try {
       if (editingSection) {
-        // Update logic
         const response = await sectionAPI.update(editingSection.id, { name: sectionData.name, course_id: sectionData.course.id });
         if (response.success) {
           setSections(prev => prev.map(s => s.id === editingSection.id ? response.data : s));
@@ -181,7 +186,6 @@ const Students = () => {
           showAlert(response.message || 'Failed to update section.', 'error');
         }
       } else {
-        // Create logic
         const response = await sectionAPI.create({ name: sectionData.name, course_id: sectionData.course.id });
         if (response.success) {
           setSections(prev => [response.data, ...prev]);
@@ -293,12 +297,18 @@ const Students = () => {
     setSelectedStudentId(studentId);
     setIsEditModalOpen(true);
   };
+  
+  // NEW: Handler for viewing student details
+  const handleViewStudentDetails = (studentId) => {
+    setSelectedStudentId(studentId);
+    setIsViewDetailsModalOpen(true);
+  };
 
   const handleUpdateSuccess = () => {
     fetchData(); 
   };
   
-  // Memoized data for performance
+  // Memoized data for performance (no changes here)
   const stats = useMemo(() => [
     { title: 'Total Sections', value: sections.length.toString(), icon: BookOpen, color: 'text-blue-600', bgColor: 'bg-blue-50' },
     { title: 'Enrolled Students', value: enrolledStudents.length.toString(), icon: Users, color: 'text-green-600', bgColor: 'bg-green-50' },
@@ -327,30 +337,19 @@ const Students = () => {
     return matchesSearch && courseMatch && sectionMatch;
   }), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter]);
 
-
   if (loading) {
-    return <div className="flex justify-center items-center h-full">
-    <LoadingSpinner size="lg" color="red" />
-    </div>;
+    return <div className="flex justify-center items-center h-full"><LoadingSpinner size="lg" color="red" /></div>;
   }
 
   return (
     <motion.div className="p-6 space-y-6 max-w-7xl mx-auto" variants={containerVariants} initial="hidden" animate="visible">
-      <SuccessAlert
-        isVisible={alert.isVisible}
-        message={alert.message}
-        type={alert.type}
-        onClose={() => setAlert({ ...alert, isVisible: false })}
-      />
+      <SuccessAlert isVisible={alert.isVisible} message={alert.message} type={alert.type} onClose={() => setAlert({ ...alert, isVisible: false })} />
       
       <motion.div variants={itemVariants}>
         <div className="gradient-soft rounded-2xl p-8 border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold heading-bold text-gray-900 flex items-center">
-                <BookOpen className="w-8 h-8 text-[var(--dominant-red)] mr-3" />
-                Students & Sections
-              </h1>
+              <h1 className="text-3xl font-bold heading-bold text-gray-900 flex items-center"><BookOpen className="w-8 h-8 text-[var(--dominant-red)] mr-3" />Students & Sections</h1>
               <p className="text-gray-600">Manage student sections and view enrollment lists.</p>
             </div>
             <div className="flex items-center space-x-2">
@@ -361,20 +360,10 @@ const Students = () => {
                     animate={{ left: activeView === 'sections' ? '4px' : '50%', right: activeView === 'sections' ? '50%' : '4px' }}
                     transition={{ type: "spring", stiffness: 300, damping: 30, mass: 0.8 }}
                   />
-                  <motion.button
-                    onClick={() => setActiveView('sections')}
-                    className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${activeView === 'sections' ? 'text-[var(--dominant-red)]' : 'text-gray-600 hover:text-gray-800'}`}
-                    whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} title="Sections"
-                  > <BookOpen className="w-5 h-5" /> </motion.button>
-                  <motion.button
-                    onClick={() => setActiveView('students')}
-                    className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${activeView === 'students' ? 'text-[var(--dominant-red)]' : 'text-gray-600 hover:text-gray-800'}`}
-                    whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} title="Students"
-                  > <Users className="w-5 h-5" /> </motion.button>
+                  <motion.button onClick={() => setActiveView('sections')} className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${activeView === 'sections' ? 'text-[var(--dominant-red)]' : 'text-gray-600 hover:text-gray-800'}`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} title="Sections"> <BookOpen className="w-5 h-5" /> </motion.button>
+                  <motion.button onClick={() => setActiveView('students')} className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${activeView === 'students' ? 'text-[var(--dominant-red)]' : 'text-gray-600 hover:text-gray-800'}`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} title="Students"> <Users className="w-5 h-5" /> </motion.button>
               </div>
-              <Button className="gradient-primary text-white" onClick={handleAddSectionClick}>
-                <Plus className="w-4 h-4 mr-2" />Add Section
-              </Button>
+              <Button className="gradient-primary text-white" onClick={handleAddSectionClick}><Plus className="w-4 h-4 mr-2" />Add Section</Button>
             </div>
           </div>
         </div>
@@ -382,17 +371,7 @@ const Students = () => {
       <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map(stat => {
           const Icon = stat.icon;
-          return <Card key={stat.title}>
-            <CardContent className="p-6 flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                <p className="text-2xl font-bold heading-bold text-gray-900">{stat.value}</p>
-              </div>
-              <div className={`p-3 rounded-xl ${stat.bgColor}`}>
-                <Icon className={`w-6 h-6 ${stat.color}`} />
-              </div>
-            </CardContent>
-          </Card>;
+          return <Card key={stat.title}><CardContent className="p-6 flex items-center justify-between"><div className="space-y-1"><p className="text-sm font-medium text-gray-600">{stat.title}</p><p className="text-2xl font-bold heading-bold text-gray-900">{stat.value}</p></div><div className={`p-3 rounded-xl ${stat.bgColor}`}><Icon className={`w-6 h-6 ${stat.color}`} /></div></CardContent></Card>;
         })}
       </motion.div>
       <AnimatePresence mode="wait">
@@ -401,15 +380,15 @@ const Students = () => {
             ? <SectionPage 
                 sections={filteredSections} courses={courses} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
                 courseFilter={sectionCourseFilter} setCourseFilter={setSectionCourseFilter} onSectionClick={handleSectionClick}
-                onAddSectionClick={handleAddSectionClick}
-                onEditClick={handleEditSectionClick}
-                onDeleteClick={handleDeleteSectionClick}
+                onAddSectionClick={handleAddSectionClick} onEditClick={handleEditSectionClick} onDeleteClick={handleDeleteSectionClick}
               />
             : <StudentPage 
                 students={filteredStudents} sections={sections} courses={courses} searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm} courseFilter={studentCourseFilter} setCourseFilter={setStudentCourseFilter}
                 sectionFilter={studentSectionFilter} setSectionFilter={setStudentSectionFilter}
-                onEditStudent={handleEditStudent} currentUser={currentUser} 
+                onEditStudent={handleEditStudent}
+                onViewStudentDetails={handleViewStudentDetails} // Pass the new handler
+                currentUser={currentUser} 
               />
           }
         </motion.div>
@@ -422,11 +401,8 @@ const Students = () => {
         onStudentRemoved={handleRemoveStudentFromSection}
       />
       <AddSectionModal 
-        isOpen={isAddSectionModalOpen} 
-        onClose={() => { setIsAddSectionModalOpen(false); setEditingSection(null); }} 
-        onSubmit={handleSectionSubmit} 
-        courses={courses} 
-        sectionToEdit={editingSection}
+        isOpen={isAddSectionModalOpen} onClose={() => { setIsAddSectionModalOpen(false); setEditingSection(null); }} 
+        onSubmit={handleSectionSubmit} courses={courses} sectionToEdit={editingSection}
       />
       <AddStudentsToSectionModal
         isOpen={isAddStudentsModalOpen} onClose={() => setIsAddStudentsModalOpen(false)} section={selectedSection}
@@ -439,20 +415,24 @@ const Students = () => {
           studentId={selectedStudentId} onUpdateSuccess={handleUpdateSuccess}
         />
       )}
+      {/* NEW: Render the new modal */}
+      {isViewDetailsModalOpen && (
+        <ViewStudentFullDetailsModal
+            isOpen={isViewDetailsModalOpen}
+            onClose={() => setIsViewDetailsModalOpen(false)}
+            studentId={selectedStudentId}
+        />
+      )}
       <DeleteConfirmationModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        onConfirm={handleConfirmDeleteSection}
-        title="Delete Section"
-        message="Are you sure you want to delete this section? All student assignments will be removed. This action cannot be undone."
-        itemName={deletingSection?.name}
-        isLoading={isSubmitting}
+        isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleConfirmDeleteSection}
+        title="Delete Section" message="Are you sure you want to delete this section? All student assignments will be removed. This action cannot be undone."
+        itemName={deletingSection?.name} isLoading={isSubmitting}
       />
     </motion.div>
   );
 };
 
-// Sub-component for Sections View
+// Sub-component for Sections View (No changes)
 const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, onSectionClick, onAddSectionClick, onEditClick, onDeleteClick }) => {
     const courseOptions = useMemo(() => [
       { label: 'Filter by All Courses', value: 'all' },
@@ -507,29 +487,16 @@ const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilte
                     </CardContent>
                 </Card>
               </div>
-
-              {/* Dropdown Menu for Edit/Delete */}
               <div className="absolute top-4 right-4">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      className="h-8 w-8 p-0" // <-- CHANGE IS HERE: Removed opacity classes
-                      onClick={(e) => e.stopPropagation()} // Prevent card click
-                    >
-                      <span className="sr-only">Open menu</span>
-                      <MoreVertical className="h-4 w-4" />
+                    <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
+                      <span className="sr-only">Open menu</span><MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenuItem className="cursor-pointer" onClick={() => onEditClick(section)}>
-                      <Edit className="w-4 h-4 mr-2 hover:text-white" />
-                      <span>Edit</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="cursor-pointer" onClick={() => onDeleteClick(section)}>
-                      <Trash2 className="w-4 h-4 mr-2 hover:text-white" />
-                      <span>Delete</span>
-                    </DropdownMenuItem>
+                    <DropdownMenuItem className="cursor-pointer" onClick={() => onEditClick(section)}><Edit className="w-4 h-4 mr-2 hover:text-white" /><span>Edit</span></DropdownMenuItem>
+                    <DropdownMenuItem className="cursor-pointer" onClick={() => onDeleteClick(section)}><Trash2 className="w-4 h-4 mr-2 hover:text-white" /><span>Delete</span></DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -541,9 +508,8 @@ const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilte
     );
 };
 
-
 // Sub-component for Students View
-const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter, onEditStudent, currentUser }) => {
+const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter, onEditStudent, onViewStudentDetails, currentUser }) => {
     const courseOptions = useMemo(() => [
       { label: 'Filter by All Courses', value: 'all' },
       ...courses.map(course => ({ label: course.course_code, value: course.id.toString() }))
@@ -583,33 +549,45 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Student ID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Course</TableHead>
-                <TableHead>Section</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                <TableHead>Student ID</TableHead><TableHead>Name</TableHead><TableHead>Course</TableHead>
+                <TableHead>Section</TableHead><TableHead className="text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {students.length > 0 ? students.map(student => (
                 <TableRow key={student.id}>
-                  <TableCell className="font-medium">{student.student_id_number}</TableCell>
-                  <TableCell>{student.name}</TableCell>
-                  <TableCell>{student.courseName}</TableCell>
-                  <TableCell>
-                    <Badge variant={student.sectionName === 'Unassigned' ? "destructive" : "secondary"}>
-                      {student.sectionName}
-                    </Badge>
+                  <TableCell className="font-medium">
+                  <div className="flex items-center">
+                    <Hash className="w-4 h-4 mr-2 text-gray-700" />
+                    <p className="font-bold text-gray-900">{student.student_id_number}</p>
+                    </div>
                   </TableCell>
+                  <TableCell>
+                  <div className="flex items-center">
+                    <User className="w-4 h-4 mr-2 text-gray-700" />
+                    <p className="font-bold text-gray-900">{student.name}</p>
+                    </div>
+                    </TableCell>
+                  <TableCell>
+                  <div className="flex items-center">
+                    <Book className="w-4 h-4 mr-2 text-gray-700" />
+                    <p className="font-bold text-gray-900">{student.courseName}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell><Badge variant={student.sectionName === 'Unassigned' ? "destructive" : "secondary"}>{student.sectionName}</Badge></TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Open menu</span><MoreVertical className="h-4 w-4" /></Button>
+                        <Button variant="ghost" className="h-8 w-8 p-0 cursor-pointer"><span className="sr-only">Open menu</span><MoreVertical className="h-4 w-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem className="cursor-pointer" onClick={() => onViewStudentDetails(student.id)}>
+                            <FileText className="w-4 h-4 mr-2 hover:text-white" />
+                            View Details
+                        </DropdownMenuItem>
                         {canEdit && (
-                          <DropdownMenuItem onClick={() => onEditStudent(student.id)}>
-                            <Edit className="w-4 h-4 mr-2" />
+                          <DropdownMenuItem className="cursor-pointer" onClick={() => onEditStudent(student.id)}>
+                            <Edit className="w-4 h-4 mr-2 hover:text-white" />
                             Edit Student
                           </DropdownMenuItem>
                         )}
