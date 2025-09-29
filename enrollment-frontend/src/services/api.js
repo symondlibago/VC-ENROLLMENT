@@ -667,5 +667,44 @@ export const shifteeAPI = {
   },
 };
 
+// --- Instructor API methods ---
+export const instructorAPI = {
+  getAll: async () => {
+    try {
+      const response = await api.get('/instructors');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch instructors' };
+    }
+  },
+
+  create: async (instructorData) => {
+    try {
+      const response = await api.post('/instructors', instructorData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to create instructor' };
+    }
+  },
+
+  update: async (id, instructorData) => {
+    try {
+      const response = await api.put(`/instructors/${id}`, instructorData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to update instructor' };
+    }
+  },
+
+  delete: async (id) => {
+    try {
+      const response = await api.delete(`/instructors/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to delete instructor' };
+    }
+  },
+};
+
 export default api;
 

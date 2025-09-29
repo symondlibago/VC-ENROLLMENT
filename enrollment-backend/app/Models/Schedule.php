@@ -18,7 +18,7 @@ class Schedule extends Model
         'day',
         'time',
         'room_no',
-        'instructor',
+        'instructor_id',
         'subject_id',
     ];
 
@@ -39,5 +39,10 @@ class Schedule extends Model
     public function subject()
     {
         return $this->belongsTo(Subject::class);
+    }
+
+    public function instructor()
+    {
+        return $this->belongsTo(Instructor::class);
     }
 }

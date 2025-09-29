@@ -13,6 +13,7 @@ use App\Http\Controllers\SectionController;
 use App\Http\Controllers\UploadReceiptController;
 use App\Http\Controllers\SubjectChangeRequestController;
 use App\Http\Controllers\ShifteeRequestController;
+use App\Http\Controllers\InstructorController;
 
 /*
 |--------------------------------------------------------------------------
@@ -73,6 +74,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/shiftee-requests', [ShifteeRequestController::class, 'store']);
     Route::get('/shiftee-requests/{id}', [ShifteeRequestController::class, 'show']);
     Route::post('/shiftee-requests/{id}/process', [ShifteeRequestController::class, 'processRequest']);
+
+    // Instructor routes (NEW)
+    Route::apiResource('instructors', InstructorController::class);
 
 });
     // Program routes

@@ -19,7 +19,8 @@ class ScheduleController extends Controller
     {
         try {
             $subject = Subject::findOrFail($subjectId);
-            $schedules = $subject->schedules;
+            // Eager load the instructor relationship
+            $schedules = $subject->schedules()->with('instructor')->get();
             
             return response()->json([
                 'status' => 'success',
@@ -69,7 +70,7 @@ class ScheduleController extends Controller
                 'day' => 'nullable|string',
                 'time' => 'nullable|string',
                 'room_no' => 'nullable|string',
-                'instructor' => 'nullable|string',
+                'instructor_id' => 'nullable|exists:instructors,id', 
                 'subject_id' => 'required|exists:subjects,id',
             ]);
 
@@ -81,7 +82,8 @@ class ScheduleController extends Controller
                 ], 422);
             }
 
-            $schedule = Schedule::create($request->all());
+            $schedule = Schedule::create($validator->validated());
+            $schedule->load('instructor');
             
             return response()->json([
                 'status' => 'success',
@@ -112,7 +114,7 @@ class ScheduleController extends Controller
                 'day' => 'nullable|string',
                 'time' => 'nullable|string',
                 'room_no' => 'nullable|string',
-                'instructor' => 'nullable|string',
+                'instructor_id' => 'nullable|exists:instructors,id', 
                 'subject_id' => 'exists:subjects,id',
             ]);
 
@@ -124,7 +126,8 @@ class ScheduleController extends Controller
                 ], 422);
             }
 
-            $schedule->update($request->all());
+            $schedule->update($validator->validated());
+            $schedule->load('instructor'); 
             
             return response()->json([
                 'status' => 'success',

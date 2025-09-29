@@ -28,7 +28,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
     { id: 'enrollment', icon: GraduationCap, label: 'Enrollment', badge: '5', path: '/enrollment' },
     { id: 'schedule', icon: Calendar, label: 'Add/Drop Subjects', badge: null, path: '/addingdroppingsubjects' },
     { id: 'shiftee', icon: BarChart3, label: 'Shiftee', badge: null, path: '/shiftee' },
-    { id: 'documents', icon: FileText, label: 'Documents', badge: null, path: '/documents' },
+    { id: 'instructors', icon: FileText, label: 'Instructors', badge: null, path: '/instructors' },
     { id: 'notifications', icon: Bell, label: 'Notifications', badge: '12', path: '/notifications' },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
   ];
