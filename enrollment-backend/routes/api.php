@@ -35,6 +35,10 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/logout', [AuthController::class, 'logout']);
+
+     // --- NEW: User Profile & Password Update Routes ---
+     Route::put('/user/profile', [AuthController::class, 'updateProfile']);
+     Route::put('/user/password', [AuthController::class, 'changePassword']);
     
     // Schedule routes
     Route::apiResource('schedules', ScheduleController::class);

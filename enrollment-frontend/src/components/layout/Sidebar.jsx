@@ -12,7 +12,7 @@ import {
   GraduationCap,
   FileText,
   BarChart3,
-  Bell
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -28,8 +28,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
     { id: 'enrollment', icon: GraduationCap, label: 'Enrollment', badge: '5', path: '/enrollment' },
     { id: 'schedule', icon: Calendar, label: 'Add/Drop Subjects', badge: null, path: '/addingdroppingsubjects' },
     { id: 'shiftee', icon: BarChart3, label: 'Shiftee', badge: null, path: '/shiftee' },
-    { id: 'instructors', icon: FileText, label: 'Instructors', badge: null, path: '/instructors' },
-    { id: 'notifications', icon: Bell, label: 'Notifications', badge: '12', path: '/notifications' },
+    { id: 'instructors', icon: User, label: 'Instructors', badge: null, path: '/instructors' },
+    { id: 'grades', icon: FileText, label: 'Grades', badge: '12', path: '/grades' },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
   ];
 

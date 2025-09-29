@@ -124,7 +124,31 @@ export const authAPI = {
   getUserData: () => {
     const userData = localStorage.getItem('user_data');
     return userData ? JSON.parse(userData) : null;
-  }
+  },
+
+   // --- NEW: Update User Profile ---
+   updateProfile: async (profileData) => {
+    try {
+      const response = await api.put('/user/profile', profileData);
+      if (response.data.success) {
+        // Update user data in local storage to keep it fresh
+        localStorage.setItem('user_data', JSON.stringify(response.data.data.user));
+      }
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to update profile' };
+    }
+  },
+
+  // --- NEW: Change User Password ---
+  changePassword: async (passwordData) => {
+    try {
+      const response = await api.put('/user/password', passwordData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to change password' };
+    }
+  },
 };
 
 // Health check

@@ -10,7 +10,7 @@ import Enrollment from './components/pages/Enrollment';
 import AddingDroppingSubjects from './components/pages/AddingDroppingSubjects';
 import Shiftee from './components/pages/Shiftee';
 import Instructors from './components/pages/Instructors';
-import Notifications from './components/pages/Notifications';
+import Grades from './components/pages/Grades';
 import Settings from './components/pages/Settings';
 import LandingPage from './components/auth/LandingPage';
 import LoginPage from './components/auth/LoginPage';
@@ -317,10 +317,10 @@ function App() {
                     }
                   />
                   <Route
-                    path="/notifications"
+                    path="/grades"
                     element={
                       <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                        <Notifications />
+                        <Grades />
                       </motion.div>
                     }
                   />
