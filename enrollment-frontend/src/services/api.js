@@ -149,6 +149,32 @@ export const authAPI = {
       throw error.response?.data || { success: false, message: 'Failed to change password' };
     }
   },
+
+  // --- NEW: Verify Secondary PIN ---
+  verifyPin: async (pinData) => {
+    try {
+      const response = await api.post('/login/verify-pin', pinData);
+      if (response.data.success) {
+        // Store token and user data on final verification
+        localStorage.setItem('auth_token', response.data.data.token);
+        localStorage.setItem('user_data', JSON.stringify(response.data.data.user));
+      }
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'PIN verification failed' };
+    }
+  },
+
+  // --- NEW: Update User PIN ---
+  updatePin: async (pinData) => {
+    try {
+      // Endpoint requires auth, interceptor will add token
+      const response = await api.post('/user/pin', pinData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to update PIN' };
+    }
+  },
 };
 
 // Health check

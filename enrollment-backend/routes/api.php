@@ -30,6 +30,7 @@ use App\Http\Controllers\InstructorController;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+Route::post('/login/verify-pin', [AuthController::class, 'verifyPin']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -39,6 +40,7 @@ Route::middleware('auth:sanctum')->group(function () {
      // --- NEW: User Profile & Password Update Routes ---
      Route::put('/user/profile', [AuthController::class, 'updateProfile']);
      Route::put('/user/password', [AuthController::class, 'changePassword']);
+     Route::post('/user/pin', [AuthController::class, 'updatePin']);
     
     // Schedule routes
     Route::apiResource('schedules', ScheduleController::class);

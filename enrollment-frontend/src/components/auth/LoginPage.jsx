@@ -23,15 +23,23 @@ import { authAPI } from '../../services/api';
 
 import SuccessAlert from '../modals/SuccessAlert'; 
 import ValidationErrorModal from '../modals/ValidationErrorModal'; 
+import OtpModal from '../modals/OtpModal'; // --- NEW: Import the OTP Modal ---
 
 const LoginPage = ({ onLogin, onBack }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const [isLoading, setIsLoading] = useState(false);
   
-  // --- Step 2: Replace the old 'alert' state with state for the new components ---
   const [successAlert, setSuccessAlert] = useState({ isVisible: false, message: '' });
-  const [modalError, setModalError] = useState(''); // Use a string to hold the error message
+  const [modalError, setModalError] = useState('');
+  
+  // --- NEW: State for OTP Modal ---
+  const [otpState, setOtpState] = useState({
+    isOpen: false,
+    isLoading: false,
+    error: '',
+    tempToken: null,
+  });
   
   const [loginForm, setLoginForm] = useState({
     email: '',
@@ -49,38 +57,70 @@ const LoginPage = ({ onLogin, onBack }) => {
     email: ''
   });
 
-  // --- Step 3: Update the handleLogin function to use the new components ---
+  // --- MODIFIED: Updated handleLogin for 2FA ---
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setModalError(''); // Clear previous errors
+    setModalError('');
     
     try {
       const result = await authAPI.login(loginForm);
       if (result.success) {
-        // Show the success alert
-        setSuccessAlert({ isVisible: true, message: 'Login successful! Redirecting...' });
-        setTimeout(() => {
-          onLogin();
-        }, 1500); // Give a little more time for the user to see the alert
+        // Check if 2FA is required
+        if (result.data.requires_2fa) {
+          // Open the OTP modal instead of logging in directly
+          setOtpState({
+            isOpen: true,
+            isLoading: false,
+            error: '',
+            tempToken: result.data.temp_token,
+          });
+          setIsLoading(false); // Stop the main login button spinner
+        } else {
+          // No 2FA needed, proceed with normal login
+          setSuccessAlert({ isVisible: true, message: 'Login successful! Redirecting...' });
+          setTimeout(() => onLogin(), 1500);
+        }
       } else {
-        // This case is for non-exception errors, still show the modal
         setModalError(result.message || 'Login failed');
         setIsLoading(false);
       }
     } catch (error) {
       console.error('Login error:', error);
       let errorMessage = 'Login failed. Please check your credentials.';
-      
       if (error.errors) {
         const firstErrorKey = Object.keys(error.errors)[0];
         errorMessage = error.errors[firstErrorKey][0];
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
       setModalError(errorMessage);
       setIsLoading(false);
+    }
+  };
+
+  // --- NEW: Handler for PIN verification ---
+  const handlePinVerify = async (pin) => {
+    setOtpState({ ...otpState, isLoading: true, error: '' });
+    try {
+      const result = await authAPI.verifyPin({
+        pin: pin,
+        temp_token: otpState.tempToken,
+      });
+
+      if (result.success) {
+        setOtpState({ ...otpState, isOpen: false }); // Close modal on success
+        setSuccessAlert({ isVisible: true, message: 'Login successful! Redirecting...' });
+        setTimeout(() => {
+          onLogin(); // Finalize login
+        }, 1500);
+      }
+    } catch (error) {
+      setOtpState({
+        ...otpState,
+        isLoading: false,
+        error: error.message || 'Verification failed. Please try again.',
+      });
     }
   };
 
@@ -119,7 +159,6 @@ const LoginPage = ({ onLogin, onBack }) => {
     }
   };
   
-  // (No changes needed for handleReset, but you could update it to use the modal too)
   const handleReset = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -172,7 +211,14 @@ const LoginPage = ({ onLogin, onBack }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[var(--snowy-white)] via-[var(--whitish-pink)] to-white flex items-center justify-center p-4">
-      {/* --- Step 4: Render the new components at the top level --- */}
+      {/* --- NEW: Render all modals at the top level --- */}
+      <OtpModal
+        isOpen={otpState.isOpen}
+        onClose={() => setOtpState({ ...otpState, isOpen: false, error: '', isLoading: false })}
+        onSubmit={handlePinVerify}
+        isLoading={otpState.isLoading}
+        error={otpState.error}
+      />
       <SuccessAlert
         isVisible={successAlert.isVisible}
         message={successAlert.message}
@@ -223,12 +269,8 @@ const LoginPage = ({ onLogin, onBack }) => {
           </p>
         </motion.div>
         
-        {/* --- Step 5: Remove the old Alert component --- */}
-        {/* The old AnimatePresence block for the inline alert has been removed from here */}
-
         {/* Main Card */}
         <Card className="card-hover border-0 shadow-2xl">
-          {/* ... The rest of your JSX remains the same ... */}
           <CardContent className="p-0">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3 rounded-t-lg h-12">
