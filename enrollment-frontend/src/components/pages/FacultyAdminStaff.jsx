@@ -173,22 +173,22 @@ const FacultyAdminStaff = () => {
                       <div className="flex items-center justify-end">
                         {item.is_featured && <Star className="w-5 h-5 text-yellow-500 fill-current absolute top-4 left-4" />}
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="liquid-button h-8 w-8 p-0"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                          <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="liquid-button h-8 w-8 p-0 cursor-pointer"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             {/* ADDED Edit button logic */}
-                            <DropdownMenuItem onSelect={() => { setSelectedItem(item); activeTab === 'instructors' ? setIsInstructorModalOpen(true) : setIsStaffModalOpen(true); }}>
-                                <Edit className="mr-2 h-4 w-4" />Edit
+                            <DropdownMenuItem onSelect={() => { setSelectedItem(item); activeTab === 'instructors' ? setIsInstructorModalOpen(true) : setIsStaffModalOpen(true); }} className="cursor-pointer">
+                                <Edit className="mr-2 h-4 w-4 hover:text-white" />Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => { setSelectedItem(item); setIsDeleteModalOpen(true); }} className="text-red-600">
-                                <Trash2 className="mr-2 h-4 w-4" />Delete
+                            <DropdownMenuItem onSelect={() => { setSelectedItem(item); setIsDeleteModalOpen(true); }} className="text-red-600 cursor-pointer">
+                                <Trash2 className="mr-2 h-4 w-4 hover:text-white" />Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
                       
-                      <Avatar className="w-24 h-24 mx-auto mb-4 border-4 border-white shadow-lg">
+                      <Avatar className="w-24 h-24 mx-auto mb-4 border-4 border-red shadow-lg">
                         <AvatarImage src={item.avatar_url} alt={item.name} />
-                        <AvatarFallback className="text-2xl bg-gray-200">{item.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                        <AvatarFallback className="text-2xl text-white bg-red-800">{item.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                       </Avatar>
 
                       <h3 className="font-bold text-lg text-gray-900">{item.name}</h3>

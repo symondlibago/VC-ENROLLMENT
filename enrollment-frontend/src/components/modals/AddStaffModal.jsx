@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
+import ValidationErrorModal from './ValidationErrorModal'; // Import the new modal
 
 const AddStaffModal = ({ isOpen, onClose, onSave, staff = null }) => {
   const isEditMode = Boolean(staff);
@@ -22,6 +23,7 @@ const AddStaffModal = ({ isOpen, onClose, onSave, staff = null }) => {
     secondary_pin: '', secondary_pin_confirmation: '',
   });
   const [loading, setLoading] = useState(false);
+  const [validationError, setValidationError] = useState(null); // State for validation modal
 
   useEffect(() => {
     if (isOpen) {
@@ -59,9 +61,15 @@ const AddStaffModal = ({ isOpen, onClose, onSave, staff = null }) => {
       toast.success(`Staff ${isEditMode ? 'updated' : 'added'} successfully!`);
       onClose();
     } catch (error) {
+      // Check for validation errors from the API
+      if (error.errors) {
+        const messages = Object.values(error.errors).flat().join('\n');
+        setValidationError(messages);
+      } else {
+        const errorMessage = `Failed to ${isEditMode ? 'update' : 'add'} staff`;
+        toast.error(errorMessage);
+      }
       console.error('Failed to save staff:', error);
-      const errorMessage = error.errors ? Object.values(error.errors).flat().join(', ') : `Failed to ${isEditMode ? 'update' : 'add'} staff`;
-      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -70,7 +78,6 @@ const AddStaffModal = ({ isOpen, onClose, onSave, staff = null }) => {
   return (
     <AnimatePresence>
       {isOpen && (
-        // --- FIX: The wrapping div for overlay and centering was missing ---
         <motion.div 
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" 
           initial={{ opacity: 0 }} 
@@ -78,6 +85,13 @@ const AddStaffModal = ({ isOpen, onClose, onSave, staff = null }) => {
           exit={{ opacity: 0 }} 
           onClick={onClose}
         >
+          {/* Validation Error Modal is rendered here */}
+          <ValidationErrorModal 
+            isOpen={!!validationError} 
+            onClose={() => setValidationError(null)} 
+            message={validationError} 
+          />
+
           <motion.div
             className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden"
             initial={{ scale: 0.9, y: 20 }} 
@@ -98,12 +112,13 @@ const AddStaffModal = ({ isOpen, onClose, onSave, staff = null }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Full Name <span className="text-red-500">*</span></Label>
-                    <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
+                    <Input id="name" name="name" value={formData.name} onChange={handleChange} required className="border border-gray-300" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="role">Role <span className="text-red-500">*</span></Label>
+                    {/* The `value` prop ensures the role is displayed on edit */}
                     <Select onValueChange={handleSelectChange} value={formData.role} required>
-                      <SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger>
+                      <SelectTrigger className="border border-gray-300"><SelectValue placeholder="Select a role" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Program Head">Program Head</SelectItem>
                         <SelectItem value="Cashier">Cashier</SelectItem>
@@ -115,7 +130,7 @@ const AddStaffModal = ({ isOpen, onClose, onSave, staff = null }) => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address <span className="text-red-500">*</span></Label>
-                  <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} required />
+                  <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} required className="border border-gray-300" />
                 </div>
                 
                 {!isEditMode && (
@@ -124,15 +139,15 @@ const AddStaffModal = ({ isOpen, onClose, onSave, staff = null }) => {
                       <Label className="flex items-center text-gray-600"><KeyRound className="w-4 h-4 mr-2" /> Set Account Password</Label>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2"><Label htmlFor="password">Password <span className="text-red-500">*</span></Label><Input id="password" name="password" type="password" value={formData.password} onChange={handleChange} required /></div>
-                      <div className="space-y-2"><Label htmlFor="password_confirmation">Confirm Password <span className="text-red-500">*</span></Label><Input id="password_confirmation" name="password_confirmation" type="password" value={formData.password_confirmation} onChange={handleChange} required /></div>
+                      <div className="space-y-2"><Label htmlFor="password">Password <span className="text-red-500">*</span></Label><Input id="password" name="password" type="password" value={formData.password} onChange={handleChange} required className="border border-gray-300" /></div>
+                      <div className="space-y-2"><Label htmlFor="password_confirmation">Confirm Password <span className="text-red-500">*</span></Label><Input id="password_confirmation" name="password_confirmation" type="password" value={formData.password_confirmation} onChange={handleChange} required className="border border-gray-300" /></div>
                     </div>
                     <div className="border-t pt-4 mt-2">
                       <Label className="flex items-center text-gray-600"><Shield className="w-4 h-4 mr-2" /> Set 6-Digit Security PIN (Optional)</Label>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2"><Label htmlFor="secondary_pin">New PIN</Label><Input id="secondary_pin" name="secondary_pin" type="password" maxLength="6" value={formData.secondary_pin} onChange={handleChange} /></div>
-                      <div className="space-y-2"><Label htmlFor="secondary_pin_confirmation">Confirm PIN</Label><Input id="secondary_pin_confirmation" name="secondary_pin_confirmation" type="password" maxLength="6" value={formData.secondary_pin_confirmation} onChange={handleChange} /></div>
+                      <div className="space-y-2"><Label htmlFor="secondary_pin">New PIN</Label><Input id="secondary_pin" name="secondary_pin" type="password" maxLength="6" value={formData.secondary_pin} onChange={handleChange} className="border border-gray-300" /></div>
+                      <div className="space-y-2"><Label htmlFor="secondary_pin_confirmation">Confirm PIN</Label><Input id="secondary_pin_confirmation" name="secondary_pin_confirmation" type="password" maxLength="6" value={formData.secondary_pin_confirmation} onChange={handleChange} className="border border-gray-300" /></div>
                     </div>
                   </>
                 )}
