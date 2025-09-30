@@ -9,7 +9,7 @@ import Courses from './components/pages/Courses';
 import Enrollment from './components/pages/Enrollment';
 import AddingDroppingSubjects from './components/pages/AddingDroppingSubjects';
 import Shiftee from './components/pages/Shiftee';
-import Instructors from './components/pages/Instructors';
+import FacultyAdminStaff from './components/pages/FacultyAdminStaff';
 import Grades from './components/pages/Grades';
 import Settings from './components/pages/Settings';
 import LandingPage from './components/auth/LandingPage';
@@ -309,10 +309,10 @@ function App() {
                     }
                   />
                   <Route
-                    path="/instructors"
+                    path="/facultyadminstaff"
                     element={
                       <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                        <Instructors />
+                        <FacultyAdminStaff />
                       </motion.div>
                     }
                   />

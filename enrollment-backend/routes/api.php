@@ -14,6 +14,7 @@ use App\Http\Controllers\UploadReceiptController;
 use App\Http\Controllers\SubjectChangeRequestController;
 use App\Http\Controllers\ShifteeRequestController;
 use App\Http\Controllers\InstructorController;
+use App\Http\Controllers\UserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -83,6 +84,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Instructor routes (NEW)
     Route::apiResource('instructors', InstructorController::class);
+
+    // User routes
+    Route::apiResource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
 
 });
     // Program routes

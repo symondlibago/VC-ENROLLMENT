@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Check, Loader2 } from 'lucide-react';
+import { X, User, Check, Loader2, KeyRound } from 'lucide-react'; // Import KeyRound icon
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,19 +16,24 @@ import { toast } from 'sonner';
 
 const AddInstructorModal = ({ isOpen, onClose, onSave, instructor }) => {
   const isEditMode = Boolean(instructor);
-  const [formData, setFormData] = useState({
+  
+  const getInitialFormData = () => ({
     name: '',
     title: '',
     email: '',
     department: '',
     status: 'Active',
     is_featured: false,
+    password: '',
+    password_confirmation: '',
   });
+
+  const [formData, setFormData] = useState(getInitialFormData());
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      if (isEditMode) {
+      if (isEditMode && instructor) {
         setFormData({
           name: instructor.name || '',
           title: instructor.title || '',
@@ -36,11 +41,11 @@ const AddInstructorModal = ({ isOpen, onClose, onSave, instructor }) => {
           department: instructor.department || '',
           status: instructor.status || 'Active',
           is_featured: instructor.is_featured || false,
+          password: '',
+          password_confirmation: '',
         });
       } else {
-        setFormData({
-          name: '', title: '', email: '', department: '', status: 'Active', is_featured: false,
-        });
+        setFormData(getInitialFormData());
       }
     }
   }, [instructor, isEditMode, isOpen]);
@@ -62,7 +67,14 @@ const AddInstructorModal = ({ isOpen, onClose, onSave, instructor }) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await onSave(formData, instructor?.id);
+      // Create a payload without password fields if in edit mode
+      const payload = { ...formData };
+      if (isEditMode) {
+        delete payload.password;
+        delete payload.password_confirmation;
+      }
+
+      await onSave(payload, instructor?.id);
       toast.success(`Instructor ${isEditMode ? 'updated' : 'added'} successfully!`);
       onClose();
     } catch (error) {
@@ -111,10 +123,34 @@ const AddInstructorModal = ({ isOpen, onClose, onSave, instructor }) => {
                   <Label htmlFor="email">Email Address <span className="text-red-500">*</span></Label>
                   <Input id="email" name="email" type="email" placeholder="e.g., j.doe@university.edu" value={formData.email} onChange={handleChange} required />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {/* --- PASSWORD FIELDS: Only show in Add Mode --- */}
+                {!isEditMode && (
+                  <>
+                    <div className="border-t pt-4 mt-2">
+                      <Label className="flex items-center text-gray-600">
+                        <KeyRound className="w-4 h-4 mr-2" />
+                        Set Account Password
+                      </Label>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                       <div className="space-y-2">
+                        <Label htmlFor="password">Password <span className="text-red-500">*</span></Label>
+                        <Input id="password" name="password" type="password" value={formData.password} onChange={handleChange} required={!isEditMode} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="password_confirmation">Confirm Password <span className="text-red-500">*</span></Label>
+                        <Input id="password_confirmation" name="password_confirmation" type="password" value={formData.password_confirmation} onChange={handleChange} required={!isEditMode}/>
+                      </div>
+                    </div>
+                  </>
+                )}
+                 {/* --- END PASSWORD FIELDS --- */}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                   <div className="space-y-2">
                     <Label htmlFor="department">Department <span className="text-red-500">*</span></Label>
-                    <Select onValueChange={(value) => handleSelectChange('department', value)} value={formData.department}>
+                    <Select onValueChange={(value) => handleSelectChange('department', value)} value={formData.department} required>
                       <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="engineering">Engineering</SelectItem>
@@ -127,7 +163,7 @@ const AddInstructorModal = ({ isOpen, onClose, onSave, instructor }) => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="status">Status <span className="text-red-500">*</span></Label>
-                    <Select onValueChange={(value) => handleSelectChange('status', value)} value={formData.status}>
+                    <Select onValueChange={(value) => handleSelectChange('status', value)} value={formData.status} required>
                       <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Active">Active</SelectItem>

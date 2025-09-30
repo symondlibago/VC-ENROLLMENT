@@ -10,6 +10,7 @@ class Instructor extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'name',
         'title',
         'department',
@@ -25,5 +26,9 @@ class Instructor extends Model
     public function schedules()
     {
         return $this->hasMany(Schedule::class);
+    }
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }
