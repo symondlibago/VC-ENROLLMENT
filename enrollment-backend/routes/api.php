@@ -109,4 +109,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Upload Receipts
     Route::post('upload-receipts', [UploadReceiptController::class, 'store']);
     Route::get('upload-receipts/search-students', [UploadReceiptController::class, 'searchStudents']);
+
+    // Reset Password
+    Route::post('/forgot-password', [AuthController::class, 'sendPasswordResetOtp']);
+    Route::post('/reset-password-with-otp', [AuthController::class, 'resetPasswordWithOtp']);
     

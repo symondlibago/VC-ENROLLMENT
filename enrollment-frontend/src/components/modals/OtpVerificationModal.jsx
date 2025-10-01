@@ -14,9 +14,7 @@ const OtpVerificationModal = ({ isOpen, onClose, onSubmit }) => {
     setLoading(true);
     try {
       await onSubmit(otp);
-      // On success, the parent will close the modal.
     } catch (error) {
-      // Parent component will handle showing the error.
     } finally {
       setLoading(false);
     }

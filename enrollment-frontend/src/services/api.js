@@ -81,12 +81,21 @@ export const authAPI = {
   },
 
   // Reset password
-  resetPassword: async (email) => {
+  sendPasswordResetOtp: async (email) => {
     try {
-      const response = await api.post('/reset-password', { email });
+      const response = await api.post('/forgot-password', { email });
       return response.data;
     } catch (error) {
-      throw error.response?.data || { success: false, message: 'Reset password failed' };
+      throw error.response?.data || { success: false, message: 'Failed to send OTP' };
+    }
+  },
+
+  resetPasswordWithOtp: async (data) => {
+    try {
+      const response = await api.post('/reset-password-with-otp', data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to reset password' };
     }
   },
 
