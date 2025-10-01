@@ -42,7 +42,8 @@ const OtpVerificationModal = ({ isOpen, onClose, onSubmit }) => {
             </div>
             <form onSubmit={handleSubmit}>
               <div className="p-6 space-y-4">
-                <p className="text-gray-600 text-sm">A 6-digit OTP has been sent to your new email address. Please enter it below.</p>
+                {/* --- CORRECTED MESSAGE --- */}
+                <p className="text-gray-600 text-sm">For your security, a 6-digit OTP has been sent to your current email address. Please check your inbox and enter the code below to confirm the change.</p>
                 <div className="space-y-2">
                   <Label htmlFor="otp">One-Time Password (OTP)</Label>
                   <Input 

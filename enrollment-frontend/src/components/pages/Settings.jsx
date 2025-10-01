@@ -53,22 +53,19 @@ const Settings = () => {
     try {
       const result = await authAPI.updateProfile(profileForm);
       
-      // CORRECTED LOGIC: Check if the API is asking for an OTP
       if (result.otp_required) {
-        toast.info('Verification code sent to your new email address.');
-        setIsOtpModalOpen(true); // This will now correctly open the OTP modal
+        // --- CORRECTED MESSAGE ---
+        toast.info('A verification code has been sent to your current email address.');
+        setIsOtpModalOpen(true); 
       } else {
-        // This handles the case where only the name was updated
         setSuccessAlert({ isVisible: true, message: result.message || 'Profile updated successfully!' });
         const updatedUser = authAPI.getUserData();
         setCurrentUser(updatedUser);
       }
       
-      // Clear the verification fields after the API call
       setProfileForm(prev => ({ ...prev, current_password: '', secondary_pin: '' }));
 
     } catch (error) {
-      // This will now only catch REAL errors
       setModalError(error.message || 'Profile update failed.');
     } finally {
       setIsSaving(false);

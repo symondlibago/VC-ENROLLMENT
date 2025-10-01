@@ -15,12 +15,12 @@ class AdminUserSeeder extends Seeder
     public function run(): void
     {
         // Existing admin user
-        $adminUser = User::where('email', 'admin@example.com')->first();
+        $adminUser = User::where('email', 'libago.symond1@gmail.com')->first();
         
         if (!$adminUser) {
             User::create([
                 'name' => 'Admin User',
-                'email' => 'admin@example.com',
+                'email' => 'libago.symond1@gmail.com',
                 'password' => Hash::make('password'),
                 'role' => 'Admin'
             ]);

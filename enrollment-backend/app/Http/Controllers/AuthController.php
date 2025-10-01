@@ -265,16 +265,17 @@ class AuthController extends Controller
 
         if ($request->email !== $user->email) {
             $otp = random_int(100000, 999999);
-            Mail::to($request->email)->send(new EmailUpdateOtpMail($otp));
             
-            // --- NEW: Added a try-catch block to find the error ---
+            // --- CORRECTED LOGIC ---
+            // Send the OTP to the user's CURRENT email for verification.
+            Mail::to($user->email)->send(new EmailUpdateOtpMail($otp));
+            
             try {
                 Cache::put('email_update_for_user_' . $user->id, [
                     'otp' => $otp,
-                    'new_email' => $request->email
+                    'new_email' => $request->email // Still cache the NEW email
                 ], now()->addMinutes(10));
             } catch (\Exception $e) {
-                // If caching fails, return a specific error message.
                 return response()->json([
                     'success' => false,
                     'message' => 'Server error after sending email. Please check cache permissions. Details: ' . $e->getMessage()
@@ -287,7 +288,8 @@ class AuthController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'OTP sent to new email for verification.',
+                // --- CORRECTED MESSAGE ---
+                'message' => 'OTP sent to your current email for verification.',
                 'otp_required' => true
             ]);
         }
@@ -296,6 +298,8 @@ class AuthController extends Controller
 
         return response()->json(['success' => true, 'message' => 'Profile updated successfully!', 'data' => ['user' => $user]]);
     }
+
+
 
     /**
      * NEW: Verify the OTP and finalize the email change
