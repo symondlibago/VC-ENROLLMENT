@@ -32,8 +32,15 @@ const LoginPage = ({ onLogin, onBack }) => {
   const handleFormChange = (setter, form) => (e) => {
     setter({ ...form, [e.target.name]: e.target.value });
   };
+
+  // --- NEW: Centralized function to handle a successful login from any flow ---
+  const handleSuccessfulLogin = () => {
+    setLoginOtpState({ isOpen: false, tempToken: null, isLoading: false, error: '' }); // Close modal just in case
+    setSuccessAlert({ isVisible: true, message: 'Login successful! Redirecting...' });
+    setTimeout(() => onLogin(), 1500);
+  };
   
-  // --- CORRECTED FUNCTION ---
+  // --- MODIFIED: Uses the new success handler ---
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -43,32 +50,27 @@ const LoginPage = ({ onLogin, onBack }) => {
       if (result.data.requires_2fa) {
         setLoginOtpState({ isOpen: true, error: '', isLoading: false, tempToken: result.data.temp_token });
       } else {
-        setSuccessAlert({ isVisible: true, message: 'Login successful! Redirecting...' });
-        setTimeout(() => onLogin(), 1500);
+        handleSuccessfulLogin();
       }
     } catch (error) {
       setModalError(error.message || 'Login failed.');
     } finally {
       // This guarantees the loading state is reset unless a 2FA modal is open
-      if (!loginOtpState.isOpen) {
-        setIsLoading(false);
-      }
+       setIsLoading(false);
     }
   };
 
+  // --- MODIFIED: Uses the new success handler ---
   const handlePinVerify = async (pin) => {
     setLoginOtpState(prev => ({ ...prev, isLoading: true, error: '' }));
     try {
       await authAPI.verifyPin({ pin: pin, temp_token: loginOtpState.tempToken });
-      setLoginOtpState({ isOpen: false, tempToken: null, isLoading: false, error: '' });
-      setSuccessAlert({ isVisible: true, message: 'Login successful! Redirecting...' });
-      setTimeout(() => onLogin(), 1500);
+      handleSuccessfulLogin();
     } catch (error) {
       setLoginOtpState(prev => ({ ...prev, isLoading: false, error: error.message || 'Verification failed.' }));
     }
   };
 
-  // --- CORRECTED FUNCTION ---
   const handleRegister = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -79,7 +81,8 @@ const LoginPage = ({ onLogin, onBack }) => {
       setTimeout(() => onLogin(), 1500);
     } catch (error) {
       setModalError(error.message || 'Registration failed.');
-      setIsLoading(false); // Also reset loading on error
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -120,7 +123,15 @@ const LoginPage = ({ onLogin, onBack }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <OtpModal isOpen={loginOtpState.isOpen} onClose={() => setLoginOtpState({ ...loginOtpState, isOpen: false, isLoading: false })} onSubmit={handlePinVerify} isLoading={loginOtpState.isLoading} error={loginOtpState.error} />
+      {/* --- MODIFIED: Pass the new onLoginSuccess prop to the modal --- */}
+      <OtpModal 
+        isOpen={loginOtpState.isOpen} 
+        onClose={() => setLoginOtpState({ ...loginOtpState, isOpen: false, isLoading: false })} 
+        onSubmit={handlePinVerify} 
+        isLoading={loginOtpState.isLoading} 
+        error={loginOtpState.error}
+        onLoginSuccess={handleSuccessfulLogin}
+      />
       <SuccessAlert isVisible={successAlert.isVisible} message={successAlert.message} onClose={() => setSuccessAlert({ isVisible: false })} />
       <ValidationErrorModal isOpen={!!modalError} message={modalError} onClose={() => setModalError('')} />
       
@@ -148,46 +159,75 @@ const LoginPage = ({ onLogin, onBack }) => {
               </TabsList>
 
               <TabsContent value="login" className="p-6">
-  <motion.form key="login" variants={formVariants} initial="hidden" animate="visible" exit="exit" onSubmit={handleLogin} className="space-y-6">
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="login-email">Email Address</Label>
-        <div className="relative">
-          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-          {/* FIX: Add the name="email" attribute here */}
-          <Input id="login-email" name="email" type="email" placeholder="Enter your email" value={loginForm.email} onChange={handleFormChange(setLoginForm, loginForm)} className="pl-10" required disabled={isLoading} />
-        </div>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="login-password">Password</Label>
-        <div className="relative">
-          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-          {/* FIX: Add the name="password" attribute here */}
-          <Input id="login-password" name="password" type={showPassword ? "text" : "password"} placeholder="Enter your password" value={loginForm.password} onChange={handleFormChange(setLoginForm, loginForm)} className="pl-10 pr-10" required disabled={isLoading} />
-          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" disabled={isLoading}>
-            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-          </button>
-        </div>
-      </div>
-    </div>
-    <Button type="submit" className="w-full gradient-primary text-white group" disabled={isLoading}>
-      {isLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <>Sign In <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" /></>}
-    </Button>
-    <div className="relative">
-      <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-300" /></div>
-      <div className="relative flex justify-center text-sm"><span className="px-2 bg-white text-gray-500">Or continue with</span></div>
-    </div>
-    <div className="grid grid-cols-2 gap-3">
-      <Button variant="outline" disabled={isLoading}><Github className="w-4 h-4 mr-2" />GitHub</Button>
-      <Button variant="outline" disabled={isLoading}><Chrome className="w-4 h-4 mr-2" />Google</Button>
-    </div>
-  </motion.form>
-</TabsContent>
+                <motion.form key="login" variants={formVariants} initial="hidden" animate="visible" exit="exit" onSubmit={handleLogin} className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="login-email">Email Address</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <Input id="login-email" name="email" type="email" placeholder="Enter your email" value={loginForm.email} onChange={handleFormChange(setLoginForm, loginForm)} className="pl-10" required disabled={isLoading} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="login-password">Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <Input id="login-password" name="password" type={showPassword ? "text" : "password"} placeholder="Enter your password" value={loginForm.password} onChange={handleFormChange(setLoginForm, loginForm)} className="pl-10 pr-10" required disabled={isLoading} />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" disabled={isLoading}>
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full gradient-primary text-white group" disabled={isLoading}>
+                    {isLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <>Sign In <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" /></>}
+                  </Button>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-300" /></div>
+                    <div className="relative flex justify-center text-sm"><span className="px-2 bg-white text-gray-500">Or continue with</span></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button variant="outline" disabled={isLoading}><Github className="w-4 h-4 mr-2" />GitHub</Button>
+                    <Button variant="outline" disabled={isLoading}><Chrome className="w-4 h-4 mr-2" />Google</Button>
+                  </div>
+                </motion.form>
+              </TabsContent>
 
               <TabsContent value="register" className="p-6">
                 <motion.form key="register" variants={formVariants} initial="hidden" animate="visible" exit="exit" onSubmit={handleRegister} className="space-y-6">
-                  <div className="space-y-4"><div className="space-y-2"><Label htmlFor="register-name">Full Name</Label><div className="relative"><User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" /><Input id="register-name" name="name" type="text" placeholder="Enter your full name" value={registerForm.name} onChange={handleFormChange(setRegisterForm, registerForm)} className="pl-10" required disabled={isLoading} /></div></div><div className="space-y-2"><Label htmlFor="register-email">Email Address</Label><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" /><Input id="register-email" name="email" type="email" placeholder="Enter your email" value={registerForm.email} onChange={handleFormChange(setRegisterForm, registerForm)} className="pl-10" required disabled={isLoading} /></div></div><div className="space-y-2"><Label htmlFor="register-password">Password</Label><div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" /><Input id="register-password" name="password" type="password" placeholder="Create a password" value={registerForm.password} onChange={handleFormChange(setRegisterForm, registerForm)} className="pl-10" required disabled={isLoading} /></div></div><div className="space-y-2"><Label htmlFor="register-confirm">Confirm Password</Label><div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" /><Input id="register-confirm" name="password_confirmation" type="password" placeholder="Confirm your password" value={registerForm.password_confirmation} onChange={handleFormChange(setRegisterForm, registerForm)} className="pl-10" required disabled={isLoading} /></div></div></div>
-                  <Button type="submit" className="w-full gradient-primary text-white group" disabled={isLoading}>{isLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <>Create Account <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" /></>}</Button>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="register-name">Full Name</Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <Input id="register-name" name="name" type="text" placeholder="Enter your full name" value={registerForm.name} onChange={handleFormChange(setRegisterForm, registerForm)} className="pl-10" required disabled={isLoading} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="register-email">Email Address</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <Input id="register-email" name="email" type="email" placeholder="Enter your email" value={registerForm.email} onChange={handleFormChange(setRegisterForm, registerForm)} className="pl-10" required disabled={isLoading} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="register-password">Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <Input id="register-password" name="password" type="password" placeholder="Create a password" value={registerForm.password} onChange={handleFormChange(setRegisterForm, registerForm)} className="pl-10" required disabled={isLoading} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="register-confirm">Confirm Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <Input id="register-confirm" name="password_confirmation" type="password" placeholder="Confirm your password" value={registerForm.password_confirmation} onChange={handleFormChange(setRegisterForm, registerForm)} className="pl-10" required disabled={isLoading} />
+                      </div>
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full gradient-primary text-white group" disabled={isLoading}>
+                    {isLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <>Create Account <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" /></>}
+                  </Button>
                 </motion.form>
               </TabsContent>
 
@@ -195,17 +235,47 @@ const LoginPage = ({ onLogin, onBack }) => {
                 <AnimatePresence mode="wait">
                   {resetStep === 1 ? (
                     <motion.form key="reset-step1" variants={formVariants} initial="hidden" animate="visible" exit="exit" onSubmit={handleResetRequest} className="space-y-6">
-                      <div className="text-center"><p className="text-sm text-gray-600">Enter your email address and we'll send you a code to reset your password.</p></div>
-                      <div className="space-y-2"><Label htmlFor="reset-email">Email Address</Label><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" /><Input id="reset-email" name="email" type="email" placeholder="Enter your email" value={resetForm.email} onChange={handleFormChange(setResetForm, resetForm)} className="pl-10" required disabled={isLoading} /></div></div>
-                      <Button type="submit" className="w-full gradient-primary text-white group" disabled={isLoading}>{isLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <>Send Code <ArrowRight className="ml-2 w-4 h-4" /></>}</Button>
+                      <div className="text-center">
+                        <p className="text-sm text-gray-600">Enter your email address and we'll send you a code to reset your password.</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="reset-email">Email Address</Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                          <Input id="reset-email" name="email" type="email" placeholder="Enter your email" value={resetForm.email} onChange={handleFormChange(setResetForm, resetForm)} className="pl-10" required disabled={isLoading} />
+                        </div>
+                      </div>
+                      <Button type="submit" className="w-full gradient-primary text-white group" disabled={isLoading}>
+                        {isLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <>Send Code <ArrowRight className="ml-2 w-4 h-4" /></>}
+                      </Button>
                     </motion.form>
                   ) : (
                     <motion.form key="reset-step2" variants={formVariants} initial="hidden" animate="visible" exit="exit" onSubmit={handleResetSubmit} className="space-y-6">
                       <p className="text-sm text-gray-600 text-center">An OTP was sent to **{resetForm.email}**. Enter it below to set a new password.</p>
-                      <div className="space-y-2"><Label htmlFor="otp">6-Digit OTP</Label><div className="relative"><KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" /><Input id="otp" name="otp" value={resetForm.otp} onChange={handleFormChange(setResetForm, resetForm)} className="pl-10" required disabled={isLoading} /></div></div>
-                      <div className="space-y-2"><Label htmlFor="password">New Password</Label><div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" /><Input id="password" name="password" type="password" value={resetForm.password} onChange={handleFormChange(setResetForm, resetForm)} className="pl-10" required disabled={isLoading} /></div></div>
-                      <div className="space-y-2"><Label htmlFor="password_confirmation">Confirm New Password</Label><div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" /><Input id="password_confirmation" name="password_confirmation" type="password" value={resetForm.password_confirmation} onChange={handleFormChange(setResetForm, resetForm)} className="pl-10" required disabled={isLoading} /></div></div>
-                      <Button type="submit" className="w-full gradient-primary text-white group" disabled={isLoading}>{isLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <>Reset Password <Check className="ml-2 w-4 h-4" /></>}</Button>
+                      <div className="space-y-2">
+                        <Label htmlFor="otp">6-Digit OTP</Label>
+                        <div className="relative">
+                          <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                          <Input id="otp" name="otp" value={resetForm.otp} onChange={handleFormChange(setResetForm, resetForm)} className="pl-10" required disabled={isLoading} />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="password">New Password</Label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                          <Input id="password" name="password" type="password" value={resetForm.password} onChange={handleFormChange(setResetForm, resetForm)} className="pl-10" required disabled={isLoading} />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="password_confirmation">Confirm New Password</Label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                          <Input id="password_confirmation" name="password_confirmation" type="password" value={resetForm.password_confirmation} onChange={handleFormChange(setResetForm, resetForm)} className="pl-10" required disabled={isLoading} />
+                        </div>
+                      </div>
+                      <Button type="submit" className="w-full gradient-primary text-white group" disabled={isLoading}>
+                        {isLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <>Reset Password <Check className="ml-2 w-4 h-4" /></>}
+                      </Button>
                     </motion.form>
                   )}
                 </AnimatePresence>
@@ -214,7 +284,13 @@ const LoginPage = ({ onLogin, onBack }) => {
           </CardContent>
         </Card>
 
-        <div className="text-center mt-8 text-sm text-gray-500"><p>© 2024 EduEnroll. All rights reserved.</p><div className="flex justify-center space-x-4 mt-2"><a href="#" className="hover:text-[var(--dominant-red)]">Privacy Policy</a><a href="#" className="hover:text-[var(--dominant-red)]">Terms of Service</a></div></div>
+        <div className="text-center mt-8 text-sm text-gray-500">
+          <p>© 2024 EduEnroll. All rights reserved.</p>
+          <div className="flex justify-center space-x-4 mt-2">
+            <a href="#" className="hover:text-[var(--dominant-red)]">Privacy Policy</a>
+            <a href="#" className="hover:text-[var(--dominant-red)]">Terms of Service</a>
+          </div>
+        </div>
       </motion.div>
     </div>
   );

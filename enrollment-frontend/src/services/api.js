@@ -35,11 +35,16 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response?.status === 401 && error.config.url !== '/login') {
+    if (
+      error.response?.status === 401 &&
+      url !== '/login' &&
+      url !== '/login/verify-pin'
+    ) {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_data');
       window.location.reload();
     }
+
     return Promise.reject(error);
   }
 );
@@ -51,8 +56,7 @@ export const authAPI = {
   login: async (credentials) => {
     try {
       const response = await api.post('/login', credentials);
-      if (response.data.success) {
-        // Store token and user data
+      if (response.data.success && response.data.data && response.data.data.user) {
         localStorage.setItem('auth_token', response.data.data.token);
         localStorage.setItem('user_data', JSON.stringify(response.data.data.user));
       }
@@ -69,8 +73,8 @@ export const authAPI = {
         ...userData,
         password_confirmation: userData.confirmPassword
       });
-      if (response.data.success) {
-        // Store token and user data
+      // ✅ FIX: Check that the user object exists before setting it
+      if (response.data.success && response.data.data && response.data.data.user) {
         localStorage.setItem('auth_token', response.data.data.token);
         localStorage.setItem('user_data', JSON.stringify(response.data.data.user));
       }
@@ -116,7 +120,7 @@ export const authAPI = {
   verifyEmailChange: async (otpData) => {
     try {
       const response = await api.post('/user/profile/verify-email-change', otpData);
-      if (response.data.success) {
+      if (response.data.success && response.data.data && response.data.data.user) {
         localStorage.setItem('user_data', JSON.stringify(response.data.data.user));
       }
       return response.data;
@@ -124,6 +128,7 @@ export const authAPI = {
       throw error.response?.data || { success: false, message: 'Failed to verify OTP' };
     }
   },
+
 
   // Get current user
   getUser: async () => {
@@ -145,7 +150,17 @@ export const authAPI = {
   // Get stored user data
   getUserData: () => {
     const userData = localStorage.getItem('user_data');
-    return userData ? JSON.parse(userData) : null;
+    if (!userData) {
+      return null;
+    }
+    try {
+      return JSON.parse(userData);
+    } catch (error) {
+      console.error("Error parsing user data from localStorage:", error);
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_data');
+      return null;
+    }
   },
 
    // --- NEW: Update User Profile ---
@@ -176,8 +191,7 @@ export const authAPI = {
   verifyPin: async (pinData) => {
     try {
       const response = await api.post('/login/verify-pin', pinData);
-      if (response.data.success) {
-        // Store token and user data on final verification
+      if (response.data.success && response.data.data && response.data.data.user) {
         localStorage.setItem('auth_token', response.data.data.token);
         localStorage.setItem('user_data', JSON.stringify(response.data.data.user));
       }
@@ -195,6 +209,37 @@ export const authAPI = {
       return response.data;
     } catch (error) {
       throw error.response?.data || { success: false, message: 'Failed to update PIN' };
+    }
+  },
+
+  sendPinResetOtp: async (email) => {
+    try {
+      const response = await api.post('/forgot-pin/send-otp', { email });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to send OTP.' };
+    }
+  },
+
+  verifyPinResetOtp: async (email, otp) => {
+    try {
+      const response = await api.post('/forgot-pin/verify-otp', { email, otp });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'OTP verification failed.' };
+    }
+  },
+
+  resetPinWithToken: async (data) => {
+    try {
+      const response = await api.post('/forgot-pin/reset-pin', data);
+      if (response.data.success && response.data.data && response.data.data.user) {
+        localStorage.setItem('auth_token', response.data.data.token);
+        localStorage.setItem('user_data', JSON.stringify(response.data.data.user));
+      }
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to reset PIN.' };
     }
   },
 };

@@ -113,4 +113,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Reset Password
     Route::post('/forgot-password', [AuthController::class, 'sendPasswordResetOtp']);
     Route::post('/reset-password-with-otp', [AuthController::class, 'resetPasswordWithOtp']);
+
+    // Reset PIN
+    Route::post('/forgot-pin/send-otp', [AuthController::class, 'sendPinResetOtp']);
+    Route::post('/forgot-pin/verify-otp', [AuthController::class, 'verifyPinResetOtp']);
+    Route::post('/forgot-pin/reset-pin', [AuthController::class, 'resetPinWithToken']);
     

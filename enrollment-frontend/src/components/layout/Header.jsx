@@ -1,3 +1,5 @@
+// src/components/layout/Header.jsx
+
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
@@ -28,16 +30,16 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
   const [searchFocused, setSearchFocused] = useState(false);
   const location = useLocation();
 
-  // Page titles mapping
+  // ... (Page titles, headerVariants, searchVariants, titleVariants remain the same) ...
   const pageTitles = {
     '/dashboard': { title: 'Dashboard', subtitle: 'Welcome back, Admin' },
     '/students': { title: 'Students', subtitle: 'Manage student information' },
     '/courses': { title: 'Courses', subtitle: 'Educational programs and curricula' },
     '/enrollment': { title: 'Enrollment', subtitle: 'Student registrations and applications' },
-    '/schedule': { title: 'Schedule', subtitle: 'Class timetables and calendar' },
-    '/reports': { title: 'Reports', subtitle: 'Analytics and performance insights' },
-    '/documents': { title: 'Documents', subtitle: 'File management and storage' },
-    '/notifications': { title: 'Notifications', subtitle: 'System alerts and messages' },
+    '/addingdroppingsubjects': { title: 'Add/Drop Subjects', subtitle: 'Manage student subject enrollments' },
+    '/shiftee': { title: 'Shiftee', subtitle: 'Manage shiftee information' },
+    '/facultyadminstaff': { title: 'Faculty/Admin/Staff', subtitle: 'Manage faculty, admin, and staff information' },
+    '/grades': { title: 'Grades', subtitle: 'Student grades and performance' },
     '/settings': { title: 'Settings', subtitle: 'Account and system preferences' }
   };
 
@@ -86,6 +88,7 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
     }
   };
 
+
   return (
     <motion.header
       className="h-16 bg-white border-b border-gray-200 px-6 flex items-center justify-between sticky top-0 z-40 backdrop-blur-l"
@@ -93,9 +96,7 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
       initial="initial"
       animate="animate"
     >
-      {/* Left Section */}
       <div className="flex items-center space-x-4">
-        {/* Mobile Menu Button */}
         <Button
           variant="ghost"
           size="sm"
@@ -104,8 +105,6 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
         >
           <Menu className="w-5 h-5" />
         </Button>
-
-        {/* Page Title */}
         <div className="hidden lg:block">
           <motion.div
             key={location.pathname}
@@ -120,8 +119,6 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
           </motion.div>
         </div>
       </div>
-
-      {/* Center Section - Search */}
       <div className="flex-1 max-w-md mx-4">
         <motion.div
           className="relative"
@@ -140,8 +137,7 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
 
       {/* Right Section */}
       <div className="flex items-center space-x-3">
-        {/* Theme Toggle */}
-        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+         <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
           <Button
             variant="ghost"
             size="sm"
@@ -150,8 +146,6 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
             <Sun className="w-4 h-4" />
           </Button>
         </motion.div>
-
-        {/* Notifications */}
         <motion.div 
           className="relative"
           whileHover={{ scale: 1.05 }} 
@@ -173,14 +167,16 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
             </motion.span>
           </Button>
         </motion.div>
-
+        
         {/* User Profile Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
               <Button
                 variant="ghost"
-                className="flex items-center space-x-2 hover:bg-gray-50 liquid-button"
+                // ✅ FIX 1: Subtle gray hover background for the main account button
+                // Ensure text color remains readable on hover
+                className="flex items-center space-x-2 liquid-button hover:bg-gray-100 hover:text-gray-900"
               >
                 <Avatar className="w-8 h-8">
                   <AvatarImage src="/api/placeholder/32/32" alt="Admin" />
@@ -206,23 +202,26 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
               </Button>
             </motion.div>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 liquid-morph">
+          <DropdownMenuContent 
+            align="end" 
+            className="w-56"
+          >
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer hover:bg-gray-50">
-              <User className="mr-2 h-4 w-4" />
+            <DropdownMenuItem className="cursor-pointer transition-colors hover:bg-red-1800 focus:bg-red-800 hover:text-white">
+              <User className="mr-2 h-4 w-4 hover:text-white" />
               <span>Profile</span>
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer hover:bg-gray-50">
-              <Settings className="mr-2 h-4 w-4" />
+            <DropdownMenuItem className="cursor-pointer transition-colors hover:bg-red-1800 focus:bg-red-800 hover:text-white">
+              <Settings className="mr-2 h-4 w-4 hover:text-white" />
               <span>Settings</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
-              className="cursor-pointer hover:bg-red-50 text-red-600"
+              className="cursor-pointer transition-colors text-red-600 hover:bg-red-1800 focus:bg-red-800 hover:text-white"
               onClick={onLogout}
             >
-              <LogOut className="mr-2 h-4 w-4" />
+              <LogOut className="mr-2 h-4 w-4 hover:text-white" />
               <span>Log out</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -233,4 +232,3 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
 };
 
 export default Header;
-

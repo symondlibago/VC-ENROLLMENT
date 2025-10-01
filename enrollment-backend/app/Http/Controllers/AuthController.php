@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\EmailUpdateOtpMail;
 use App\Mail\ForgotPasswordOtpMail;
+use App\Mail\PinResetOtpMail;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -422,5 +424,102 @@ class AuthController extends Controller
         Cache::forget($cacheKey);
 
         return response()->json(['success' => true, 'message' => 'Your password has been reset successfully.']);
+    }
+
+    /**
+     * NEW: Sends a PIN reset OTP to the user's email.
+     */
+    public function sendPinResetOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email|exists:users,email',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => 'The email provided does not exist in our records.'], 422);
+        }
+
+        $otp = random_int(100000, 999999);
+        $email = $request->email;
+
+        // Cache the OTP for 10 minutes
+        Cache::put('pin_reset_otp_' . $email, $otp, now()->addMinutes(10));
+        Mail::to($email)->send(new PinResetOtpMail($otp));
+
+        return response()->json(['success' => true, 'message' => 'An OTP has been sent to your email.']);
+    }
+
+    /**
+     * NEW: Verifies the PIN reset OTP and provides a temporary token.
+     */
+    public function verifyPinResetOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email|exists:users,email',
+            'otp' => 'required|string|digits:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $validator->errors()], 422);
+        }
+
+        $cacheKey = 'pin_reset_otp_' . $request->email;
+        $cachedOtp = Cache::get($cacheKey);
+
+        if (!$cachedOtp || $cachedOtp != $request->otp) {
+            return response()->json(['success' => false, 'message' => 'The OTP is invalid or has expired.'], 422);
+        }
+
+        // OTP is correct, create a secure, single-use token for the final step
+        $user = User::where('email', $request->email)->first();
+        $resetToken = Str::random(40);
+        Cache::put('pin_reset_token_' . $resetToken, $user->id, now()->addMinutes(5));
+
+        // Clean up the OTP cache
+        Cache::forget($cacheKey);
+
+        return response()->json(['success' => true, 'data' => ['reset_token' => $resetToken]]);
+    }
+
+    /**
+     * NEW: Resets the PIN using the temporary token and logs the user in.
+     */
+    public function resetPinWithToken(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'reset_token' => 'required|string',
+            'new_pin' => 'required|string|digits:6|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $validator->errors()], 422);
+        }
+
+        $cacheKey = 'pin_reset_token_' . $request->reset_token;
+        $userId = Cache::get($cacheKey);
+
+        if (!$userId) {
+            return response()->json(['success' => false, 'message' => 'This reset link is invalid or has expired. Please try again.'], 422);
+        }
+
+        $user = User::find($userId);
+        $user->secondary_pin = Hash::make($request->new_pin);
+        $user->save();
+
+        // Clean up the token cache
+        Cache::forget($cacheKey);
+
+        // Log the user in directly
+        $token = $user->createToken('EduEnroll')->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'PIN reset successfully. You are now logged in.',
+            'data' => [
+                'user' => $user,
+                'token' => $token,
+                'token_type' => 'Bearer'
+            ]
+        ]);
     }
 }
