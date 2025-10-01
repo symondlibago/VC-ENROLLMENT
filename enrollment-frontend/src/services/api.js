@@ -103,6 +103,19 @@ export const authAPI = {
     }
   },
 
+  // --- NEW: Verify Email Change with OTP ---
+  verifyEmailChange: async (otpData) => {
+    try {
+      const response = await api.post('/user/profile/verify-email-change', otpData);
+      if (response.data.success) {
+        localStorage.setItem('user_data', JSON.stringify(response.data.data.user));
+      }
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to verify OTP' };
+    }
+  },
+
   // Get current user
   getUser: async () => {
     try {
@@ -130,15 +143,15 @@ export const authAPI = {
    updateProfile: async (profileData) => {
     try {
       const response = await api.put('/user/profile', profileData);
-      if (response.data.success) {
-        // Update user data in local storage to keep it fresh
+      if (response.data.success && response.data.data && response.data.data.user) {
         localStorage.setItem('user_data', JSON.stringify(response.data.data.user));
       }
-      return response.data;
+      return response.data; 
     } catch (error) {
       throw error.response?.data || { success: false, message: 'Failed to update profile' };
     }
   },
+
 
   // --- NEW: Change User Password ---
   changePassword: async (passwordData) => {
@@ -736,7 +749,7 @@ export const userAPI = {
       throw error.response?.data || { success: false, message: 'Failed to create admin staff' };
     }
   },
-  
+
   update: async (id, userData) => {
     try {
       const response = await api.put(`/users/${id}`, userData);

@@ -42,6 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
      Route::put('/user/profile', [AuthController::class, 'updateProfile']);
      Route::put('/user/password', [AuthController::class, 'changePassword']);
      Route::post('/user/pin', [AuthController::class, 'updatePin']);
+     Route::post('/user/profile/verify-email-change', [AuthController::class, 'verifyEmailChange']);
     
     // Schedule routes
     Route::apiResource('schedules', ScheduleController::class);

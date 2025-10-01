@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class User extends Authenticatable
 {
@@ -49,5 +50,24 @@ class User extends Authenticatable
     public function instructor()
     {
         return $this->hasOne(Instructor::class);
+    }
+
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array
+     */
+    protected $appends = ['has_pin'];
+
+    /**
+     * Determine if the user has a secondary PIN.
+     *
+     * @return \Illuminate\Database\Eloquent\Casts\Attribute
+     */
+    protected function hasPin(): Attribute
+    {
+        return new Attribute(
+            get: fn () => !is_null($this->secondary_pin),
+        );
     }
 }

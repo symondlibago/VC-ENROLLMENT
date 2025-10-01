@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\EmailUpdateOtpMail;
 
 class AuthController extends Controller
 {
@@ -145,34 +148,41 @@ class AuthController extends Controller
         }
     }
 
-     /**
-     * --- NEW: Set or Update the secondary PIN ---
+   
+    /**
+     * MODIFIED: Update the secondary PIN
      */
     public function updatePin(Request $request)
     {
         $user = $request->user();
+        $userHasPin = $user->has_pin;
 
+        // CORRECTED: 'current_pin' is only required if the user already has one.
         $validator = Validator::make($request->all(), [
             'current_password' => 'required|string',
-            'new_pin' => 'required|string|digits:6|confirmed',
+            'current_pin'      => [Rule::requiredIf($userHasPin), 'nullable', 'string', 'digits:6'],
+            'new_pin'          => 'required|string|digits:6|confirmed',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $validator->errors()], 422);
         }
 
-        // Verify user's main password before changing PIN
+        // CORRECTED: Always check the password first.
         if (!Hash::check($request->current_password, $user->password)) {
-            return response()->json(['success' => false, 'message' => 'Your current password does not match.'], 422);
+            return response()->json(['success' => false, 'message' => 'The password you entered is incorrect.'], 422);
+        }
+
+        // CORRECTED: Only check the current_pin if the user already has one set.
+        if ($userHasPin && !Hash::check($request->current_pin, $user->secondary_pin)) {
+            return response()->json(['success' => false, 'message' => 'The current PIN you entered is incorrect.'], 422);
         }
 
         $user->secondary_pin = Hash::make($request->new_pin);
         $user->save();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Secondary PIN has been updated successfully.'
-        ]);
+        $message = $userHasPin ? 'Secondary PIN has been updated successfully.' : 'Secondary PIN has been set successfully.';
+        return response()->json(['success' => true, 'message' => $message]);
     }
 
     /**
@@ -226,8 +236,8 @@ class AuthController extends Controller
         ]);
     }
 
-     /**
-     * --- NEW: Update user profile ---
+      /**
+     * MODIFIED: Update user profile
      */
     public function updateProfile(Request $request)
     {
@@ -235,38 +245,9 @@ class AuthController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'email' => [
-                'required',
-                'string',
-                'email',
-                'max:255',
-                Rule::unique('users')->ignore($user->id),
-            ],
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $validator->errors()], 422);
-        }
-
-        $user->update($request->only('name', 'email'));
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Profile updated successfully!',
-            'data' => ['user' => $user]
-        ]);
-    }
-
-    /**
-     * --- NEW: Change user password ---
-     */
-    public function changePassword(Request $request)
-    {
-        $user = $request->user();
-
-        $validator = Validator::make($request->all(), [
+            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'current_password' => 'required|string',
-            'new_password' => 'required|string|min:8|confirmed',
+            'secondary_pin' => 'required|string|digits:6',
         ]);
 
         if ($validator->fails()) {
@@ -274,18 +255,110 @@ class AuthController extends Controller
         }
 
         if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json(['success' => false, 'message' => 'Your current password does not match.'], 422);
+        }
+
+        if (!$user->secondary_pin || !Hash::check($request->secondary_pin, $user->secondary_pin)) {
+            return response()->json(['success' => false, 'message' => 'The 6-digit PIN is incorrect.'], 422);
+        }
+
+        if ($request->email !== $user->email) {
+            $otp = random_int(100000, 999999);
+            Mail::to($request->email)->send(new EmailUpdateOtpMail($otp));
+            
+            // --- NEW: Added a try-catch block to find the error ---
+            try {
+                Cache::put('email_update_for_user_' . $user->id, [
+                    'otp' => $otp,
+                    'new_email' => $request->email
+                ], now()->addMinutes(10));
+            } catch (\Exception $e) {
+                // If caching fails, return a specific error message.
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Server error after sending email. Please check cache permissions. Details: ' . $e->getMessage()
+                ], 500);
+            }
+            
+            if ($request->name !== $user->name) {
+                $user->update(['name' => $request->name]);
+            }
+
             return response()->json([
-                'success' => false,
-                'message' => 'Current password does not match.'
-            ], 422);
+                'success' => true,
+                'message' => 'OTP sent to new email for verification.',
+                'otp_required' => true
+            ]);
+        }
+
+        $user->update(['name' => $request->name]);
+
+        return response()->json(['success' => true, 'message' => 'Profile updated successfully!', 'data' => ['user' => $user]]);
+    }
+
+    /**
+     * NEW: Verify the OTP and finalize the email change
+     */
+
+    public function verifyEmailChange(Request $request)
+    {
+        $user = $request->user();
+        
+        $validator = Validator::make($request->all(), [
+            'otp' => 'required|string|digits:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => 'Invalid OTP format.', 'errors' => $validator->errors()], 422);
+        }
+
+        $cacheKey = 'email_update_for_user_' . $user->id;
+        $cachedData = Cache::get($cacheKey);
+
+        if (!$cachedData) {
+            return response()->json(['success' => false, 'message' => 'Verification has expired. Please try again.'], 422);
+        }
+
+        if ($cachedData['otp'] != $request->otp) {
+            return response()->json(['success' => false, 'message' => 'The OTP you entered is incorrect.'], 422);
+        }
+
+        // OTP is correct, update the user's email
+        $user->email = $cachedData['new_email'];
+        $user->email_verified_at = null; // Mark new email as unverified
+        $user->save();
+
+        // Clean up the cache
+        Cache::forget($cacheKey);
+
+        return response()->json(['success' => true, 'message' => 'Email address updated successfully!', 'data' => ['user' => $user]]);
+    }
+
+    /**
+     * MODIFIED: Change user password
+     */
+    public function changePassword(Request $request)
+    {
+        $user = $request->user();
+
+        // MODIFIED: Validator now requires the current PIN for verification
+        $validator = Validator::make($request->all(), [
+            'current_pin' => 'required|string|digits:6',
+            'new_password' => 'required|string|min:8|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $validator->errors()], 422);
+        }
+
+        // MODIFIED: Verify user's current PIN
+        if (!$user->secondary_pin || !Hash::check($request->current_pin, $user->secondary_pin)) {
+            return response()->json(['success' => false, 'message' => 'The current PIN you entered is incorrect.'], 422);
         }
 
         $user->password = Hash::make($request->new_password);
         $user->save();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Password changed successfully.'
-        ]);
+        return response()->json(['success' => true, 'message' => 'Password changed successfully.']);
     }
 }
