@@ -39,7 +39,10 @@ const FacultyAdminStaff = () => {
         userAPI.getAll()
       ]);
       if (instructorRes.success) setInstructors(instructorRes.data);
-      if (staffRes.success) setAdminStaff(staffRes.data);
+      if (staffRes.success) {
+        const filteredStaff = staffRes.data.filter(staff => staff.role !== 'Admin');
+        setAdminStaff(filteredStaff);
+      }
     } catch (error) {
       showAlert('Failed to fetch user data.', 'error');
       console.error(error);

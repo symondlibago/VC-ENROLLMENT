@@ -100,7 +100,8 @@ class SubjectChangeRequestController extends Controller {
             'remarks' => 'nullable|string|max:1000',
         ]);
 
-        $changeRequest = SubjectChangeRequest::findOrFail($id);
+        // Eager load the student relationship to perform the shiftee check efficiently
+        $changeRequest = SubjectChangeRequest::with('student')->findOrFail($id);
         $user = Auth::user();
         $newStatus = null;
 
@@ -108,7 +109,14 @@ class SubjectChangeRequestController extends Controller {
         if ($validated['status'] === 'approved') {
             if ($user->role === 'Program Head' && $changeRequest->status === 'pending_program_head') {
                 $changeRequest->processed_by_program_head = $user->id;
-                $newStatus = 'pending_cashier';
+
+                // Check if the student is a shiftee. If so, approve directly.
+                if ($changeRequest->student->isShiftee()) {
+                    $newStatus = 'approved'; // Shiftee request is auto-approved after Program Head
+                } else {
+                    $newStatus = 'pending_cashier'; // Non-shiftee goes to Cashier for next step
+                }
+
             } elseif ($user->role === 'Cashier' && $changeRequest->status === 'pending_cashier') {
                 $changeRequest->processed_by_cashier = $user->id;
                 $newStatus = 'approved';

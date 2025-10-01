@@ -129,4 +129,14 @@ class PreEnrolledStudent extends Model
     {
         return $this->hasMany(UploadReceipt::class);
     }
+
+    public function shifteeRequests(): HasMany
+    {
+        return $this->hasMany(ShifteeRequest::class, 'pre_enrolled_student_id');
+    }
+    
+    public function isShiftee(): bool
+    {
+        return $this->shifteeRequests()->where('status', 'approved')->exists();
+    }
 }
