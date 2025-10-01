@@ -9,7 +9,6 @@ const ValidationErrorModal = ({ isOpen, onClose, message }) => {
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          // --- THIS IS THE FIX: Changed z-50 to z-[60] to make it appear on top ---
           className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
