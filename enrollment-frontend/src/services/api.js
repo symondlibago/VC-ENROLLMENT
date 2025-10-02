@@ -875,6 +875,15 @@ export const instructorAPI = {
     }
   },
 
+  getSchedule: async () => {
+    try {
+      const response = await api.get('/instructor/schedule');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch schedule' };
+    }
+  },
+
   create: async (instructorData) => {
     try {
       const response = await api.post('/instructors', instructorData);

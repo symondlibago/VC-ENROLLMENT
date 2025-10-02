@@ -136,6 +136,38 @@ class InstructorController extends Controller
     return response()->json(['success' => true, 'data' => $formattedRoster]);
 }
 
+    // --- NEW METHOD ---
+    public function getSchedule(Request $request)
+    {
+        $user = $request->user();
+        $instructor = Instructor::where('user_id', $user->id)->first();
+
+        if (!$instructor) {
+            return response()->json(['success' => false, 'message' => 'Instructor profile not found.'], 404);
+        }
+
+        // Eager load the subject for each schedule
+        $schedules = Schedule::with('subject')
+                             ->where('instructor_id', $instructor->id)
+                             ->get();
+
+        // Format the data for the frontend
+        $formattedSchedules = $schedules->map(function ($schedule) {
+            return [
+                'day' => $schedule->day,
+                'time' => $schedule->time,
+                'subject' => $schedule->subject->descriptive_title ?? 'Unassigned Subject',
+                'code' => $schedule->subject->subject_code ?? 'N/A',
+                'room' => $schedule->room_no,
+                // Note: Section data is not directly available via this relationship.
+                // We will omit it for now to match the available data model.
+            ];
+        });
+
+        return response()->json(['success' => true, 'data' => $formattedSchedules]);
+    }
+    // --- END NEW METHOD ---
+
     /**
      * Update the specified resource in storage.
      */

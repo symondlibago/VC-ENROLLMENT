@@ -86,14 +86,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/shiftee-requests/{id}', [ShifteeRequestController::class, 'show']);
     Route::post('/shiftee-requests/{id}/process', [ShifteeRequestController::class, 'processRequest']);
 
-    // Instructor routes (NEW)
+    // Instructor routes
     Route::apiResource('instructors', InstructorController::class);
+    Route::get('/instructor/roster', [InstructorController::class, 'getRoster']);
+    Route::get('/instructor/schedule', [InstructorController::class, 'getSchedule']);
 
     // User routes
     Route::apiResource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
-
-    // Instructor Routes
-    Route::get('/instructor/roster', [InstructorController::class, 'getRoster']);
 
 });
     // Program routes
@@ -124,4 +123,3 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/forgot-pin/send-otp', [AuthController::class, 'sendPinResetOtp']);
     Route::post('/forgot-pin/verify-otp', [AuthController::class, 'verifyPinResetOtp']);
     Route::post('/forgot-pin/reset-pin', [AuthController::class, 'resetPinWithToken']);
-    
