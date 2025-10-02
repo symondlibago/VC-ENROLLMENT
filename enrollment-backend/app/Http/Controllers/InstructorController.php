@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Instructor;
 use App\Models\User;
+use App\Models\Schedule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Http\Request;
@@ -70,6 +71,70 @@ class InstructorController extends Controller
         $instructor->load('user'); 
         return response()->json(['success' => true, 'data' => $instructor]);
     }
+
+    public function getRoster(Request $request)
+{
+    // Get the currently authenticated user
+    $user = $request->user();
+
+    // Find the associated instructor profile, assuming a one-to-one or one-to-many relationship
+    $instructor = Instructor::where('user_id', $user->id)->first();
+
+    if (!$instructor) {
+        return response()->json(['success' => false, 'message' => 'Instructor profile not found.'], 404);
+    }
+
+    // Eager load relationships to optimize queries
+    // Instructor -> Schedules -> Subject -> Students
+    $schedules = Schedule::with('subject.students')
+                         ->where('instructor_id', $instructor->id)
+                         ->get();
+
+    // Organize the data by subject
+    $rosterBySubject = [];
+    foreach ($schedules as $schedule) {
+        if ($schedule->subject) {
+            $subjectId = $schedule->subject->id;
+
+            // Avoid duplicating subjects if an instructor teaches multiple sections
+            if (!isset($rosterBySubject[$subjectId])) {
+                $rosterBySubject[$subjectId] = [
+                    'subject_id' => $schedule->subject->id,
+                    'subject_code' => $schedule->subject->subject_code,
+                    'descriptive_title' => $schedule->subject->descriptive_title,
+                    'students' => []
+                ];
+            }
+
+            // Get students who are fully enrolled in this subject
+            $enrolledStudents = $schedule->subject->students()
+                ->where('enrollment_status', 'enrolled') // From pre_enrolled_students table
+                ->get();
+
+            foreach ($enrolledStudents as $student) {
+                 // Format student data as needed by the frontend
+                $rosterBySubject[$subjectId]['students'][$student->id] = [
+                    'id' => $student->id,
+                    'name' => $student->getFullNameAttribute(), // From PreEnrolledStudent model
+                    'studentId' => $student->student_id_number,
+                    'course' => $student->course->course_name ?? 'N/A',
+                    'email' => $student->email_address,
+                    'phone' => $student->contact_number,
+                    'status' => 'Enrolled' // Based on the query filter
+                ];
+            }
+        }
+    }
+     
+    // Convert associative arrays to indexed arrays for JSON response
+    $formattedRoster = [];
+    foreach($rosterBySubject as $subjectData) {
+        $subjectData['students'] = array_values($subjectData['students']);
+        $formattedRoster[] = $subjectData;
+    }
+
+    return response()->json(['success' => true, 'data' => $formattedRoster]);
+}
 
     /**
      * Update the specified resource in storage.

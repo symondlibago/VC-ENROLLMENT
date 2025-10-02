@@ -92,6 +92,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // User routes
     Route::apiResource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
 
+    // Instructor Routes
+    Route::get('/instructor/roster', [InstructorController::class, 'getRoster']);
+
 });
     // Program routes
     Route::apiResource('programs', ProgramController::class);

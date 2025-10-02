@@ -58,4 +58,11 @@ class Subject extends Model
     {
         return $this->hasMany(Schedule::class);
     }
+
+    public function students()
+    {
+        return $this->belongsToMany(\App\Models\PreEnrolledStudent::class, 'student_subject', 'subject_id', 'pre_enrolled_student_id')
+                    ->withPivot('status') 
+                    ->withTimestamps();
+    }
 }

@@ -866,6 +866,15 @@ export const instructorAPI = {
     }
   },
 
+  getRoster: async () => {
+    try {
+      const response = await api.get('/instructor/roster');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch class roster' };
+    }
+  },
+
   create: async (instructorData) => {
     try {
       const response = await api.post('/instructors', instructorData);
