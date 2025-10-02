@@ -65,4 +65,9 @@ class Subject extends Model
                     ->withPivot('status') 
                     ->withTimestamps();
     }
+
+    public function grades()
+    {
+        return $this->hasMany(Grade::class);
+    }
 }

@@ -22,6 +22,7 @@ import { authAPI } from './services/api';
 import './App.css';
 import ClassRoster from '../src/components/instructorpage/ClassRoster';
 import InstructorSchedule from '../src/components/instructorpage/InstructorSchedule';
+import StudentGrades from '../src/components/instructorpage/StudentGrades';
 
 
 function App() {
@@ -235,6 +236,11 @@ function App() {
                                 <Route path="/class-roster" element={
                                     <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
                                         <ClassRoster />
+                                    </motion.div>
+                                }/>
+                                <Route path="/student-grades" element={
+                                    <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
+                                        <StudentGrades />
                                     </motion.div>
                                 }/>
                                 <Route path="/schedule" element={

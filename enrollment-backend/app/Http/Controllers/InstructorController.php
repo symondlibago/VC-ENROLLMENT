@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Instructor;
 use App\Models\User;
 use App\Models\Schedule;
+use App\Models\Grade;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Http\Request;
@@ -166,7 +167,135 @@ class InstructorController extends Controller
 
         return response()->json(['success' => true, 'data' => $formattedSchedules]);
     }
-    // --- END NEW METHOD ---
+
+    public function getGradeableStudents(Request $request)
+    {
+        $user = $request->user();
+        $instructor = Instructor::where('user_id', $user->id)->first();
+
+        if (!$instructor) {
+            return response()->json(['success' => false, 'message' => 'Instructor profile not found.'], 404);
+        }
+
+        // Using the same roster logic to find the subjects and students
+        $schedules = Schedule::with('subject.students.grades') // Eager load grades for students
+                             ->where('instructor_id', $instructor->id)
+                             ->get();
+
+        $rosterBySubject = [];
+        foreach ($schedules as $schedule) {
+            if ($schedule->subject) {
+                $subjectId = $schedule->subject->id;
+
+                if (!isset($rosterBySubject[$subjectId])) {
+                    $rosterBySubject[$subjectId] = [
+                        'subject_id' => $schedule->subject->id,
+                        'subject_code' => $schedule->subject->subject_code,
+                        'descriptive_title' => $schedule->subject->descriptive_title,
+                        'students' => []
+                    ];
+                }
+
+                $enrolledStudents = $schedule->subject->students()
+                    ->where('enrollment_status', 'enrolled')
+                    ->get();
+
+                foreach ($enrolledStudents as $student) {
+                    $grade = $student->grades->where('subject_id', $subjectId)->first();
+
+                    $rosterBySubject[$subjectId]['students'][$student->id] = [
+                        'id' => $student->id,
+                        'name' => $student->getFullNameAttribute(),
+                        'studentId' => $student->student_id_number,
+                        'grades' => [
+                            'prelim_grade' => $grade->prelim_grade ?? null,
+                            'midterm_grade' => $grade->midterm_grade ?? null,
+                            'semifinal_grade' => $grade->semifinal_grade ?? null,
+                            'final_grade' => $grade->final_grade ?? null,
+                            'status' => $grade->status ?? 'In Progress',
+                        ]
+                    ];
+                }
+            }
+        }
+        
+        $formattedRoster = array_map(function ($subjectData) {
+            $subjectData['students'] = array_values($subjectData['students']);
+            return $subjectData;
+        }, array_values($rosterBySubject));
+
+        return response()->json(['success' => true, 'data' => $formattedRoster]);
+    }
+
+    public function bulkUpdateGrades(Request $request)
+    {
+        $user = $request->user();
+        $instructor = Instructor::where('user_id', $user->id)->first();
+
+        if (!$instructor) {
+            return response()->json(['success' => false, 'message' => 'Instructor profile not found.'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'grades' => 'required|array',
+            'grades.*.student_id' => 'required|exists:pre_enrolled_students,id',
+            'grades.*.subject_id' => 'required|exists:subjects,id',
+            'grades.*.prelim_grade' => 'nullable|numeric|min:0|max:100',
+            'grades.*.midterm_grade' => 'nullable|numeric|min:0|max:100',
+            'grades.*.semifinal_grade' => 'nullable|numeric|min:0|max:100',
+            'grades.*.final_grade' => 'nullable|numeric|min:0|max:100',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        $gradesData = $request->input('grades');
+
+        try {
+            DB::transaction(function () use ($gradesData, $instructor) {
+                foreach ($gradesData as $gradeInput) {
+                    // Authorization check: Ensure the instructor teaches this subject
+                    $isAuthorized = Schedule::where('subject_id', $gradeInput['subject_id'])
+                                            ->where('instructor_id', $instructor->id)
+                                            ->exists();
+                    
+                    if (!$isAuthorized) {
+                        // Silently skip if not authorized for this specific grade to prevent errors
+                        continue;
+                    }
+
+                    // Calculate status
+                    $finalGrade = $gradeInput['final_grade'];
+                    $status = 'In Progress';
+                    if ($finalGrade !== null) {
+                        $status = $finalGrade >= 75 ? 'Passed' : 'Failed';
+                    }
+
+                    Grade::updateOrCreate(
+                        [
+                            'pre_enrolled_student_id' => $gradeInput['student_id'],
+                            'subject_id' => $gradeInput['subject_id'],
+                        ],
+                        [
+                            'instructor_id' => $instructor->id,
+                            'prelim_grade' => $gradeInput['prelim_grade'],
+                            'midterm_grade' => $gradeInput['midterm_grade'],
+                            'semifinal_grade' => $gradeInput['semifinal_grade'],
+                            'final_grade' => $gradeInput['final_grade'],
+                            'status' => $status,
+                        ]
+                    );
+                }
+            });
+
+            return response()->json(['success' => true, 'message' => 'Grades submitted successfully.']);
+
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'An error occurred while submitting grades.', 'error' => $e->getMessage()], 500);
+        }
+    }
+  
 
     /**
      * Update the specified resource in storage.

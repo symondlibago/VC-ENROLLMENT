@@ -14,7 +14,7 @@ import {
   BarChart3,
   User,
   CreditCard,
-  BookUser, // New Icon
+  BookUser,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -41,6 +41,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
   const instructorMenuItems = [
     { id: 'class-roster', icon: BookUser, label: 'Class Roster', badge: null, path: '/class-roster' },
     { id: 'schedule', icon: Calendar, label: 'Schedule', badge: null, path: '/schedule' },
+    { id: 'student-grades', icon: FileText, label: 'Student Grades', badge: null, path: '/student-grades' },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
   ];
 

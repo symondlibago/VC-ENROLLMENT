@@ -142,4 +142,9 @@ class PreEnrolledStudent extends Model
     {
         return $this->shifteeRequests()->where('status', 'approved')->exists();
     }
+
+    public function grades()
+    {
+        return $this->hasMany(Grade::class, 'pre_enrolled_student_id');
+    }
 }

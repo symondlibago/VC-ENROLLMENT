@@ -884,6 +884,24 @@ export const instructorAPI = {
     }
   },
 
+  getGradeableStudents: async () => {
+    try {
+      const response = await api.get('/instructor/gradeable-students');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch students for grading' };
+    }
+  },
+
+  bulkUpdateGrades: async (gradesData) => {
+    try {
+      const response = await api.post('/instructor/grades/bulk-update', { grades: gradesData });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to submit grades' };
+    }
+  },
+
   create: async (instructorData) => {
     try {
       const response = await api.post('/instructors', instructorData);

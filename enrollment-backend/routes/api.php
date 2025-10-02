@@ -90,6 +90,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('instructors', InstructorController::class);
     Route::get('/instructor/roster', [InstructorController::class, 'getRoster']);
     Route::get('/instructor/schedule', [InstructorController::class, 'getSchedule']);
+    Route::get('/instructor/gradeable-students', [InstructorController::class, 'getGradeableStudents']);
+    Route::post('/instructor/grades/bulk-update', [InstructorController::class, 'bulkUpdateGrades']);
 
     // User routes
     Route::apiResource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
