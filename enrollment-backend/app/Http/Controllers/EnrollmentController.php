@@ -474,32 +474,35 @@ public function updateStudentDetails(Request $request, $id)
     }
 }
 
-        public function getStudentsForIdReleasing()
-        {
-            try {
-                $students = PreEnrolledStudent::with('course')
-                    ->where('enrollment_status', 'enrolled')
-                    ->orderBy('last_name', 'asc')
-                    ->get()
-                    ->map(function ($student) {
-                        return [
-                            'id' => $student->id,
-                            'student_id_number' => $student->student_id_number,
-                            'name' => $student->getFullNameAttribute(),
-                            'courseName' => $student->course ? $student->course->course_name : 'N/A',
-                            'id_photo_url' => $student->id_photo ? Storage::disk('s3')->url($student->id_photo) : null,
-                            'signature_url' => $student->signature ? Storage::disk('s3')->url($student->signature) : null,
-                            'id_status' => $student->id_status,
-                            'id_printed_at' => $student->id_printed_at,
-                            'id_released_at' => $student->id_released_at,
-                        ];
-                    });
+public function getStudentsForIdReleasing()
+{
+    try {
+        $students = PreEnrolledStudent::with('course')
+            ->where('enrollment_status', 'enrolled')
+            ->orderBy('student_id_number', 'asc') 
+            ->get()
+            ->map(function ($student) {
+                return [
+                    'id' => $student->id,
+                    'student_id_number' => $student->student_id_number,
+                    'name' => $student->getFullNameAttribute(),
+                    'courseName' => $student->course ? $student->course->course_name : 'N/A',
+                    'id_photo_url' => $student->id_photo ? Storage::disk('s3')->url($student->id_photo) : null,
+                    'signature_url' => $student->signature ? Storage::disk('s3')->url($student->signature) : null,
+                    'id_status' => $student->id_status,
+                    'id_printed_at' => $student->id_printed_at,
+                    'id_released_at' => $student->id_released_at,
+                    'emergency_contact_name' => $student->emergency_contact_name,
+                    'emergency_contact_number' => $student->emergency_contact_number,
+                    'emergency_contact_address' => $student->emergency_contact_address,
+                ];
+            });
 
-                return response()->json(['success' => true, 'data' => $students]);
-            } catch (\Exception $e) {
-                return response()->json(['success' => false, 'message' => 'Failed to fetch students for ID releasing', 'error' => $e->getMessage()], 500);
-            }
-        }
+        return response()->json(['success' => true, 'data' => $students]);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'message' => 'Failed to fetch students for ID releasing', 'error' => $e->getMessage()], 500);
+    }
+}
 
         public function updateIdStatus(Request $request, $id)
         {

@@ -9,7 +9,11 @@ import {
     Users, 
     Printer, 
     CheckCircle,
-    ChevronDown
+    ChevronDown,
+    User,
+    Phone,
+    MapPinned,
+    Calendar,
 } from 'lucide-react';
 
 // UI & Service Imports
@@ -144,7 +148,7 @@ const StudentIdCard = ({ student, onUpdateStatus, onImageClick, isSelected, onSe
                     className="w-5 h-5 border-2 border-red-800"
                 />
             </div>
-            <CardContent className="p-4 space-y-4">
+            <CardContent className="p-4 space-y-3">
                 <div className="flex justify-center items-center gap-4">
                     <button onClick={() => onImageClick(student.id_photo_url)} className="focus:outline-none focus:ring-2 focus:ring-red-500 rounded-lg">
                         <Avatar className="h-24 w-24 rounded-lg shadow-md hover:scale-105 transition-transform">
@@ -156,17 +160,47 @@ const StudentIdCard = ({ student, onUpdateStatus, onImageClick, isSelected, onSe
                         <img src={student.signature_url} alt="Signature" className="object-contain max-h-full max-w-full" />
                     </button>
                 </div>
-                <div className="text-center border-t pt-4">
+                <div className="text-center">
                     <h3 className="font-bold text-lg heading-bold">{student.name}</h3>
                     <p className="text-sm text-gray-500">{student.student_id_number}</p>
                     <p className="text-sm text-gray-600 font-medium">{student.courseName}</p>
                 </div>
-                <div className="space-y-2 text-sm">
-                    <div className="flex justify-between items-center"><span className="font-semibold text-gray-600">Status:</span><Badge className={`${getStatusColor(student.id_status)} font-medium`}>{student.id_status || 'Pending Print'}</Badge></div>
-                    <div className="flex justify-between items-center"><span className="text-gray-500">Date Printed:</span><span className="font-medium text-gray-800">{formatDate(student.id_printed_at)}</span></div>
-                    <div className="flex justify-between items-center"><span className="text-gray-500">Date Released:</span><span className="font-medium text-gray-800">{formatDate(student.id_released_at)}</span></div>
+                
+                <div className="border-t pt-3 space-y-2 text-sm">
+                    <p className="font-semibold text-gray-500 text-xs mb-1">Emergency Contact</p>
+                    <div className="flex items-center text-gray-800">
+                        <User size={14} className="mr-2 text-gray-400 flex-shrink-0" />
+                        <span>{student.emergency_contact_name || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center text-gray-800">
+                        <Phone size={14} className="mr-2 text-gray-400 flex-shrink-0" />
+                        <span>{student.emergency_contact_number || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center text-gray-800">
+                        <MapPinned size={14} className="mr-2 text-gray-400 flex-shrink-0" />
+                        <span>{student.emergency_contact_address || 'N/A'}</span>
+                    </div>
                 </div>
-                <div className="text-right">
+
+                <div className="border-t pt-3 space-y-2 text-sm">
+                    <div className="flex items-center space-x-2">
+                        <span className="font-semibold text-gray-600">Status:</span>
+                        <Badge className={`${getStatusColor(student.id_status)} font-medium`}>{student.id_status || 'Pending Print'}</Badge>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Calendar size={14} className="mr-2 text-gray-400 flex-shrink-0" />
+                        <span>Date Printed:</span>
+                        <span className="font-medium text-gray-800">{formatDate(student.id_printed_at)}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Calendar size={14} className="mr-2 text-gray-400 flex-shrink-0" />
+                        <span>Date Released:</span>
+                        <span className="font-medium text-gray-800">{formatDate(student.id_released_at)}</span>
+                    </div>
+                </div>
+
+
+                <div className="text-right -mb-2 -mr-2">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreVertical size={16} /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -188,7 +222,6 @@ const IDReleasing = () => {
     const [previewImageUrl, setPreviewImageUrl] = useState(null);
     const [selectedStudents, setSelectedStudents] = useState(new Set());
 
-    // --- NEW STATE FOR ALERTS AND MODALS ---
     const [alertState, setAlertState] = useState({ isVisible: false, message: '', type: 'success' });
     const [validationError, setValidationError] = useState({ isOpen: false, message: '' });
 
@@ -297,7 +330,6 @@ const IDReleasing = () => {
 
     return (
         <div className="p-6 space-y-6 max-w-7xl mx-auto">
-            {/* --- INTEGRATED ALERTS AND MODALS --- */}
             <SuccessAlert isVisible={alertState.isVisible} message={alertState.message} type={alertState.type} onClose={handleCloseAlert} />
             <ValidationErrorModal isOpen={validationError.isOpen} message={validationError.message} onClose={handleCloseModal} />
             <AnimatePresence>{previewImageUrl && <ImagePreviewModal imageUrl={previewImageUrl} onClose={() => setPreviewImageUrl(null)} />}</AnimatePresence>
@@ -345,6 +377,7 @@ const IDReleasing = () => {
                                 id="select-all" 
                                 checked={filteredStudents.length > 0 && selectedStudents.size === filteredStudents.length}
                                 onCheckedChange={handleSelectAll}
+                                className="data-[state=checked]:bg-[var(--dominant-red)] data-[state=checked]:border-[var(--dominant-red)]"
                             />
                             <label htmlFor="select-all" className="font-medium text-gray-700">{selectedStudents.size} selected</label>
                         </div>
@@ -357,7 +390,6 @@ const IDReleasing = () => {
             </AnimatePresence>
 
             {loading ? (
-                // --- INTEGRATED LOADING SPINNER ---
                 <div className="col-span-full py-12 flex justify-center">
                     <LoadingSpinner size="lg" />
                 </div>
