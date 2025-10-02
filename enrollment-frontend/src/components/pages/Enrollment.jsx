@@ -277,7 +277,7 @@ const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchT
                                 <TableCell>
                                     <div className="flex items-center">
                                         <Calendar className="w-4 h-4 mr-2 text-gray-500" />
-                                        <span>{e.enrollment_date}</span>
+                                        <span className='font-mono'>{e.enrollment_date}</span>
                                     </div>
                                 </TableCell>
                                 <TableCell>

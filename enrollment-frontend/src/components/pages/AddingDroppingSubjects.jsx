@@ -401,13 +401,13 @@ const AddingDroppingSubjects = () => {
                                           </div>
                                           <div className="flex items-center text-sm text-gray-500">
                                               <Hash size={14} className="mr-2"/>
-                                              <p>{req.student?.student_id_number}</p>
+                                              <p className='font-mono'>{req.student?.student_id_number}</p>
                                           </div>
                                       </div>
                                   </div>
                               </TableCell>
                               <TableCell>
-                                  <div className="flex items-center">
+                                  <div className="flex items-center font-mono">
                                     <Calendar size={14} className="mr-2 text-gray-500"/>
                                     {new Date(req.created_at).toLocaleDateString()}
                                   </div>

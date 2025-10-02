@@ -104,7 +104,7 @@ const AddSectionModal = ({ isOpen, onClose, onSubmit, courses = [], sectionToEdi
                     </p>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={handleCancel} className="liquid-button hover:bg-gray-100">
+                <Button variant="ghost" size="sm" onClick={handleCancel} className="liquid-button hover:bg-red-800 text-red-800 cursor-pointer">
                   <X className="w-5 h-5" />
                 </Button>
               </div>
@@ -115,7 +115,7 @@ const AddSectionModal = ({ isOpen, onClose, onSubmit, courses = [], sectionToEdi
                 <label className="text-sm font-medium text-gray-700">Section Name</label>
                 <Input
                   type="text" placeholder="Enter section name..." value={sectionName}
-                  onChange={(e) => setSectionName(e.target.value)} className="liquid-morph" required
+                  onChange={(e) => setSectionName(e.target.value)} className="liquid-morph border-1 border-gray-200" required
                 />
               </div>
               <div className="space-y-2">

@@ -162,7 +162,7 @@ const StudentIdCard = ({ student, onUpdateStatus, onImageClick, isSelected, onSe
                 </div>
                 <div className="text-center">
                     <h3 className="font-bold text-lg heading-bold">{student.name}</h3>
-                    <p className="text-sm text-gray-500">{student.student_id_number}</p>
+                    <p className="text-sm text-gray-500 font-mono">{student.student_id_number}</p>
                     <p className="text-sm text-gray-600 font-medium">{student.courseName}</p>
                 </div>
                 
@@ -174,7 +174,7 @@ const StudentIdCard = ({ student, onUpdateStatus, onImageClick, isSelected, onSe
                     </div>
                     <div className="flex items-center text-gray-800">
                         <Phone size={14} className="mr-2 text-gray-400 flex-shrink-0" />
-                        <span>{student.emergency_contact_number || 'N/A'}</span>
+                        <span className='font-mono'>{student.emergency_contact_number || 'N/A'}</span>
                     </div>
                     <div className="flex items-center text-gray-800">
                         <MapPinned size={14} className="mr-2 text-gray-400 flex-shrink-0" />

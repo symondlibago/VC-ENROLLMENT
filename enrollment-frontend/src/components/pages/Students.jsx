@@ -496,7 +496,7 @@ const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilte
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                     <DropdownMenuItem className="cursor-pointer" onClick={() => onEditClick(section)}><Edit className="w-4 h-4 mr-2 hover:text-white" /><span>Edit</span></DropdownMenuItem>
-                    <DropdownMenuItem className="cursor-pointer" onClick={() => onDeleteClick(section)}><Trash2 className="w-4 h-4 mr-2 hover:text-white" /><span>Delete</span></DropdownMenuItem>
+                    <DropdownMenuItem className="cursor-pointer text-red-600" onClick={() => onDeleteClick(section)}><Trash2 className="w-4 h-4 mr-2 hover:text-white" /><span>Delete</span></DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -559,7 +559,7 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
                   <TableCell className="font-medium">
                   <div className="flex items-center">
                     <Hash className="w-4 h-4 mr-2 text-gray-700" />
-                    <p className="font-bold text-gray-900">{student.student_id_number}</p>
+                    <p className="font-mono text-gray-900">{student.student_id_number}</p>
                     </div>
                   </TableCell>
                   <TableCell>

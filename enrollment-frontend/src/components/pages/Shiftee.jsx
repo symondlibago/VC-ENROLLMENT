@@ -103,7 +103,7 @@ const ShifteeRequestDetailsModal = ({ isOpen, onClose, requestDetails, currentUs
                                 <h3 className="font-semibold mb-2">Student Information</h3>
                                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                                     <p className="flex items-center"><User size={14} className="mr-2 text-gray-500" /> <b>Name:</b> &nbsp;{student.last_name}, {student.first_name}</p>
-                                    <p className="flex items-center"><Hash size={14} className="mr-2 text-gray-500" /> <b>ID Number:</b> &nbsp;{student.student_id_number}</p>
+                                    <p className="flex items-center font-mono"><Hash size={14} className="mr-2 text-gray-500" /> <b>ID Number:</b> &nbsp;{student.student_id_number}</p>
                                 </div>
                             </div>
                             
@@ -278,7 +278,7 @@ const Shiftee = () => {
             <CardContent>
               <div className="mb-4 p-4 border rounded-lg bg-gray-50">
                   <h3 className="font-bold text-lg">{selectedStudent.last_name}, {selectedStudent.first_name}</h3>
-                  <p className="text-sm text-gray-600">{selectedStudent.student_id_number} • Current Course: <b>{selectedStudent.course.course_name}</b></p>
+                  <p className="text-sm text-gray-600 font-mono">{selectedStudent.student_id_number} • Current Course: <b>{selectedStudent.course.course_name}</b></p>
               </div>
               <div className="flex items-center gap-4 mb-4">
             <DropdownMenu>
@@ -355,7 +355,7 @@ const Shiftee = () => {
                                       </div>
                                           <div className="flex items-center text-sm text-gray-500">
                                               <Hash size={14} className="mr-2"/>
-                                              <p>{req.student?.student_id_number}</p>
+                                              <p className='font-mono'>{req.student?.student_id_number}</p>
                                           </div>
                                       </div>
                                   </div>
@@ -369,7 +369,7 @@ const Shiftee = () => {
                               <TableCell>
                                   <div className="flex items-center text-sm text-gray-500">
                                       <Calendar size={14} className="mr-2 text-gray-500"/>
-                                      <p className="text-gray-900">{new Date(req.created_at).toLocaleDateString()}</p>
+                                      <p className="text-gray-900 font-mono">{new Date(req.created_at).toLocaleDateString()}</p>
                                   </div>
                               </TableCell>     
                                 <TableCell>
