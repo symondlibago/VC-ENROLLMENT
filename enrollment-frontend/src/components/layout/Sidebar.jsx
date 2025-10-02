@@ -14,15 +14,17 @@ import {
   BarChart3,
   User,
   CreditCard,
+  BookUser, // New Icon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
+const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [activeItem, setActiveItem] = useState('dashboard');
+  const [activeItem, setActiveItem] = useState('');
 
-  const menuItems = [
+  // Admin and Staff Menu
+  const adminMenuItems = [
     { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null, path: '/dashboard' },
     { id: 'students', icon: Users, label: 'Students', badge: '24', path: '/students' },
     { id: 'courses', icon: BookOpen, label: 'Courses', badge: null, path: '/courses' },
@@ -35,74 +37,51 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
     { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
   ];
 
+  // Instructor-specific Menu
+  const instructorMenuItems = [
+    { id: 'class-roster', icon: BookUser, label: 'Class Roster', badge: null, path: '/class-roster' },
+    { id: 'schedule', icon: Calendar, label: 'Schedule', badge: null, path: '/schedule' },
+    { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
+  ];
+
+  // Determine which menu to display based on user role
+  const menuItems = user?.role === 'instructor' ? instructorMenuItems : adminMenuItems;
+
   useEffect(() => {
     const currentPath = location.pathname;
+    // Handle redirect for instructor login
+    if (user?.role === 'instructor' && currentPath === '/dashboard') {
+        navigate('/class-roster');
+    }
+
     const currentItem = menuItems.find(item => item.path === currentPath);
     if (currentItem) {
       setActiveItem(currentItem.id);
     }
-  }, [location.pathname]);
+  }, [location.pathname, user, navigate, menuItems]);
 
   const handleNavigation = (item) => {
     setActiveItem(item.id);
     navigate(item.path);
     
-    // Close sidebar on mobile after navigation
     if (window.innerWidth < 1024) {
       setIsCollapsed(true);
     }
   };
 
   const sidebarVariants = {
-    expanded: {
-      width: '16rem',
-      transition: {
-        duration: 0.6,
-        ease: [0.23, 1, 0.32, 1]
-      }
-    },
-    collapsed: {
-      width: '4rem',
-      transition: {
-        duration: 0.6,
-        ease: [0.23, 1, 0.32, 1]
-      }
-    }
+    expanded: { width: '16rem', transition: { duration: 0.6, ease: [0.23, 1, 0.32, 1] } },
+    collapsed: { width: '4rem', transition: { duration: 0.6, ease: [0.23, 1, 0.32, 1] } }
   };
 
   const itemVariants = {
-    expanded: {
-      opacity: 1,
-      x: 0,
-      transition: {
-        duration: 0.4,
-        delay: 0.1
-      }
-    },
-    collapsed: {
-      opacity: 0,
-      x: -20,
-      transition: {
-        duration: 0.2
-      }
-    }
+    expanded: { opacity: 1, x: 0, transition: { duration: 0.4, delay: 0.1 } },
+    collapsed: { opacity: 0, x: -20, transition: { duration: 0.2 } }
   };
 
   const navigationVariants = {
-    hover: {
-      scale: 1.02,
-      transition: {
-        duration: 0.2,
-        ease: [0.23, 1, 0.32, 1]
-      }
-    },
-    tap: {
-      scale: 0.98,
-      transition: {
-        duration: 0.1,
-        ease: [0.23, 1, 0.32, 1]
-      }
-    }
+    hover: { scale: 1.02, transition: { duration: 0.2, ease: [0.23, 1, 0.32, 1] } },
+    tap: { scale: 0.98, transition: { duration: 0.1, ease: [0.23, 1, 0.32, 1] } }
   };
 
   return (
@@ -133,7 +112,9 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
                 </motion.div>
                 <div>
                   <h1 className="text-lg font-bold heading-bold">EduEnroll</h1>
-                  <p className="text-xs text-white/70">Management System</p>
+                  <p className="text-xs text-white/70">
+                    {user?.role === 'instructor' ? 'Instructor Portal' : 'Management System'}
+                  </p>
                 </div>
               </motion.div>
             )}
@@ -149,11 +130,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
               animate={{ rotate: isCollapsed ? 0 : 180 }}
               transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
             >
-              {isCollapsed ? (
-                <ChevronRight className="w-4 h-4" />
-              ) : (
-                <ChevronLeft className="w-4 h-4" />
-              )}
+              {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
             </motion.div>
           </Button>
         </div>
@@ -181,14 +158,9 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
               animate={{ 
                 opacity: 1, 
                 x: 0,
-                transition: {
-                  duration: 0.4,
-                  delay: index * 0.1,
-                  ease: [0.23, 1, 0.32, 1]
-                }
+                transition: { duration: 0.4, delay: index * 0.1, ease: [0.23, 1, 0.32, 1] }
               }}
             >
-              {/* Active indicator */}
               {isActive && (
                 <motion.div
                   className="absolute left-0 top-0 bottom-0 w-1 bg-[var(--dominant-red)] rounded-r-full"
@@ -198,10 +170,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
               )}
               
               <motion.div
-                animate={{ 
-                  scale: isActive ? 1.1 : 1,
-                  rotate: isActive ? 5 : 0
-                }}
+                animate={{ scale: isActive ? 1.1 : 1, rotate: isActive ? 5 : 0 }}
                 transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
               >
                 <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-[var(--dominant-red)]' : 'text-white'}`} />
@@ -221,11 +190,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
                     </span>
                     {item.badge && (
                       <motion.span 
-                        className={`px-2 py-1 text-xs rounded-full ${
-                          isActive 
-                            ? 'bg-[var(--dominant-red)] text-white' 
-                            : 'bg-white/20 text-white'
-                        }`}
+                        className={`px-2 py-1 text-xs rounded-full ${isActive ? 'bg-[var(--dominant-red)] text-white' : 'bg-white/20 text-white'}`}
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
                         transition={{ duration: 0.3, delay: 0.2 }}
@@ -237,7 +202,6 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
                 )}
               </AnimatePresence>
 
-              {/* Tooltip for collapsed state */}
               {isCollapsed && (
                 <motion.div
                   className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50"
@@ -245,11 +209,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
                   whileHover={{ opacity: 1, x: 0 }}
                 >
                   {item.label}
-                  {item.badge && (
-                    <span className="ml-2 px-1.5 py-0.5 bg-[var(--dominant-red)] rounded text-xs">
-                      {item.badge}
-                    </span>
-                  )}
+                  {item.badge && (<span className="ml-2 px-1.5 py-0.5 bg-[var(--dominant-red)] rounded text-xs">{item.badge}</span>)}
                 </motion.div>
               )}
             </motion.button>

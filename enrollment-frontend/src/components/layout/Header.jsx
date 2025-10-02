@@ -30,9 +30,8 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
   const [searchFocused, setSearchFocused] = useState(false);
   const location = useLocation();
 
-  // ... (Page titles, headerVariants, searchVariants, titleVariants remain the same) ...
   const pageTitles = {
-    '/dashboard': { title: 'Dashboard', subtitle: 'Welcome back, Admin' },
+    '/dashboard': { title: 'Dashboard', subtitle: `Welcome back, ${user?.name || 'Admin'}` },
     '/students': { title: 'Students', subtitle: 'Manage student information' },
     '/courses': { title: 'Courses', subtitle: 'Educational programs and curricula' },
     '/enrollment': { title: 'Enrollment', subtitle: 'Student registrations and applications' },
@@ -40,54 +39,27 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
     '/shiftee': { title: 'Shiftee', subtitle: 'Manage shiftee information' },
     '/facultyadminstaff': { title: 'Faculty/Admin/Staff', subtitle: 'Manage faculty, admin, and staff information' },
     '/grades': { title: 'Grades', subtitle: 'Student grades and performance' },
-    '/settings': { title: 'Settings', subtitle: 'Account and system preferences' }
+    '/settings': { title: 'Settings', subtitle: 'Account and system preferences' },
+    '/class-roster': { title: 'Class Roster', subtitle: 'View your students for this semester' },
+    '/schedule': { title: 'My Schedule', subtitle: 'Your weekly teaching schedule' },
   };
 
   const currentPage = pageTitles[location.pathname] || pageTitles['/dashboard'];
 
   const headerVariants = {
     initial: { y: -20, opacity: 0 },
-    animate: { 
-      y: 0, 
-      opacity: 1,
-      transition: {
-        duration: 0.6,
-        ease: [0.23, 1, 0.32, 1]
-      }
-    }
+    animate: { y: 0, opacity: 1, transition: { duration: 0.6, ease: [0.23, 1, 0.32, 1] } }
   };
 
   const searchVariants = {
-    focused: {
-      scale: 1.02,
-      boxShadow: '0 10px 30px rgba(156, 38, 44, 0.1)',
-      transition: {
-        duration: 0.3,
-        ease: [0.23, 1, 0.32, 1]
-      }
-    },
-    unfocused: {
-      scale: 1,
-      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
-      transition: {
-        duration: 0.3,
-        ease: [0.23, 1, 0.32, 1]
-      }
-    }
+    focused: { scale: 1.02, boxShadow: '0 10px 30px rgba(156, 38, 44, 0.1)', transition: { duration: 0.3, ease: [0.23, 1, 0.32, 1] } },
+    unfocused: { scale: 1, boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)', transition: { duration: 0.3, ease: [0.23, 1, 0.32, 1] } }
   };
 
   const titleVariants = {
     initial: { opacity: 0, y: 10 },
-    animate: { 
-      opacity: 1, 
-      y: 0,
-      transition: {
-        duration: 0.4,
-        ease: [0.23, 1, 0.32, 1]
-      }
-    }
+    animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.23, 1, 0.32, 1] } }
   };
-
 
   return (
     <motion.header
@@ -135,27 +107,14 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
         </motion.div>
       </div>
 
-      {/* Right Section */}
       <div className="flex items-center space-x-3">
          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-gray-600 hover:text-[var(--dominant-red)] liquid-button"
-          >
+          <Button variant="ghost" size="sm" className="text-gray-600 hover:text-[var(--dominant-red)] liquid-button">
             <Sun className="w-4 h-4" />
           </Button>
         </motion.div>
-        <motion.div 
-          className="relative"
-          whileHover={{ scale: 1.05 }} 
-          whileTap={{ scale: 0.95 }}
-        >
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-gray-600 hover:text-[var(--dominant-red)] liquid-button relative"
-          >
+        <motion.div className="relative" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+          <Button variant="ghost" size="sm" className="text-gray-600 hover:text-[var(--dominant-red)] liquid-button relative">
             <Bell className="w-4 h-4" />
             <motion.span 
               className="absolute -top-1 -right-1 w-3 h-3 bg-[var(--dominant-red)] rounded-full text-xs text-white flex items-center justify-center"
@@ -168,16 +127,10 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
           </Button>
         </motion.div>
         
-        {/* User Profile Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Button
-                variant="ghost"
-                // ✅ FIX 1: Subtle gray hover background for the main account button
-                // Ensure text color remains readable on hover
-                className="flex items-center space-x-2 liquid-button hover:bg-gray-100 hover:text-gray-900"
-              >
+              <Button variant="ghost" className="flex items-center space-x-2 liquid-button hover:bg-gray-100 hover:text-gray-900">
                 <Avatar className="w-8 h-8">
                   <AvatarImage src="/api/placeholder/32/32" alt="Admin" />
                   <AvatarFallback className="bg-[var(--dominant-red)] text-white text-sm">
@@ -185,27 +138,16 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
                   </AvatarFallback>
                 </Avatar>
                 <div className="hidden md:block text-left">
-                  <p className="text-sm font-medium text-gray-900">
-                    {user?.name || 'Admin User'}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {user?.email || 'admin@eduenroll.com'}
-                  </p>
+                  <p className="text-sm font-medium text-gray-900">{user?.name || 'Admin User'}</p>
+                  <p className="text-xs text-gray-500">{user?.email || 'admin@eduenroll.com'}</p>
                 </div>
-                <motion.div
-                  animate={{ rotate: 0 }}
-                  whileHover={{ rotate: 180 }}
-                  transition={{ duration: 0.3 }}
-                >
+                <motion.div animate={{ rotate: 0 }} whileHover={{ rotate: 180 }} transition={{ duration: 0.3 }}>
                   <ChevronDown className="w-4 h-4 text-gray-400" />
                 </motion.div>
               </Button>
             </motion.div>
           </DropdownMenuTrigger>
-          <DropdownMenuContent 
-            align="end" 
-            className="w-56"
-          >
+          <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="cursor-pointer transition-colors hover:bg-red-1800 focus:bg-red-800 hover:text-white">
