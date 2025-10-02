@@ -66,6 +66,9 @@ return new class extends Migration
             // Add identification fields after educational background
             $table->string('id_photo')->nullable();
             $table->string('signature')->nullable();
+            $table->string('id_status')->default('Pending Print');
+            $table->timestamp('id_printed_at')->nullable();
+            $table->timestamp('id_released_at')->nullable();
             
             $table->timestamps();
         });

@@ -11,6 +11,7 @@ import AddingDroppingSubjects from './components/pages/AddingDroppingSubjects';
 import Shiftee from './components/pages/Shiftee';
 import FacultyAdminStaff from './components/pages/FacultyAdminStaff';
 import Grades from './components/pages/Grades';
+import IDReleasing from './components/pages/IDReleasing'; // <-- IMPORT NEW COMPONENT
 import Settings from './components/pages/Settings';
 import LandingPage from './components/auth/LandingPage';
 import LoginPage from './components/auth/LoginPage';
@@ -21,6 +22,8 @@ import { authAPI } from './services/api';
 import './App.css';
 
 function App() {
+  // ... state and useEffect hooks remain the same
+
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -111,6 +114,8 @@ function App() {
       transition: { duration: 0.4, ease: [0.23, 1, 0.32, 1] },
     },
   };
+  
+  // ... JSX for loading screen, landing, login, etc. remains the same
 
   if (isLoading) {
     return (
@@ -139,6 +144,8 @@ function App() {
 
   return (
     <Router>
+        {/* ... Other views (landing, login, etc.) */}
+
       {/* Landing Page View */}
       {currentView === 'landing' && (
         <motion.div
@@ -202,188 +209,194 @@ function App() {
           <CheckStatus onBack={handleBackToEnrollment} />
         </motion.div>
       )}
-
-      {/* Dashboard View */}
-      {currentView === 'dashboard' && (
-        <motion.div
-          className="min-h-screen bg-[var(--snowy-white)] overflow-hidden"
-          variants={layoutVariants}
-          initial="initial"
-          animate="animate"
-        >
-          {/* Mobile Overlay */}
-          <AnimatePresence>
-            {isMobile && !isCollapsed && (
-              <motion.div
-                className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setIsCollapsed(true)}
-              />
-            )}
-          </AnimatePresence>
-
-          {/* Sidebar */}
-          <div
-            className={`fixed top-0 left-0 z-50 ${
-              isMobile ? (isCollapsed ? '-translate-x-full' : 'translate-x-0') : ''
-            } transition-transform duration-300`}
-          >
-            <Sidebar
-              isCollapsed={isCollapsed && !isMobile ? true : false}
-              setIsCollapsed={setIsCollapsed}
-            />
-          </div>
-
-          {/* Main Content */}
-          <motion.div
-            className="flex flex-col min-h-screen"
-            variants={mainContentVariants}
-            animate={isCollapsed ? 'collapsed' : 'expanded'}
-            initial={false}
-          >
-            {/* Header */}
-            <Header
-              isCollapsed={isCollapsed}
-              setIsCollapsed={setIsCollapsed}
-              user={user}
-              onLogout={handleLogout}
-            />
-
-            {/* Routes */}
-            <motion.main
-              className="flex-1 overflow-auto"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0, transition: { duration: 0.8, delay: 0.2, ease: [0.23, 1, 0.32, 1] } }}
+        
+        {/* Dashboard View */}
+        {currentView === 'dashboard' && (
+            <motion.div
+            className="min-h-screen bg-[var(--snowy-white)] overflow-hidden"
+            variants={layoutVariants}
+            initial="initial"
+            animate="animate"
             >
-              <AnimatePresence mode="wait">
-                <Routes>
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  <Route
-                    path="/dashboard"
-                    element={
-                      <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                        <Dashboard user={user} />
-                      </motion.div>
-                    }
-                  />
-                  <Route
-                    path="/students"
-                    element={
-                      <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                        <Students />
-                      </motion.div>
-                    }
-                  />
-                  <Route
-                    path="/courses"
-                    element={
-                      <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                        <Courses />
-                      </motion.div>
-                    }
-                  />
-                  <Route
-                    path="/enrollment"
-                    element={
-                      <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                        <Enrollment />
-                      </motion.div>
-                    }
-                  />
-                  <Route
-                    path="/addingdroppingsubjects"
-                    element={
-                      <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                        <AddingDroppingSubjects />
-                      </motion.div>
-                    }
-                  />
-                  <Route
-                    path="/shiftee"
-                    element={
-                      <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                        <Shiftee />
-                      </motion.div>
-                    }
-                  />
-                  <Route
-                    path="/facultyadminstaff"
-                    element={
-                      <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                        <FacultyAdminStaff />
-                      </motion.div>
-                    }
-                  />
-                  <Route
-                    path="/grades"
-                    element={
-                      <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                        <Grades />
-                      </motion.div>
-                    }
-                  />
-                  <Route
-                    path="/settings"
-                    element={
-                      <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                        <Settings />
-                      </motion.div>
-                    }
-                  />
-                  <Route
-                    path="/enrollment-process"
-                    element={
-                      <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                        <FristProcessEnrollment />
-                      </motion.div>
-                    }
-                  />
-                  <Route
-                    path="/check-status"
-                    element={
-                      <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                        <CheckStatus />
-                      </motion.div>
-                    }
-                  />
-                  <Route
-                    path="/upload-receipt"
-                    element={
-                      <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                        <UploadReceipt />
-                      </motion.div>
-                    }
-                  />
-                </Routes>
-              </AnimatePresence>
-            </motion.main>
+            {/* ... Mobile Overlay, Sidebar, Header ... */}
+            <AnimatePresence>
+                {isMobile && !isCollapsed && (
+                <motion.div
+                    className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setIsCollapsed(true)}
+                />
+                )}
+            </AnimatePresence>
 
-            {/* Footer */}
-            <motion.footer
-              className="bg-white border-t border-gray-200 px-6 py-4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1, transition: { duration: 0.6, delay: 0.4 } }}
+            {/* Sidebar */}
+            <div
+                className={`fixed top-0 left-0 z-50 ${
+                isMobile ? (isCollapsed ? '-translate-x-full' : 'translate-x-0') : ''
+                } transition-transform duration-300`}
             >
-              <div className="flex items-center justify-between text-sm text-gray-500">
-                <p>© 2025 EduEnroll Management System. All rights reserved.</p>
-                <div className="flex items-center space-x-4">
-                  <button onClick={handleLogout} className="hover:text-[var(--dominant-red)] liquid-morph">
-                    Logout
-                  </button>
-                  <a href="#" className="hover:text-[var(--dominant-red)] liquid-morph">Privacy Policy</a>
-                  <a href="#" className="hover:text-[var(--dominant-red)] liquid-morph">Terms of Service</a>
-                  <a href="#" className="hover:text-[var(--dominant-red)] liquid-morph">Support</a>
-                </div>
-              </div>
-            </motion.footer>
-          </motion.div>
-        </motion.div>
-      )}
+                <Sidebar
+                isCollapsed={isCollapsed && !isMobile ? true : false}
+                setIsCollapsed={setIsCollapsed}
+                />
+            </div>
+            
+            <motion.div
+                className="flex flex-col min-h-screen"
+                variants={mainContentVariants}
+                animate={isCollapsed ? 'collapsed' : 'expanded'}
+                initial={false}
+            >
+                {/* Header */}
+                <Header
+                isCollapsed={isCollapsed}
+                setIsCollapsed={setIsCollapsed}
+                user={user}
+                onLogout={handleLogout}
+                />
+
+                {/* Routes */}
+                <motion.main
+                className="flex-1 overflow-auto"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0, transition: { duration: 0.8, delay: 0.2, ease: [0.23, 1, 0.32, 1] } }}
+                >
+                <AnimatePresence mode="wait">
+                    <Routes>
+                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                        <Route
+                            path="/dashboard"
+                            element={
+                                <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
+                                    <Dashboard user={user} />
+                                </motion.div>
+                            }
+                        />
+                        <Route
+                            path="/students"
+                            element={
+                                <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
+                                    <Students />
+                                </motion.div>
+                            }
+                        />
+                        <Route
+                            path="/courses"
+                            element={
+                                <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
+                                    <Courses />
+                                </motion.div>
+                            }
+                        />
+                        <Route
+                            path="/enrollment"
+                            element={
+                                <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
+                                    <Enrollment />
+                                </motion.div>
+                            }
+                        />
+                        <Route
+                            path="/addingdroppingsubjects"
+                            element={
+                                <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
+                                    <AddingDroppingSubjects />
+                                </motion.div>
+                            }
+                        />
+                        <Route
+                            path="/shiftee"
+                            element={
+                                <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
+                                    <Shiftee />
+                                </motion.div>
+                            }
+                        />
+                        <Route
+                            path="/facultyadminstaff"
+                            element={
+                                <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
+                                    <FacultyAdminStaff />
+                                </motion.div>
+                            }
+                        />
+                        <Route
+                            path="/grades"
+                            element={
+                                <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
+                                    <Grades />
+                                </motion.div>
+                            }
+                        />
+                        {/* --- NEW ROUTE ADDED BELOW --- */}
+                        <Route
+                            path="/id-releasing"
+                            element={
+                                <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
+                                    <IDReleasing />
+                                </motion.div>
+                            }
+                        />
+                        <Route
+                            path="/settings"
+                            element={
+                                <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
+                                    <Settings />
+                                </motion.div>
+                            }
+                        />
+                         <Route
+                            path="/enrollment-process"
+                            element={
+                            <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
+                                <FristProcessEnrollment />
+                            </motion.div>
+                            }
+                        />
+                        <Route
+                            path="/check-status"
+                            element={
+                            <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
+                                <CheckStatus />
+                            </motion.div>
+                            }
+                        />
+                        <Route
+                            path="/upload-receipt"
+                            element={
+                            <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
+                                <UploadReceipt />
+                            </motion.div>
+                            }
+                        />
+                    </Routes>
+                </AnimatePresence>
+                </motion.main>
+                {/* ... Footer ... */}
+                 <motion.footer
+                    className="bg-white border-t border-gray-200 px-6 py-4"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1, transition: { duration: 0.6, delay: 0.4 } }}
+                    >
+                    <div className="flex items-center justify-between text-sm text-gray-500">
+                        <p>© 2025 EduEnroll Management System. All rights reserved.</p>
+                        <div className="flex items-center space-x-4">
+                        <button onClick={handleLogout} className="hover:text-[var(--dominant-red)] liquid-morph">
+                            Logout
+                        </button>
+                        <a href="#" className="hover:text-[var(--dominant-red)] liquid-morph">Privacy Policy</a>
+                        <a href="#" className="hover:text-[var(--dominant-red)] liquid-morph">Terms of Service</a>
+                        <a href="#" className="hover:text-[var(--dominant-red)] liquid-morph">Support</a>
+                        </div>
+                    </div>
+                </motion.footer>
+            </motion.div>
+            </motion.div>
+        )}
     </Router>
   );
 }
 
 export default App;
-

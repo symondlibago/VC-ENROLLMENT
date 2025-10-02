@@ -13,6 +13,7 @@ import {
   FileText,
   BarChart3,
   User,
+  CreditCard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -30,10 +31,10 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
     { id: 'shiftee', icon: BarChart3, label: 'Shiftee', badge: null, path: '/shiftee' },
     { id: 'facultyadminstaff', icon: User, label: 'Faculty & Admin Staff', badge: null, path: '/facultyadminstaff' },
     { id: 'grades', icon: FileText, label: 'Grades', badge: '12', path: '/grades' },
+    { id: 'id-releasing', icon: CreditCard, label: 'ID Releasing', badge: null, path: '/id-releasing' },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
   ];
 
-  // Update active item based on current route
   useEffect(() => {
     const currentPath = location.pathname;
     const currentItem = menuItems.find(item => item.path === currentPath);
@@ -278,4 +279,3 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
 };
 
 export default Sidebar;
-

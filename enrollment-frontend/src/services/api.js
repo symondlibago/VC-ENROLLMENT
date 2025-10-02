@@ -495,6 +495,37 @@ export const enrollmentAPI = {
       throw error.response?.data || { success: false, message: 'Failed to update student details' };
     }
   },
+
+  // ID Releasing
+  getStudentsForIdReleasing: async () => {
+    try {
+        const response = await api.get('/id-releasing/students');
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { success: false, message: 'Failed to fetch students for ID releasing' };
+    }
+  },
+
+  updateIdStatus: async (studentId, status) => {
+    try {
+        const response = await api.put(`/id-releasing/students/${studentId}/status`, { status });
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { success: false, message: 'Failed to update ID status' };
+    }
+  },
+
+  bulkUpdateIdStatus: async (studentIds, status) => {
+    try {
+        const response = await api.post(`/id-releasing/students/bulk-status`, { 
+            student_ids: studentIds, 
+            status 
+        });
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { success: false, message: 'Failed to bulk update ID status' };
+    }
+  }
 };
 
 // Section API methods

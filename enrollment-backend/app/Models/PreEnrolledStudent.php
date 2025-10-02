@@ -54,6 +54,9 @@ class PreEnrolledStudent extends Model
         'year', 
         'enrollment_type', 
         'enrollment_status',
+        'id_status', 
+        'id_printed_at',
+        'id_released_at', 
     ];
 
     protected $casts = [

@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
+use Carbon\Carbon;
 class EnrollmentController extends Controller
 {
     public function submitEnrollment(Request $request)
@@ -472,4 +473,104 @@ public function updateStudentDetails(Request $request, $id)
         ], 500);
     }
 }
+
+        public function getStudentsForIdReleasing()
+        {
+            try {
+                $students = PreEnrolledStudent::with('course')
+                    ->where('enrollment_status', 'enrolled')
+                    ->orderBy('last_name', 'asc')
+                    ->get()
+                    ->map(function ($student) {
+                        return [
+                            'id' => $student->id,
+                            'student_id_number' => $student->student_id_number,
+                            'name' => $student->getFullNameAttribute(),
+                            'courseName' => $student->course ? $student->course->course_name : 'N/A',
+                            'id_photo_url' => $student->id_photo ? Storage::disk('s3')->url($student->id_photo) : null,
+                            'signature_url' => $student->signature ? Storage::disk('s3')->url($student->signature) : null,
+                            'id_status' => $student->id_status,
+                            'id_printed_at' => $student->id_printed_at,
+                            'id_released_at' => $student->id_released_at,
+                        ];
+                    });
+
+                return response()->json(['success' => true, 'data' => $students]);
+            } catch (\Exception $e) {
+                return response()->json(['success' => false, 'message' => 'Failed to fetch students for ID releasing', 'error' => $e->getMessage()], 500);
+            }
+        }
+
+        public function updateIdStatus(Request $request, $id)
+        {
+            $validator = Validator::make($request->all(), [
+                'status' => 'required|string|in:printed,released',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+            }
+            
+            try {
+                $student = PreEnrolledStudent::findOrFail($id);
+                $status = $request->input('status');
+
+                if ($status === 'printed') {
+                    $student->id_status = 'Printed';
+                    $student->id_printed_at = Carbon::now();
+                } elseif ($status === 'released') {
+                    $student->id_status = 'Released';
+                    // Also set printed date if it's not already set
+                    if (!$student->id_printed_at) {
+                        $student->id_printed_at = Carbon::now();
+                    }
+                    $student->id_released_at = Carbon::now();
+                }
+                
+                $student->save();
+
+                return response()->json(['success' => true, 'message' => 'ID status updated successfully.']);
+
+            } catch (\Exception $e) {
+                return response()->json(['success' => false, 'message' => 'Failed to update ID status', 'error' => $e->getMessage()], 500);
+            }
+        }
+
+        public function bulkUpdateIdStatus(Request $request)
+        {
+            $validator = Validator::make($request->all(), [
+                'student_ids' => 'required|array',
+                'student_ids.*' => 'exists:pre_enrolled_students,id', // Ensure all IDs are valid
+                'status' => 'required|string|in:printed', // For now, only allow 'printed' for bulk actions
+            ]);
+    
+            if ($validator->fails()) {
+                return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+            }
+    
+            try {
+                $studentIds = $request->input('student_ids');
+                $status = $request->input('status');
+    
+                if ($status === 'printed') {
+                    // Use a single query to update all students at once
+                    PreEnrolledStudent::whereIn('id', $studentIds)
+                        ->where(function ($query) {
+                            // Optional: Only update those that are not yet printed or released
+                            $query->where('id_status', '!=', 'Printed')
+                                  ->orWhereNull('id_status');
+                        })
+                        ->update([
+                            'id_status' => 'Printed',
+                            'id_printed_at' => Carbon::now(),
+                        ]);
+                }
+    
+                return response()->json(['success' => true, 'message' => 'Bulk ID status updated successfully.']);
+    
+            } catch (\Exception $e) {
+                return response()->json(['success' => false, 'message' => 'Failed to bulk update ID status', 'error' => $e->getMessage()], 500);
+            }
+        }
+
 }
