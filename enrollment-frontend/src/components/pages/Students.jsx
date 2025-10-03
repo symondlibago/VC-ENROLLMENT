@@ -13,8 +13,8 @@ import {
   Trash2,
   FileText,
   User,
-  Book,
   Hash,
+  Settings2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -546,58 +546,98 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
           </CardContent>
         </Card>
         <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Student ID</TableHead><TableHead>Name</TableHead><TableHead>Course</TableHead>
-                <TableHead>Section</TableHead><TableHead className="text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {students.length > 0 ? students.map(student => (
-                <TableRow key={student.id}>
-                  <TableCell className="font-medium">
-                  <div className="flex items-center">
-                    <Hash className="w-4 h-4 mr-2 text-gray-700" />
-                    <p className="font-mono text-gray-900">{student.student_id_number}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                  <div className="flex items-center">
-                    <User className="w-4 h-4 mr-2 text-gray-700" />
-                    <p className="font-bold text-gray-900">{student.name}</p>
-                    </div>
-                    </TableCell>
-                  <TableCell>
-                  <div className="flex items-center">
-                    <Book className="w-4 h-4 mr-2 text-gray-700" />
-                    <p className="font-bold text-gray-900">{student.courseName}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell><Badge variant={student.sectionName === 'Unassigned' ? "destructive" : "secondary"}>{student.sectionName}</Badge></TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0 cursor-pointer"><span className="sr-only">Open menu</span><MoreVertical className="h-4 w-4" /></Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="cursor-pointer" onClick={() => onViewStudentDetails(student.id)}>
-                            <FileText className="w-4 h-4 mr-2 hover:text-white" />
-                            View Details
-                        </DropdownMenuItem>
-                        {canEdit && (
-                          <DropdownMenuItem className="cursor-pointer" onClick={() => onEditStudent(student.id)}>
-                            <Edit className="w-4 h-4 mr-2 hover:text-white" />
-                            Edit Student
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              )) : <TableRow><TableCell colSpan="5" className="text-center h-24">No students found.</TableCell></TableRow>}
-            </TableBody>
-          </Table>
+        <Table>
+  {/* ✅ 1. REMOVED the extra, nested <TableHeader> tag that was here */}
+  <TableHeader>
+    <TableRow>
+      <TableHead>
+        <div className="flex items-center gap-2">
+          <Hash size={16} />
+          Student ID
+        </div>
+      </TableHead>
+      <TableHead>
+        <div className="flex items-center gap-2">
+          <User size={16} />
+          Name
+        </div>
+      </TableHead>
+      <TableHead>
+        <div className="flex items-center gap-2">
+          <GraduationCap size={16} />
+          Course
+        </div>
+      </TableHead>
+      <TableHead>
+        <div className="flex items-center gap-2">
+          <Users size={16} />
+          Section
+        </div>
+      </TableHead>
+      <TableHead className="text-right">
+        <div className="flex items-center justify-end gap-2">
+          <Settings2 size={16} />
+          Action
+        </div>
+      </TableHead>
+    </TableRow>
+  </TableHeader>
+  <TableBody>
+    {students.length > 0 ? students.map(student => (
+      <TableRow key={student.id}>
+        <TableCell className="font-medium">
+          {/* ✅ 2. STANDARDIZED cell layout for alignment */}
+          <div className="flex items-center gap-2">
+            <Hash size={14} className="text-gray-500" />
+            <p className="font-mono text-gray-900">{student.student_id_number}</p>
+          </div>
+        </TableCell>
+        <TableCell>
+          <div className="flex items-center gap-2">
+            <User size={14} className="text-gray-500" />
+            <p className="font-bold text-gray-900">{student.name}</p>
+          </div>
+        </TableCell>
+        <TableCell>
+          <div className="flex items-center gap-2">
+            <GraduationCap size={14} className="text-gray-500" />
+            <p className="font-bold text-gray-900">{student.courseName}</p>
+          </div>
+        </TableCell>
+        <TableCell>
+           {/* ✅ 3. ADDED icon to Section cell to match the header */}
+          <div className="flex items-center gap-2">
+            <Users size={14} className="text-gray-500" />
+            <Badge variant={student.sectionName === 'Unassigned' ? "destructive" : "secondary"}>
+              {student.sectionName}
+            </Badge>
+          </div>
+        </TableCell>
+        <TableCell className="text-right">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0 cursor-pointer">
+                <span className="sr-only">Open menu</span><MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem className="cursor-pointer" onClick={() => onViewStudentDetails(student.id)}>
+                <FileText className="w-4 h-4 mr-2" />
+                View Details
+              </DropdownMenuItem>
+              {canEdit && (
+                <DropdownMenuItem className="cursor-pointer" onClick={() => onEditStudent(student.id)}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Student
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </TableCell>
+      </TableRow>
+    )) : <TableRow><TableCell colSpan="5" className="text-center h-24">No students found.</TableCell></TableRow>}
+  </TableBody>
+</Table>
         </Card>
       </div>
     );

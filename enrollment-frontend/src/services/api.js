@@ -930,5 +930,21 @@ export const instructorAPI = {
   },
 };
 
+export const gradeAPI = {
+  getStudentGrades: async (studentId, { year, semester }) => {
+    try {
+      // Create a params object to handle optional filters
+      const params = {};
+      if (year) params.year = year;
+      if (semester) params.semester = semester;
+
+      const response = await api.get(`/students/${studentId}/grades`, { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch student grades' };
+    }
+  },
+};
+
 export default api;
 

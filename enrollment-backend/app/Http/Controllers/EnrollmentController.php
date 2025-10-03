@@ -7,6 +7,7 @@ use App\Models\EnrollmentCode;
 use App\Models\PreEnrolledStudent;
 use App\Models\EnrollmentApproval;
 use App\Models\Course;
+use App\Models\Grade;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -371,7 +372,7 @@ public function getEnrolledStudents()
     try {
         $enrolledStudents = PreEnrolledStudent::with(['course', 'sections'])
             ->where('enrollment_status', 'enrolled')
-            ->orderBy('last_name', 'asc')
+            ->orderBy('student_id_number', 'asc')
             ->get()
             ->map(function ($student) {
                 return [
@@ -379,6 +380,7 @@ public function getEnrolledStudents()
                     'student_id_number' => $student->student_id_number,
                     'name' => $student->getFullNameAttribute(),
                     'email' => $student->email_address,
+                    'year' => $student->year,
                     'courseId' => $student->course->id ?? null,
                     'courseName' => $student->course ? $student->course->course_name : 'N/A',
                     'sectionId' => $student->sections->first()->id ?? null,
@@ -575,5 +577,69 @@ public function getStudentsForIdReleasing()
                 return response()->json(['success' => false, 'message' => 'Failed to bulk update ID status', 'error' => $e->getMessage()], 500);
             }
         }
+
+
+            /**
+     * Get grades for a specific student, filterable by year and semester.
+     */
+    public function getStudentGrades(Request $request, PreEnrolledStudent $student): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'year' => 'nullable|string',
+                'semester' => 'nullable|string',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+            }
+
+            // Start querying grades for the specific student
+            $query = Grade::with([
+                // Eager load relationships and select only the columns you need for optimization
+                'subject:id,subject_code,descriptive_title,year,semester',
+                'instructor.user:id,name'
+            ])->where('pre_enrolled_student_id', $student->id);
+
+            // Apply filters by querying the related 'subject' table
+            $query->whereHas('subject', function ($q) use ($request) {
+                if ($request->filled('year')) {
+                    $q->where('year', $request->year);
+                }
+                if ($request->filled('semester')) {
+                    $q->where('semester', $request->semester);
+                }
+            });
+
+            $grades = $query->orderBy('created_at', 'desc')->get();
+
+            // Format the data for a clean frontend response
+            $formattedGrades = $grades->map(function ($grade) {
+                return [
+                    'id' => $grade->id,
+                    'subject_code' => $grade->subject->subject_code ?? 'N/A',
+                    'descriptive_title' => $grade->subject->descriptive_title ?? 'N/A',
+                    'instructor_name' => $grade->instructor->user->name ?? 'Unassigned',
+                    'prelim_grade' => $grade->prelim_grade,
+                    'midterm_grade' => $grade->midterm_grade,
+                    'semifinal_grade' => $grade->semifinal_grade,
+                    'final_grade' => $grade->final_grade,
+                    'status' => $grade->status,
+                    'year' => $grade->subject->year,
+                    'semester' => $grade->subject->semester,
+                ];
+            });
+
+            return response()->json(['success' => true, 'data' => $formattedGrades]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve student grades.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
 
 }
