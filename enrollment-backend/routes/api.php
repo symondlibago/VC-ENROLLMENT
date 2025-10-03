@@ -15,7 +15,7 @@ use App\Http\Controllers\SubjectChangeRequestController;
 use App\Http\Controllers\ShifteeRequestController;
 use App\Http\Controllers\InstructorController;
 use App\Http\Controllers\UserController;
-
+use App\Http\Controllers\ManagementController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -96,6 +96,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // User routes
     Route::apiResource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
+
+    // Management routes
+    Route::get('/management/grading-periods', [ManagementController::class, 'getGradingPeriods']);
+    Route::post('/management/grading-periods', [ManagementController::class, 'updateGradingPeriods']);
 
 });
     // Program routes

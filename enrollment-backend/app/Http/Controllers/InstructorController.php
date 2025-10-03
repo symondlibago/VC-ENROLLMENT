@@ -224,7 +224,10 @@ class InstructorController extends Controller
             return $subjectData;
         }, array_values($rosterBySubject));
 
-        return response()->json(['success' => true, 'data' => $formattedRoster]);
+        // Fetch grading periods
+        $gradingPeriods = \App\Models\GradingPeriod::all()->keyBy('name');
+
+        return response()->json(['success' => true, 'data' => $formattedRoster, 'grading_periods' => $gradingPeriods]);
     }
 
     public function bulkUpdateGrades(Request $request)
@@ -256,13 +259,42 @@ class InstructorController extends Controller
             DB::transaction(function () use ($gradesData, $instructor) {
                 foreach ($gradesData as $gradeInput) {
                     // Authorization check: Ensure the instructor teaches this subject
-                    $isAuthorized = Schedule::where('subject_id', $gradeInput['subject_id'])
-                                            ->where('instructor_id', $instructor->id)
+                    $isAuthorized = Schedule::where("subject_id", $gradeInput["subject_id"])
+                                            ->where("instructor_id", $instructor->id)
                                             ->exists();
                     
                     if (!$isAuthorized) {
                         // Silently skip if not authorized for this specific grade to prevent errors
                         continue;
+                    }
+
+                    // Date validation for each grade type
+                    $currentDate = now()->toDateString();
+                    $gradePeriodName = null;
+
+                    if (isset($gradeInput["prelim_grade"]) && $gradeInput["prelim_grade"] !== null) {
+                        $gradePeriodName = 'prelim';
+                    } elseif (isset($gradeInput["midterm_grade"]) && $gradeInput["midterm_grade"] !== null) {
+                        $gradePeriodName = 'midterm';
+                    } elseif (isset($gradeInput["semifinal_grade"]) && $gradeInput["semifinal_grade"] !== null) {
+                        $gradePeriodName = 'semifinal';
+                    } elseif (isset($gradeInput["final_grade"]) && $gradeInput["final_grade"] !== null) {
+                        $gradePeriodName = 'final';
+                    }
+
+                    if ($gradePeriodName) {
+                        $gradingPeriod = \App\Models\GradingPeriod::where('name', $gradePeriodName)->first();
+
+                        if ($gradingPeriod) {
+                            $startDate = $gradingPeriod->start_date;
+                            $endDate = $gradingPeriod->end_date;
+
+                            if ($startDate && $endDate && ($currentDate < $startDate || $currentDate > $endDate)) {
+                                // If outside the allowed period, skip this grade update and potentially log or return an error
+                                // For now, we'll just skip to prevent submission. Frontend will handle disabling input.
+                                continue;
+                            }
+                        }
                     }
 
                     // Calculate status

@@ -946,5 +946,26 @@ export const gradeAPI = {
   },
 };
 
-export default api;
+// --- ADD THIS: Management API (for grading periods) ---
+export const managementAPI = {
+  getGradingPeriods: async () => {
+    try {
+      const response = await api.get('/management/grading-periods');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch grading periods' };
+    }
+  },
 
+  updateGradingPeriods: async (periodsData) => {
+    try {
+      const response = await api.post('/management/grading-periods', periodsData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to update grading periods' };
+    }
+  },
+};
+
+
+export default api;

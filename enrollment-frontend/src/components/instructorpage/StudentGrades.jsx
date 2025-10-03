@@ -72,13 +72,13 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
 
 const StudentGrades = () => {
   const [rosterData, setRosterData] = useState([]);
-  const [selectedSubjectId, setSelectedSubjectId] = useState('all'); // Default to 'all'
+  const [selectedSubjectId, setSelectedSubjectId] = useState('all');
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [grades, setGrades] = useState({});
-  
-  // State for alerts and modals
+  const [gradingPeriods, setGradingPeriods] = useState({}); // <-- NEW: State for grading periods
+
   const [alertState, setAlertState] = useState({ isVisible: false, message: '', type: 'success' });
   const [validationError, setValidationError] = useState({ isOpen: false, message: '' });
 
@@ -89,7 +89,8 @@ const StudentGrades = () => {
         const response = await instructorAPI.getGradeableStudents();
         if (response.success) {
           setRosterData(response.data);
-          // Initialize grades state from fetched data
+          setGradingPeriods(response.grading_periods || {}); // <-- NEW: Store grading periods from API
+
           const initialGrades = {};
           response.data.forEach(subject => {
             subject.students.forEach(student => {
@@ -109,8 +110,22 @@ const StudentGrades = () => {
     fetchGradeableStudents();
   }, []);
 
+  // --- NEW: Helper function to check if a grading period is open ---
+  const isPeriodOpen = (periodName) => {
+    const period = gradingPeriods[periodName];
+    if (!period || !period.start_date || !period.end_date) {
+        return false; // Not open if dates aren't set
+    }
+    const now = new Date();
+    const start = new Date(period.start_date);
+    const end = new Date(period.end_date);
+    end.setHours(23, 59, 59, 999); // Include the entire end day
+
+    return now >= start && now <= end;
+  };
+
   const subjectOptions = useMemo(() => [
-    { label: 'Filter by All Subjects', value: 'all' }, // Added "All Subjects" option
+    { label: 'Filter by All Subjects', value: 'all' },
     ...rosterData.map(subject => ({
       label: `${subject.subject_code} - ${subject.descriptive_title}`,
       value: subject.subject_id.toString()
@@ -150,14 +165,8 @@ const StudentGrades = () => {
     return { filteredStudents: filtered, totalStudentsInSubject: total, gradedStudentsCount: graded };
   }, [rosterData, selectedSubjectId, searchTerm, grades]);
 
-  // --- FIXED FUNCTION ---
   const handleGradeChange = (studentId, field, value) => {
     const numericValue = value === '' ? null : parseFloat(value);
-    
-    // The validation that was here has been removed. 
-    // It prevented typing values outside the 0-100 range.
-    // Validation now happens only on submit.
-
     setGrades(prev => ({
       ...prev,
       [studentId]: {
@@ -173,7 +182,6 @@ const StudentGrades = () => {
         return;
     }
     
-    // Validate grades before submitting
     const invalidGrade = filteredStudents.some(student => {
         const studentGrades = grades[student.id] || {};
         return Object.values(studentGrades).some(grade => grade !== null && (grade < 0 || grade > 100));
@@ -288,30 +296,39 @@ const StudentGrades = () => {
                     <tr key={student.id} className="bg-white border-b hover:bg-gray-50">
                       <td className="px-6 py-4 font-mono">{student.studentId}</td>
                       <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{student.name}</td>
+                      {/* --- UPDATED: Conditionally disable inputs based on grading period --- */}
                       <td className="px-2 py-2">
-                      <Input type="number" min="0" max="100" 
-                        value={studentGrade.prelim_grade ?? ''} 
-                        onChange={(e) => handleGradeChange(student.id, 'prelim_grade', e.target.value)} 
-                        className="w-20 border-1 border-gray-300 rounded-md text-black" 
-                        disabled={isAllSubjectsView}/></td>
+                        <Input type="number" min="0" max="100" 
+                          value={studentGrade.prelim_grade ?? ''} 
+                          onChange={(e) => handleGradeChange(student.id, 'prelim_grade', e.target.value)} 
+                          className="w-20 border-1 border-gray-300 rounded-md text-black" 
+                          disabled={isAllSubjectsView || !isPeriodOpen('prelim')}
+                        />
+                      </td>
                       <td className="px-2 py-2">
-                      <Input type="number" min="0" max="100" 
-                        value={studentGrade.midterm_grade ?? ''} 
-                        onChange={(e) => handleGradeChange(student.id, 'midterm_grade', e.target.value)} 
-                        className="w-20 border-1 border-gray-300 rounded-md text-black" 
-                        disabled={isAllSubjectsView}/></td>
+                        <Input type="number" min="0" max="100" 
+                          value={studentGrade.midterm_grade ?? ''} 
+                          onChange={(e) => handleGradeChange(student.id, 'midterm_grade', e.target.value)} 
+                          className="w-20 border-1 border-gray-300 rounded-md text-black" 
+                          disabled={isAllSubjectsView || !isPeriodOpen('midterm')}
+                        />
+                      </td>
                       <td className="px-2 py-2">
-                      <Input type="number" min="0" max="100" 
-                        value={studentGrade.semifinal_grade ?? ''} 
-                        onChange={(e) => handleGradeChange(student.id, 'semifinal_grade', e.target.value)} 
-                        className="w-20 border-1 border-gray-300 rounded-md text-black" 
-                        disabled={isAllSubjectsView}/></td>
+                        <Input type="number" min="0" max="100" 
+                          value={studentGrade.semifinal_grade ?? ''} 
+                          onChange={(e) => handleGradeChange(student.id, 'semifinal_grade', e.target.value)} 
+                          className="w-20 border-1 border-gray-300 rounded-md text-black" 
+                          disabled={isAllSubjectsView || !isPeriodOpen('semifinal')}
+                        />
+                      </td>
                       <td className="px-2 py-2">
-                      <Input type="number" min="0" max="100" 
-                        value={studentGrade.final_grade ?? ''} 
-                        onChange={(e) => handleGradeChange(student.id, 'final_grade', e.target.value)} 
-                        className="w-20 border-1 border-gray-300 rounded-md text-black" 
-                        disabled={isAllSubjectsView}/></td>
+                        <Input type="number" min="0" max="100" 
+                          value={studentGrade.final_grade ?? ''} 
+                          onChange={(e) => handleGradeChange(student.id, 'final_grade', e.target.value)} 
+                          className="w-20 border-1 border-gray-300 rounded-md text-black" 
+                          disabled={isAllSubjectsView || !isPeriodOpen('final')}
+                        />
+                      </td>
                       <td className="px-6 py-4">{statusBadge}</td>
                     </tr>
                   );
