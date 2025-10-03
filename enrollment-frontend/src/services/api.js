@@ -944,6 +944,16 @@ export const gradeAPI = {
       throw error.response?.data || { success: false, message: 'Failed to fetch student grades' };
     }
   },
+
+  updateStudentGrades: async (gradesData) => {
+    try {
+      // This will send an array of grade objects to be updated.
+      const response = await api.post('/grades/update-batch', { grades: gradesData });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to update grades' };
+    }
+  },
 };
 
 // --- ADD THIS: Management API (for grading periods) ---

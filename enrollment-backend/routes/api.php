@@ -67,6 +67,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/id-releasing/students', [EnrollmentController::class, 'getStudentsForIdReleasing']);
     Route::put('/id-releasing/students/{id}/status', [EnrollmentController::class, 'updateIdStatus']);
     Route::post('/id-releasing/students/bulk-status', [EnrollmentController::class, 'bulkUpdateIdStatus']);
+    Route::post('/grades/update-batch', [EnrollmentController::class, 'updateStudentGrades']);
     
     // Upload Receipts
     Route::get('upload-receipts', [UploadReceiptController::class, 'index']);

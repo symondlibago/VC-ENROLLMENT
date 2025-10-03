@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
@@ -638,6 +639,49 @@ public function getStudentsForIdReleasing()
                 'message' => 'Failed to retrieve student grades.',
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    public function updateStudentGrades(Request $request)
+    {
+        // 1. Authorization: Only Admin and Registrar can access
+        $user = Auth::user(); 
+        if (!$user || !in_array($user->role, ['Admin', 'Registrar'])) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        // 2. Validation
+        $validator = Validator::make($request->all(), [
+            'grades' => 'required|array',
+            'grades.*.id' => 'required|exists:grades,id',
+            'grades.*.final_grade' => 'nullable|numeric|min:0|max:100',
+            'grades.*.status' => ['required', 'string', Rule::in(['Passed', 'Failed', 'In Progress', 'INC', 'NFE', 'NFR', 'DA'])],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        // 3. Database Transaction
+        try {
+            DB::transaction(function () use ($request) {
+                foreach ($request->grades as $gradeData) {
+                    $grade = Grade::find($gradeData['id']);
+                    if ($grade) {
+                        if (array_key_exists('final_grade', $gradeData)) {
+                            $grade->final_grade = $gradeData['final_grade'];
+                        }
+                        
+                        $grade->status = $gradeData['status'];
+                        $grade->save();
+                    }
+                }
+            });
+
+            return response()->json(['success' => true, 'message' => 'Grades updated successfully.']);
+
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'An error occurred while updating grades.', 'error' => $e->getMessage()], 500);
         }
     }
 

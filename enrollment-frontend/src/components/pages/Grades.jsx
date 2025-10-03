@@ -9,8 +9,9 @@ import { enrollmentAPI, managementAPI } from '@/services/api';
 import LoadingSpinner from '@/components/layout/LoadingSpinner';
 import StudentGradesModal from '@/components/modals/StudentGradesModal';
 import SuccessAlert from '@/components/modals/SuccessAlert';
+import CustomCalendar from '@/components/layout/CustomCalendar';
 
-// SECTION 1: The view for the student list (Moved outside the main component to fix the search bar focus issue)
+// SECTION 1: The view for the student list
 const StudentGradebookView = ({ loading, filteredStudents, searchTerm, onSearchTermChange, onViewGrades }) => (
     <>
       {loading ? (
@@ -113,10 +114,21 @@ const GradeSubmissionManager = () => {
     fetchPeriods();
   }, []);
 
-  const handleDateChange = (periodKey, dateType, value) => {
+  // --- UPDATED: Handles date format conversion from the custom calendar ---
+  const handleDateChange = (periodKey, dateType, valueFromCalendar) => {
+    let formattedDate = '';
+    // The calendar returns MM/DD/YYYY, convert it to YYYY-MM-DD for the backend
+    if (valueFromCalendar) {
+      const date = new Date(valueFromCalendar);
+      if (!isNaN(date)) {
+        // toISOString() returns 'YYYY-MM-DDTHH:mm:ss.sssZ', we split at 'T' to get just the date part.
+        formattedDate = date.toISOString().split('T')[0];
+      }
+    }
+    
     setPeriods(prev => ({
       ...prev,
-      [periodKey]: { ...prev[periodKey], [dateType]: value },
+      [periodKey]: { ...prev[periodKey], [dateType]: formattedDate },
     }));
   };
 
@@ -170,11 +182,19 @@ const GradeSubmissionManager = () => {
                 </div>
                 <div className="md:col-span-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                  <Input type="date" value={periodData.start_date || ''} onChange={(e) => handleDateChange(key, 'start_date', e.target.value)} />
+                  <CustomCalendar
+                    value={periodData.start_date}
+                    onChange={(date) => handleDateChange(key, 'start_date', date)}
+                    placeholder="Select start date"
+                  />
                 </div>
                 <div className="md:col-span-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                  <Input type="date" value={periodData.end_date || ''} onChange={(e) => handleDateChange(key, 'end_date', e.target.value)} />
+                   <CustomCalendar
+                    value={periodData.end_date}
+                    onChange={(date) => handleDateChange(key, 'end_date', date)}
+                    placeholder="Select end date"
+                  />
                 </div>
               </div>
             );
