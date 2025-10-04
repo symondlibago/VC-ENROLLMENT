@@ -362,6 +362,19 @@ export const courseAPI = {
 
 // Subject Api
 export const subjectAPI = {
+
+  // Search Subjects
+  searchSubjects: async (searchTerm, courseId) => {
+    try {
+      const response = await api.get('/subjects/search', {
+        params: { q: searchTerm, course_id: courseId }
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to search subjects' };
+    }
+  },
+  
   // Get all subjects
   getAll: async () => {
     try {

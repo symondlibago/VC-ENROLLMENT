@@ -100,7 +100,6 @@ const SubjectDetailsModal = ({
     
     switch (programType) {
       case 'Bachelor':
-        // Show all columns except number_of_hours
         return columnName !== 'number_of_hours';
       case 'SHS':
         // Show subject_code, descriptive_title, number_of_hours, year, semester
@@ -327,7 +326,7 @@ const SubjectDetailsModal = ({
                           {shouldShowColumn('number_of_hours') && (
                             <TableHead className="text-center w-[80px]">Number of Hours</TableHead>
                           )}
-                          {shouldShowColumn('pre_req') && (
+                          {shouldShowColumn('prerequisite_id') && (
                             <TableHead className="text-center w-[80px]">Pre Requisites</TableHead>
                           )}
                           {shouldShowColumn('year') && (
@@ -345,25 +344,27 @@ const SubjectDetailsModal = ({
                         {filteredSubjects.map((subject) => (
                           <TableRow key={subject.id}>
                             {shouldShowColumn('subject_code') && (
-                              <TableCell className="font-medium">{subject.subject_code}</TableCell>
+                              <TableCell className="font-mono">{subject.subject_code}</TableCell>
                             )}
                             {shouldShowColumn('descriptive_title') && (
                               <TableCell>{subject.descriptive_title}</TableCell>
                             )}
                             {shouldShowColumn('lec_hrs') && (
-                              <TableCell className="text-center">{subject.lec_hrs}</TableCell>
+                              <TableCell className="text-center font-mono">{subject.lec_hrs}</TableCell>
                             )}
                             {shouldShowColumn('lab_hrs') && (
-                              <TableCell className="text-center">{subject.lab_hrs}</TableCell>
+                              <TableCell className="text-center font-mono">{subject.lab_hrs}</TableCell>
                             )}
                             {shouldShowColumn('total_units') && (
-                              <TableCell className="text-center">{subject.total_units}</TableCell>
+                              <TableCell className="text-center font-mono">{subject.total_units}</TableCell>
                             )}
                             {shouldShowColumn('number_of_hours') && (
-                              <TableCell className="text-center">{subject.number_of_hours}</TableCell>
+                              <TableCell className="text-center font-mono">{subject.number_of_hours}</TableCell>
                             )}
-                            {shouldShowColumn('pre_req') && (
-                              <TableCell className="text-center">{subject.pre_req}</TableCell>
+                            {shouldShowColumn('prerequisite_id') && (
+                              <TableCell className="text-center">
+                              {subject.prerequisite ? subject.prerequisite.subject_code : 'NONE'}
+                              </TableCell>
                             )}
                             {shouldShowColumn('year') && (
                               <TableCell className="text-center">{subject.year}</TableCell>

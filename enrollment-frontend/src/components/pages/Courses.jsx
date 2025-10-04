@@ -431,7 +431,22 @@ const Courses = () => {
     try {
       let response;
       
-      if (activeTab === 'courses') {
+      if (selectedItem.subject_code) {
+        response = await subjectAPI.delete(selectedItem.id);
+        if (response.success) {
+          setAlert({
+            isVisible: true,
+            message: 'Subject deleted successfully!',
+            type: 'success'
+          });
+          if (isSubjectModalOpen && selectedCourse) {
+            const updatedCourseResponse = await courseAPI.getById(selectedCourse.id);
+            if (updatedCourseResponse.success) {
+              setSelectedCourse(updatedCourseResponse.data);
+            }
+          }
+        }
+      } else if (activeTab === 'courses') {
         response = await courseAPI.delete(selectedItem.id);
         if (response.success) {
           setCourses(prevCourses => prevCourses.filter(course => course.id !== selectedItem.id));
@@ -450,21 +465,6 @@ const Courses = () => {
             message: 'Program deleted successfully!',
             type: 'success'
           });
-        }
-      } else if (selectedItem && selectedItem.subject_code) {
-        response = await subjectAPI.delete(selectedItem.id);
-        if (response.success) {
-          setAlert({
-            isVisible: true,
-            message: 'Subject deleted successfully!',
-            type: 'success'
-          });
-          if (isSubjectModalOpen && selectedCourse) {
-            const updatedCourse = await courseAPI.getById(selectedCourse.id);
-            if (updatedCourse.success) {
-              setSelectedCourse(updatedCourse.data);
-            }
-          }
         }
       }
       

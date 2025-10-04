@@ -110,6 +110,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('courses', CourseController::class);
 
     // Subject routes
+    Route::get('/subjects/search', [SubjectController::class, 'search']);
     Route::apiResource('subjects', SubjectController::class);
     Route::get('courses/{course}/subjects', [SubjectController::class, 'getByCourse']);
     

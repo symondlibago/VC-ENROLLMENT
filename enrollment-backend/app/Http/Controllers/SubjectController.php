@@ -10,13 +10,38 @@ use Illuminate\Validation\ValidationException;
 
 class SubjectController extends Controller
 {
+
+    public function search(Request $request): JsonResponse
+    {
+        $searchTerm = $request->query('q', '');
+        $courseId = $request->query('course_id');
+
+        if (strlen($searchTerm) < 2) {
+            return response()->json(['data' => []]); // Don't search for very short terms
+        }
+        
+        $query = Subject::where(function ($q) use ($searchTerm) {
+                $q->where('subject_code', 'like', "%{$searchTerm}%")
+                  ->orWhere('descriptive_title', 'like', "%{$searchTerm}%");
+            })
+            ->select('id', 'subject_code', 'descriptive_title');
+
+        if ($courseId) {
+            $query->where('course_id', $courseId);
+        }
+
+        $subjects = $query->limit(10)->get();
+
+        return response()->json(['data' => $subjects]);
+    }
+
     /**
      * Display a listing of the subjects.
      */
     public function index(): JsonResponse
     {
         try {
-            $subjects = Subject::with('course')->orderBy('created_at', 'desc')->get();
+            $subjects = Subject::with(['course', 'prerequisite:id,subject_code'])->orderBy('created_at', 'desc')->get();
             
             return response()->json([
                 'success' => true,
@@ -39,7 +64,7 @@ class SubjectController extends Controller
     {
         try {
             // Start querying subjects for the given course
-            $query = $course->subjects();
+            $query = $course->subjects()->with('prerequisite:id,subject_code');
 
             if ($request->has('year') && $request->year) {
                 $query->where('year', $request->year);
@@ -79,7 +104,7 @@ class SubjectController extends Controller
                 'lab_hrs' => 'nullable|numeric|min:0',
                 'total_units' => 'nullable|numeric|min:0',
                 'number_of_hours' => 'nullable|numeric|min:0',
-                'pre_req' => 'nullable|string|max:255',
+                'prerequisite_id' => 'nullable|integer|exists:subjects,id',
                 'year' => 'required|string|in:Grade 11,Grade 12,1st Year,2nd Year,3rd Year,4th Year,1st Year Summer,2nd Year Summer',
                 'semester' => 'required|string|in:1st Semester,2nd Semester',
                 'course_id' => 'required|integer|exists:courses,id'
@@ -143,7 +168,7 @@ class SubjectController extends Controller
                 'lab_hrs' => 'nullable|numeric|min:0',
                 'total_units' => 'nullable|numeric|min:0',
                 'number_of_hours' => 'nullable|numeric|min:0',
-                'pre_req' => 'nullable|string|max:255',
+                'prerequisite_id' => 'nullable|integer|exists:subjects,id',
                 'year' => 'nullable|string|in:1st Year,2nd Year,3rd Year,4th Year,1st Year Summer,2nd Year Summer',
                 'semester' => 'required|string|in:1st Semester,2nd Semester',
                 'course_id' => 'required|integer|exists:courses,id'

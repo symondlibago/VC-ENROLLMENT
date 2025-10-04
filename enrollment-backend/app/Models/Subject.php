@@ -24,7 +24,7 @@ class Subject extends Model
         'semester',
         'course_id',
         'number_of_hours',
-        'pre_req',
+        'prerequisite_id',
     ];
 
     /**
@@ -38,7 +38,6 @@ class Subject extends Model
         'total_units' => 'float',
         'number_of_hours' => 'float',
         'course_id' => 'integer',
-        'pre_req' => 'string',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -49,6 +48,12 @@ class Subject extends Model
     public function course()
     {
         return $this->belongsTo(Course::class);
+    }
+
+    public function prerequisite()
+    {
+        // A subject belongs to another subject, which is its prerequisite.
+        return $this->belongsTo(Subject::class, 'prerequisite_id');
     }
 
     /**
