@@ -243,10 +243,10 @@ class InstructorController extends Controller
             'grades' => 'required|array',
             'grades.*.student_id' => 'required|exists:pre_enrolled_students,id',
             'grades.*.subject_id' => 'required|exists:subjects,id',
-            'grades.*.prelim_grade' => 'nullable|numeric|min:0|max:100',
-            'grades.*.midterm_grade' => 'nullable|numeric|min:0|max:100',
-            'grades.*.semifinal_grade' => 'nullable|numeric|min:0|max:100',
-            'grades.*.final_grade' => 'nullable|numeric|min:0|max:100',
+            'grades.*.prelim_grade' => 'nullable|numeric|min:1|max:5',
+            'grades.*.midterm_grade' => 'nullable|numeric|min:1|max:5',
+            'grades.*.semifinal_grade' => 'nullable|numeric|min:1|max:5',
+            'grades.*.final_grade' => 'nullable|numeric|min:1|max:5',
         ]);
 
         if ($validator->fails()) {
@@ -297,11 +297,11 @@ class InstructorController extends Controller
                         }
                     }
 
-                    // Calculate status
-                    $finalGrade = $gradeInput['final_grade'];
+                    $finalGrade = $gradeInput['final_grade'] ?? null;
+                    
                     $status = 'In Progress';
                     if ($finalGrade !== null) {
-                        $status = $finalGrade >= 75 ? 'Passed' : 'Failed';
+                        $status = $finalGrade <= 3.0 ? 'Passed' : 'Failed';
                     }
 
                     Grade::updateOrCreate(

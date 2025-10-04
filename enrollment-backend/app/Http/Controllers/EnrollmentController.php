@@ -654,7 +654,7 @@ public function getStudentsForIdReleasing()
         $validator = Validator::make($request->all(), [
             'grades' => 'required|array',
             'grades.*.id' => 'required|exists:grades,id',
-            'grades.*.final_grade' => 'nullable|numeric|min:0|max:100',
+            'grades.*.final_grade' => 'nullable|numeric|min:1|max:5',
             'grades.*.status' => ['required', 'string', Rule::in(['Passed', 'Failed', 'In Progress', 'INC', 'NFE', 'NFR', 'DA'])],
         ]);
 

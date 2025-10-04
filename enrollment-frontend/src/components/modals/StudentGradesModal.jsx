@@ -27,7 +27,7 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
       <motion.button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-1 text-left bg-white border border-gray-300 rounded-md focus:border-red-500 focus:ring-1 focus:ring-red-500 flex items-center justify-between"
+        className="w-full px-3 py-1 text-left bg-white border border-gray-300 rounded-md focus:border-red-800 focus:ring-1 focus:ring-red-800 flex items-center justify-between"
       >
         <span className="text-gray-900 text-sm">{selectedOption.label}</span>
         <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
@@ -114,12 +114,12 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
         const updatedGrade = { ...grade, [field]: value };
         
         if (field === 'final_grade' && !['INC', 'NFE', 'NFR', 'DA'].includes(updatedGrade.status)) {
-            if (value !== null && value !== '') {
-                updatedGrade.status = parseFloat(value) >= 75 ? 'Passed' : 'Failed';
-            } else {
-                updatedGrade.status = 'In Progress';
-            }
-        }
+          if (value !== null && value !== '') {
+              updatedGrade.status = parseFloat(value) <= 3.0 ? 'Passed' : 'Failed';
+          } else {
+              updatedGrade.status = 'In Progress';
+          }
+      }
         
         if (field === 'status' && ['INC', 'NFE', 'NFR', 'DA'].includes(value)) {
             updatedGrade.final_grade = null;
@@ -249,7 +249,7 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
                         <th className="px-2 py-3 text-center">Prelim</th>
                         <th className="px-2 py-3 text-center">Midterm</th>
                         <th className="px-2 py-3 text-center">Semi-Final</th>
-                        <th className="px-6 py-3 text-center font-bold">Final Grade</th>
+                        <th className="px-6 py-3 text-center">Final Grade</th>
                         <th className="px-6 py-3 text-center">Status</th>
                       </tr>
                     </thead>
@@ -263,15 +263,18 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
                             <td className="px-2 py-2 text-center">{grade.prelim_grade ?? '-'}</td>
                             <td className="px-2 py-2 text-center">{grade.midterm_grade ?? '-'}</td>
                             <td className="px-2 py-2 text-center">{grade.semifinal_grade ?? '-'}</td>
-                            <td className="px-2 py-2 text-center font-bold">
+                            <td className="px-2 py-2 text-center">
                                {/* The 'isEditing' state now depends on the role-protected button */}
                                {isEditing ? (
-                                    <Input 
-                                        type="number" 
-                                        className="w-20 mx-auto text-center"
-                                        value={grade.final_grade ?? ''}
-                                        onChange={(e) => handleGradeDataChange(grade.id, 'final_grade', e.target.value === '' ? null : parseFloat(e.target.value))}
-                                    />
+                                <Input 
+                                  type="number" 
+                                  min="1"
+                                  max="5"
+                                  step="0.01"
+                                  className="w-20 mx-auto text-center"
+                                  value={grade.final_grade ?? ''}
+                                  onChange={(e) => handleGradeDataChange(grade.id, 'final_grade', e.target.value === '' ? null : parseFloat(e.target.value))}
+                              />
                                ) : (grade.final_grade ?? '-')}
                             </td>
                             <td className="px-6 py-2 text-center">

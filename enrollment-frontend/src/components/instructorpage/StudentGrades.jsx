@@ -285,7 +285,7 @@ const StudentGrades = () => {
                   const isAllSubjectsView = selectedSubjectId === 'all';
                   let statusBadge;
                   if (finalGrade !== null && finalGrade !== undefined) {
-                      statusBadge = finalGrade >= 75 
+                      statusBadge = finalGrade <= 3.0
                           ? <Badge className="bg-green-100 text-green-800">Passed</Badge> 
                           : <Badge variant="destructive">Failed</Badge>;
                   } else {
@@ -298,42 +298,44 @@ const StudentGrades = () => {
                       <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{student.name}</td>
                       {/* --- UPDATED: Conditionally disable inputs based on grading period --- */}
                       <td className="px-2 py-2">
-                        <Input type="number" min="0" max="100" 
-                          value={studentGrade.prelim_grade ?? ''} 
-                          onChange={(e) => handleGradeChange(student.id, 'prelim_grade', e.target.value)} 
-                          className="w-20 border-1 border-gray-300 rounded-md text-black" 
-                          disabled={isAllSubjectsView || !isPeriodOpen('prelim')}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <Input type="number" min="0" max="100" 
-                          value={studentGrade.midterm_grade ?? ''} 
-                          onChange={(e) => handleGradeChange(student.id, 'midterm_grade', e.target.value)} 
-                          className="w-20 border-1 border-gray-300 rounded-md text-black" 
-                          disabled={isAllSubjectsView || !isPeriodOpen('midterm')}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <Input type="number" min="0" max="100" 
-                          value={studentGrade.semifinal_grade ?? ''} 
-                          onChange={(e) => handleGradeChange(student.id, 'semifinal_grade', e.target.value)} 
-                          className="w-20 border-1 border-gray-300 rounded-md text-black" 
-                          disabled={isAllSubjectsView || !isPeriodOpen('semifinal')}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <Input type="number" min="0" max="100" 
-                          value={studentGrade.final_grade ?? ''} 
-                          onChange={(e) => handleGradeChange(student.id, 'final_grade', e.target.value)} 
-                          className="w-20 border-1 border-gray-300 rounded-md text-black" 
-                          disabled={isAllSubjectsView || !isPeriodOpen('final')}
-                        />
-                      </td>
-                      <td className="px-6 py-4">{statusBadge}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
+                      <Input type="number" min="1" max="5" step="0.01" 
+                        value={studentGrade.prelim_grade ?? ''} 
+                        onChange={(e) => handleGradeChange(student.id, 'prelim_grade', e.target.value)} 
+                        className="w-20 border-1 border-gray-300 rounded-md text-black" 
+                        disabled={isAllSubjectsView || !isPeriodOpen('prelim')}
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <Input type="number" min="1" max="5" step="0.01"
+                        value={studentGrade.midterm_grade ?? ''} 
+                        onChange={(e) => handleGradeChange(student.id, 'midterm_grade', e.target.value)} 
+                        className="w-20 border-1 border-gray-300 rounded-md text-black" 
+                        disabled={isAllSubjectsView || !isPeriodOpen('midterm')}
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <Input type="number" min="1" max="5" step="0.01"
+                        value={studentGrade.semifinal_grade ?? ''} 
+                        onChange={(e) => handleGradeChange(student.id, 'semifinal_grade', e.target.value)} 
+                        className="w-20 border-1 border-gray-300 rounded-md text-black" 
+                        disabled={isAllSubjectsView || !isPeriodOpen('semifinal')}
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <Input type="number" min="1" max="5" step="0.01"
+                        value={studentGrade.final_grade ?? ''} 
+                        onChange={(e) => handleGradeChange(student.id, 'final_grade', e.target.value)} 
+                        className="w-20 border-1 border-gray-300 rounded-md text-black" 
+                        disabled={isAllSubjectsView || !isPeriodOpen('final')}
+                      />
+                    </td>
+                    {/* --- END OF CHANGE --- */}
+
+                    <td className="px-6 py-4">{statusBadge}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
             </table>
              {filteredStudents.length === 0 && (
                 <div className="text-center py-10 text-gray-500">
