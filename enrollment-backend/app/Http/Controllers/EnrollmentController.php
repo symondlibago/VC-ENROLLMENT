@@ -8,12 +8,14 @@ use App\Models\PreEnrolledStudent;
 use App\Models\EnrollmentApproval;
 use App\Models\Course;
 use App\Models\Grade;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
 class EnrollmentController extends Controller
@@ -336,7 +338,6 @@ public function getPreEnrolledStudents()
                 ['user_id' => $user->id, 'status' => $request->input('status'), 'remarks' => $request->input('remarks')]
             );
             
-            // --- LOGIC TO UPDATE THE MAIN STUDENT STATUS ---
             $student->load('enrollmentApprovals'); // Refresh approvals relationship
 
             $programHeadStatus = optional($student->getApprovalStatusFor('Program Head'))->status;
@@ -351,7 +352,6 @@ public function getPreEnrolledStudents()
                 $student->enrollment_status = 'pending';
             }
             $student->save();
-            // --- END OF NEW LOGIC ---
 
             return response()->json([
                 'success' => true,
@@ -684,6 +684,63 @@ public function getStudentsForIdReleasing()
             return response()->json(['success' => false, 'message' => 'An error occurred while updating grades.', 'error' => $e->getMessage()], 500);
         }
     }
+    
+     /**
+     * NEW: Get enrolled subjects for the authenticated student user.
+     */
+    public function getStudentEnrolledSubjects(Request $request): JsonResponse
+{
+    try {
+        $user = Auth::user();
+
+        $student = PreEnrolledStudent::where('user_id', $user->id)
+            ->where('enrollment_status', 'enrolled')
+            ->first();
+
+        if (!$student) {
+            return response()->json(['success' => true, 'data' => []]);
+        }
+
+        // --- MODIFIED --- We only need to eager load the instructor, not the user.
+        $enrolledSubjects = $student->subjects()->with(['schedules.instructor'])->get();
+
+        $formattedSubjects = $enrolledSubjects->map(function ($subject) use ($student) {
+            
+            $schedulesArray = $subject->schedules->map(function ($schedule) {
+                return [
+                    'day' => $schedule->day,
+                    'time' => $schedule->time,
+                ];
+            })->all();
+
+            // --- MODIFIED --- Get the name directly from the instructor object.
+            $instructorName = $subject->schedules->first()?->instructor?->name ?? 'TBA';
+            $room = $subject->schedules->first()?->room_no ?? 'TBA';
+
+            return [
+                'id' => $subject->id,
+                'subject_code' => $subject->subject_code,
+                'descriptive_title' => $subject->descriptive_title,
+                'units' => $subject->total_units,
+                'semester' => $student->semester,
+                'school_year' => $student->school_year,
+                'status' => 'Enrolled',
+                'instructor' => $instructorName,
+                'schedules' => $schedulesArray,
+                'room' => $room,
+            ];
+        });
+
+        return response()->json(['success' => true, 'data' => $formattedSubjects]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'An unexpected error occurred.',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
 
 
 }

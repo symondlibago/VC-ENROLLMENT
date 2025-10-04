@@ -15,6 +15,7 @@ import {
   User,
   CreditCard,
   BookUser,
+  BookMarked // New Icon for Student
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -45,14 +46,34 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
     { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
   ];
 
-  // Determine which menu to display based on user role
-  const menuItems = user?.role === 'instructor' ? instructorMenuItems : adminMenuItems;
+  // --- NEW: Student-specific Menu ---
+  const studentMenuItems = [
+    { id: 'subject-enrolled', icon: BookMarked, label: 'Subject Enrolled', badge: null, path: '/subject-enrolled' },
+    { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
+  ];
+
+  // --- MODIFIED: Determine which menu to display based on user role ---
+  const getMenuItems = () => {
+    switch (user?.role) {
+      case 'instructor':
+        return instructorMenuItems;
+      case 'Student': // Match the role from the database
+        return studentMenuItems;
+      default:
+        return adminMenuItems;
+    }
+  };
+
+  const menuItems = getMenuItems();
 
   useEffect(() => {
     const currentPath = location.pathname;
-    // Handle redirect for instructor login
-    if (user?.role === 'instructor' && currentPath === '/dashboard') {
-        navigate('/class-roster');
+    
+    // Handle default navigation based on role
+    if (user?.role === 'instructor' && (currentPath === '/' || currentPath === '/dashboard')) {
+        navigate('/class-roster', { replace: true });
+    } else if (user?.role === 'Student' && (currentPath === '/' || currentPath === '/dashboard')) {
+        navigate('/subject-enrolled', { replace: true });
     }
 
     const currentItem = menuItems.find(item => item.path === currentPath);
@@ -85,6 +106,14 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
     tap: { scale: 0.98, transition: { duration: 0.1, ease: [0.23, 1, 0.32, 1] } }
   };
 
+  const getPortalName = () => {
+      switch (user?.role) {
+          case 'instructor': return 'Instructor Portal';
+          case 'Student': return 'Student Portal';
+          default: return 'Management System';
+      }
+  };
+
   return (
     <motion.div
       className="h-screen bg-[var(--dominant-red)] text-white flex flex-col relative z-50"
@@ -114,7 +143,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
                 <div>
                   <h1 className="text-lg font-bold heading-bold">EduEnroll</h1>
                   <p className="text-xs text-white/70">
-                    {user?.role === 'instructor' ? 'Instructor Portal' : 'Management System'}
+                    {getPortalName()}
                   </p>
                 </div>
               </motion.div>

@@ -14,6 +14,7 @@ class PreEnrolledStudent extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'course_id', 
         'last_name', 
         'first_name', 
@@ -146,5 +147,13 @@ class PreEnrolledStudent extends Model
     public function grades()
     {
         return $this->hasMany(Grade::class, 'pre_enrolled_student_id');
+    }
+
+     /**
+     * Get the user account associated with the student.
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

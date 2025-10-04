@@ -374,7 +374,7 @@ export const subjectAPI = {
       throw error.response?.data || { success: false, message: 'Failed to search subjects' };
     }
   },
-  
+
   // Get all subjects
   getAll: async () => {
     try {
@@ -989,6 +989,19 @@ export const managementAPI = {
     }
   },
 };
+
+// --- Student API methods ---
+export const studentAPI = {
+  getEnrolledSubjects: async () => {
+    try {
+      const response = await api.get('/student/enrolled-subjects');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch enrolled subjects' };
+    }
+  },
+};
+
 
 
 export default api;

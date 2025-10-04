@@ -11,7 +11,7 @@ import AddingDroppingSubjects from './components/pages/AddingDroppingSubjects';
 import Shiftee from './components/pages/Shiftee';
 import FacultyAdminStaff from './components/pages/FacultyAdminStaff';
 import Grades from './components/pages/Grades';
-import IDReleasing from './components/pages/IDReleasing'; // <-- IMPORT NEW COMPONENT
+import IDReleasing from './components/pages/IDReleasing';
 import Settings from './components/pages/Settings';
 import LandingPage from './components/auth/LandingPage';
 import LoginPage from './components/auth/LoginPage';
@@ -20,9 +20,10 @@ import CheckStatus from './components/pages/CheckStatus';
 import UploadReceipt from './components/pages/UploadReceipt';
 import { authAPI } from './services/api';
 import './App.css';
-import ClassRoster from '../src/components/instructorpage/ClassRoster';
-import InstructorSchedule from '../src/components/instructorpage/InstructorSchedule';
-import StudentGrades from '../src/components/instructorpage/StudentGrades';
+import ClassRoster from './components/instructorpage/ClassRoster';
+import InstructorSchedule from './components/instructorpage/InstructorSchedule';
+import StudentGrades from './components/instructorpage/StudentGrades';
+import SubjectEnrolled from './components/studentpage/SubjectEnrolled';
 
 
 function App() {
@@ -142,6 +143,51 @@ function App() {
     );
   }
 
+  // --- NEW: Function to render routes based on user role ---
+  const renderRoutes = () => {
+    const role = user?.role;
+
+    if (role === 'instructor') {
+      return (
+        <>
+          <Route path="/class-roster" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><ClassRoster /></motion.div>} />
+          <Route path="/student-grades" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><StudentGrades /></motion.div>} />
+          <Route path="/schedule" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><InstructorSchedule /></motion.div>} />
+          <Route path="/settings" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Settings /></motion.div>} />
+          <Route path="*" element={<Navigate to="/class-roster" replace />} />
+        </>
+      );
+    }
+
+    if (role === 'Student') {
+      return (
+        <>
+          <Route path="/subject-enrolled" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><SubjectEnrolled /></motion.div>} />
+          <Route path="/settings" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Settings /></motion.div>} />
+          <Route path="*" element={<Navigate to="/subject-enrolled" replace />} />
+        </>
+      );
+    }
+    
+    // Default routes for Admin and other staff roles
+    return (
+      <>
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Dashboard user={user} /></motion.div>} />
+        <Route path="/students" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Students /></motion.div>} />
+        <Route path="/courses" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Courses /></motion.div>} />
+        <Route path="/enrollment" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Enrollment /></motion.div>} />
+        <Route path="/addingdroppingsubjects" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><AddingDroppingSubjects /></motion.div>} />
+        <Route path="/shiftee" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Shiftee /></motion.div>} />
+        <Route path="/facultyadminstaff" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><FacultyAdminStaff /></motion.div>} />
+        <Route path="/grades" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Grades /></motion.div>} />
+        <Route path="/id-releasing" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><IDReleasing /></motion.div>} />
+        <Route path="/settings" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Settings /></motion.div>} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </>
+    );
+  };
+
   return (
     <Router>
       {currentView === 'landing' && (
@@ -205,7 +251,7 @@ function App() {
                 <Sidebar
                 isCollapsed={isCollapsed && !isMobile ? true : false}
                 setIsCollapsed={setIsCollapsed}
-                user={user} // --- MODIFIED: Pass user prop to Sidebar ---
+                user={user}
                 />
             </div>
             
@@ -228,92 +274,8 @@ function App() {
                 animate={{ opacity: 1, y: 0, transition: { duration: 0.8, delay: 0.2, ease: [0.23, 1, 0.32, 1] } }}
                 >
                 <AnimatePresence mode="wait">
-                    {/* --- MODIFIED: Role-based routing logic --- */}
                     <Routes>
-                        {user?.role === 'instructor' ? (
-                            <>
-                                {/* --- INSTRUCTOR ROUTES --- */}
-                                <Route path="/class-roster" element={
-                                    <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                                        <ClassRoster />
-                                    </motion.div>
-                                }/>
-                                <Route path="/student-grades" element={
-                                    <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                                        <StudentGrades />
-                                    </motion.div>
-                                }/>
-                                <Route path="/schedule" element={
-                                    <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                                        <InstructorSchedule />
-                                    </motion.div>
-                                }/>
-                                <Route path="/settings" element={
-                                    <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                                        <Settings />
-                                    </motion.div>
-                                }/>
-                                {/* Default route for instructor */}
-                                <Route path="*" element={<Navigate to="/class-roster" replace />} />
-                            </>
-                        ) : (
-                            <>
-                                {/* --- ADMIN/STAFF ROUTES --- */}
-                                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                                <Route path="/dashboard" element={
-                                    <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                                        <Dashboard user={user} />
-                                    </motion.div>
-                                } />
-                                <Route path="/students" element={
-                                    <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                                        <Students />
-                                    </motion.div>
-                                }/>
-                                <Route path="/courses" element={
-                                    <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                                        <Courses />
-                                    </motion.div>
-                                } />
-                                <Route path="/enrollment" element={
-                                    <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                                        <Enrollment />
-                                    </motion.div>
-                                } />
-                                <Route path="/addingdroppingsubjects" element={
-                                    <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                                        <AddingDroppingSubjects />
-                                    </motion.div>
-                                }/>
-                                <Route path="/shiftee" element={
-                                    <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                                        <Shiftee />
-                                    </motion.div>
-                                }/>
-                                <Route path="/facultyadminstaff" element={
-                                    <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                                        <FacultyAdminStaff />
-                                    </motion.div>
-                                }/>
-                                <Route path="/grades" element={
-                                    <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                                        <Grades />
-                                    </motion.div>
-                                }/>
-                                <Route path="/id-releasing" element={
-                                    <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                                        <IDReleasing />
-                                    </motion.div>
-                                }/>
-                                <Route path="/settings" element={
-                                    <motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit">
-                                        <Settings />
-                                    </motion.div>
-                                }/>
-                                {/* Fallback route for admin */}
-                                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                            </>
-                        )}
+                      {renderRoutes()}
                     </Routes>
                 </AnimatePresence>
                 </motion.main>
@@ -342,3 +304,4 @@ function App() {
 }
 
 export default App;
+

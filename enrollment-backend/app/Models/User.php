@@ -70,4 +70,12 @@ class User extends Authenticatable
             get: fn () => !is_null($this->secondary_pin),
         );
     }
+
+    /**
+     * Get the student profile associated with the user.
+     */
+    public function studentProfile(): HasOne
+    {
+        return $this->hasOne(PreEnrolledStudent::class);
+    }
 }
