@@ -742,5 +742,153 @@ public function getStudentsForIdReleasing()
     }
 }
 
+ /**
+     * NEW: Get grades for the currently authenticated student user.
+     */
+    public function getAuthenticatedStudentGrades(Request $request): JsonResponse
+{
+    try {
+        $user = Auth::user();
+        $student = PreEnrolledStudent::where('user_id', $user->id)->first();
+
+        if (!$student) {
+            return response()->json(['success' => true, 'data' => []]);
+        }
+        
+        // --- START OF NEW LOGIC ---
+
+        // 1. Get all the student's enrolled subjects, applying filters if they exist.
+        $subjectsQuery = $student->subjects()->with(['schedules.instructor']);
+
+        if ($request->filled('year') && $request->year !== 'all') {
+            $subjectsQuery->where('year', 'like', '%' . $request->year . '%');
+        }
+        if ($request->filled('semester') && $request->semester !== 'all') {
+            $subjectsQuery->where('semester', $request->semester);
+        }
+
+        $enrolledSubjects = $subjectsQuery->get();
+
+        // 2. Get all available grades for these subjects in one efficient query.
+        $subjectIds = $enrolledSubjects->pluck('id');
+        $grades = Grade::where('pre_enrolled_student_id', $student->id)
+                      ->whereIn('subject_id', $subjectIds)
+                      ->get()
+                      ->keyBy('subject_id'); // Key by subject_id for easy lookup.
+
+        // 3. Combine the subjects with their grades.
+        $formattedData = $enrolledSubjects->map(function ($subject) use ($grades) {
+            $grade = $grades->get($subject->id); // Find the grade for the current subject.
+
+            return [
+                'id' => $subject->id, // Use subject ID as the key
+                'subject_code' => $subject->subject_code,
+                'descriptive_title' => $subject->descriptive_title,
+                'units' => $subject->total_units,
+                'instructor_name' => $subject->schedules->first()?->instructor?->name ?? 'Unassigned',
+                'prelim_grade' => $grade?->prelim_grade, // Use optional chaining
+                'midterm_grade' => $grade?->midterm_grade,
+                'semifinal_grade' => $grade?->semifinal_grade,
+                'final_grade' => $grade?->final_grade,
+                'status' => $grade?->status ?? 'In Progress',
+            ];
+        });
+
+        return response()->json(['success' => true, 'data' => $formattedData]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to retrieve your grades.',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+    /**
+     * NEW: Get the full curriculum for the currently authenticated student's course.
+     */
+    public function getStudentCurriculum(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            // Eager load the course and program to get their names
+            $student = PreEnrolledStudent::with(['course.program'])->where('user_id', $user->id)->first();
+
+            if (!$student || !$student->course_id) {
+                return response()->json(['success' => false, 'message' => 'No course found for your account.'], 404);
+            }
+
+            // Fetch all subjects for the student's course, ordered correctly
+            $subjects = \App\Models\Subject::where('course_id', $student->course_id)
+                ->with('prerequisite:id,subject_code') // Eager load prerequisite info
+                ->orderBy('year')
+                ->orderBy('semester')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'course_name' => $student->course->course_name,
+                    'program_code' => $student->course->program->program_code,
+                    'subjects' => $subjects,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve curriculum records.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * NEW: Get the full weekly schedule for the authenticated student.
+     */
+    public function getStudentSchedule(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $student = PreEnrolledStudent::where('user_id', $user->id)
+                ->where('enrollment_status', 'enrolled')
+                ->first();
+
+            if (!$student) {
+                return response()->json(['success' => true, 'data' => []]);
+            }
+
+            // Get the IDs of all subjects the student is enrolled in
+            $subjectIds = $student->subjects()->pluck('subjects.id');
+
+            // Find all schedules linked to those subjects
+            $schedules = \App\Models\Schedule::with(['subject', 'instructor'])
+                ->whereIn('subject_id', $subjectIds)
+                ->get();
+            
+            // Format the data for a clean response
+            $formattedSchedules = $schedules->map(function ($schedule) {
+                return [
+                    'id' => $schedule->id,
+                    'day' => $schedule->day,
+                    'time' => $schedule->time,
+                    'room_no' => $schedule->room_no,
+                    'subject_code' => $schedule->subject->subject_code ?? 'N/A',
+                    'descriptive_title' => $schedule->subject->descriptive_title ?? 'N/A',
+                    'instructor_name' => $schedule->instructor->name ?? 'TBA',
+                ];
+            });
+
+            return response()->json(['success' => true, 'data' => $formattedSchedules]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve your schedule.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 
 }

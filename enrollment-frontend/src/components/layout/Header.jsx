@@ -43,6 +43,10 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
     '/class-roster': { title: 'Class Roster', subtitle: 'View your students for this semester' },
     '/schedule': { title: 'My Schedule', subtitle: 'Your weekly teaching schedule' },
     '/subject-enrolled': { title: 'Enrolled Subjects', subtitle: 'Your class schedule for this semester' },
+    '/my-grades': { title: 'My Grades', subtitle: 'Your student grades for this semester' },
+    '/evaluation-records': { title: 'Evaluation Records', subtitle: 'Your evaluation records for this semester' },
+    '/my-schedule': { title: 'My Schedule', subtitle: 'Your weekly schedule record for this semester' },
+    
   };
 
   const currentPage = pageTitles[location.pathname] || pageTitles['/dashboard'];
@@ -109,25 +113,6 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
       </div>
 
       <div className="flex items-center space-x-3">
-         <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-          <Button variant="ghost" size="sm" className="text-gray-600 hover:text-[var(--dominant-red)] liquid-button">
-            <Sun className="w-4 h-4" />
-          </Button>
-        </motion.div>
-        <motion.div className="relative" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-          <Button variant="ghost" size="sm" className="text-gray-600 hover:text-[var(--dominant-red)] liquid-button relative">
-            <Bell className="w-4 h-4" />
-            <motion.span 
-              className="absolute -top-1 -right-1 w-3 h-3 bg-[var(--dominant-red)] rounded-full text-xs text-white flex items-center justify-center"
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ duration: 0.3, delay: 0.5 }}
-            >
-              3
-            </motion.span>
-          </Button>
-        </motion.div>
-        
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>

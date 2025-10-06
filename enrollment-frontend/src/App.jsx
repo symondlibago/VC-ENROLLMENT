@@ -24,6 +24,9 @@ import ClassRoster from './components/instructorpage/ClassRoster';
 import InstructorSchedule from './components/instructorpage/InstructorSchedule';
 import StudentGrades from './components/instructorpage/StudentGrades';
 import SubjectEnrolled from './components/studentpage/SubjectEnrolled';
+import StudentGrade from './components/studentpage/StudentGrade';
+import EvaluationRecords from './components/studentpage/EvaluationRecords';
+import StudentSchedule from './components/studentpage/StudentSchedule';
 
 
 function App() {
@@ -163,6 +166,9 @@ function App() {
       return (
         <>
           <Route path="/subject-enrolled" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><SubjectEnrolled /></motion.div>} />
+          <Route path="/my-schedule" element={<motion.div variants={pageTransitionVariants}><StudentSchedule /></motion.div>} />
+          <Route path="/my-grades" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><StudentGrade /></motion.div>} />
+          <Route path="/evaluation-records" element={<motion.div variants={pageTransitionVariants}><EvaluationRecords /></motion.div>} />
           <Route path="/settings" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Settings /></motion.div>} />
           <Route path="*" element={<Navigate to="/subject-enrolled" replace />} />
         </>

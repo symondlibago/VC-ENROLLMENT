@@ -15,7 +15,8 @@ import {
   User,
   CreditCard,
   BookUser,
-  BookMarked // New Icon for Student
+  BookMarked,
+  ClipboardList,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -31,9 +32,9 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
     { id: 'courses', icon: BookOpen, label: 'Courses', badge: null, path: '/courses' },
     { id: 'enrollment', icon: GraduationCap, label: 'Enrollment', badge: '5', path: '/enrollment' },
     { id: 'schedule', icon: Calendar, label: 'Add/Drop Subjects', badge: null, path: '/addingdroppingsubjects' },
-    { id: 'shiftee', icon: BarChart3, label: 'Shiftee', badge: null, path: '/shiftee' },
+    { id: 'shiftee', icon: FileText, label: 'Shiftee', badge: null, path: '/shiftee' },
     { id: 'facultyadminstaff', icon: User, label: 'Faculty & Admin Staff', badge: null, path: '/facultyadminstaff' },
-    { id: 'grades', icon: FileText, label: 'Grades', badge: '12', path: '/grades' },
+    { id: 'grades', icon: BarChart3, label: 'Grades', badge: '12', path: '/grades' },
     { id: 'id-releasing', icon: CreditCard, label: 'ID Releasing', badge: null, path: '/id-releasing' },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
   ];
@@ -42,13 +43,16 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
   const instructorMenuItems = [
     { id: 'class-roster', icon: BookUser, label: 'Class Roster', badge: null, path: '/class-roster' },
     { id: 'schedule', icon: Calendar, label: 'Schedule', badge: null, path: '/schedule' },
-    { id: 'student-grades', icon: FileText, label: 'Student Grades', badge: null, path: '/student-grades' },
+    { id: 'student-grades', icon: BarChart3, label: 'Student Grades', badge: null, path: '/student-grades' },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
   ];
 
   // --- NEW: Student-specific Menu ---
   const studentMenuItems = [
     { id: 'subject-enrolled', icon: BookMarked, label: 'Subject Enrolled', badge: null, path: '/subject-enrolled' },
+    { id: 'my-schedule', icon: Calendar, label: 'My Schedule', path: '/my-schedule' },
+    { id: 'my-grades', icon: BarChart3, label: 'My Grades', badge: null, path: '/my-grades' },
+    { id: 'evaluation-records', icon: ClipboardList, label: 'Evaluation Records', path: '/evaluation-records' },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
   ];
 

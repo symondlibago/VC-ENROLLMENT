@@ -230,103 +230,91 @@ class InstructorController extends Controller
         return response()->json(['success' => true, 'data' => $formattedRoster, 'grading_periods' => $gradingPeriods]);
     }
 
-    public function bulkUpdateGrades(Request $request)
-    {
-        $user = $request->user();
-        $instructor = Instructor::where('user_id', $user->id)->first();
+    // In InstructorController.php
 
-        if (!$instructor) {
-            return response()->json(['success' => false, 'message' => 'Instructor profile not found.'], 404);
-        }
+public function bulkUpdateGrades(Request $request)
+{
+    $user = $request->user();
+    $instructor = Instructor::where('user_id', $user->id)->first();
 
-        $validator = Validator::make($request->all(), [
-            'grades' => 'required|array',
-            'grades.*.student_id' => 'required|exists:pre_enrolled_students,id',
-            'grades.*.subject_id' => 'required|exists:subjects,id',
-            'grades.*.prelim_grade' => 'nullable|numeric|min:1|max:5',
-            'grades.*.midterm_grade' => 'nullable|numeric|min:1|max:5',
-            'grades.*.semifinal_grade' => 'nullable|numeric|min:1|max:5',
-            'grades.*.final_grade' => 'nullable|numeric|min:1|max:5',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
-        }
-
-        $gradesData = $request->input('grades');
-
-        try {
-            DB::transaction(function () use ($gradesData, $instructor) {
-                foreach ($gradesData as $gradeInput) {
-                    // Authorization check: Ensure the instructor teaches this subject
-                    $isAuthorized = Schedule::where("subject_id", $gradeInput["subject_id"])
-                                            ->where("instructor_id", $instructor->id)
-                                            ->exists();
-                    
-                    if (!$isAuthorized) {
-                        // Silently skip if not authorized for this specific grade to prevent errors
-                        continue;
-                    }
-
-                    // Date validation for each grade type
-                    $currentDate = now()->toDateString();
-                    $gradePeriodName = null;
-
-                    if (isset($gradeInput["prelim_grade"]) && $gradeInput["prelim_grade"] !== null) {
-                        $gradePeriodName = 'prelim';
-                    } elseif (isset($gradeInput["midterm_grade"]) && $gradeInput["midterm_grade"] !== null) {
-                        $gradePeriodName = 'midterm';
-                    } elseif (isset($gradeInput["semifinal_grade"]) && $gradeInput["semifinal_grade"] !== null) {
-                        $gradePeriodName = 'semifinal';
-                    } elseif (isset($gradeInput["final_grade"]) && $gradeInput["final_grade"] !== null) {
-                        $gradePeriodName = 'final';
-                    }
-
-                    if ($gradePeriodName) {
-                        $gradingPeriod = \App\Models\GradingPeriod::where('name', $gradePeriodName)->first();
-
-                        if ($gradingPeriod) {
-                            $startDate = $gradingPeriod->start_date;
-                            $endDate = $gradingPeriod->end_date;
-
-                            if ($startDate && $endDate && ($currentDate < $startDate || $currentDate > $endDate)) {
-                                // If outside the allowed period, skip this grade update and potentially log or return an error
-                                // For now, we'll just skip to prevent submission. Frontend will handle disabling input.
-                                continue;
-                            }
-                        }
-                    }
-
-                    $finalGrade = $gradeInput['final_grade'] ?? null;
-                    
-                    $status = 'In Progress';
-                    if ($finalGrade !== null) {
-                        $status = $finalGrade <= 3.0 ? 'Passed' : 'Failed';
-                    }
-
-                    Grade::updateOrCreate(
-                        [
-                            'pre_enrolled_student_id' => $gradeInput['student_id'],
-                            'subject_id' => $gradeInput['subject_id'],
-                        ],
-                        [
-                            'instructor_id' => $instructor->id,
-                            'prelim_grade' => $gradeInput['prelim_grade'],
-                            'midterm_grade' => $gradeInput['midterm_grade'],
-                            'semifinal_grade' => $gradeInput['semifinal_grade'],
-                            'final_grade' => $gradeInput['final_grade'],
-                            'status' => $status,
-                        ]
-                    );
-                }
-            });
-
-            return response()->json(['success' => true, 'message' => 'Grades submitted successfully.']);
-
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'An error occurred while submitting grades.', 'error' => $e->getMessage()], 500);
-        }
+    if (!$instructor) {
+        return response()->json(['success' => false, 'message' => 'Instructor profile not found.'], 404);
     }
+
+    // --- FIX #1: Update validation for college grades (1.0 to 5.0) ---
+    $validator = Validator::make($request->all(), [
+        'grades' => 'required|array',
+        'grades.*.student_id' => 'required|exists:pre_enrolled_students,id',
+        'grades.*.subject_id' => 'required|exists:subjects,id',
+        'grades.*.prelim_grade' => 'nullable|numeric|min:1|max:5',
+        'grades.*.midterm_grade' => 'nullable|numeric|min:1|max:5',
+        'grades.*.semifinal_grade' => 'nullable|numeric|min:1|max:5',
+        'grades.*.final_grade' => 'nullable|numeric|min:1|max:5',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+    }
+
+    $gradesData = $request->input('grades');
+    $gradingPeriods = \App\Models\GradingPeriod::all()->keyBy('name');
+
+    try {
+        DB::transaction(function () use ($gradesData, $instructor, $gradingPeriods) {
+            foreach ($gradesData as $gradeInput) {
+                if (!Schedule::where('subject_id', $gradeInput['subject_id'])->where('instructor_id', $instructor->id)->exists()) {
+                    continue;
+                }
+
+                $grade = Grade::firstOrNew([
+                    'pre_enrolled_student_id' => $gradeInput['student_id'],
+                    'subject_id' => $gradeInput['subject_id'],
+                ]);
+                
+                if (!$grade->exists) {
+                    $grade->instructor_id = $instructor->id;
+                }
+
+                $now = now();
+                
+                $prelimPeriod = $gradingPeriods->get('prelim');
+                if (array_key_exists('prelim_grade', $gradeInput) && $prelimPeriod && $now->between($prelimPeriod->start_date, $prelimPeriod->end_date)) {
+                    $grade->prelim_grade = $gradeInput['prelim_grade'];
+                }
+
+                $midtermPeriod = $gradingPeriods->get('midterm');
+                if (array_key_exists('midterm_grade', $gradeInput) && $midtermPeriod && $now->between($midtermPeriod->start_date, $midtermPeriod->end_date)) {
+                    $grade->midterm_grade = $gradeInput['midterm_grade'];
+                }
+
+                $semifinalPeriod = $gradingPeriods->get('semifinal');
+                if (array_key_exists('semifinal_grade', $gradeInput) && $semifinalPeriod && $now->between($semifinalPeriod->start_date, $semifinalPeriod->end_date)) {
+                    $grade->semifinal_grade = $gradeInput['semifinal_grade'];
+                }
+
+                $finalPeriod = $gradingPeriods->get('final');
+                if (array_key_exists('final_grade', $gradeInput) && $finalPeriod && $now->between($finalPeriod->start_date, $finalPeriod->end_date)) {
+                    $grade->final_grade = $gradeInput['final_grade'];
+                }
+
+                // --- FIX #2: Update status logic for college grades ---
+                if ($grade->final_grade !== null) {
+                    // Passed if the grade is 3.0 or lower (better). Failed if higher than 3.0.
+                    $grade->status = $grade->final_grade <= 3.0 ? 'Passed' : 'Failed';
+                } else {
+                    $grade->status = 'In Progress';
+                }
+
+                $grade->save();
+            }
+        });
+
+        return response()->json(['success' => true, 'message' => 'Grades submitted successfully.']);
+
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'message' => 'An error occurred while submitting grades.', 'error' => $e->getMessage()], 500);
+    }
+}
   
 
     /**

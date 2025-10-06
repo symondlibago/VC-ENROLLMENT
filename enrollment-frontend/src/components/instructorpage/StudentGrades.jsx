@@ -10,20 +10,15 @@ import LoadingSpinner from '@/components/layout/LoadingSpinner';
 import SuccessAlert from '../modals/SuccessAlert'; 
 import ValidationErrorModal from '../modals/ValidationErrorModal'; 
 
-// Re-using the MotionDropdown component from ClassRoster for consistency
 const MotionDropdown = ({ value, onChange, options, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedOption, setSelectedOption] = useState(
-    options.find(opt => opt.value === value) || { label: placeholder, value: '' }
+  const selectedLabel = useMemo(() => 
+    options.find(opt => opt.value === value)?.label || placeholder,
+    [value, options, placeholder]
   );
 
-  useEffect(() => {
-    setSelectedOption(options.find(opt => opt.value === value) || { label: placeholder, value: '' });
-  }, [value, options, placeholder]);
-
-  const handleSelect = (option) => {
-    setSelectedOption(option);
-    onChange(option.value);
+  const handleSelect = (optionValue) => {
+    onChange(optionValue);
     setIsOpen(false);
   };
 
@@ -36,7 +31,7 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
       >
-        <span className="text-gray-900">{selectedOption.label}</span>
+        <span className="text-gray-900">{selectedLabel}</span>
         <motion.div
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ duration: 0.2 }}
@@ -55,7 +50,7 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
           >
             {options.map((option, index) => (
               <motion.button
-                key={option.value} type="button" onClick={() => handleSelect(option)}
+                key={option.value} type="button" onClick={() => handleSelect(option.value)}
                 className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors duration-200 border-b border-gray-100 last:border-b-0"
                 initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.05 }} whileHover={{ backgroundColor: '#f9fafb', x: 4 }}
@@ -70,15 +65,14 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
   );
 };
 
+
 const StudentGrades = () => {
   const [rosterData, setRosterData] = useState([]);
-  const [selectedSubjectId, setSelectedSubjectId] = useState('all');
+  const [selectedSubjectId, setSelectedSubjectId] = useState('');
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [grades, setGrades] = useState({});
-  const [gradingPeriods, setGradingPeriods] = useState({}); // <-- NEW: State for grading periods
-
+  const [gradingPeriods, setGradingPeriods] = useState({});
   const [alertState, setAlertState] = useState({ isVisible: false, message: '', type: 'success' });
   const [validationError, setValidationError] = useState({ isOpen: false, message: '' });
 
@@ -89,15 +83,10 @@ const StudentGrades = () => {
         const response = await instructorAPI.getGradeableStudents();
         if (response.success) {
           setRosterData(response.data);
-          setGradingPeriods(response.grading_periods || {}); // <-- NEW: Store grading periods from API
-
-          const initialGrades = {};
-          response.data.forEach(subject => {
-            subject.students.forEach(student => {
-              initialGrades[student.id] = student.grades;
-            });
-          });
-          setGrades(initialGrades);
+          setGradingPeriods(response.grading_periods || {});
+          if (response.data && response.data.length > 0) {
+            setSelectedSubjectId(response.data[0].subject_id.toString());
+          }
         } else {
              setAlertState({ isVisible: true, message: 'Failed to fetch student roster.', type: 'error' });
         }
@@ -110,93 +99,77 @@ const StudentGrades = () => {
     fetchGradeableStudents();
   }, []);
 
-  // --- NEW: Helper function to check if a grading period is open ---
   const isPeriodOpen = (periodName) => {
     const period = gradingPeriods[periodName];
-    if (!period || !period.start_date || !period.end_date) {
-        return false; // Not open if dates aren't set
-    }
+    if (!period || !period.start_date || !period.end_date) return false;
     const now = new Date();
     const start = new Date(period.start_date);
     const end = new Date(period.end_date);
-    end.setHours(23, 59, 59, 999); // Include the entire end day
-
+    end.setHours(23, 59, 59, 999);
     return now >= start && now <= end;
   };
 
-  const subjectOptions = useMemo(() => [
-    { label: 'Filter by All Subjects', value: 'all' },
-    ...rosterData.map(subject => ({
+  const subjectOptions = useMemo(() => 
+    rosterData.map(subject => ({
       label: `${subject.subject_code} - ${subject.descriptive_title}`,
       value: subject.subject_id.toString()
     }))
-  ], [rosterData]);
+  , [rosterData]);
 
   const { filteredStudents, totalStudentsInSubject, gradedStudentsCount } = useMemo(() => {
-    let studentsToDisplay = [];
-    let total = 0;
-    let graded = 0;
-
-    if (selectedSubjectId === 'all') {
-      const allStudentsMap = new Map();
-      rosterData.forEach(subject => {
-          subject.students.forEach(student => {
-              if (!allStudentsMap.has(student.id)) allStudentsMap.set(student.id, student);
-          });
-      });
-      studentsToDisplay = Array.from(allStudentsMap.values());
-      total = studentsToDisplay.length;
-      graded = studentsToDisplay.filter(student => Object.values(grades[student.id] || {}).some(g => g?.status === 'Passed' || g?.status === 'Failed')).length;
-
-    } else {
-      const subject = rosterData.find(s => s.subject_id.toString() === selectedSubjectId);
-      if (subject) {
-        studentsToDisplay = subject.students || [];
-        total = studentsToDisplay.length;
-        graded = studentsToDisplay.filter(student => grades[student.id]?.status === 'Passed' || grades[student.id]?.status === 'Failed').length;
-      }
+    if (!selectedSubjectId) {
+        return { filteredStudents: [], totalStudentsInSubject: 0, gradedStudentsCount: 0 };
     }
+    const subject = rosterData.find(s => s.subject_id.toString() === selectedSubjectId);
+    if (!subject) {
+        return { filteredStudents: [], totalStudentsInSubject: 0, gradedStudentsCount: 0 };
+    }
+    const studentsToDisplay = subject.students || [];
+    const total = studentsToDisplay.length;
+    const graded = studentsToDisplay.filter(student => student.grades?.status === 'Passed' || student.grades?.status === 'Failed').length;
     
     const filtered = studentsToDisplay.filter(student =>
       student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.studentId.toLowerCase().includes(searchTerm.toLowerCase())
+      (student.studentId && student.studentId.toLowerCase().includes(searchTerm.toLowerCase()))
     );
     
     return { filteredStudents: filtered, totalStudentsInSubject: total, gradedStudentsCount: graded };
-  }, [rosterData, selectedSubjectId, searchTerm, grades]);
+  }, [rosterData, selectedSubjectId, searchTerm]);
 
   const handleGradeChange = (studentId, field, value) => {
     const numericValue = value === '' ? null : parseFloat(value);
-    setGrades(prev => ({
-      ...prev,
-      [studentId]: {
-        ...prev[studentId],
-        [field]: numericValue
-      }
-    }));
+    setRosterData(currentRoster => 
+      currentRoster.map(subject => {
+        if (subject.subject_id.toString() !== selectedSubjectId) {
+          return subject;
+        }
+        const updatedStudents = subject.students.map(student => {
+          if (student.id !== studentId) {
+            return student;
+          }
+          return {
+            ...student,
+            grades: { ...student.grades, [field]: numericValue }
+          };
+        });
+        return { ...subject, students: updatedStudents };
+      })
+    );
   };
   
   const handleSubmitGrades = async () => {
-    if (selectedSubjectId === 'all') {
+    if (!selectedSubjectId) {
         setValidationError({ isOpen: true, message: 'Please select a specific subject before submitting grades.' });
         return;
     }
-    
-    const invalidGrade = filteredStudents.some(student => {
-        const studentGrades = grades[student.id] || {};
-        return Object.values(studentGrades).some(grade => grade !== null && (grade < 0 || grade > 100));
-    });
-
-    if (invalidGrade) {
-        setValidationError({ isOpen: true, message: 'All entered grades must be between 0 and 100.' });
-        return;
-    }
-
     setIsSubmitting(true);
     const gradesToSubmit = filteredStudents.map(student => ({
         student_id: student.id,
         subject_id: parseInt(selectedSubjectId),
-        ...grades[student.id]
+        prelim_grade: student.grades?.prelim_grade,
+        midterm_grade: student.grades?.midterm_grade,
+        semifinal_grade: student.grades?.semifinal_grade,
+        final_grade: student.grades?.final_grade,
     }));
 
     try {
@@ -207,7 +180,7 @@ const StudentGrades = () => {
             setAlertState({ isVisible: true, message: response.message || 'Failed to submit grades.', type: 'error' });
         }
     } catch (error) {
-        setAlertState({ isVisible: true, message: 'An error occurred while submitting grades.', type: 'error' });
+        setAlertState({ isVisible: true, message: error.message || 'An error occurred while submitting grades.', type: 'error' });
     } finally {
         setIsSubmitting(false);
     }
@@ -245,7 +218,7 @@ const StudentGrades = () => {
       </motion.div>
       
       <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-6" variants={itemVariants}>
-        <Card className="shadow-sm"><CardContent className="p-6 flex items-center justify-between"><div><p className="text-sm font-medium text-gray-500">Total Subjects</p><p className="text-3xl font-bold heading-bold text-gray-900">{subjectOptions.length - 1}</p></div><div className="bg-red-100 p-4 rounded-full"><BookCopy className="w-7 h-7 text-red-600" /></div></CardContent></Card>
+        <Card className="shadow-sm"><CardContent className="p-6 flex items-center justify-between"><div><p className="text-sm font-medium text-gray-500">Total Subjects</p><p className="text-3xl font-bold heading-bold text-gray-900">{subjectOptions.length}</p></div><div className="bg-red-100 p-4 rounded-full"><BookCopy className="w-7 h-7 text-red-600" /></div></CardContent></Card>
         <Card className="shadow-sm"><CardContent className="p-6 flex items-center justify-between"><div><p className="text-sm font-medium text-gray-500">Students in Subject</p><p className="text-3xl font-bold heading-bold text-gray-900">{totalStudentsInSubject}</p></div><div className="bg-blue-100 p-4 rounded-full"><Users className="w-7 h-7 text-blue-600" /></div></CardContent></Card>
         <Card className="shadow-sm"><CardContent className="p-6 flex items-center justify-between"><div><p className="text-sm font-medium text-gray-500">Grades Finalized</p><p className="text-3xl font-bold heading-bold text-gray-900">{gradedStudentsCount}</p></div><div className="bg-green-100 p-4 rounded-full"><CheckCircle className="w-7 h-7 text-green-600" /></div></CardContent></Card>
       </motion.div>
@@ -280,11 +253,12 @@ const StudentGrades = () => {
               </thead>
               <tbody>
                 {filteredStudents.map(student => {
-                  const studentGrade = grades[student.id] || {};
-                  const finalGrade = studentGrade.final_grade;
-                  const isAllSubjectsView = selectedSubjectId === 'all';
+                  const finalGrade = student.grades?.final_grade;
                   let statusBadge;
+
+                  // --- CORRECTED LOGIC FOR COLLEGE GRADES ---
                   if (finalGrade !== null && finalGrade !== undefined) {
+                      // Passed if 3.0 or lower. Failed if higher than 3.0.
                       statusBadge = finalGrade <= 3.0
                           ? <Badge className="bg-green-100 text-green-800">Passed</Badge> 
                           : <Badge variant="destructive">Failed</Badge>;
@@ -296,56 +270,55 @@ const StudentGrades = () => {
                     <tr key={student.id} className="bg-white border-b hover:bg-gray-50">
                       <td className="px-6 py-4 font-mono">{student.studentId}</td>
                       <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{student.name}</td>
-                      {/* --- UPDATED: Conditionally disable inputs based on grading period --- */}
+                      
+                      {/* --- CORRECTED INPUTS FOR COLLEGE GRADES --- */}
                       <td className="px-2 py-2">
-                      <Input type="number" min="1" max="5" step="0.01" 
-                        value={studentGrade.prelim_grade ?? ''} 
-                        onChange={(e) => handleGradeChange(student.id, 'prelim_grade', e.target.value)} 
-                        className="w-20 border-1 border-gray-300 rounded-md text-black" 
-                        disabled={isAllSubjectsView || !isPeriodOpen('prelim')}
-                      />
-                    </td>
-                    <td className="px-2 py-2">
-                      <Input type="number" min="1" max="5" step="0.01"
-                        value={studentGrade.midterm_grade ?? ''} 
-                        onChange={(e) => handleGradeChange(student.id, 'midterm_grade', e.target.value)} 
-                        className="w-20 border-1 border-gray-300 rounded-md text-black" 
-                        disabled={isAllSubjectsView || !isPeriodOpen('midterm')}
-                      />
-                    </td>
-                    <td className="px-2 py-2">
-                      <Input type="number" min="1" max="5" step="0.01"
-                        value={studentGrade.semifinal_grade ?? ''} 
-                        onChange={(e) => handleGradeChange(student.id, 'semifinal_grade', e.target.value)} 
-                        className="w-20 border-1 border-gray-300 rounded-md text-black" 
-                        disabled={isAllSubjectsView || !isPeriodOpen('semifinal')}
-                      />
-                    </td>
-                    <td className="px-2 py-2">
-                      <Input type="number" min="1" max="5" step="0.01"
-                        value={studentGrade.final_grade ?? ''} 
-                        onChange={(e) => handleGradeChange(student.id, 'final_grade', e.target.value)} 
-                        className="w-20 border-1 border-gray-300 rounded-md text-black" 
-                        disabled={isAllSubjectsView || !isPeriodOpen('final')}
-                      />
-                    </td>
-                    {/* --- END OF CHANGE --- */}
-
-                    <td className="px-6 py-4">{statusBadge}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
+                        <Input type="number" min="1" max="5" step="0.01" 
+                          value={student.grades?.prelim_grade ?? ''} 
+                          onChange={(e) => handleGradeChange(student.id, 'prelim_grade', e.target.value)} 
+                          className="w-20 border-1 border-gray-300 rounded-md text-black" 
+                          disabled={!isPeriodOpen('prelim')}
+                        />
+                      </td>
+                      <td className="px-2 py-2">
+                        <Input type="number" min="1" max="5" step="0.01"
+                          value={student.grades?.midterm_grade ?? ''} 
+                          onChange={(e) => handleGradeChange(student.id, 'midterm_grade', e.target.value)} 
+                          className="w-20 border-1 border-gray-300 rounded-md text-black" 
+                          disabled={!isPeriodOpen('midterm')}
+                        />
+                      </td>
+                      <td className="px-2 py-2">
+                        <Input type="number" min="1" max="5" step="0.01"
+                          value={student.grades?.semifinal_grade ?? ''} 
+                          onChange={(e) => handleGradeChange(student.id, 'semifinal_grade', e.target.value)} 
+                          className="w-20 border-1 border-gray-300 rounded-md text-black" 
+                          disabled={!isPeriodOpen('semifinal')}
+                        />
+                      </td>
+                      <td className="px-2 py-2">
+                        <Input type="number" min="1" max="5" step="0.01"
+                          value={student.grades?.final_grade ?? ''} 
+                          onChange={(e) => handleGradeChange(student.id, 'final_grade', e.target.value)} 
+                          className="w-20 border-1 border-gray-300 rounded-md text-black" 
+                          disabled={!isPeriodOpen('final')}
+                        />
+                      </td>
+                      <td className="px-6 py-4">{statusBadge}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
             </table>
              {filteredStudents.length === 0 && (
                 <div className="text-center py-10 text-gray-500">
-                    <p>{selectedSubjectId === 'all' ? 'Please select a subject to begin grading.' : 'No students found for this subject.'}</p>
+                    <p>{!selectedSubjectId ? 'Please select a subject to begin grading.' : 'No students found for this subject or search.'}</p>
                 </div>
              )}
         </Card>
       </motion.div>
       <motion.div className="flex justify-end" variants={itemVariants}>
-        <Button onClick={handleSubmitGrades} disabled={isSubmitting || selectedSubjectId === 'all'} className="min-w-[150px]">
+        <Button onClick={handleSubmitGrades} disabled={isSubmitting || !selectedSubjectId} className="min-w-[150px]">
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             {isSubmitting ? 'Submitting...' : 'Submit Grades'}
         </Button>

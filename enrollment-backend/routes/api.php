@@ -71,6 +71,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // --- NEW: STUDENT-SPECIFIC ROUTE ---
     Route::get('/student/enrolled-subjects', [EnrollmentController::class, 'getStudentEnrolledSubjects']);
+    Route::get('/student/grades', [EnrollmentController::class, 'getAuthenticatedStudentGrades']);
+    Route::get('/student/curriculum', [EnrollmentController::class, 'getStudentCurriculum']);
+    Route::get('/student/schedule', [EnrollmentController::class, 'getStudentSchedule']);
     
     // Upload Receipts
     Route::get('upload-receipts', [UploadReceiptController::class, 'index']);

@@ -1000,6 +1000,38 @@ export const studentAPI = {
       throw error.response?.data || { success: false, message: 'Failed to fetch enrolled subjects' };
     }
   },
+
+  getMyGrades: async ({ year, semester }) => {
+    try {
+      const params = {};
+      if (year && year !== 'all') params.year = year;
+      if (semester && semester !== 'all') params.semester = semester;
+
+      const response = await api.get('/student/grades', { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch grades' };
+    }
+  },
+
+  getCurriculum: async () => {
+    try {
+      const response = await api.get('/student/curriculum');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch curriculum' };
+    }
+  },
+
+  getSchedule: async () => {
+    try {
+      const response = await api.get('/student/schedule');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch schedule' };
+    }
+  },
+
 };
 
 
