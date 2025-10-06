@@ -89,7 +89,7 @@ class SubjectChangeRequestController extends Controller {
 
     // 5. Show details of a single request (for the modal)
     public function show($id) {
-        $request = SubjectChangeRequest::with(['student', 'items.subject'])->findOrFail($id);
+        $request = SubjectChangeRequest::with(['student.course', 'items.subject'])->findOrFail($id);
         return response()->json(['success' => true, 'data' => $request]);
     }
     

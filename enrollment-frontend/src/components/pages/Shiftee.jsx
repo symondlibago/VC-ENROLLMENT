@@ -1,5 +1,3 @@
-// src/pages/Shiftee.jsx
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { shifteeAPI, authAPI } from '@/services/api';
 import {
@@ -65,7 +63,6 @@ const ShifteeRequestDetailsModal = ({ isOpen, onClose, requestDetails, currentUs
         }
     };
     
-    // Only Program Head or Admin can approve
     const canApprove = (status === 'pending_program_head' && (currentUserRole === 'Program Head' || currentUserRole === 'Admin'));
 
     const getStatusBadge = (status) => {
@@ -152,32 +149,32 @@ const Shiftee = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
-  
   const [programs, setPrograms] = useState([]);
   const [availableCourses, setAvailableCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [programFilter, setProgramFilter] = useState('All Programs');
-
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
   const [shifteeRequests, setShifteeRequests] = useState([]);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
-
-  useEffect(() => {
-    setCurrentUser(authAPI.getUserData());
-  }, []);
+  const [loadingRequestId, setLoadingRequestId] = useState(null);
 
   const fetchShifteeRequests = useCallback(async () => {
     try {
       const response = await shifteeAPI.getAllRequests();
       if (response.success) setShifteeRequests(response.data);
-    } catch (error) { console.error("Failed to fetch shiftee requests:", error); }
+    } catch (error) { 
+        toast.error("Failed to fetch shiftee requests.");
+        console.error("Failed to fetch shiftee requests:", error); 
+    }
   }, []);
 
-  useEffect(() => { fetchShifteeRequests(); }, [fetchShifteeRequests]);
+  useEffect(() => { 
+    setCurrentUser(authAPI.getUserData());
+    fetchShifteeRequests(); 
+}, [fetchShifteeRequests]);
 
   useEffect(() => {
     if (searchTerm.length < 2) {
@@ -206,7 +203,6 @@ const Shiftee = () => {
       const response = await shifteeAPI.getShiftingData();
       if (response.success) {
         setPrograms(response.data.programs || []);
-        // Exclude the student's current course from the list of available courses
         const coursesToDisplay = response.data.courses.filter(course => course.id !== student.course_id);
         setAvailableCourses(coursesToDisplay || []);
       }
@@ -236,7 +232,7 @@ const Shiftee = () => {
         if (response.success) {
             toast.success('Shiftee request submitted for approval!');
             fetchShifteeRequests();
-            setSelectedStudent(null); // Reset form after submission
+            setSelectedStudent(null); 
             setSelectedCourse(null);
         }
     } catch (error) {
@@ -245,6 +241,7 @@ const Shiftee = () => {
   };
 
   const handleViewDetails = async (requestId) => {
+    setLoadingRequestId(requestId);
     try {
       const response = await shifteeAPI.getRequestDetails(requestId);
       if (response.success) {
@@ -252,6 +249,7 @@ const Shiftee = () => {
         setIsDetailsModalOpen(true);
       } else { toast.error('Failed to fetch request details.'); }
     } catch (error) { toast.error('An error occurred while fetching details.'); }
+    finally { setLoadingRequestId(null); }
   };
 
   return (
@@ -278,24 +276,26 @@ const Shiftee = () => {
             <CardContent>
               <div className="mb-4 p-4 border rounded-lg bg-gray-50">
                   <h3 className="font-bold text-lg">{selectedStudent.last_name}, {selectedStudent.first_name}</h3>
-                  <p className="text-sm text-gray-600 font-mono">{selectedStudent.student_id_number} • Current Course: <b>{selectedStudent.course.course_name}</b></p>
+                  <p className="text-sm text-gray-600 font-mono">
+                    {selectedStudent.student_id_number} • Current Course: <b>{selectedStudent.course.course_name}</b>
+                  </p>
               </div>
               <div className="flex items-center gap-4 mb-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-64 justify-between">
-                  {programs.find(p => p.id == programFilter)?.program_name || 'All Programs'}
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
-                <DropdownMenuItem onSelect={() => setProgramFilter('All Programs')}>All Programs</DropdownMenuItem>
-                {programs.map(prog => (
-                  <DropdownMenuItem key={prog.id} onSelect={() => setProgramFilter(prog.id)}>{prog.program_name}</DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-64 justify-between">
+                      {programs.find(p => p.id == programFilter)?.program_name || 'All Programs'}
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-64">
+                    <DropdownMenuItem onSelect={() => setProgramFilter('All Programs')}>All Programs</DropdownMenuItem>
+                    {programs.map(prog => (
+                      <DropdownMenuItem key={prog.id} onSelect={() => setProgramFilter(prog.id)}>{prog.program_name}</DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
               <div>
                 <h3 className="font-bold mb-2">Available Courses to Shift Into ({filteredCourses.length})</h3>
                 <div className="border rounded-md max-h-[400px] overflow-y-auto">
@@ -317,7 +317,6 @@ const Shiftee = () => {
                   </Table>
                 </div>
               </div>
-
               <div className="mt-6 pt-4 border-t">
                   {selectedCourse &&
                       <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md space-y-2">
@@ -345,7 +344,6 @@ const Shiftee = () => {
                       {shifteeRequests.map(req => (
                           <TableRow key={req.id}>
                               <TableCell className="font-medium">
-                                  {/* Student Info */}
                                   <div className="flex items-center gap-3">
                                       <Avatar className="h-10 w-10"><AvatarFallback className="bg-red-800 text-white">{`${req.student?.first_name?.charAt(0) || ''}${req.student?.last_name?.charAt(0) || ''}`}</AvatarFallback></Avatar>
                                       <div>
@@ -379,7 +377,20 @@ const Shiftee = () => {
                                   </Badge>
                               </TableCell>
                               <TableCell className="text-right">
-                                <Button variant="outline" size="sm" className="cursor-pointer" onClick={() => handleViewDetails(req.id)}>View Details</Button>
+                              <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleViewDetails(req.id)}
+                                    disabled={loadingRequestId === req.id}
+                                    className="w-40 cursor-pointer"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span className="mr-2">
+                                        {loadingRequestId === req.id ? 'View Details' : 'View Details'}
+                                      </span>
+                                      {loadingRequestId === req.id && <Loader2 className="h-4 w-4 animate-spin" />}
+                                    </div>
+                                  </Button>
                               </TableCell>
                           </TableRow>
                       ))}
