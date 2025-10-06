@@ -1,9 +1,7 @@
-// src/components/studentpage/EvaluationRecords.jsx
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { studentAPI } from '@/services/api';
-import { ClipboardList, AlertCircle, Inbox } from 'lucide-react';
+import { ClipboardList, AlertCircle, Inbox, CheckCircle, XCircle } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -12,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 import LoadingSpinner from '@/components/layout/LoadingSpinner';
 
 const EvaluationRecords = () => {
@@ -39,6 +38,16 @@ const EvaluationRecords = () => {
     fetchCurriculum();
   }, []);
 
+  // Create an efficient lookup map for subject grades and statuses
+  const subjectStatusMap = useMemo(() => {
+    if (!curriculumData?.grades) return new Map();
+    return curriculumData.grades.reduce((map, grade) => {
+      map.set(grade.subject_id, grade.status);
+      return map;
+    }, new Map());
+  }, [curriculumData]);
+
+
   // Process the flat subject list into a nested object grouped by year and semester
   const curriculumByYear = useMemo(() => {
     if (!curriculumData?.subjects) return {};
@@ -63,6 +72,16 @@ const EvaluationRecords = () => {
   const itemVariants = {
     hidden: { y: 20, opacity: 0 },
     visible: { y: 0, opacity: 1 },
+  };
+
+  const getStatusIndicator = (status) => {
+      if (status === 'Passed') {
+          return <CheckCircle className="w-5 h-5 text-green-600" />;
+      }
+      if (status === 'Failed') {
+          return <XCircle className="w-5 h-5 text-red-600" />;
+      }
+      return null; // Return null for 'In Progress' or no grade
   };
 
   return (
@@ -95,29 +114,45 @@ const EvaluationRecords = () => {
           <div className="space-y-8">
             {yearOrder.filter(year => curriculumByYear[year]).map(year => (
               <div key={year}>
-                <h2 className="text-2xl font-bold text-red-800 border-b-2 border-red-800 pb-2 mb-4">{year}</h2>
+                <h2 className="text-2xl font-bold text-red-800 border-b-2 border-red-200 pb-2 mb-4">{year}</h2>
                 {Object.keys(curriculumByYear[year]).map(semester => (
                   <div key={semester} className="mb-6">
                     <h3 className="font-semibold text-lg text-gray-700 mb-2">{semester}</h3>
                     <div className="border rounded-lg overflow-hidden">
                         <Table>
                             <TableHeader>
-                                <TableRow className="bg-red-800 hover:bg-red-800">
-                                    <TableHead className="w-[150px] text-white">Subject Code</TableHead>
-                                    <TableHead className="text-white">Descriptive Title</TableHead>
-                                    <TableHead className="w-[120px] text-white">Prerequisite</TableHead>
-                                    <TableHead className="text-center w-[80px] text-white">Units</TableHead>
+                                <TableRow>
+                                    <TableHead className="w-[150px]">Subject Code</TableHead>
+                                    <TableHead>Descriptive Title</TableHead>
+                                    <TableHead className="w-[120px]">Prerequisite</TableHead>
+                                    <TableHead className="text-center w-[80px]">Units</TableHead>
+                                    <TableHead className="text-center w-[100px]">Status</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {curriculumByYear[year][semester].map(subject => (
-                                    <TableRow key={subject.id}>
-                                        <TableCell className="font-mono">{subject.subject_code}</TableCell>
-                                        <TableCell>{subject.descriptive_title}</TableCell>
-                                        <TableCell className="font-mono">{subject.prerequisite?.subject_code || 'None'}</TableCell>
-                                        <TableCell className="text-center font-mono">{subject.total_units || subject.number_of_hours}</TableCell>
-                                    </TableRow>
-                                ))}
+                                {curriculumByYear[year][semester].map(subject => {
+                                    const status = subjectStatusMap.get(subject.id);
+                                    let rowClass = '';
+                                    if (status === 'Passed') {
+                                        rowClass = 'bg-green-200 hover:bg-green-200';
+                                    } else if (status === 'Failed') {
+                                        rowClass = 'bg-red-200 hover:bg-red-200';
+                                    }
+                                    
+                                    return (
+                                        <TableRow key={subject.id} className={`${rowClass} transition-colors`}>
+                                            <TableCell className="font-mono">{subject.subject_code}</TableCell>
+                                            <TableCell className="font-medium">{subject.descriptive_title}</TableCell>
+                                            <TableCell className="font-mono">{subject.prerequisite?.subject_code || 'None'}</TableCell>
+                                            <TableCell className="text-center font-mono">{subject.total_units || subject.number_of_hours}</TableCell>
+                                            <TableCell className="text-center">
+                                                <div className="flex justify-center">
+                                                    {getStatusIndicator(status)}
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
                             </TableBody>
                         </Table>
                     </div>

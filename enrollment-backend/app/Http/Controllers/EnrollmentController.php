@@ -247,7 +247,8 @@ public function getPreEnrolledStudents()
                 'course.program', 
                 'enrollmentCode', 
                 'enrollmentApprovals', 
-                'subjects.schedules'
+                'subjects.schedules',
+                'grades'
             ])->findOrFail($id);
 
             $student->id_photo_url = $student->id_photo ? Storage::disk('s3')->url($student->id_photo) : null;
@@ -260,7 +261,8 @@ public function getPreEnrolledStudents()
                 'success' => true,
                 'data' => [
                     'student' => $student,
-                    'subjects' => $subjects, // This now contains the correct data
+                    'subjects' => $subjects,
+                    'grades' => $student->grades,
                 ],
             ]);
         } catch (\Exception $e) {
@@ -813,7 +815,7 @@ public function getStudentsForIdReleasing()
         try {
             $user = Auth::user();
             // Eager load the course and program to get their names
-            $student = PreEnrolledStudent::with(['course.program'])->where('user_id', $user->id)->first();
+            $student = PreEnrolledStudent::with(['course.program', 'grades'])->where('user_id', $user->id)->first();
 
             if (!$student || !$student->course_id) {
                 return response()->json(['success' => false, 'message' => 'No course found for your account.'], 404);
@@ -832,6 +834,7 @@ public function getStudentsForIdReleasing()
                     'course_name' => $student->course->course_name,
                     'program_code' => $student->course->program->program_code,
                     'subjects' => $subjects,
+                    'grades' => $student->grades,
                 ]
             ]);
 
