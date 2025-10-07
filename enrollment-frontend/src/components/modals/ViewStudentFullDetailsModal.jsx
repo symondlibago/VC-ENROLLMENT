@@ -86,11 +86,10 @@ const ViewStudentFullDetailsModal = ({ isOpen, onClose, studentId }) => {
         }
     }, [isOpen, studentId]);
 
-    // Create an efficient lookup map for subjects with a "Passed" status
     const passedSubjectsMap = useMemo(() => {
         return gradeHistory.reduce((map, grade) => {
-            if (grade.status === 'Passed') {
-                map.set(grade.subject_id, true);
+            if (grade.status === 'Passed' || grade.status === 'Failed') {
+                map.set(grade.subject_id, grade.status); // Store the status directly
             }
             return map;
         }, new Map());
@@ -216,43 +215,48 @@ const ViewStudentFullDetailsModal = ({ isOpen, onClose, studentId }) => {
                 ) : <p className="text-sm text-gray-500">No subjects currently enrolled.</p>}
             </div>
             <div>
-                <h4 className="font-semibold text-gray-700 mb-2">Full Course Curriculum</h4>
-                <div className="space-y-4">
-                    {yearOrder.filter(year => curriculum[year]).map(year => (
-                        <div key={year}>
-                            <h5 className="font-bold text-md text-red-800">{year}</h5>
-                            {Object.keys(curriculum[year]).map(semester => (
-                                <div key={semester} className="pl-4 mt-2">
-                                    <p className="font-semibold text-gray-600">{semester}</p>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead className="w-[120px]">Code</TableHead>
-                                                <TableHead>Title</TableHead>
-                                                <TableHead className="w-[80px] text-center">Units</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {curriculum[year][semester].map(sub => {
-                                                const isPassed = passedSubjectsMap.has(sub.id);
-                                                return (
-                                                    <TableRow 
-                                                        key={sub.id}
-                                                        className={isPassed ? 'bg-green-200 hover:bg-green-200 transition-colors' : ''}
-                                                    >
-                                                        <TableCell>{sub.subject_code}</TableCell>
-                                                        <TableCell>{sub.descriptive_title}</TableCell>
-                                                        <TableCell className="text-center">{sub.total_units}</TableCell>
-                                                    </TableRow>
-                                                );
-                                            })}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            ))}
-                        </div>
-                    ))}
-                </div>
+    <h4 className="font-semibold text-gray-700 mb-2">Full Course Curriculum</h4>
+    <div className="space-y-4">
+        {yearOrder.filter(year => curriculum[year]).map(year => (
+            <div key={year}>
+            <h5 className="font-bold text-md text-red-800">{year}</h5>
+            {Object.keys(curriculum[year]).map(semester => (
+            <div key={semester} className="pl-4 mt-2">
+            <p className="font-semibold text-gray-600">{semester}</p>
+             <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead className="w-[120px]">Code</TableHead>
+                        <TableHead>Title</TableHead>
+                        <TableHead className="w-[80px] text-center">Units</TableHead>
+                    </TableRow>
+                 </TableHeader>
+                 <TableBody>
+                    {curriculum[year][semester].map(sub => {
+                        const gradeStatus = passedSubjectsMap.get(sub.id);
+                        let bgColorClass = '';
+
+                        if (gradeStatus === 'Passed') {
+                            bgColorClass = 'bg-green-200 hover:bg-green-200 transition-colors';
+                        } else if (gradeStatus === 'Failed') {
+                            bgColorClass = 'bg-red-200 hover:bg-red-200 transition-colors';
+                        }
+
+                        return (
+                            <TableRow key={sub.id} className={bgColorClass}>
+                                <TableCell>{sub.subject_code}</TableCell>
+                                <TableCell>{sub.descriptive_title}</TableCell>
+                                <TableCell className="text-center">{sub.total_units}</TableCell>
+                            </TableRow>
+                        );
+                    })}
+                </TableBody>
+        </Table>
+        </div>
+       ))}
+        </div>
+        ))}
+        </div>
             </div>
         </div>
     );

@@ -6,6 +6,7 @@ use App\Models\Instructor;
 use App\Models\User;
 use App\Models\Schedule;
 use App\Models\Grade;
+use App\Models\PreEnrolledStudent;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Http\Request;
@@ -160,8 +161,6 @@ class InstructorController extends Controller
                 'subject' => $schedule->subject->descriptive_title ?? 'Unassigned Subject',
                 'code' => $schedule->subject->subject_code ?? 'N/A',
                 'room' => $schedule->room_no,
-                // Note: Section data is not directly available via this relationship.
-                // We will omit it for now to match the available data model.
             ];
         });
 
@@ -232,6 +231,8 @@ class InstructorController extends Controller
 
     // In InstructorController.php
 
+    // app/Http/Controllers/InstructorController.php
+
 public function bulkUpdateGrades(Request $request)
 {
     $user = $request->user();
@@ -241,7 +242,6 @@ public function bulkUpdateGrades(Request $request)
         return response()->json(['success' => false, 'message' => 'Instructor profile not found.'], 404);
     }
 
-    // --- FIX #1: Update validation for college grades (1.0 to 5.0) ---
     $validator = Validator::make($request->all(), [
         'grades' => 'required|array',
         'grades.*.student_id' => 'required|exists:pre_enrolled_students,id',
@@ -260,12 +260,20 @@ public function bulkUpdateGrades(Request $request)
     $gradingPeriods = \App\Models\GradingPeriod::all()->keyBy('name');
 
     try {
-        DB::transaction(function () use ($gradesData, $instructor, $gradingPeriods) {
+        // Keep track of students whose grades were updated
+        $affectedStudentIds = []; 
+
+        // Use a single database transaction for the entire operation
+        DB::transaction(function () use ($gradesData, $instructor, $gradingPeriods, &$affectedStudentIds) {
+            
+            // 1. UPDATE ALL THE GRADES
             foreach ($gradesData as $gradeInput) {
+                // Authorization check
                 if (!Schedule::where('subject_id', $gradeInput['subject_id'])->where('instructor_id', $instructor->id)->exists()) {
                     continue;
                 }
 
+                // Find the existing grade record or create a new one
                 $grade = Grade::firstOrNew([
                     'pre_enrolled_student_id' => $gradeInput['student_id'],
                     'subject_id' => $gradeInput['subject_id'],
@@ -277,6 +285,7 @@ public function bulkUpdateGrades(Request $request)
 
                 $now = now();
                 
+                // Granularly update each grade based on grading period
                 $prelimPeriod = $gradingPeriods->get('prelim');
                 if (array_key_exists('prelim_grade', $gradeInput) && $prelimPeriod && $now->between($prelimPeriod->start_date, $prelimPeriod->end_date)) {
                     $grade->prelim_grade = $gradeInput['prelim_grade'];
@@ -297,15 +306,36 @@ public function bulkUpdateGrades(Request $request)
                     $grade->final_grade = $gradeInput['final_grade'];
                 }
 
-                // --- FIX #2: Update status logic for college grades ---
+                // Update status logic for college grades
                 if ($grade->final_grade !== null) {
-                    // Passed if the grade is 3.0 or lower (better). Failed if higher than 3.0.
                     $grade->status = $grade->final_grade <= 3.0 ? 'Passed' : 'Failed';
                 } else {
                     $grade->status = 'In Progress';
                 }
 
                 $grade->save();
+
+                // If any grade was changed, add the student's ID to our list for the next step
+                if ($grade->wasChanged()) {
+                    $affectedStudentIds[] = $grade->pre_enrolled_student_id;
+                }
+            }
+
+            // --- 2. UPDATE ACADEMIC STATUS FOR AFFECTED STUDENTS ---
+            $uniqueAffectedStudentIds = array_unique($affectedStudentIds);
+    
+            foreach ($uniqueAffectedStudentIds as $studentId) {
+                // Check if this student has ANY failed subjects
+                $hasFailedSubjects = Grade::where('pre_enrolled_student_id', $studentId)
+                                          ->where('status', 'Failed')
+                                          ->exists();
+    
+                // Find the student and update their status
+                $student = PreEnrolledStudent::find($studentId);
+                if ($student) {
+                    $student->academic_status = $hasFailedSubjects ? 'Irregular' : 'Regular';
+                    $student->save();
+                }
             }
         });
 

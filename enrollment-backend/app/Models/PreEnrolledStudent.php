@@ -58,6 +58,7 @@ class PreEnrolledStudent extends Model
         'id_status', 
         'id_printed_at',
         'id_released_at', 
+        'academic_status',
     ];
 
     protected $casts = [

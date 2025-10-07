@@ -330,7 +330,9 @@ const Students = () => {
   
   const filteredStudents = useMemo(() => enrolledStudents.filter(student => {
     const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                              (student.student_id_number && student.student_id_number.toLowerCase().includes(searchTerm.toLowerCase()));
+    student.academic_status.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (student.student_id_number && student.student_id_number.toLowerCase().includes(searchTerm.toLowerCase()));
+
     const courseMatch = studentCourseFilter === 'all' || student.courseId?.toString() === studentCourseFilter;
     const sectionMatch = studentSectionFilter === 'all' || 
                               (studentSectionFilter === 'unassigned' && !student.sectionId) || 
@@ -548,41 +550,16 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
         </Card>
         <Card>
         <Table>
-  {/* ✅ 1. REMOVED the extra, nested <TableHeader> tag that was here */}
-  <TableHeader>
-    <TableRow>
-      <TableHead>
-        <div className="flex items-center gap-2">
-          <Hash size={16} />
-          Student ID
-        </div>
-      </TableHead>
-      <TableHead>
-        <div className="flex items-center gap-2">
-          <User size={16} />
-          Name
-        </div>
-      </TableHead>
-      <TableHead>
-        <div className="flex items-center gap-2">
-          <GraduationCap size={16} />
-          Course
-        </div>
-      </TableHead>
-      <TableHead>
-        <div className="flex items-center gap-2">
-          <Users size={16} />
-          Section
-        </div>
-      </TableHead>
-      <TableHead className="text-right">
-        <div className="flex items-center justify-end gap-2">
-          <Settings2 size={16} />
-          Action
-        </div>
-      </TableHead>
-    </TableRow>
-  </TableHeader>
+        <TableHeader>
+      <TableRow>
+    <TableHead><div className="flex items-center gap-2"><Hash size={16} />Student ID</div></TableHead>
+    <TableHead><div className="flex items-center gap-2"><User size={16} />Name</div></TableHead>
+    <TableHead><div className="flex items-center gap-2"><GraduationCap size={16} />Course</div></TableHead>
+    <TableHead><div className="flex items-center gap-2"><Users size={16} />Section</div></TableHead>
+    <TableHead><div className="flex items-center gap-2"><BookOpen size={16} />Academic Status</div></TableHead>
+    <TableHead className="text-right"><div className="flex items-center justify-end gap-2"><Settings2 size={16} />Action</div></TableHead>
+      </TableRow>
+        </TableHeader>
   <TableBody>
     {students.length > 0 ? students.map(student => (
       <TableRow key={student.id}>
@@ -613,6 +590,12 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
               {student.sectionName}
             </Badge>
           </div>
+        </TableCell>
+        <TableCell>
+        <Badge variant={student.academic_status === 'Irregular' ? "destructive" : "default"} 
+        className={student.academic_status === 'Regular' ? 'bg-blue-100 text-blue-800' : ''}>
+        {student.academic_status}
+        </Badge>
         </TableCell>
         <TableCell className="text-right">
           <DropdownMenu>

@@ -198,7 +198,7 @@ const SubjectDetailsModal = ({
                   variant="ghost"
                   size="sm"
                   onClick={onClose}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-red-800 hover:white cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </Button>
@@ -290,7 +290,7 @@ const SubjectDetailsModal = ({
 
                   {/* Add Subject Button */}
                   <Button
-                    className="gradient-primary text-white liquid-button"
+                    className="gradient-primary text-white liquid-button cursor-pointer"
                     onClick={() => onAddSubject(course)}
                   >
                     <Plus className="w-4 h-4 mr-2" />
@@ -431,13 +431,6 @@ const SubjectDetailsModal = ({
                     </p>
                   )}
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={onClose}
-                  className="liquid-button"
-                >
-                  Close
-                </Button>
               </div>
             </motion.div>
           </motion.div>

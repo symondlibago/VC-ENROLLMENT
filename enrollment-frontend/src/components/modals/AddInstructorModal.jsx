@@ -156,11 +156,9 @@ const AddInstructorModal = ({ isOpen, onClose, onSave, instructor }) => {
                     <Select onValueChange={(value) => handleSelectChange('department', value)} value={formData.department} required>
                       <SelectTrigger className="border border-gray-300"><SelectValue placeholder="Select department" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="engineering">Engineering</SelectItem>
-                        <SelectItem value="humanities">Humanities</SelectItem>
-                        <SelectItem value="sciences">Sciences</SelectItem>
-                        <SelectItem value="arts">Arts</SelectItem>
-                        <SelectItem value="business">Business</SelectItem>
+                        <SelectItem value="deiploma">Diploma</SelectItem>
+                        <SelectItem value="bachelor">Bachelor</SelectItem>
+                        <SelectItem value="shs">Senior High School</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
