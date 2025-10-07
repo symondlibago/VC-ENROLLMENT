@@ -112,12 +112,14 @@ class ShifteeRequestController extends Controller
             }
             $shifteeRequest->save();
 
-            // If approved, update the student's actual course
+            // If approved, update the student's actual course AND academic status
             if ($validated['status'] === 'approved') {
                 $student = PreEnrolledStudent::findOrFail($shifteeRequest->pre_enrolled_student_id);
                 $student->course_id = $shifteeRequest->new_course_id;
-                // You may also want to detach all previous subjects here if necessary
-                // $student->subjects()->detach();
+                
+                // Automatically set the student's status to Irregular
+                $student->academic_status = 'Irregular';
+
                 $student->save();
             }
 

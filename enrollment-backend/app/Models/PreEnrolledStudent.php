@@ -135,6 +135,11 @@ class PreEnrolledStudent extends Model
         return $this->hasMany(UploadReceipt::class);
     }
 
+    public function subjectChangeRequests(): HasMany
+    {
+    return $this->hasMany(SubjectChangeRequest::class, 'pre_enrolled_student_id');
+    }
+
     public function shifteeRequests(): HasMany
     {
         return $this->hasMany(ShifteeRequest::class, 'pre_enrolled_student_id');
@@ -150,11 +155,10 @@ class PreEnrolledStudent extends Model
         return $this->hasMany(Grade::class, 'pre_enrolled_student_id');
     }
 
-     /**
-     * Get the user account associated with the student.
-     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
+
+
 }

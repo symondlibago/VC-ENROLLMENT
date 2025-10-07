@@ -140,14 +140,20 @@ class SubjectChangeRequestController extends Controller {
         return response()->json(['success' => false, 'message' => 'Unauthorized or invalid state.'], 403);
     }
 
-    private function applySubjectChanges(SubjectChangeRequest $changeRequest) {
-        $student = $changeRequest->student;
-        $items = $changeRequest->items;
+    private function applySubjectChanges(SubjectChangeRequest $changeRequest)
+{
+    $student = $changeRequest->student;
+    $items = $changeRequest->items;
 
-        $subjectsToAdd = $items->where('action', 'add')->pluck('subject_id');
-        $subjectsToDrop = $items->where('action', 'drop')->pluck('subject_id');
+    $subjectsToAdd = $items->where('action', 'add')->pluck('subject_id');
+    $subjectsToDrop = $items->where('action', 'drop')->pluck('subject_id');
 
-        $student->subjects()->attach($subjectsToAdd);
-        $student->subjects()->detach($subjectsToDrop);
+    $student->subjects()->attach($subjectsToAdd);
+    $student->subjects()->detach($subjectsToDrop);
+
+    if ($subjectsToDrop->isNotEmpty()) {
+        $student->academic_status = 'Irregular';
+        $student->save();
     }
+}
 }

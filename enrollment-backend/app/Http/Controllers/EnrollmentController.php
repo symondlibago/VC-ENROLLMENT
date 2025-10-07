@@ -371,36 +371,56 @@ public function getPreEnrolledStudents()
 
 
     public function getEnrolledStudents()
-    {
-        try {
-            $enrolledStudents = PreEnrolledStudent::with(['course', 'sections', 'grades'])
-                ->where('enrollment_status', 'enrolled')
-                ->orderBy('student_id_number', 'asc')
-                ->get()
-                ->map(function ($student) {
-    
-                    $hasFailedSubjects = $student->grades->where('status', 'Failed')->isNotEmpty();
-                    $currentAcademicStatus = $hasFailedSubjects ? 'Irregular' : 'Regular';
-    
-                    return [
-                        'id' => $student->id,
-                        'student_id_number' => $student->student_id_number,
-                        'name' => $student->getFullNameAttribute(),
-                        'email' => $student->email_address,
-                        'year' => $student->year,
-                        'courseId' => $student->course->id ?? null,
-                        'courseName' => $student->course ? $student->course->course_name : 'N/A',
-                        'sectionId' => $student->sections->first()->id ?? null,
-                        'sectionName' => $student->sections->isNotEmpty() ? $student->sections->first()->name : 'Unassigned',
-                        'academic_status' => $currentAcademicStatus,
-                    ];
-                });
-    
-            return response()->json(['success' => true, 'data' => $enrolledStudents]);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Failed to fetch enrolled students', 'error' => $e->getMessage()], 500);
-        }
+{
+    try {
+        // 1. Eager load the items within each subjectChangeRequest
+        $enrolledStudents = PreEnrolledStudent::with([
+                'course', 
+                'sections', 
+                'grades', 
+                'shifteeRequests', 
+                'subjectChangeRequests.items' // 👈 Change this line
+            ])
+            ->where('enrollment_status', 'enrolled')
+            ->orderBy('student_id_number', 'asc')
+            ->get()
+            ->map(function ($student) {
+
+                $hasFailedSubjects = $student->grades->where('status', 'Failed')->isNotEmpty();
+                $isApprovedShiftee = $student->shifteeRequests->where('status', 'approved')->isNotEmpty();
+                
+                // 2. This check now looks inside the requests for a 'drop' action
+                $hasDroppedSubjects = $student->subjectChangeRequests
+                    ->where('status', 'approved')
+                    ->contains(function ($request) {
+                        return $request->items->where('action', 'drop')->isNotEmpty();
+                    });
+
+                $currentAcademicStatus = 'Regular';
+                // 3. Update the final if statement
+                if ($hasFailedSubjects || $isApprovedShiftee || $hasDroppedSubjects) { // 👈 Use the new variable
+                    $currentAcademicStatus = 'Irregular';
+                }
+
+                return [
+                    'id' => $student->id,
+                    'student_id_number' => $student->student_id_number,
+                    'name' => $student->getFullNameAttribute(),
+                    'email' => $student->email_address,
+                    'year' => $student->year,
+                    'courseId' => $student->course->id ?? null,
+                    'courseName' => $student->course ? $student->course->course_name : 'N/A',
+                    'sectionId' => $student->sections->first()->id ?? null,
+                    'sectionName' => $student->sections->isNotEmpty() ? $student->sections->first()->name : 'Unassigned',
+                    'academic_status' => $currentAcademicStatus,
+                ];
+            });
+
+        return response()->json(['success' => true, 'data' => $enrolledStudents]);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'message' => 'Failed to fetch enrolled students', 'error' => $e->getMessage()], 500);
     }
+}
 
 public function updateStudentDetails(Request $request, $id)
 {
