@@ -9,6 +9,7 @@ use App\Models\EnrollmentApproval;
 use App\Models\Course;
 use App\Models\Grade;
 use App\Models\User;
+use App\Models\EnrollmentHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -379,7 +380,7 @@ public function getPreEnrolledStudents()
                 'sections', 
                 'grades', 
                 'shifteeRequests', 
-                'subjectChangeRequests.items' // 👈 Change this line
+                'subjectChangeRequests.items'
             ])
             ->where('enrollment_status', 'enrolled')
             ->orderBy('student_id_number', 'asc')
@@ -398,7 +399,7 @@ public function getPreEnrolledStudents()
 
                 $currentAcademicStatus = 'Regular';
                 // 3. Update the final if statement
-                if ($hasFailedSubjects || $isApprovedShiftee || $hasDroppedSubjects) { // 👈 Use the new variable
+                if ($hasFailedSubjects || $isApprovedShiftee || $hasDroppedSubjects) {
                     $currentAcademicStatus = 'Irregular';
                 }
 
@@ -918,5 +919,108 @@ public function getStudentsForIdReleasing()
             ], 500);
         }
     }
+
+    // Methods for continuing students
+
+    public function searchEnrolledStudents(Request $request): JsonResponse
+{
+    $validator = Validator::make($request->all(), [
+        'search' => 'required|string|min:2',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+    }
+
+    $searchTerm = $request->input('search');
+
+    $students = PreEnrolledStudent::where('enrollment_status', 'enrolled')
+        ->where(function ($query) use ($searchTerm) {
+            $query->where('student_id_number', 'like', '%' . $searchTerm . '%')
+                ->orWhere(DB::raw("CONCAT(first_name, ' ', last_name)"), 'like', '%' . $searchTerm . '%')
+                ->orWhere(DB::raw("CONCAT(last_name, ' ', first_name)"), 'like', '%' . $searchTerm . '%');
+        })
+        ->select('id', 'student_id_number', 'first_name', 'last_name', 'middle_name')
+        ->limit(10)
+        ->get();
+
+    return response()->json(['success' => true, 'data' => $students]);
+}
+
+/**
+ * Submit enrollment for a continuing student.
+ * This creates a new pre_enrolled_students record with updated term info.
+ */
+public function submitContinuingEnrollment(Request $request): JsonResponse
+{
+    $validator = Validator::make($request->all(), [
+        'original_student_id' => 'required|exists:pre_enrolled_students,id',
+        'year' => 'required|string',
+        'semester' => 'required|string',
+        'school_year' => 'required|string',
+        'selected_subjects' => 'required|array',
+        'selected_subjects.*' => 'exists:subjects,id',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+    }
+
+    try {
+        DB::beginTransaction();
+
+        $student = PreEnrolledStudent::with('subjects')->findOrFail($request->input('original_student_id'));
+
+        // ===================================================================
+        // PART 1: Archive the current enrollment term into the history table
+        // ===================================================================
+        $subjectsFromLastTerm = $student->subjects->map(fn($subject) => [
+            'subject_code' => $subject->subject_code,
+            'descriptive_title' => $subject->descriptive_title,
+            'total_units' => $subject->total_units,
+        ]);
+
+        EnrollmentHistory::create([
+            'pre_enrolled_student_id' => $student->id,
+            'course_id' => $student->course_id,
+            'semester' => $student->semester,
+            'school_year' => $student->school_year,
+            'year' => $student->year,
+            'enrollment_type' => $student->enrollment_type,
+            'academic_status' => $student->academic_status,
+            'subjects_taken' => $subjectsFromLastTerm,
+        ]);
+
+        // ===================================================================
+        // PART 2: Update the student's live record for the new term
+        // ===================================================================
+        $student->year = $request->input('year');
+        $student->semester = $request->input('semester');
+        $student->school_year = $request->input('school_year');
+        $student->enrollment_type = 'Continuing';
+        $student->enrollment_status = 'pending'; // Reset status for re-approval
+        $student->enrollmentApprovals()->delete(); // Clear old approvals
+        $student->save();
+
+        // Sync subjects for the new term
+        $student->subjects()->sync($request->input('selected_subjects'));
+
+        DB::commit();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Student re-enrolled successfully. Previous term has been archived.',
+            'data' => ['student' => $student->fresh()],
+        ], 200);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to submit continuing enrollment.',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+}
 
 }

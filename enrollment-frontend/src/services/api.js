@@ -538,7 +538,30 @@ export const enrollmentAPI = {
     } catch (error) {
         throw error.response?.data || { success: false, message: 'Failed to bulk update ID status' };
     }
-  }
+  },
+
+  // NEW: Search for enrolled students
+  searchEnrolledStudents: async (searchTerm) => {
+    try {
+      const response = await api.get('/enrolled-students/search', {
+        params: { search: searchTerm }
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to search students' };
+    }
+  },
+
+  // NEW: Submit enrollment for a continuing student
+  submitContinuingEnrollment: async (enrollmentData) => {
+    try {
+      const response = await api.post('/enrollments/continuing', enrollmentData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to submit continuing enrollment' };
+    }
+  },
+
 };
 
 // Section API methods

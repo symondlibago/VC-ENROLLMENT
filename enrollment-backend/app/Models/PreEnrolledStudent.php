@@ -14,6 +14,7 @@ class PreEnrolledStudent extends Model
     use HasFactory;
 
     protected $fillable = [
+        'original_student_id',
         'user_id',
         'course_id', 
         'last_name', 
@@ -158,6 +159,11 @@ class PreEnrolledStudent extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function enrollmentHistories(): HasMany
+    {
+    return $this->hasMany(EnrollmentHistory::class);
     }
 
 

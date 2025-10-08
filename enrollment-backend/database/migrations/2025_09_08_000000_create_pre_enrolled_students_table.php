@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('student_id_number')->unique();
             $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('set null');
+            $table->foreignId('original_student_id')->nullable()->constrained('pre_enrolled_students')->onDelete('set null');
             $table->foreignId('course_id')->constrained('courses');
             $table->string('last_name');
             $table->string('first_name');

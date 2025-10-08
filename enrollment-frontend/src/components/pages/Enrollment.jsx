@@ -3,10 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     GraduationCap, Search, Filter, MoreVertical, Eye, Edit, Trash2, FileText,
     AlertCircle, CheckCircle, XCircle, Calendar, Mail, User, Book,
-    CreditCard, // For the new toggle
-    Receipt,    // For the new toggle
+    CreditCard,
+    Receipt,
     ChevronLeft,
     ChevronRight,
+    UserPlus,
 } from 'lucide-react';
 import { enrollmentAPI, authAPI, uploadReceiptAPI } from '@/services/api';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import StudentDetailsModal from '../modals/StudentDetailsModal';
+import ContinuingEnrollmentModal from '../modals/ContinuingEnrollmentModal';
+import SuccessAlert from '../modals/SuccessAlert'; // Import SuccessAlert
 import { toast } from 'sonner';
 
 const getStatusColor = (status) => {
@@ -40,27 +43,31 @@ const getStatusIcon = (status) => {
     }
 };
 
-
-// --- MAIN ENROLLMENT COMPONENT (Handles state and layout) ---
 const Enrollment = () => {
     const [activeView, setActiveView] = useState('enrollments');
     const [loading, setLoading] = useState(true);
 
-    // Data states
     const [enrollments, setEnrollments] = useState([]);
     const [receipts, setReceipts] = useState([]);
+    
+    // ✅ 1. ADDED state for the alert
+    const [alert, setAlert] = useState({ isVisible: false, message: '', type: 'success' });
 
-    // Modal states
     const [selectedStudentId, setSelectedStudentId] = useState(null);
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false);
     const [selectedImageUrls, setSelectedImageUrls] = useState([]);
+    const [isContinuingModalOpen, setIsContinuingModalOpen] = useState(false);
 
-    // Filter & Search states
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedFilter, setSelectedFilter] = useState('all');
 
     const currentUser = authAPI.getUserData();
+    
+    // ✅ 2. ADDED a function to trigger the alert
+    const showAlert = (message, type = 'success') => {
+        setAlert({ isVisible: true, message, type });
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -76,17 +83,17 @@ const Enrollment = () => {
                 if (enrollmentsRes.success) {
                     setEnrollments(enrollmentsRes.data);
                 } else {
-                    toast.error("Failed to load enrollment data.");
+                    showAlert("Failed to load enrollment data.", "error");
                 }
 
                 if (receiptsRes.success) {
                     setReceipts(receiptsRes.data);
                 } else {
-                    toast.error("Failed to load receipt data.");
+                    showAlert("Failed to load receipt data.", "error");
                 }
 
             } catch (error) {
-                toast.error('An error occurred while fetching data.');
+                showAlert('An error occurred while fetching data.', "error");
             } finally {
                 setLoading(false);
             }
@@ -128,35 +135,57 @@ const Enrollment = () => {
 
     return (
         <div className="p-6 space-y-6 max-w-7xl mx-auto">
+            {/* ✅ 3. RENDERED the SuccessAlert component */}
+            <SuccessAlert 
+                isVisible={alert.isVisible} 
+                message={alert.message} 
+                type={alert.type} 
+                onClose={() => setAlert({ ...alert, isVisible: false })} 
+            />
+
             {/* Header */}
             <div className="gradient-soft rounded-2xl p-8 border border-gray-100">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold heading-bold text-gray-900 flex items-center">
-                            {isCashierOrAdmin ?
-                                <CreditCard className="w-8 h-8 text-[var(--dominant-red)] mr-3" /> :
-                                <GraduationCap className="w-8 h-8 text-[var(--dominant-red)] mr-3" />
-                            }
-                            {pageTitle}
-                        </h1>
-                        <p className="text-gray-600">{pageDescription}</p>
-                    </div>
-                    {isCashierOrAdmin && (
-                        <div className="relative bg-gray-100 rounded-2xl p-1 inline-flex">
-                            <motion.div
-                                className="absolute top-1 bottom-1 bg-white rounded-xl shadow-md"
-                                animate={{
-                                    left: activeView === 'enrollments' ? '4px' : '50%',
-                                    right: activeView === 'enrollments' ? '50%' : '4px',
-                                }}
-                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                            />
-                            <button onClick={() => setActiveView('enrollments')} className={`relative z-10 p-3 rounded-xl transition-colors ${activeView === 'enrollments' ? 'text-[var(--dominant-red)]' : 'text-gray-600'}`} title="Enrollments"><GraduationCap className="w-5 h-5" /></button>
-                            <button onClick={() => setActiveView('receipts')} className={`relative z-10 p-3 rounded-xl transition-colors ${activeView === 'receipts' ? 'text-[var(--dominant-red)]' : 'text-gray-600'}`} title="Receipts"><Receipt className="w-5 h-5" /></button>
-                        </div>
-                    )}
+    <div className="flex items-center justify-between">
+        {/* Left Side: Title and Description (No Changes) */}
+        <div>
+            <h1 className="text-3xl font-bold heading-bold text-gray-900 flex items-center">
+                {isCashierOrAdmin ?
+                    <CreditCard className="w-8 h-8 text-[var(--dominant-red)] mr-3" /> :
+                    <GraduationCap className="w-8 h-8 text-[var(--dominant-red)] mr-3" />
+                }
+                {pageTitle}
+            </h1>
+            <p className="text-gray-600">{pageDescription}</p>
+        </div>
+
+        {/* ✅ Right Side: Wrapper for Buttons */}
+        <div className="flex items-center space-x-4">
+            <Button 
+                variant="outline" 
+                className="bg-white"
+                onClick={() => setIsContinuingModalOpen(true)}
+            >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Continuing Student
+            </Button>
+
+            {isCashierOrAdmin && (
+                <div className="relative bg-gray-100 rounded-2xl p-1 inline-flex">
+                    <motion.div
+                        className="absolute top-1 bottom-1 bg-white rounded-xl shadow-md"
+                        animate={{
+                            left: activeView === 'enrollments' ? '4px' : '50%',
+                            right: activeView === 'enrollments' ? '50%' : '4px',
+                        }}
+                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
+                    <button onClick={() => setActiveView('enrollments')} className={`relative z-10 p-3 rounded-xl transition-colors ${activeView === 'enrollments' ? 'text-[var(--dominant-red)]' : 'text-gray-600'}`} title="Enrollments"><GraduationCap className="w-5 h-5" /></button>
+                    <button onClick={() => setActiveView('receipts')} className={`relative z-10 p-3 rounded-xl transition-colors ${activeView === 'receipts' ? 'text-[var(--dominant-red)]' : 'text-gray-600'}`} title="Receipts"><Receipt className="w-5 h-5" /></button>
                 </div>
-            </div>
+            )}
+        </div>
+    </div>
+</div>
 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -180,7 +209,7 @@ const Enrollment = () => {
                         {(isCashierOrAdmin && activeView === 'receipts') ? (
                             <UploadedReceiptsPage 
                                 receipts={receipts} 
-                                enrollments={enrollments} // Pass enrollments data
+                                enrollments={enrollments} 
                                 onViewImages={handleViewImages} 
                                 searchTerm={searchTerm} 
                                 setSearchTerm={setSearchTerm} 
@@ -201,14 +230,27 @@ const Enrollment = () => {
 
             {/* Modals */}
             {isDetailsModalOpen && (
-                <StudentDetailsModal studentId={selectedStudentId} isOpen={isDetailsModalOpen} onClose={() => setIsDetailsModalOpen(false)} currentUserRole={currentUser?.role} />
+            <StudentDetailsModal 
+                studentId={selectedStudentId} 
+                isOpen={isDetailsModalOpen} 
+                onClose={() => setIsDetailsModalOpen(false)} 
+                currentUserRole={currentUser?.role} />
             )}
-            <ImageGalleryModal isOpen={isGalleryModalOpen} onClose={() => setIsGalleryModalOpen(false)} imageUrls={selectedImageUrls} />
+            <ImageGalleryModal 
+                isOpen={isGalleryModalOpen} 
+                onClose={() => setIsGalleryModalOpen(false)} 
+                imageUrls={selectedImageUrls} />
+
+            {/* ✅ 4. PASSED the showAlert function as a prop */}
+            <ContinuingEnrollmentModal 
+                isOpen={isContinuingModalOpen} 
+                onClose={() => setIsContinuingModalOpen(false)} 
+                showAlert={showAlert}
+            />
         </div>
     );
 };
 
-// --- SUB-COMPONENT FOR ENROLLMENT LIST ---
 const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchTerm, selectedFilter, setSelectedFilter }) => {
     const filteredEnrollments = useMemo(() => enrollments.filter(enrollment => {
         const name = enrollment.name || '';

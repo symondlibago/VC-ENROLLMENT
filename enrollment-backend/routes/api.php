@@ -48,6 +48,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('schedules', ScheduleController::class);
     Route::get('subjects/{subject}/schedules', [ScheduleController::class, 'getBySubject']);
 
+    // Approval enrollment routes
     Route::post('enrollments/{id}/status', [EnrollmentController::class, 'updateApprovalStatus']);
     Route::post('enrollments/{id}/approval', [EnrollmentController::class, 'submitApproval']);
     Route::get('/enrolled-students', [EnrollmentController::class, 'getEnrolledStudents']);
@@ -68,6 +69,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/id-releasing/students/{id}/status', [EnrollmentController::class, 'updateIdStatus']);
     Route::post('/id-releasing/students/bulk-status', [EnrollmentController::class, 'bulkUpdateIdStatus']);
     Route::post('/grades/update-batch', [EnrollmentController::class, 'updateStudentGrades']);
+
+    // Routes for Continuing Student Enrollment
+    Route::get('/enrolled-students/search', [EnrollmentController::class, 'searchEnrolledStudents']);
+    Route::post('/enrollments/continuing', [EnrollmentController::class, 'submitContinuingEnrollment']);
 
     // --- NEW: STUDENT-SPECIFIC ROUTE ---
     Route::get('/student/enrolled-subjects', [EnrollmentController::class, 'getStudentEnrolledSubjects']);
