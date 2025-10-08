@@ -1023,4 +1023,58 @@ public function submitContinuingEnrollment(Request $request): JsonResponse
     }
 }
 
+public function checkEnrollmentEligibility(Request $request, PreEnrolledStudent $student): JsonResponse
+{
+    try {
+        // 1. Get all subjects the student is currently enrolled in.
+        $enrolledSubjects = $student->subjects;
+        $subjectIds = $enrolledSubjects->pluck('id');
+
+        if ($subjectIds->isEmpty()) {
+            // If the student has no subjects, they are eligible to enroll in new ones.
+            return response()->json(['success' => true, 'eligible' => true]);
+        }
+        
+        // 2. Get all grades for these subjects for this specific student.
+        $grades = Grade::where('pre_enrolled_student_id', $student->id)
+                      ->whereIn('subject_id', $subjectIds)
+                      ->get()
+                      ->keyBy('subject_id');
+        
+        $ungradedSubjects = [];
+        
+        // 3. Check each subject to see if it has a final grade.
+        foreach ($enrolledSubjects as $subject) {
+            $grade = $grades->get($subject->id);
+            
+            // A subject is considered ungraded if there's no grade, status is 'In Progress', or final_grade is null.
+            if (!$grade || $grade->status === 'In Progress' || is_null($grade->final_grade)) {
+                $ungradedSubjects[] = [
+                    'subject_code' => $subject->subject_code,
+                    'descriptive_title' => $subject->descriptive_title,
+                ];
+            }
+        }
+        
+        // 4. Determine eligibility and return the response.
+        if (empty($ungradedSubjects)) {
+            return response()->json(['success' => true, 'eligible' => true]);
+        } else {
+            return response()->json([
+                'success' => true, 
+                'eligible' => false,
+                'message' => 'Student has ungraded subjects from the current term.',
+                'ungraded_subjects' => $ungradedSubjects
+            ]);
+        }
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false, 
+            'message' => 'An error occurred while checking eligibility.',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
 }

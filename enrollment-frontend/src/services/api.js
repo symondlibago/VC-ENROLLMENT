@@ -540,6 +540,16 @@ export const enrollmentAPI = {
     }
   },
 
+  // NEW: Check if a continuing student can enroll in the next term
+  checkEnrollmentEligibility: async (studentId) => {
+    try {
+        const response = await api.get(`/enrollments/continuing/${studentId}/eligibility`);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { success: false, message: 'Failed to check enrollment eligibility' };
+    }
+  },
+
   // NEW: Search for enrolled students
   searchEnrolledStudents: async (searchTerm) => {
     try {

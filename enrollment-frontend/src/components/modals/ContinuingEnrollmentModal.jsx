@@ -97,6 +97,7 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentSemesterFilter, setCurrentSemesterFilter] = useState('1st Semester');
     const [subjectError, setSubjectError] = useState(null);
+    const [isLoadingEligibility, setIsLoadingEligibility] = useState(false);
     
     // States for new components
     const [alertState, setAlertState] = useState({ isVisible: false, message: '', type: 'success' });
@@ -142,15 +143,37 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose }) => {
     };
 
     const handleGoToSubjectSetup = async () => {
-        setIsLoadingSubjects(true);
-        setSubjectError(null);
+        setIsLoadingEligibility(true);
         try {
+            const eligibilityRes = await enrollmentAPI.checkEnrollmentEligibility(selectedStudent.id);
+
+            if (eligibilityRes.success && !eligibilityRes.eligible) {
+                const ungradedList = eligibilityRes.ungraded_subjects
+                    .map(s => `- ${s.subject_code}: ${s.descriptive_title}`)
+                    .join('\n');
+                
+                const errorMessage = (
+                    <div>
+                        <p className="mb-2">This student cannot proceed. All subjects from the previous term must have a final grade. Please address the following:</p>
+                        <pre className="bg-gray-100 p-2 rounded text-sm text-left whitespace-pre-wrap">
+                            {ungradedList}
+                        </pre>
+                    </div>
+                );
+
+                setValidationMessage(errorMessage);
+                setIsValidationModalOpen(true);
+                return; 
+            }
+
+            // If eligible, proceed with original logic
+            setIsLoadingSubjects(true);
             const studentDetails = await enrollmentAPI.getStudentDetails(selectedStudent.id);
             if (!studentDetails.success) throw new Error("Could not fetch student's course.");
             
             const courseId = studentDetails.data.student.course_id;
-
             const res = await subjectAPI.getByCourse(courseId, academicInfo.year, academicInfo.semester);
+            
             if (res.success) {
                 const subjectsBySem = res.data.reduce((acc, subject) => {
                     const sem = subject.semester;
@@ -171,15 +194,13 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose }) => {
                 }
                 setCurrentStep(3);
             } else {
-                setSubjectError(res.message || "Could not load subjects for the selected term.");
                 showAlert(res.message || "Could not load subjects for the selected term.", "error");
             }
         } catch (error) {
-            const errorMessage = error.message || "An error occurred fetching subjects.";
-            setSubjectError(errorMessage);
-            showAlert(errorMessage, "error");
+            showAlert(error.message || "An error occurred.", "error");
         } finally {
             setIsLoadingSubjects(false);
+            setIsLoadingEligibility(false);
         }
     };
     
@@ -419,10 +440,14 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose }) => {
                         {currentStep === 1 ? 'Cancel' : 'Back'}
                     </Button>
                     {currentStep === 2 && (
-                        <Button onClick={handleGoToSubjectSetup} disabled={isLoadingSubjects} className="bg-[var(--dominant-red)] hover:bg-red-700 text-white">
-                            {isLoadingSubjects ? <Loader2 className="animate-spin mr-2"/> : <ArrowRight className="mr-2 h-4 w-4" />}
-                            Next: Subject Setup
-                        </Button>
+                        <Button 
+          onClick={handleGoToSubjectSetup} 
+          disabled={isLoadingSubjects || isLoadingEligibility} 
+          className="bg-[var(--dominant-red)] hover:bg-red-700 text-white"
+      >
+          {(isLoadingSubjects || isLoadingEligibility) ? <Loader2 className="animate-spin mr-2"/> : <ArrowRight className="mr-2 h-4 w-4" />}
+          Next: Subject Setup
+      </Button>
                     )}
                     {currentStep === 3 && (
                         <Button onClick={handleSubmitEnrollment} disabled={isSubmitting || selectedSubjects.length === 0} className="bg-red-800 hover:bg-red-700 cursor-pointer">

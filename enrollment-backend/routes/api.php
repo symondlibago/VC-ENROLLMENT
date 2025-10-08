@@ -73,6 +73,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Routes for Continuing Student Enrollment
     Route::get('/enrolled-students/search', [EnrollmentController::class, 'searchEnrolledStudents']);
     Route::post('/enrollments/continuing', [EnrollmentController::class, 'submitContinuingEnrollment']);
+    Route::get('/enrollments/continuing/{student}/eligibility', [EnrollmentController::class, 'checkEnrollmentEligibility']);
+
 
     // --- NEW: STUDENT-SPECIFIC ROUTE ---
     Route::get('/student/enrolled-subjects', [EnrollmentController::class, 'getStudentEnrolledSubjects']);
