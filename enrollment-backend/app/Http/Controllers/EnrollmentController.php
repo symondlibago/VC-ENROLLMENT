@@ -934,13 +934,14 @@ public function getStudentsForIdReleasing()
 
     $searchTerm = $request->input('search');
 
-    $students = PreEnrolledStudent::where('enrollment_status', 'enrolled')
+    $students = PreEnrolledStudent::with('course:id,course_name')
+        ->where('enrollment_status', 'enrolled')
         ->where(function ($query) use ($searchTerm) {
             $query->where('student_id_number', 'like', '%' . $searchTerm . '%')
                 ->orWhere(DB::raw("CONCAT(first_name, ' ', last_name)"), 'like', '%' . $searchTerm . '%')
                 ->orWhere(DB::raw("CONCAT(last_name, ' ', first_name)"), 'like', '%' . $searchTerm . '%');
         })
-        ->select('id', 'student_id_number', 'first_name', 'last_name', 'middle_name')
+        ->select('id', 'student_id_number', 'first_name', 'last_name', 'middle_name', 'course_id', 'year', 'semester')
         ->limit(10)
         ->get();
 

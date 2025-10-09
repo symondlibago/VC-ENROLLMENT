@@ -162,7 +162,7 @@ const Enrollment = () => {
         <div className="flex items-center space-x-4">
             <Button 
                 variant="outline" 
-                className="bg-white"
+                className="bg-white cursor-pointer"
                 onClick={() => setIsContinuingModalOpen(true)}
             >
                 <UserPlus className="w-4 h-4 mr-2" />
