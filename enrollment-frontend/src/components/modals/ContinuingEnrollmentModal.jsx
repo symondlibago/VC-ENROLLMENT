@@ -1,91 +1,101 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  X, 
-  Search, 
-  User, 
-  ChevronDown, 
-  BookOpen, 
-  ArrowRight, 
-  Save, 
-  Loader2,
-  GraduationCap,
-  Calendar,
+import {
+    X,
+    Search,
+    User,
+    ChevronDown,
+    BookOpen,
+    ArrowRight,
+    Save,
+    Loader2,
+    GraduationCap,
+    Calendar,
+    RotateCcw,
+    AlertCircle
 } from 'lucide-react';
 import { enrollmentAPI, subjectAPI } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import ValidationErrorModal from '../modals/ValidationErrorModal';
 
-// Dropdown Component (No Changes)
+// #region Helper Components
+
 const MotionDropdown = ({ value, onChange, options, placeholder }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const selectedOption = useMemo(() => 
-    options.find(opt => opt.value === value) || { label: placeholder, value: '' },
-    [value, options, placeholder]
-  );
+    const [isOpen, setIsOpen] = useState(false);
+    const selectedOption = useMemo(
+        () => options.find(opt => opt.value === value) || { label: placeholder, value: '' },
+        [value, options, placeholder]
+    );
 
-  const handleSelect = (option) => {
-    onChange(option.value);
-    setIsOpen(false);
-  };
+    const handleSelect = (option) => {
+        onChange(option.value);
+        setIsOpen(false);
+    };
 
-  return (
-    <div className="relative">
-      <motion.button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-2.5 text-left bg-white border border-gray-200 rounded-xl focus:border-red-800 focus:ring-2 focus:ring-red-800/20 flex items-center justify-between"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-      >
-        <span className="text-gray-900 font-medium">{selectedOption.label}</span>
-        <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
-          <ChevronDown className="w-4 h-4 text-gray-500" />
-        </motion.div>
-      </motion.button>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.95 }}
-            transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-            className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden max-h-60 overflow-y-auto"
-          >
-            {options.map((option, index) => (
-              <motion.button
-                key={option.value} type="button" onClick={() => handleSelect(option)}
-                className="w-full px-4 py-3 text-left hover:bg-red-50 transition-colors duration-200 border-b border-gray-100 last:border-b-0"
-                initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }} whileHover={{ backgroundColor: '#fef2f2', x: 4 }}
-              >
-                <span className="text-gray-900">{option.label}</span>
-              </motion.button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+    return (
+        <div className="relative">
+            <motion.button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full px-4 py-2.5 text-left bg-white border border-gray-200 rounded-xl focus:border-red-800 focus:ring-2 focus:ring-red-800/20 flex items-center justify-between"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+            >
+                <span className="text-gray-900 font-medium">{selectedOption.label}</span>
+                <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                </motion.div>
+            </motion.button>
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                        transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                        className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden max-h-60 overflow-y-auto"
+                    >
+                        {options.map((option, index) => (
+                            <motion.button
+                                key={option.value}
+                                type="button"
+                                onClick={() => handleSelect(option)}
+                                className="w-full px-4 py-3 text-left hover:bg-red-50 transition-colors duration-200 border-b border-gray-100 last:border-b-0"
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: index * 0.05 }}
+                                whileHover={{ backgroundColor: '#fef2f2', x: 4 }}
+                            >
+                                <span className="text-gray-900">{option.label}</span>
+                            </motion.button>
+                        ))}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
 };
 
+// #endregion
 
 const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
+    // ## STATE MANAGEMENT ##
     const [currentStep, setCurrentStep] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
-
     const [academicInfo, setAcademicInfo] = useState({
         school_year: '2025-2026',
         semester: '1st Semester',
         year: '1st Year',
     });
-
     const [availableSubjects, setAvailableSubjects] = useState({});
     const [selectedSubjects, setSelectedSubjects] = useState([]);
+    const [droppedSubjects, setDroppedSubjects] = useState([]);
+    const [failedSubjects, setFailedSubjects] = useState([]);
     const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentSemesterFilter, setCurrentSemesterFilter] = useState('1st Semester');
@@ -94,10 +104,12 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
     const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
     const [validationMessage, setValidationMessage] = useState('');
 
-    const schoolYearOptions = [{label: '2025-2026', value: '2025-2026'}, {label: '2026-2027', value: '2026-2027'}];
-    const semesterOptions = [{label: '1st Semester', value: '1st Semester'}, {label: '2nd Semester', value: '2nd Semester'}, {label: 'Summer', value: 'Summer'}];
-    const yearLevelOptions = [{label: '1st Year', value: '1st Year'}, {label: '2nd Year', value: '2nd Year'}, {label: '3rd Year', value: '3rd Year'}, {label: '4th Year', value: '4th Year'}];
+    // ## STATIC OPTIONS ##
+    const schoolYearOptions = [{ label: '2025-2026', value: '2025-2026' }, { label: '2026-2027', value: '2026-2027' }];
+    const semesterOptions = [{ label: '1st Semester', value: '1st Semester' }, { label: '2nd Semester', value: '2nd Semester' }, { label: 'Summer', value: 'Summer' }];
+    const yearLevelOptions = [{ label: '1st Year', value: '1st Year' }, { label: '2nd Year', value: '2nd Year' }, { label: '3rd Year', value: '3rd Year' }, { label: '4th Year', value: '4th Year' }];
 
+    // ## DATA FETCHING & SIDE EFFECTS ##
     useEffect(() => {
         if (searchTerm.length < 2) {
             setSearchResults([]);
@@ -107,7 +119,9 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
             setIsSearching(true);
             try {
                 const res = await enrollmentAPI.searchEnrolledStudents(searchTerm);
-                if (res.success) setSearchResults(res.data);
+                if (res.success) {
+                    setSearchResults(res.data);
+                }
             } catch (error) {
                 showAlert("Failed to search students.", "error");
             } finally {
@@ -117,6 +131,7 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
         return () => clearTimeout(handler);
     }, [searchTerm, showAlert]);
 
+    // ## HANDLER FUNCTIONS ##
     const handleSelectStudent = (student) => {
         setSelectedStudent(student);
         setCurrentStep(2);
@@ -126,7 +141,34 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
         setIsLoadingEligibility(true);
         try {
             const eligibilityRes = await enrollmentAPI.checkEnrollmentEligibility(selectedStudent.id);
-            if (eligibilityRes.success && !eligibilityRes.eligible) {
+            if (eligibilityRes.success && eligibilityRes.eligible) {
+                setDroppedSubjects(eligibilityRes.retakeable_subjects?.dropped || []);
+                setFailedSubjects(eligibilityRes.retakeable_subjects?.failed || []);
+                setIsLoadingSubjects(true);
+                const studentDetails = await enrollmentAPI.getStudentDetails(selectedStudent.id);
+                if (!studentDetails.success) {
+                    throw new Error("Could not fetch student's course.");
+                }
+                const courseId = studentDetails.data.student.course_id;
+                const res = await subjectAPI.getByCourse(courseId, academicInfo.year, academicInfo.semester);
+                if (res.success) {
+                    const subjectsBySem = res.data.reduce((acc, subject) => {
+                        const sem = subject.semester;
+                        if (!acc[sem]) {
+                            acc[sem] = [];
+                        }
+                        acc[sem].push({ ...subject, pre_req: subject.prerequisite?.subject_code || 'None' });
+                        return acc;
+                    }, {});
+                    setAvailableSubjects(subjectsBySem);
+                    if (Object.keys(subjectsBySem).length > 0) {
+                        setCurrentSemesterFilter(Object.keys(subjectsBySem)[0]);
+                    }
+                    setCurrentStep(3);
+                } else {
+                    showAlert(res.message || "Could not load subjects.", "error");
+                }
+            } else if (eligibilityRes.success && !eligibilityRes.eligible) {
                 const ungradedList = eligibilityRes.ungraded_subjects.map(s => `- ${s.subject_code}: ${s.descriptive_title}`).join('\n');
                 const errorMessage = (
                     <div>
@@ -136,31 +178,6 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
                 );
                 setValidationMessage(errorMessage);
                 setIsValidationModalOpen(true);
-                return; 
-            }
-
-            setIsLoadingSubjects(true);
-            const studentDetails = await enrollmentAPI.getStudentDetails(selectedStudent.id);
-            if (!studentDetails.success) throw new Error("Could not fetch student's course.");
-            
-            const courseId = studentDetails.data.student.course_id;
-            const res = await subjectAPI.getByCourse(courseId, academicInfo.year, academicInfo.semester);
-            
-            if (res.success) {
-                const subjectsBySem = res.data.reduce((acc, subject) => {
-                    const sem = subject.semester;
-                    if (!acc[sem]) acc[sem] = [];
-                    acc[sem].push({
-                        id: subject.id, code: subject.subject_code, name: subject.descriptive_title,
-                        units: subject.total_units, prerequisite: subject.pre_req || 'None'
-                    });
-                    return acc;
-                }, {});
-                setAvailableSubjects(subjectsBySem);
-                if (Object.keys(subjectsBySem).length > 0) setCurrentSemesterFilter(Object.keys(subjectsBySem)[0]);
-                setCurrentStep(3);
-            } else {
-                showAlert(res.message || "Could not load subjects.", "error");
             }
         } catch (error) {
             showAlert(error.message || "An error occurred.", "error");
@@ -169,15 +186,18 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
             setIsLoadingEligibility(false);
         }
     };
-    
+
     const handleAddSubject = (subject) => {
-        if (!selectedSubjects.some(s => s.id === subject.id)) setSelectedSubjects(prev => [...prev, subject]);
+        if (!selectedSubjects.some(s => s.id === subject.id)) {
+            setSelectedSubjects(prev => [...prev, subject]);
+        }
     };
 
     const handleAddAllSubjects = () => {
-        if (isLoadingSubjects || !availableSubjects[currentSemesterFilter] || availableSubjects[currentSemesterFilter].length === 0) return;
-        const currentSemesterSubjects = availableSubjects[currentSemesterFilter] || [];
-        const newSubjects = currentSemesterSubjects.filter(subject => !selectedSubjects.some(s => s.id === subject.id));
+        if (isLoadingSubjects || displayableSubjects.length === 0) {
+            return;
+        }
+        const newSubjects = displayableSubjects.filter(subject => !selectedSubjects.some(s => s.id === subject.id));
         setSelectedSubjects(prev => [...prev, ...newSubjects]);
     };
 
@@ -185,7 +205,7 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
         setSelectedSubjects(prev => prev.filter(s => s.id !== subjectId));
     };
 
-    const getTotalUnits = () => selectedSubjects.reduce((total, subject) => total + (subject.units || 0), 0);
+    const getTotalUnits = () => selectedSubjects.reduce((total, subject) => total + (subject.total_units || 0), 0);
 
     const handleSubmitEnrollment = async () => {
         if (selectedSubjects.length === 0) {
@@ -196,7 +216,8 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
         setIsSubmitting(true);
         try {
             const payload = {
-                original_student_id: selectedStudent.id, ...academicInfo,
+                original_student_id: selectedStudent.id,
+                ...academicInfo,
                 selected_subjects: selectedSubjects.map(s => s.id),
             };
             const res = await enrollmentAPI.submitContinuingEnrollment(payload);
@@ -220,11 +241,31 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
         setSelectedStudent(null);
         setSelectedSubjects([]);
         setAvailableSubjects({});
+        setDroppedSubjects([]);
+        setFailedSubjects([]);
         onClose();
     };
 
-    if (!isOpen) return null;
+    // ## MEMOIZED LOGIC ##
+    const displayableSubjects = useMemo(() => {
+        const regularSubjects = availableSubjects[currentSemesterFilter] || [];
+        const availableDropped = droppedSubjects.filter(sub => sub.semester === academicInfo.semester);
+        const availableFailed = failedSubjects.filter(sub => sub.semester === academicInfo.semester);
 
+        const subjectMap = new Map();
+        
+        regularSubjects.forEach(sub => subjectMap.set(sub.id, { ...sub, isDropped: false, isFailed: false }));
+        availableDropped.forEach(sub => subjectMap.set(sub.id, { ...subjectMap.get(sub.id), ...sub, isDropped: true }));
+        availableFailed.forEach(sub => subjectMap.set(sub.id, { ...subjectMap.get(sub.id), ...sub, isFailed: true }));
+
+        return Array.from(subjectMap.values());
+    }, [availableSubjects, currentSemesterFilter, droppedSubjects, failedSubjects, academicInfo.semester]);
+
+    if (!isOpen) {
+        return null;
+    }
+
+    // ## MAIN RENDER ##
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <ValidationErrorModal
@@ -265,8 +306,8 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
                                 <div className="mt-4 max-h-72 overflow-y-auto space-y-3">
                                     {isSearching && <div className="flex justify-center p-4"><Loader2 className="animate-spin text-red-800" /></div>}
                                     {searchResults.map(student => (
-                                        <motion.div 
-                                            key={student.id} 
+                                        <motion.div
+                                            key={student.id}
                                             onClick={() => handleSelectStudent(student)}
                                             className="flex items-start p-4 bg-white hover:bg-red-50 rounded-xl cursor-pointer border shadow-sm transition-colors duration-200"
                                             whileHover={{ y: -2 }}
@@ -313,33 +354,32 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                         <div>
                                             <label className="font-bold text-gray-700 text-sm mb-2 flex items-center"><Calendar className="w-4 h-4 mr-2" />School Year</label>
-                                            <MotionDropdown value={academicInfo.school_year} onChange={v => setAcademicInfo(p => ({...p, school_year: v}))} options={schoolYearOptions} placeholder="Select School Year" />
+                                            <MotionDropdown value={academicInfo.school_year} onChange={v => setAcademicInfo(p => ({ ...p, school_year: v }))} options={schoolYearOptions} placeholder="Select School Year" />
                                         </div>
                                         <div>
                                             <label className="font-bold text-gray-700 text-sm mb-2 flex items-center"><GraduationCap className="w-4 h-4 mr-2" />Year Level</label>
-                                            <MotionDropdown value={academicInfo.year} onChange={v => setAcademicInfo(p => ({...p, year: v}))} options={yearLevelOptions} placeholder="Select Year Level" />
+                                            <MotionDropdown value={academicInfo.year} onChange={v => setAcademicInfo(p => ({ ...p, year: v }))} options={yearLevelOptions} placeholder="Select Year Level" />
                                         </div>
                                         <div>
                                             <label className="font-bold text-gray-700 text-sm mb-2 flex items-center"><BookOpen className="w-4 h-4 mr-2" />Semester</label>
-                                            <MotionDropdown value={academicInfo.semester} onChange={v => setAcademicInfo(p => ({...p, semester: v}))} options={semesterOptions} placeholder="Select Semester" />
+                                            <MotionDropdown value={academicInfo.semester} onChange={v => setAcademicInfo(p => ({ ...p, semester: v }))} options={semesterOptions} placeholder="Select Semester" />
                                         </div>
-                                        
                                     </div>
                                 </div>
                             </motion.div>
                         )}
 
                         {currentStep === 3 && (
-                             <motion.div key="step3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                            <motion.div key="step3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                                 <div className="text-center mb-6">
                                     <h3 className="font-bold text-2xl text-gray-800">Step 3: Subject Setup</h3>
                                     <p className="text-gray-600 mt-1">Select subjects for {academicInfo.semester}, S.Y. {academicInfo.school_year}.</p>
                                 </div>
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" style={{height: '60vh'}}>
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" style={{ height: '60vh' }}>
                                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-200 flex flex-col">
                                         <div className="flex items-center justify-between mb-4">
                                             <h3 className="text-lg font-bold text-gray-900">Available Subjects</h3>
-                                            <Button size="sm" onClick={handleAddAllSubjects} disabled={isLoadingSubjects || !availableSubjects[currentSemesterFilter] || availableSubjects[currentSemesterFilter].length === 0}>
+                                            <Button size="sm" onClick={handleAddAllSubjects} disabled={isLoadingSubjects || displayableSubjects.length === 0}>
                                                 <BookOpen className="w-4 h-4 mr-2" /> Add All
                                             </Button>
                                         </div>
@@ -351,20 +391,36 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
                                             ))}
                                         </div>
                                         <div className="space-y-3 overflow-y-auto flex-grow pr-2">
-                                            {isLoadingSubjects ? <div className="flex justify-center items-center h-full"><Loader2 className="animate-spin text-red-800 w-8 h-8"/></div>
-                                            : subjectError ? <div className="text-center text-red-500 p-4">{subjectError}</div>
-                                            : (availableSubjects[currentSemesterFilter] || []).length === 0 ? <div className="text-center text-gray-500 pt-16"><BookOpen className="w-12 h-12 mx-auto mb-2 text-gray-300"/><p>No subjects found.</p></div>
-                                            : (availableSubjects[currentSemesterFilter] || []).map(sub => (
-                                                <motion.div key={sub.id} className="bg-white rounded-xl p-3 shadow-sm border" whileHover={{ y: -2 }}>
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex-1">
-                                                            <div className="flex items-center mb-1.5"><span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-bold mr-2">{sub.code}</span><span className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-bold">{sub.units} units</span></div>
-                                                            <h4 className="font-semibold text-gray-800 text-sm">{sub.name}</h4>
-                                                        </div>
-                                                        <Button size="sm" onClick={() => handleAddSubject(sub)} disabled={selectedSubjects.some(s => s.id === sub.id)} className="ml-2">{selectedSubjects.some(s => s.id === sub.id) ? 'Added' : 'Add'}</Button>
-                                                    </div>
-                                                </motion.div>
-                                            ))}
+                                            {isLoadingSubjects ? <div className="flex justify-center items-center h-full"><Loader2 className="animate-spin text-red-800 w-8 h-8" /></div>
+                                                : subjectError ? <div className="text-center text-red-500 p-4">{subjectError}</div>
+                                                    : displayableSubjects.length === 0 ? <div className="text-center text-gray-500 pt-16"><BookOpen className="w-12 h-12 mx-auto mb-2 text-gray-300" /><p>No subjects found for this term.</p></div>
+                                                        : displayableSubjects.map(sub => (
+                                                            <motion.div key={sub.id} className="bg-white rounded-xl p-3 shadow-sm border" whileHover={{ y: -2 }}>
+                                                                <div className="flex items-start justify-between">
+                                                                    <div className="flex-1">
+                                                                        {sub.isFailed ? (
+                                                                            <Badge variant="destructive" className="mb-2 bg-red-100 text-red-800 border-red-200">
+                                                                                <AlertCircle className="w-3 h-3 mr-1.5" />
+                                                                                Failed - Retake
+                                                                            </Badge>
+                                                                        ) : sub.isDropped && (
+                                                                            <Badge variant="outline" className="mb-2 text-yellow-800 border-yellow-300 bg-yellow-50 font-medium">
+                                                                                <RotateCcw className="w-3 h-3 mr-1.5" />
+                                                                                Previously Dropped
+                                                                            </Badge>
+                                                                        )}
+                                                                        <div className="flex items-center mb-1.5">
+                                                                            <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-bold mr-2">{sub.subject_code}</span>
+                                                                            <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-bold">{sub.total_units} units</span>
+                                                                        </div>
+                                                                        <h4 className="font-semibold text-gray-800 text-sm">{sub.descriptive_title}</h4>
+                                                                    </div>
+                                                                    <Button size="sm" onClick={() => handleAddSubject(sub)} disabled={selectedSubjects.some(s => s.id === sub.id)} className="ml-2 mt-1 shrink-0">
+                                                                        {selectedSubjects.some(s => s.id === sub.id) ? 'Added' : 'Add'}
+                                                                    </Button>
+                                                                </div>
+                                                            </motion.div>
+                                                        ))}
                                         </div>
                                     </div>
                                     <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-4 border border-green-200 flex flex-col">
@@ -374,16 +430,19 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
                                         </div>
                                         <div className="space-y-3 overflow-y-auto flex-grow pr-2">
                                             {selectedSubjects.length > 0 ? selectedSubjects.map(sub => (
-                                                 <motion.div key={sub.id} className="bg-white rounded-xl p-3 shadow-sm border" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+                                                <motion.div key={sub.id} className="bg-white rounded-xl p-3 shadow-sm border" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
                                                     <div className="flex items-center justify-between">
-                                                         <div className="flex-1">
-                                                            <div className="flex items-center mb-1.5"><span className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-bold mr-2">{sub.code}</span><span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-bold">{sub.units} units</span></div>
-                                                            <h4 className="font-semibold text-gray-800 text-sm">{sub.name}</h4>
-                                                         </div>
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center mb-1.5">
+                                                                <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-bold mr-2">{sub.subject_code}</span>
+                                                                <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-bold">{sub.total_units} units</span>
+                                                            </div>
+                                                            <h4 className="font-semibold text-gray-800 text-sm">{sub.descriptive_title}</h4>
+                                                        </div>
                                                         <Button size="sm" variant="destructive" onClick={() => handleRemoveSubject(sub.id)}>Remove</Button>
                                                     </div>
-                                                 </motion.div>
-                                            )) : <div className="text-center text-gray-500 pt-16"><BookOpen className="w-12 h-12 mx-auto mb-2 text-gray-300"/><p>Add subjects from the left panel.</p></div>}
+                                                </motion.div>
+                                            )) : <div className="text-center text-gray-500 pt-16"><BookOpen className="w-12 h-12 mx-auto mb-2 text-gray-300" /><p>Add subjects from the left panel.</p></div>}
                                         </div>
                                     </div>
                                 </div>
@@ -398,12 +457,12 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
                     </Button>
                     {currentStep === 2 && (
                         <Button onClick={handleGoToSubjectSetup} disabled={isLoadingSubjects || isLoadingEligibility} className="bg-red-800 hover:bg-red-700 text-white cursor-pointer">
-                            {(isLoadingSubjects || isLoadingEligibility) ? <Loader2 className="animate-spin mr-2"/> : <ArrowRight className="mr-2 h-4 w-4" />} Next: Subject Setup
+                            {(isLoadingSubjects || isLoadingEligibility) ? <Loader2 className="animate-spin mr-2" /> : <ArrowRight className="mr-2 h-4 w-4" />} Next: Subject Setup
                         </Button>
                     )}
                     {currentStep === 3 && (
                         <Button onClick={handleSubmitEnrollment} disabled={isSubmitting || selectedSubjects.length === 0} className="bg-red-800 hover:bg-red-700 text-white cursor-pointer">
-                            {isSubmitting ? <Loader2 className="animate-spin mr-2"/> : <Save className="mr-2 h-4 w-4" />} Submit Enrollment
+                            {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4" />} Submit Enrollment
                         </Button>
                     )}
                 </div>

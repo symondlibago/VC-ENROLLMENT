@@ -13,9 +13,9 @@ import {
     Image as ImageIcon,
     PenSquare,
     Book,
-    Building,
     Shield,
-    Calendar
+    Calendar,
+    AlertCircle
 } from 'lucide-react';
 import { enrollmentAPI, subjectAPI } from '@/services/api';
 import LoadingSpinner from '../layout/LoadingSpinner';
@@ -42,22 +42,25 @@ const DetailItem = ({ icon: Icon, label, value, fullWidth = false }) => {
 };
 
 const ViewStudentFullDetailsModal = ({ isOpen, onClose, studentId }) => {
+    // ## STATE MANAGEMENT ##
     const [loading, setLoading] = useState(true);
     const [studentData, setStudentData] = useState(null);
     const [allCourseSubjects, setAllCourseSubjects] = useState([]);
     const [gradeHistory, setGradeHistory] = useState([]);
+    const [droppedSubjects, setDroppedSubjects] = useState([]);
     const [error, setError] = useState(null);
-    const [activeView, setActiveView] = useState('details'); // 'details' or 'subjects'
+    const [activeView, setActiveView] = useState('details');
 
+    // ## DATA FETCHING ##
     useEffect(() => {
         const fetchDetails = async () => {
-            if (!studentId) {
+            if (!studentId || !isOpen) {
                 return;
             }
-            
+
             setLoading(true);
             setError(null);
-            
+
             try {
                 const studentRes = await enrollmentAPI.getStudentDetails(studentId);
                 if (!studentRes.success) {
@@ -65,7 +68,8 @@ const ViewStudentFullDetailsModal = ({ isOpen, onClose, studentId }) => {
                 }
                 
                 setStudentData(studentRes.data);
-                setGradeHistory(studentRes.data.grades || []); // Set the grade history
+                setGradeHistory(studentRes.data.grades || []);
+                setDroppedSubjects(studentRes.data.dropped_subjects || []);
                 
                 const courseId = studentRes.data.student.course_id;
                 if (courseId) {
@@ -81,15 +85,14 @@ const ViewStudentFullDetailsModal = ({ isOpen, onClose, studentId }) => {
             }
         };
 
-        if (isOpen) {
-            fetchDetails();
-        }
+        fetchDetails();
     }, [isOpen, studentId]);
 
+    // ## MEMOIZED DATA PROCESSING ##
     const passedSubjectsMap = useMemo(() => {
         return gradeHistory.reduce((map, grade) => {
             if (grade.status === 'Passed' || grade.status === 'Failed') {
-                map.set(grade.subject_id, grade.status); // Store the status directly
+                map.set(grade.subject_id, grade.status);
             }
             return map;
         }, new Map());
@@ -111,7 +114,6 @@ const ViewStudentFullDetailsModal = ({ isOpen, onClose, studentId }) => {
     }, [allCourseSubjects]);
 
     const yearOrder = ['Grade 11', 'Grade 12', '1st Year', '2nd Year', '3rd Year', '4th Year'];
-
     const student = studentData?.student;
     const enrolledSubjects = studentData?.subjects;
 
@@ -119,148 +121,160 @@ const ViewStudentFullDetailsModal = ({ isOpen, onClose, studentId }) => {
         return null;
     }
 
-    const renderStudentDetails = () => (
-        <div className="space-y-6">
-            <div className="p-4 border rounded-lg">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Basic Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-                    <DetailItem icon={User} label="Full Name" value={`${student.last_name}, ${student.first_name} ${student.middle_name || ''}`} />
-                    <DetailItem icon={Mail} label="Email Address" value={student.email_address} />
-                    <DetailItem icon={Phone} label="Contact Number" value={student.contact_number} />
-                    <DetailItem icon={UsersIcon} label="Gender" value={student.gender} />
-                    <DetailItem icon={Calendar} label="Birth Date" value={new Date(student.birth_date).toLocaleDateString()} />
-                    <DetailItem icon={Home} label="Birth Place" value={student.birth_place} />
-                    <DetailItem icon={GraduationCap} label="Course" value={`[${student.course?.course_code}] ${student.course?.course_name}`} />
-                    <DetailItem icon={Book} label="Program" value={student.course?.program?.program_code} />
-                    <DetailItem icon={Briefcase} label="Enrollment Type" value={student.enrollment_type} />
-                    <DetailItem icon={Home} label="Address" value={student.address} fullWidth />
+    // ## RENDER FUNCTIONS ##
+    const renderStudentDetails = () => {
+        return (
+            <div className="space-y-6">
+                <div className="p-4 border rounded-lg">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Basic Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+                        <DetailItem icon={User} label="Full Name" value={`${student.last_name}, ${student.first_name} ${student.middle_name || ''}`} />
+                        <DetailItem icon={Mail} label="Email Address" value={student.email_address} />
+                        <DetailItem icon={Phone} label="Contact Number" value={student.contact_number} />
+                        <DetailItem icon={UsersIcon} label="Gender" value={student.gender} />
+                        <DetailItem icon={Calendar} label="Birth Date" value={new Date(student.birth_date).toLocaleDateString()} />
+                        <DetailItem icon={Home} label="Birth Place" value={student.birth_place} />
+                        <DetailItem icon={GraduationCap} label="Course" value={`[${student.course?.course_code}] ${student.course?.course_name}`} />
+                        <DetailItem icon={Book} label="Program" value={student.course?.program?.program_code} />
+                        <DetailItem icon={Briefcase} label="Enrollment Type" value={student.enrollment_type} />
+                        <DetailItem icon={Home} label="Address" value={student.address} fullWidth />
+                    </div>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="p-4 border rounded-lg">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Parent/Guardian Information</h3>
+                        <div className="space-y-4">
+                            <DetailItem icon={User} label="Father's Name" value={student.father_name} />
+                            <DetailItem icon={Phone} label="Father's Contact" value={student.father_contact_number} />
+                            <DetailItem icon={User} label="Mother's Name" value={student.mother_name} />
+                            <DetailItem icon={Phone} label="Mother's Contact" value={student.mother_contact_number} />
+                            <DetailItem icon={Home} label="Parents' Address" value={student.parents_address} fullWidth/>
+                        </div>
+                    </div>
+                    <div className="p-4 border rounded-lg">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Emergency Contact</h3>
+                        <div className="space-y-4">
+                            <DetailItem icon={Shield} label="Contact Name" value={student.emergency_contact_name} />
+                            <DetailItem icon={Phone} label="Contact Number" value={student.emergency_contact_number} />
+                            <DetailItem icon={Home} label="Contact Address" value={student.emergency_contact_address} fullWidth/>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="p-4 border rounded-lg">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Educational Background</h3>
+                        <div className="space-y-3">
+                            {student.elementary && <div><p className="font-medium text-sm">Elementary</p><p className="text-sm text-gray-600">{student.elementary}</p></div>}
+                            {student.junior_high_school && <div><p className="font-medium text-sm">Junior High</p><p className="text-sm text-gray-600">{student.junior_high_school}</p></div>}
+                            {student.senior_high_school && <div><p className="font-medium text-sm">Senior High</p><p className="text-sm text-gray-600">{student.senior_high_school}</p></div>}
+                        </div>
+                    </div>
+                    <div className="p-4 border rounded-lg">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Identification</h3>
+                        <div className="flex gap-4">
+                            {student.id_photo_url && (
+                                <div>
+                                    <p className="text-xs text-gray-500 flex items-center mb-1"><ImageIcon className="w-4 h-4 mr-2"/>ID Photo</p>
+                                    <img src={student.id_photo_url} alt="ID" className="w-32 h-32 object-cover rounded-md border" />
+                                </div>
+                            )}
+                            {student.signature_url && (
+                                <div>
+                                    <p className="text-xs text-gray-500 flex items-center mb-1"><PenSquare className="w-4 h-4 mr-2"/>Signature</p>
+                                    <img src={student.signature_url} alt="Signature" className="w-32 h-32 object-contain rounded-md border bg-gray-50 p-2" />
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="p-4 border rounded-lg">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Parent/Guardian Information</h3>
+        );
+    }
+
+    const renderSubjects = () => {
+        return (
+            <div className="p-4 border rounded-lg space-y-6">
+                <div>
+                    <h4 className="font-semibold text-gray-700 mb-2">Currently Enrolled Subjects</h4>
+                    {enrolledSubjects && enrolledSubjects.length > 0 ? (
+                        <Table>
+                            <TableHeader><TableRow><TableHead className="w-[120px]">Code</TableHead><TableHead>Title</TableHead><TableHead className="w-[80px] text-center">Units</TableHead></TableRow></TableHeader>
+                            <TableBody>
+                                {enrolledSubjects.map(sub => (
+                                    <TableRow key={sub.id}>
+                                        <TableCell>{sub.subject_code}</TableCell>
+                                        <TableCell>{sub.descriptive_title}</TableCell>
+                                        <TableCell className="text-center">{sub.total_units}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    ) : (
+                        <p className="text-sm text-gray-500">No subjects currently enrolled.</p>
+                    )}
+                </div>
+
+                <div>
+                    <h4 className="font-semibold text-gray-700 mb-2">Full Course Curriculum</h4>
                     <div className="space-y-4">
-                        <DetailItem icon={User} label="Father's Name" value={student.father_name} />
-                        <DetailItem icon={Phone} label="Father's Contact" value={student.father_contact_number} />
-                        <DetailItem icon={User} label="Mother's Name" value={student.mother_name} />
-                        <DetailItem icon={Phone} label="Mother's Contact" value={student.mother_contact_number} />
-                        <DetailItem icon={Home} label="Parents' Address" value={student.parents_address} fullWidth/>
-                    </div>
-                </div>
-                <div className="p-4 border rounded-lg">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Emergency Contact</h3>
-                    <div className="space-y-4">
-                        <DetailItem icon={Shield} label="Contact Name" value={student.emergency_contact_name} />
-                        <DetailItem icon={Phone} label="Contact Number" value={student.emergency_contact_number} />
-                        <DetailItem icon={Home} label="Contact Address" value={student.emergency_contact_address} fullWidth/>
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="p-4 border rounded-lg">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Educational Background</h3>
-                    <div className="space-y-3">
-                        {student.elementary && <div><p className="font-medium text-sm">Elementary</p><p className="text-sm text-gray-600">{student.elementary}</p></div>}
-                        {student.junior_high_school && <div><p className="font-medium text-sm">Junior High</p><p className="text-sm text-gray-600">{student.junior_high_school}</p></div>}
-                        {student.senior_high_school && <div><p className="font-medium text-sm">Senior High</p><p className="text-sm text-gray-600">{student.senior_high_school}</p></div>}
-                    </div>
-                </div>
-                <div className="p-4 border rounded-lg">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Identification</h3>
-                    <div className="flex gap-4">
-                        {student.id_photo_url && (
-                            <div>
-                                <p className="text-xs text-gray-500 flex items-center mb-1"><ImageIcon className="w-4 h-4 mr-2"/>ID Photo</p>
-                                <img src={student.id_photo_url} alt="ID" className="w-32 h-32 object-cover rounded-md border" />
+                        {yearOrder.filter(year => curriculum[year]).map(year => (
+                            <div key={year}>
+                                <h5 className="font-bold text-md text-red-800">{year}</h5>
+                                {Object.keys(curriculum[year]).map(semester => (
+                                    <div key={semester} className="pl-4 mt-2">
+                                        <p className="font-semibold text-gray-600">{semester}</p>
+                                        <Table>
+                                            <TableHeader><TableRow><TableHead className="w-[120px]">Code</TableHead><TableHead>Title</TableHead><TableHead className="w-[80px] text-center">Units</TableHead></TableRow></TableHeader>
+                                            <TableBody>
+                                                {curriculum[year][semester].map(sub => {
+                                                    const gradeStatus = passedSubjectsMap.get(sub.id);
+                                                    const bgColorClass = gradeStatus === 'Passed' ? 'bg-green-50 hover:bg-green-100' : gradeStatus === 'Failed' ? 'bg-red-50 hover:bg-red-100' : '';
+                                                    return (
+                                                        <TableRow key={sub.id} className={`${bgColorClass} transition-colors`}>
+                                                            <TableCell>{sub.subject_code}</TableCell>
+                                                            <TableCell>{sub.descriptive_title}</TableCell>
+                                                            <TableCell className="text-center">{sub.total_units}</TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                ))}
                             </div>
-                        )}
-                        {student.signature_url && (
-                            <div>
-                                <p className="text-xs text-gray-500 flex items-center mb-1"><PenSquare className="w-4 h-4 mr-2"/>Signature</p>
-                                <img src={student.signature_url} alt="Signature" className="w-32 h-32 object-contain rounded-md border bg-gray-50 p-2" />
-                            </div>
-                        )}
+                        ))}
                     </div>
                 </div>
+
+                {droppedSubjects.length > 0 && (
+                    <div className="pt-6 border-t">
+                        <h4 className="font-semibold text-gray-700 mb-2 flex items-center">
+                            <AlertCircle className="w-5 h-5 text-yellow-600 mr-2" />
+                            Dropped Subjects Record
+                        </h4>
+                        <div className="border rounded-lg overflow-hidden">
+                            <Table>
+                                <TableHeader><TableRow><TableHead className="w-[120px]">Code</TableHead><TableHead>Title</TableHead><TableHead className="w-[80px] text-center">Units</TableHead></TableRow></TableHeader>
+                                <TableBody>
+                                    {droppedSubjects.map(sub => (
+                                        <TableRow key={sub.id} className="bg-yellow-50 hover:bg-yellow-100">
+                                            <TableCell>{sub.subject_code}</TableCell>
+                                            <TableCell>{sub.descriptive_title}</TableCell>
+                                            <TableCell className="text-center">{sub.total_units}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+                )}
             </div>
-        </div>
-    );
+        );
+    }
 
-    const renderSubjects = () => (
-        <div className="p-4 border rounded-lg">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Subjects & Curriculum</h3>
-            <div className="mb-6">
-                <h4 className="font-semibold text-gray-700 mb-2">Currently Enrolled Subjects</h4>
-                {enrolledSubjects && enrolledSubjects.length > 0 ? (
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-[120px]">Code</TableHead>
-                                <TableHead>Title</TableHead>
-                                <TableHead className="w-[80px] text-center">Units</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {enrolledSubjects.map(sub => (
-                                <TableRow key={sub.id}>
-                                    <TableCell>{sub.subject_code}</TableCell>
-                                    <TableCell>{sub.descriptive_title}</TableCell>
-                                    <TableCell className="text-center">{sub.total_units}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                ) : <p className="text-sm text-gray-500">No subjects currently enrolled.</p>}
-            </div>
-            <div>
-    <h4 className="font-semibold text-gray-700 mb-2">Full Course Curriculum</h4>
-    <div className="space-y-4">
-        {yearOrder.filter(year => curriculum[year]).map(year => (
-            <div key={year}>
-            <h5 className="font-bold text-md text-red-800">{year}</h5>
-            {Object.keys(curriculum[year]).map(semester => (
-            <div key={semester} className="pl-4 mt-2">
-            <p className="font-semibold text-gray-600">{semester}</p>
-             <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead className="w-[120px]">Code</TableHead>
-                        <TableHead>Title</TableHead>
-                        <TableHead className="w-[80px] text-center">Units</TableHead>
-                    </TableRow>
-                 </TableHeader>
-                 <TableBody>
-                    {curriculum[year][semester].map(sub => {
-                        const gradeStatus = passedSubjectsMap.get(sub.id);
-                        let bgColorClass = '';
-
-                        if (gradeStatus === 'Passed') {
-                            bgColorClass = 'bg-green-200 hover:bg-green-200 transition-colors';
-                        } else if (gradeStatus === 'Failed') {
-                            bgColorClass = 'bg-red-200 hover:bg-red-200 transition-colors';
-                        }
-
-                        return (
-                            <TableRow key={sub.id} className={bgColorClass}>
-                                <TableCell>{sub.subject_code}</TableCell>
-                                <TableCell>{sub.descriptive_title}</TableCell>
-                                <TableCell className="text-center">{sub.total_units}</TableCell>
-                            </TableRow>
-                        );
-                    })}
-                </TableBody>
-        </Table>
-        </div>
-       ))}
-        </div>
-        ))}
-        </div>
-            </div>
-        </div>
-    );
-
+    // ## MAIN RENDER ##
     return (
         <AnimatePresence>
             {isOpen && (
@@ -320,7 +334,6 @@ const ViewStudentFullDetailsModal = ({ isOpen, onClose, studentId }) => {
                                             </motion.button>
                                         </div>
                                     </div>
-
                                     <AnimatePresence mode="wait">
                                         <motion.div
                                             key={activeView}

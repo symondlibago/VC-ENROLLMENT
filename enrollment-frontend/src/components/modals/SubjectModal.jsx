@@ -126,7 +126,7 @@ const SubjectModal = ({
       case 'Bachelor':
       case 'Diploma':
       default:
-        return ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Summer'];
+        return ['1st Year', '2nd Year', '3rd Year', '4th Year', '1st Year Summer', '2nd Year Summer'];
     }
   };
 

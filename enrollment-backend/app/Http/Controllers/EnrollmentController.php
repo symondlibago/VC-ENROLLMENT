@@ -241,7 +241,7 @@ public function getPreEnrolledStudents()
     }
 }
 
-    public function getPreEnrolledStudentDetails($id)
+public function getPreEnrolledStudentDetails($id): JsonResponse
     {
         try {
             $student = PreEnrolledStudent::with([
@@ -249,14 +249,27 @@ public function getPreEnrolledStudents()
                 'enrollmentCode', 
                 'enrollmentApprovals', 
                 'subjects.schedules',
-                'grades'
+                'grades',
+                'subjectChangeRequests.items.subject'
             ])->findOrFail($id);
 
             $student->id_photo_url = $student->id_photo ? Storage::disk('s3')->url($student->id_photo) : null;
             $student->signature_url = $student->signature ? Storage::disk('s3')->url($student->signature) : null;
             
-
             $subjects = $student->subjects;
+
+            // ✅ FIXED: Filter out dropped subjects that the student has already passed.
+            $passedSubjectIds = $student->grades()->where('status', 'Passed')->pluck('subject_id');
+            
+            $droppedSubjects = $student->subjectChangeRequests
+                ->where('status', 'approved')
+                ->flatMap(fn($req) => $req->items)
+                ->where('action', 'drop')
+                ->map(fn($item) => $item->subject)
+                ->whereNotNull()
+                ->unique('id')
+                ->whereNotIn('id', $passedSubjectIds) // The crucial filter
+                ->values();
 
             return response()->json([
                 'success' => true,
@@ -264,6 +277,7 @@ public function getPreEnrolledStudents()
                     'student' => $student,
                     'subjects' => $subjects,
                     'grades' => $student->grades,
+                    'dropped_subjects' => $droppedSubjects,
                 ],
             ]);
         } catch (\Exception $e) {
@@ -774,64 +788,62 @@ public function getStudentsForIdReleasing()
      * NEW: Get grades for the currently authenticated student user.
      */
     public function getAuthenticatedStudentGrades(Request $request): JsonResponse
-{
-    try {
-        $user = Auth::user();
-        $student = PreEnrolledStudent::where('user_id', $user->id)->first();
+    {
+        try {
+            $user = Auth::user();
+            $student = PreEnrolledStudent::where('user_id', $user->id)->first();
 
-        if (!$student) {
-            return response()->json(['success' => true, 'data' => []]);
+            if (!$student) {
+                return response()->json(['success' => true, 'data' => []]);
+            }
+            
+            // 1. Start by querying ALL grades associated with the student.
+            $gradesQuery = Grade::with(['subject', 'instructor.user']) // Eager load needed details
+                               ->where('pre_enrolled_student_id', $student->id);
+
+            // 2. Apply filters (if any) by checking the related subject's properties.
+            $gradesQuery->whereHas('subject', function ($q) use ($request) {
+                if ($request->filled('year') && $request->year !== 'all') {
+                    $q->where('year', 'like', '%' . $request->year . '%');
+                }
+                if ($request->filled('semester') && $request->semester !== 'all') {
+                    $q->where('semester', $request->semester);
+                }
+            });
+
+            // 3. Retrieve the filtered grades.
+            $grades = $gradesQuery->orderBy('created_at', 'desc')->get();
+
+            // 4. Format the data for a clean frontend response.
+            $formattedData = $grades->map(function ($grade) {
+                if (!$grade->subject) {
+                    return null; // Skip if a grade is missing its subject for some reason
+                }
+
+                return [
+                    'id' => $grade->id,
+                    'subject_code' => $grade->subject->subject_code,
+                    'descriptive_title' => $grade->subject->descriptive_title,
+                    'units' => $grade->subject->total_units,
+                    'instructor_name' => $grade->instructor->user->name ?? 'Unassigned',
+                    'prelim_grade' => $grade->prelim_grade,
+                    'midterm_grade' => $grade->midterm_grade,
+                    'semifinal_grade' => $grade->semifinal_grade,
+                    'final_grade' => $grade->final_grade,
+                    'status' => $grade->status ?? 'In Progress',
+                ];
+            })->filter()->values(); // filter() removes any nulls, values() re-indexes the array.
+
+            return response()->json(['success' => true, 'data' => $formattedData]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve your grades.',
+                'error' => $e->getMessage()
+            ], 500);
         }
-        
-        // --- START OF NEW LOGIC ---
-
-        // 1. Get all the student's enrolled subjects, applying filters if they exist.
-        $subjectsQuery = $student->subjects()->with(['schedules.instructor']);
-
-        if ($request->filled('year') && $request->year !== 'all') {
-            $subjectsQuery->where('year', 'like', '%' . $request->year . '%');
-        }
-        if ($request->filled('semester') && $request->semester !== 'all') {
-            $subjectsQuery->where('semester', $request->semester);
-        }
-
-        $enrolledSubjects = $subjectsQuery->get();
-
-        // 2. Get all available grades for these subjects in one efficient query.
-        $subjectIds = $enrolledSubjects->pluck('id');
-        $grades = Grade::where('pre_enrolled_student_id', $student->id)
-                      ->whereIn('subject_id', $subjectIds)
-                      ->get()
-                      ->keyBy('subject_id'); // Key by subject_id for easy lookup.
-
-        // 3. Combine the subjects with their grades.
-        $formattedData = $enrolledSubjects->map(function ($subject) use ($grades) {
-            $grade = $grades->get($subject->id); // Find the grade for the current subject.
-
-            return [
-                'id' => $subject->id, // Use subject ID as the key
-                'subject_code' => $subject->subject_code,
-                'descriptive_title' => $subject->descriptive_title,
-                'units' => $subject->total_units,
-                'instructor_name' => $subject->schedules->first()?->instructor?->name ?? 'Unassigned',
-                'prelim_grade' => $grade?->prelim_grade, // Use optional chaining
-                'midterm_grade' => $grade?->midterm_grade,
-                'semifinal_grade' => $grade?->semifinal_grade,
-                'final_grade' => $grade?->final_grade,
-                'status' => $grade?->status ?? 'In Progress',
-            ];
-        });
-
-        return response()->json(['success' => true, 'data' => $formattedData]);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to retrieve your grades.',
-            'error' => $e->getMessage()
-        ], 500);
     }
-}
 
     /**
      * NEW: Get the full curriculum for the currently authenticated student's course.
@@ -840,19 +852,28 @@ public function getStudentsForIdReleasing()
     {
         try {
             $user = Auth::user();
-            // Eager load the course and program to get their names
-            $student = PreEnrolledStudent::with(['course.program', 'grades'])->where('user_id', $user->id)->first();
+            // Eager load relationships needed for curriculum and dropped subjects
+            $student = PreEnrolledStudent::with(['course.program', 'grades', 'subjectChangeRequests.items.subject'])->where('user_id', $user->id)->first();
 
             if (!$student || !$student->course_id) {
                 return response()->json(['success' => false, 'message' => 'No course found for your account.'], 404);
             }
 
-            // Fetch all subjects for the student's course, ordered correctly
             $subjects = \App\Models\Subject::where('course_id', $student->course_id)
-                ->with('prerequisite:id,subject_code') // Eager load prerequisite info
+                ->with('prerequisite:id,subject_code')
                 ->orderBy('year')
                 ->orderBy('semester')
                 ->get();
+
+            // ✅ ADDED: Logic to get dropped subjects for the student panel
+            $droppedSubjects = $student->subjectChangeRequests
+                ->where('status', 'approved')
+                ->flatMap(fn($req) => $req->items)
+                ->where('action', 'drop')
+                ->map(fn($item) => $item->subject)
+                ->whereNotNull()
+                ->unique('id')
+                ->values();
 
             return response()->json([
                 'success' => true,
@@ -861,6 +882,7 @@ public function getStudentsForIdReleasing()
                     'program_code' => $student->course->program->program_code,
                     'subjects' => $subjects,
                     'grades' => $student->grades,
+                    'dropped_subjects' => $droppedSubjects, // Include in response
                 ]
             ]);
 
@@ -969,43 +991,36 @@ public function submitContinuingEnrollment(Request $request): JsonResponse
 
     try {
         DB::beginTransaction();
-
         $student = PreEnrolledStudent::with('subjects')->findOrFail($request->input('original_student_id'));
 
-        // ===================================================================
-        // PART 1: Archive the current enrollment term into the history table
-        // ===================================================================
         $subjectsFromLastTerm = $student->subjects->map(fn($subject) => [
             'subject_code' => $subject->subject_code,
             'descriptive_title' => $subject->descriptive_title,
             'total_units' => $subject->total_units,
         ]);
 
-        EnrollmentHistory::create([
-            'pre_enrolled_student_id' => $student->id,
-            'course_id' => $student->course_id,
-            'semester' => $student->semester,
-            'school_year' => $student->school_year,
-            'year' => $student->year,
-            'enrollment_type' => $student->enrollment_type,
-            'academic_status' => $student->academic_status,
-            'subjects_taken' => $subjectsFromLastTerm,
-        ]);
+        if ($subjectsFromLastTerm->isNotEmpty()) {
+            EnrollmentHistory::create([
+                'pre_enrolled_student_id' => $student->id,
+                'course_id' => $student->course_id,
+                'semester' => $student->semester,
+                'school_year' => $student->school_year,
+                'year' => $student->year,
+                'enrollment_type' => $student->enrollment_type,
+                'academic_status' => $student->academic_status,
+                'subjects_taken' => $subjectsFromLastTerm,
+            ]);
+        }
 
-        // ===================================================================
-        // PART 2: Update the student's live record for the new term
-        // ===================================================================
         $student->year = $request->input('year');
         $student->semester = $request->input('semester');
         $student->school_year = $request->input('school_year');
         $student->enrollment_type = 'Continuing';
-        $student->enrollment_status = 'pending'; // Reset status for re-approval
-        $student->enrollmentApprovals()->delete(); // Clear old approvals
+        $student->enrollment_status = 'pending';
+        $student->enrollmentApprovals()->delete();
         $student->save();
 
-        // Sync subjects for the new term
         $student->subjects()->sync($request->input('selected_subjects'));
-
         DB::commit();
 
         return response()->json([
@@ -1027,47 +1042,70 @@ public function submitContinuingEnrollment(Request $request): JsonResponse
 public function checkEnrollmentEligibility(Request $request, PreEnrolledStudent $student): JsonResponse
 {
     try {
-        // 1. Get all subjects the student is currently enrolled in.
+        // This part checks for ungraded subjects in the current term (no changes)
         $enrolledSubjects = $student->subjects;
         $subjectIds = $enrolledSubjects->pluck('id');
-
-        if ($subjectIds->isEmpty()) {
-            // If the student has no subjects, they are eligible to enroll in new ones.
-            return response()->json(['success' => true, 'eligible' => true]);
-        }
-        
-        // 2. Get all grades for these subjects for this specific student.
-        $grades = Grade::where('pre_enrolled_student_id', $student->id)
-                      ->whereIn('subject_id', $subjectIds)
-                      ->get()
-                      ->keyBy('subject_id');
-        
-        $ungradedSubjects = [];
-        
-        // 3. Check each subject to see if it has a final grade.
-        foreach ($enrolledSubjects as $subject) {
-            $grade = $grades->get($subject->id);
+        if ($subjectIds->isNotEmpty()) {
+            $grades = Grade::where('pre_enrolled_student_id', $student->id)
+                          ->whereIn('subject_id', $subjectIds)
+                          ->get()->keyBy('subject_id');
             
-            // A subject is considered ungraded if there's no grade, status is 'In Progress', or final_grade is null.
-            if (!$grade || $grade->status === 'In Progress' || is_null($grade->final_grade)) {
-                $ungradedSubjects[] = [
-                    'subject_code' => $subject->subject_code,
-                    'descriptive_title' => $subject->descriptive_title,
-                ];
+            $ungradedSubjects = [];
+            foreach ($enrolledSubjects as $subject) {
+                $grade = $grades->get($subject->id);
+                if (!$grade || $grade->status === 'In Progress' || is_null($grade->final_grade)) {
+                    $ungradedSubjects[] = ['subject_code' => $subject->subject_code, 'descriptive_title' => $subject->descriptive_title];
+                }
+            }
+            
+            if (!empty($ungradedSubjects)) {
+                return response()->json([
+                    'success' => true, 
+                    'eligible' => false,
+                    'message' => 'Student has ungraded subjects from the current term.',
+                    'ungraded_subjects' => $ungradedSubjects
+                ]);
             }
         }
+
+        // ✅ --- NEW & ENHANCED LOGIC --- ✅
         
-        // 4. Determine eligibility and return the response.
-        if (empty($ungradedSubjects)) {
-            return response()->json(['success' => true, 'eligible' => true]);
-        } else {
-            return response()->json([
-                'success' => true, 
-                'eligible' => false,
-                'message' => 'Student has ungraded subjects from the current term.',
-                'ungraded_subjects' => $ungradedSubjects
-            ]);
-        }
+        // 1. Get IDs of all subjects the student has ALREADY PASSED.
+        $passedSubjectIds = $student->grades()->where('status', 'Passed')->pluck('subject_id');
+
+        // 2. Get FAILED subjects that have not been subsequently passed.
+        $failedSubjects = $student->grades()
+            ->where('status', 'Failed')
+            ->with('subject') // Eager load the subject details
+            ->get()
+            ->map(fn($grade) => $grade->subject)
+            ->whereNotNull()
+            ->whereNotIn('id', $passedSubjectIds) // CRUCIAL: Exclude if passed later
+            ->unique('id')
+            ->values();
+        
+        // 3. Get DROPPED subjects that have not been subsequently passed.
+        $droppedSubjects = $student->subjectChangeRequests()
+            ->where('status', 'approved')
+            ->with('items.subject')
+            ->get()
+            ->flatMap(fn($req) => $req->items)
+            ->where('action', 'drop')
+            ->map(fn($item) => $item->subject)
+            ->whereNotNull()
+            ->unique('id')
+            ->whereNotIn('id', $passedSubjectIds)
+            ->values();
+
+        // 4. Return both lists in a structured response.
+        return response()->json([
+            'success' => true, 
+            'eligible' => true,
+            'retakeable_subjects' => [
+                'failed' => $failedSubjects,
+                'dropped' => $droppedSubjects,
+            ]
+        ]);
 
     } catch (\Exception $e) {
         return response()->json([

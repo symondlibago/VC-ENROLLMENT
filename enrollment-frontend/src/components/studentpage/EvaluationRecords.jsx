@@ -10,11 +10,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import LoadingSpinner from '@/components/layout/LoadingSpinner';
 
 const EvaluationRecords = () => {
   const [curriculumData, setCurriculumData] = useState(null);
+  const [droppedSubjects, setDroppedSubjects] = useState([]); // State for dropped subjects
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -26,6 +26,7 @@ const EvaluationRecords = () => {
         const response = await studentAPI.getCurriculum();
         if (response.success) {
           setCurriculumData(response.data);
+          setDroppedSubjects(response.data.dropped_subjects || []); // Set dropped subjects from API
         } else {
           throw new Error(response.message || 'Failed to fetch data');
         }
@@ -38,7 +39,7 @@ const EvaluationRecords = () => {
     fetchCurriculum();
   }, []);
 
-  // Create an efficient lookup map for subject grades and statuses
+  // No changes to useMemo hooks or other functions...
   const subjectStatusMap = useMemo(() => {
     if (!curriculumData?.grades) return new Map();
     return curriculumData.grades.reduce((map, grade) => {
@@ -47,8 +48,6 @@ const EvaluationRecords = () => {
     }, new Map());
   }, [curriculumData]);
 
-
-  // Process the flat subject list into a nested object grouped by year and semester
   const curriculumByYear = useMemo(() => {
     if (!curriculumData?.subjects) return {};
     return curriculumData.subjects.reduce((acc, subject) => {
@@ -61,27 +60,14 @@ const EvaluationRecords = () => {
     }, {});
   }, [curriculumData]);
 
-  // Define the display order for years/grades
   const yearOrder = ['Grade 11', 'Grade 12', '1st Year', '2nd Year', '3rd Year', '4th Year'];
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
-  };
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: { y: 0, opacity: 1 },
-  };
+  const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
+  const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
 
   const getStatusIndicator = (status) => {
-      if (status === 'Passed') {
-          return <CheckCircle className="w-5 h-5 text-green-600" />;
-      }
-      if (status === 'Failed') {
-          return <XCircle className="w-5 h-5 text-red-600" />;
-      }
-      return null; // Return null for 'In Progress' or no grade
+      if (status === 'Passed') return <CheckCircle className="w-5 h-5 text-green-600" />;
+      if (status === 'Failed') return <XCircle className="w-5 h-5 text-red-600" />;
+      return null;
   };
 
   return (
@@ -111,6 +97,7 @@ const EvaluationRecords = () => {
             <p className="text-red-600">{error}</p>
           </div>
         ) : curriculumData && curriculumData.subjects.length > 0 ? (
+          <>
           <div className="space-y-8">
             {yearOrder.filter(year => curriculumByYear[year]).map(year => (
               <div key={year}>
@@ -161,6 +148,32 @@ const EvaluationRecords = () => {
               </div>
             ))}
           </div>
+
+            {/* ✅ ADDED: Dropped Subjects Section */}
+            {droppedSubjects.length > 0 && (
+              <motion.div variants={itemVariants} className="mt-12">
+                <h2 className="text-2xl font-bold text-gray-800 border-b-2 border-gray-200 pb-2 mb-4 flex items-center">
+                    <AlertCircle className="w-6 h-6 text-yellow-600 mr-3" />
+                    Dropped Subjects Record
+                </h2>
+                <p className="text-gray-600 mb-4">The following subjects were officially dropped in previous terms.</p>
+                <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                        <TableHeader><TableRow><TableHead className="w-[150px]">Code</TableHead><TableHead>Title</TableHead><TableHead className="text-center w-[80px]">Units</TableHead></TableRow></TableHeader>
+                        <TableBody>
+                            {droppedSubjects.map(subject => (
+                                <TableRow key={subject.id} className="bg-yellow-50 hover:bg-yellow-100">
+                                    <TableCell className="font-mono">{subject.subject_code}</TableCell>
+                                    <TableCell className="font-medium">{subject.descriptive_title}</TableCell>
+                                    <TableCell className="text-center font-mono">{subject.total_units}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+              </motion.div>
+            )}
+          </>
         ) : (
           <div className="text-center p-10 bg-gray-50 rounded-lg">
             <Inbox className="mx-auto w-12 h-12 text-gray-400" />
