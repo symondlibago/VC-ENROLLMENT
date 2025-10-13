@@ -204,8 +204,8 @@ const ProgramModal = ({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900">
+            <div className="flex items-center justify-between p-6 border-b bg-red-800">
+              <h2 className="text-xl font-bold text-white">
                 {program ? 'Edit Program' : 'Create Program'}
               </h2>
               <Button
@@ -213,7 +213,7 @@ const ProgramModal = ({
                 size="sm"
                 onClick={handleClose}
                 disabled={isLoading}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-white hover:text-red-800 hover:bg-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </Button>

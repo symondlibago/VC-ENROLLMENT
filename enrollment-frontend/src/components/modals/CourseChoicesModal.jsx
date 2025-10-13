@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, BookOpen, Search, GraduationCap, ChevronDown } from 'lucide-react';
 import { courseAPI, programAPI } from '@/services/api';
+import { Button } from '@/components/ui/button';
+
 
 const CourseChoicesModal = ({
   isOpen,
@@ -180,18 +182,14 @@ const CourseChoicesModal = ({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-[var(--dominant-red)] to-red-600">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-red-800">
               <h2 className="text-2xl font-bold text-white flex items-center">
                 <BookOpen className="w-6 h-6 mr-3" />
                 Select Department
               </h2>
-              <button
-                onClick={handleClose}
-                disabled={isLoading}
-                className="text-white/80 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <Button variant="ghost" size="sm" onClick={handleClose} disabled={isLoading} className="text-white hover:text-red-800 hover:bg-white cursor-pointer">
+                  <X className="w-5 h-5" />
+                </Button>
             </div>
 
             {/* Search and Filter Section */}
@@ -310,13 +308,13 @@ const CourseChoicesModal = ({
                       className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm"
                     >
                       {/* Program Header */}
-                      <div className="bg-gradient-to-r from-gray-50 to-white p-4 border-b border-gray-200">
+                      <div className="bg-red-800 p-4 border-b border-gray-200">
                         <div className="flex items-center">
                           {getProgramIcon(programCode)}
-                          <h3 className="text-lg font-bold text-gray-900 ml-3">
+                          <h3 className="text-lg font-bold text-white ml-3">
                             {getProgramDisplayName(programCode)}
                           </h3>
-                          <span className="ml-auto text-sm text-gray-500">
+                          <span className="ml-auto text-sm text-white">
                             {programCourses.length} course{programCourses.length !== 1 ? 's' : ''}
                           </span>
                         </div>

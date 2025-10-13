@@ -606,12 +606,12 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem className="cursor-pointer" onClick={() => onViewStudentDetails(student.id)}>
-                <FileText className="w-4 h-4 mr-2" />
+                <FileText className="w-4 h-4 mr-2 hover:text-white" />
                 View Details
               </DropdownMenuItem>
               {canEdit && (
                 <DropdownMenuItem className="cursor-pointer" onClick={() => onEditStudent(student.id)}>
-                  <Edit className="w-4 h-4 mr-2" />
+                  <Edit className="w-4 h-4 mr-2 hover:text-white" />
                   Edit Student
                 </DropdownMenuItem>
               )}

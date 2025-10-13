@@ -13,7 +13,8 @@ import {
   Calendar,
   RotateCcw,
   AlertCircle,
-  Lock
+  Lock,
+  TriangleAlert, // New Icon
 } from 'lucide-react';
 import { enrollmentAPI, subjectAPI } from '@/services/api';
 import { Button } from '@/components/ui/button';
@@ -80,6 +81,47 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
 
 // #endregion
 
+// ✅ NEW: Inline Warning Modal Component
+const IrregularWarningModal = ({ isOpen, onClose, onConfirm, subjects }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md m-4"
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="bg-red-100 p-3 rounded-full mb-4">
+            <TriangleAlert className="h-8 w-8 text-red-700" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-800">Irregular Status Warning</h3>
+          <p className="text-gray-600 mt-2">
+            This student has untaken summer subjects. Proceeding will mark them as <span className="font-bold text-red-700">Irregular</span>.
+          </p>
+          <div className="mt-4 w-full bg-gray-50 border rounded-lg p-3 text-left">
+            <p className="text-sm font-semibold mb-2">Untaken Subjects:</p>
+            <ul className="text-sm text-gray-700 space-y-1">
+              {subjects.map(sub => (
+                <li key={sub.id} className="font-mono text-xs">
+                  <span className="font-semibold">{sub.subject_code}</span>: {sub.descriptive_title} ({sub.year})
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="flex items-center justify-center space-x-4 mt-6 w-full">
+            <Button variant="outline" onClick={onClose} className="w-20 cursor-pointer">Cancel</Button>
+            <Button onClick={onConfirm} className="w-40 bg-red-800 hover:bg-red-600 text-white cursor-pointer">Continue Anyway</Button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+
 const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
   // ## STATE MANAGEMENT ##
   const [currentStep, setCurrentStep] = useState(1);
@@ -105,20 +147,25 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
   const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
   const [validationMessage, setValidationMessage] = useState('');
 
+  // ✅ NEW: State for the irregular warning
+  const [showIrregularWarning, setShowIrregularWarning] = useState(false);
+  const [untakenSummerSubjects, setUntakenSummerSubjects] = useState([]);
+
+
   // ## STATIC OPTIONS ##
   const schoolYearOptions = [
   { label: '2025-2026', value: '2025-2026' },
   { label: '2026-2027', value: '2026-2027' }];
 
   const semesterOptions = [
-    { label: '1st Semester', value: '1st Semester' }, 
+    { label: '1st Semester', value: '1st Semester' },
     { label: '2nd Semester', value: '2nd Semester' }];
-    
+
   const yearLevelOptions = [
-    { label: '1st Year', value: '1st Year' }, 
-    { label: '2nd Year', value: '2nd Year' }, 
-    { label: '3rd Year', value: '3rd Year' }, 
-    { label: '4th Year', value: '4th Year' },    
+    { label: '1st Year', value: '1st Year' },
+    { label: '2nd Year', value: '2nd Year' },
+    { label: '3rd Year', value: '3rd Year' },
+    { label: '4th Year', value: '4th Year' },
     { label: '1st Year Summer', value: '1st Year Summer' },
     { label: '2nd Year Summer', value: '2nd Year Summer' }];
 
@@ -150,41 +197,85 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
     setCurrentStep(2);
   };
 
-  const handleGoToSubjectSetup = async () => {
-    setIsLoadingEligibility(true);
+  // ✅ REFACTORED: This logic is now separate to be called after the warning if needed
+  const proceedToSubjectSetup = async () => {
+    setIsLoadingSubjects(true);
     try {
-      const eligibilityRes = await enrollmentAPI.checkEnrollmentEligibility(selectedStudent.id);
-      if (eligibilityRes.success && eligibilityRes.eligible) {
-        setPassedSubjectIds(new Set(eligibilityRes.passed_subject_ids || []));
-        setDroppedSubjects(eligibilityRes.retakeable_subjects?.dropped || []);
-        setFailedSubjects(eligibilityRes.retakeable_subjects?.failed || []);
-        setIsLoadingSubjects(true);
-
         const studentDetails = await enrollmentAPI.getStudentDetails(selectedStudent.id);
-        if (!studentDetails.success) {
-          throw new Error("Could not fetch student's course.");
-        }
+        if (!studentDetails.success) throw new Error("Could not fetch student's course.");
 
         const courseId = studentDetails.data.student.course_id;
         const res = await subjectAPI.getByCourse(courseId, academicInfo.year, academicInfo.semester);
 
         if (res.success) {
-          const subjectsBySem = res.data.reduce((acc, subject) => {
-            const sem = subject.semester;
-            if (!acc[sem]) {
-              acc[sem] = [];
+            const subjectsBySem = res.data.reduce((acc, subject) => {
+                const sem = subject.semester;
+                if (!acc[sem]) acc[sem] = [];
+                acc[sem].push(subject);
+                return acc;
+            }, {});
+            setAvailableSubjects(subjectsBySem);
+            if (Object.keys(subjectsBySem).length > 0) {
+                setCurrentSemesterFilter(Object.keys(subjectsBySem)[0]);
             }
-            acc[sem].push(subject);
-            return acc;
-          }, {});
-          setAvailableSubjects(subjectsBySem);
-          if (Object.keys(subjectsBySem).length > 0) {
-            setCurrentSemesterFilter(Object.keys(subjectsBySem)[0]);
-          }
-          setCurrentStep(3);
+            setCurrentStep(3);
         } else {
-          showAlert(res.message || "Could not load subjects.", "error");
+            showAlert(res.message || "Could not load subjects.", "error");
         }
+    } catch (error) {
+        showAlert(error.message || "An error occurred while setting up subjects.", "error");
+    } finally {
+        setIsLoadingSubjects(false);
+    }
+  };
+
+
+  // ✅ MODIFIED: This function now includes the summer subject check
+  const handleGoToSubjectSetup = async () => {
+    setIsLoadingEligibility(true);
+    try {
+      const eligibilityRes = await enrollmentAPI.checkEnrollmentEligibility(selectedStudent.id);
+      if (eligibilityRes.success && eligibilityRes.eligible) {
+        const passedIds = new Set(eligibilityRes.passed_subject_ids || []);
+        setPassedSubjectIds(passedIds);
+        setDroppedSubjects(eligibilityRes.retakeable_subjects?.dropped || []);
+        setFailedSubjects(eligibilityRes.retakeable_subjects?.failed || []);
+
+        const studentDetails = await enrollmentAPI.getStudentDetails(selectedStudent.id);
+        if (!studentDetails.success) throw new Error("Could not fetch student's course.");
+
+        const courseId = studentDetails.data.student.course_id;
+        const studentProgramCode = studentDetails.data.student.course?.program?.program_code;
+
+        // --- Summer Subject Validation Logic ---
+        if (studentProgramCode === 'Diploma') {
+            const allSubjectsRes = await subjectAPI.getByCourse(courseId); // Fetch all subjects
+            if (allSubjectsRes.success) {
+                const missedSubjects = [];
+                const studentYearValue = parseInt(academicInfo.year, 10);
+
+                // Check for 1st Year Summer if enrolling in 2nd year or higher
+                if (studentYearValue >= 2) {
+                    const summer1 = allSubjectsRes.data.filter(s => s.year === '1st Year Summer' && !passedIds.has(s.id));
+                    missedSubjects.push(...summer1);
+                }
+                // Check for 2nd Year Summer if enrolling in 3rd year or higher
+                if (studentYearValue >= 3) {
+                    const summer2 = allSubjectsRes.data.filter(s => s.year === '2nd Year Summer' && !passedIds.has(s.id));
+                    missedSubjects.push(...summer2);
+                }
+
+                if (missedSubjects.length > 0) {
+                    setUntakenSummerSubjects(missedSubjects);
+                    setShowIrregularWarning(true);
+                    return; // Stop and wait for user confirmation
+                }
+            }
+        }
+
+        // If no warning is needed, proceed directly
+        await proceedToSubjectSetup();
+
       } else if (eligibilityRes.success && !eligibilityRes.eligible) {
         const ungradedList = eligibilityRes.ungraded_subjects.map(s => `- ${s.subject_code}: ${s.descriptive_title}`).join('\n');
         const errorMessage = (
@@ -199,9 +290,13 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
     } catch (error) {
       showAlert(error.message || "An error occurred.", "error");
     } finally {
-      setIsLoadingSubjects(false);
       setIsLoadingEligibility(false);
     }
+  };
+
+  const handleConfirmIrregular = () => {
+    setShowIrregularWarning(false);
+    proceedToSubjectSetup();
   };
 
   const handleAddSubject = (subject) => {
@@ -263,6 +358,9 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
     setDroppedSubjects([]);
     setFailedSubjects([]);
     setPassedSubjectIds(new Set());
+    // ✅ Reset new state on close
+    setShowIrregularWarning(false);
+    setUntakenSummerSubjects([]);
     onClose();
   };
 
@@ -292,8 +390,15 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
         initial={{ opacity: 0, y: 30, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 30, scale: 0.95 }}
-        className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[100vh] flex flex-col"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[100vh] flex flex-col relative"
       >
+        {/* ✅ Render the new warning modal on top */}
+        <IrregularWarningModal
+            isOpen={showIrregularWarning}
+            onClose={() => setShowIrregularWarning(false)}
+            onConfirm={handleConfirmIrregular}
+            subjects={untakenSummerSubjects}
+        />
         <div className="flex items-center justify-between p-5 border-b bg-red-800 rounded-t-2xl">
           <h2 className="text-xl font-bold text-white">Continuing Student Enrollment</h2>
           <Button variant="ghost" size="icon" onClick={handleClose} className="text-white hover:bg-white hover:text-red-800 cursor-pointer">

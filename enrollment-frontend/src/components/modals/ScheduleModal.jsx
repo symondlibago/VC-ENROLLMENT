@@ -173,15 +173,21 @@ const ScheduleModal = ({ isOpen, onClose, subject = null }) => {
               exit="exit"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                <h2 className="text-2xl font-bold heading-bold text-gray-900 flex items-center">
-                  <Calendar className="w-6 h-6 text-[var(--dominant-red)] mr-3" />
-                  Schedule of {subject ? subject.descriptive_title : 'Subject'}
-                </h2>
-                <Button variant="ghost" size="sm" onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
+
+          <div className="flex items-center justify-between p-5 border-b bg-red-800 rounded-t-2xl">
+            <h2 className="text-xl font-bold text-white flex items-center">
+              <Calendar className="w-6 h-6 text-white mr-3" /> {/* Ensures the icon and text align horizontally */}
+              Schedule of {subject ? subject.descriptive_title : 'Subject'}
+            </h2>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={onClose} 
+              className="text-white hover:text-red-800 hover:bg-white cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
 
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] flex-grow">
                 <div className="flex justify-end mb-6">

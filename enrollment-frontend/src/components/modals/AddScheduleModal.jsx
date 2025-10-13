@@ -210,15 +210,21 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
               exit="exit"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                <h2 className="text-xl font-bold heading-bold text-gray-900 flex items-center">
-                  <Calendar className="w-5 h-5 text-[var(--dominant-red)] mr-2" />
+
+          <div className="flex items-center justify-between p-5 border-b bg-red-800 rounded-t-2xl">
+            <h2 className="text-xl font-bold text-white flex items-center">
+            <Calendar className="w-5 h-5 text-white mr-2" />
                   {schedule ? 'Edit Schedule' : 'Add Schedule'}
-                </h2>
-                <Button variant="ghost" size="sm" onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
+            </h2>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={onClose} 
+              className="text-white hover:text-red-800 hover:bg-white cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
 
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
                 <form onSubmit={handleSubmit}>
@@ -284,10 +290,10 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
 
                   {/* Submit Button */}
                   <div className="mt-6 flex justify-end">
-                    <Button type="button" variant="outline" onClick={onClose} className="mr-2" disabled={loading}>
+                    <Button type="button" variant="outline" onClick={onClose} className="mr-2 cursor-pointer" disabled={loading}>
                       Cancel
                     </Button>
-                    <Button type="submit" className="gradient-primary text-white liquid-button" disabled={loading}>
+                    <Button type="submit" className="gradient-primary text-white liquid-button cursor-pointer" disabled={loading}>
                       {loading ? (
                         <div className="flex items-center">
                           <Loader2 className="animate-spin h-4 w-4 mr-2"/>

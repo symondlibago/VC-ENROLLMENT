@@ -388,9 +388,9 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
     public function getEnrolledStudents()
 {
     try {
-        // 1. Eager load the items within each subjectChangeRequest
+        // 1. Eager load program and grades for efficiency
         $enrolledStudents = PreEnrolledStudent::with([
-                'course', 
+                'course.program', // <-- Added program to the eager load
                 'sections', 
                 'grades', 
                 'shifteeRequests', 
@@ -398,38 +398,77 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
             ])
             ->where('enrollment_status', 'enrolled')
             ->orderBy('student_id_number', 'asc')
-            ->get()
-            ->map(function ($student) {
+            ->get();
 
-                $hasFailedSubjects = $student->grades->where('status', 'Failed')->isNotEmpty();
-                $isApprovedShiftee = $student->shifteeRequests->where('status', 'approved')->isNotEmpty();
+        // Get all course IDs from the student list to fetch curriculum subjects in one go
+        $courseIds = $enrolledStudents->pluck('course_id')->unique()->filter();
+        $allCurriculumSubjects = \App\Models\Subject::whereIn('course_id', $courseIds)->get()->groupBy('course_id');
+
+        $enrolledStudents = $enrolledStudents->map(function ($student) use ($allCurriculumSubjects) {
+
+            $hasFailedSubjects = $student->grades->where('status', 'Failed')->isNotEmpty();
+            $isApprovedShiftee = $student->shifteeRequests->where('status', 'approved')->isNotEmpty();
+            
+            $hasDroppedSubjects = $student->subjectChangeRequests
+                ->where('status', 'approved')
+                ->contains(function ($request) {
+                    return $request->items->where('action', 'drop')->isNotEmpty();
+                });
+
+            // ✅ NEW: Logic to check for missed summer subjects
+            $hasMissedSummerSubjects = false;
+            if ($student->course && $student->course->program && $student->course->program->program_code === 'Diploma') {
                 
-                // 2. This check now looks inside the requests for a 'drop' action
-                $hasDroppedSubjects = $student->subjectChangeRequests
-                    ->where('status', 'approved')
-                    ->contains(function ($request) {
-                        return $request->items->where('action', 'drop')->isNotEmpty();
-                    });
+                $passedSubjectIds = $student->grades->where('status', 'Passed')->pluck('subject_id');
+                $curriculum = $allCurriculumSubjects->get($student->course_id) ?? collect();
 
-                $currentAcademicStatus = 'Regular';
-                // 3. Update the final if statement
-                if ($hasFailedSubjects || $isApprovedShiftee || $hasDroppedSubjects) {
-                    $currentAcademicStatus = 'Irregular';
+                // Simple numeric value for year comparison (e.g., '2nd Year' -> 2, '1st Year Summer' -> 1.5)
+                $getYearValue = function ($yearStr) {
+                    if (str_contains($yearStr, 'Summer')) {
+                        return (int)filter_var($yearStr, FILTER_SANITIZE_NUMBER_INT) + 0.5;
+                    }
+                    return (int)filter_var($yearStr, FILTER_SANITIZE_NUMBER_INT);
+                };
+                
+                $studentYearValue = $getYearValue($student->year);
+
+                // Check for 1st Year Summer if student is in 2nd year or higher
+                if ($studentYearValue >= 2) {
+                    $summer1Subjects = $curriculum->where('year', '1st Year Summer');
+                    if ($summer1Subjects->isNotEmpty() && $summer1Subjects->pluck('id')->diff($passedSubjectIds)->isNotEmpty()) {
+                        $hasMissedSummerSubjects = true;
+                    }
                 }
 
-                return [
-                    'id' => $student->id,
-                    'student_id_number' => $student->student_id_number,
-                    'name' => $student->getFullNameAttribute(),
-                    'email' => $student->email_address,
-                    'year' => $student->year,
-                    'courseId' => $student->course->id ?? null,
-                    'courseName' => $student->course ? $student->course->course_name : 'N/A',
-                    'sectionId' => $student->sections->first()->id ?? null,
-                    'sectionName' => $student->sections->isNotEmpty() ? $student->sections->first()->name : 'Unassigned',
-                    'academic_status' => $currentAcademicStatus,
-                ];
-            });
+                // Check for 2nd Year Summer if student is in 3rd year or higher
+                if (!$hasMissedSummerSubjects && $studentYearValue >= 3) {
+                    $summer2Subjects = $curriculum->where('year', '2nd Year Summer');
+                    if ($summer2Subjects->isNotEmpty() && $summer2Subjects->pluck('id')->diff($passedSubjectIds)->isNotEmpty()) {
+                        $hasMissedSummerSubjects = true;
+                    }
+                }
+            }
+
+
+            $currentAcademicStatus = 'Regular';
+            // 3. Update the final if statement with the new condition
+            if ($hasFailedSubjects || $isApprovedShiftee || $hasDroppedSubjects || $hasMissedSummerSubjects) {
+                $currentAcademicStatus = 'Irregular';
+            }
+
+            return [
+                'id' => $student->id,
+                'student_id_number' => $student->student_id_number,
+                'name' => $student->getFullNameAttribute(),
+                'email' => $student->email_address,
+                'year' => $student->year,
+                'courseId' => $student->course->id ?? null,
+                'courseName' => $student->course ? $student->course->course_name : 'N/A',
+                'sectionId' => $student->sections->first()->id ?? null,
+                'sectionName' => $student->sections->isNotEmpty() ? $student->sections->first()->name : 'Unassigned',
+                'academic_status' => $currentAcademicStatus,
+            ];
+        });
 
         return response()->json(['success' => true, 'data' => $enrolledStudents]);
     } catch (\Exception $e) {

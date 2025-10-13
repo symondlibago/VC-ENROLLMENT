@@ -263,12 +263,12 @@ const SubjectModal = ({
               variants={modalVariants} initial="hidden" animate="visible" exit="exit"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-900">
+              <div className="flex items-center justify-between p-6 border-b bg-red-800">
+                <h2 className="text-xl font-bold text-white">
                   {subject ? 'Edit Subject' : 'Add Subject'}
-                  {programType && <span className="text-sm font-normal text-gray-500 ml-2">({programType} Program)</span>}
+                  {programType && <span className="text-sm font-normal text-white ml-2">({programType} Program)</span>}
                 </h2>
-                <Button variant="ghost" size="sm" onClick={handleClose} disabled={isLoading} className="text-gray-400 hover:text-gray-600">
+                <Button variant="ghost" size="sm" onClick={handleClose} disabled={isLoading} className="text-white hover:text-red-800 hover:bg-white cursor-pointer">
                   <X className="w-5 h-5" />
                 </Button>
               </div>
