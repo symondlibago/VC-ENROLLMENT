@@ -176,7 +176,7 @@ const SubjectDetailsModal = ({
             exit="exit"
           >
             <motion.div 
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden"
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[100vh] overflow-hidden"
               variants={modalVariants}
               initial="hidden"
               animate="visible"
@@ -184,25 +184,28 @@ const SubjectDetailsModal = ({
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                <h2 className="text-2xl font-bold heading-bold text-gray-900 flex items-center">
-                  <BookMarked className="w-6 h-6 text-[var(--dominant-red)] mr-3" />
-                  {course ? `${course.course_name} Subjects` : 'Course Subjects'}
-                  {programType && (
-                    <span className="text-sm font-normal text-gray-500 ml-2">
-                      ({programType} Program)
+              <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-red-800">
+              <div className="text-2xl font-bold flex items-center">
+              <h2 className='text-white flex items-center'>
+                <BookMarked className="w-6 h-6 text-white mr-3" />
+                {course ? `${course.course_name} Subjects` : 'Course Subjects'}
+                {programType && (
+                    <span className="text-sm font-normal text-white ml-2">
+                        ({programType} Program)
                     </span>
-                  )}
-                </h2>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onClose}
-                  className="text-red-800 hover:white cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
+                )}
+            </h2>
+          </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                className="hover:text-red-800 hover:bg-white hover:white cursor-pointer text-white"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+
 
               {/* Modal Body */}
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">

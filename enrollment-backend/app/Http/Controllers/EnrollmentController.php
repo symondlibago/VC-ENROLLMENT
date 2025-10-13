@@ -1040,80 +1040,69 @@ public function submitContinuingEnrollment(Request $request): JsonResponse
 }
 
 public function checkEnrollmentEligibility(Request $request, PreEnrolledStudent $student): JsonResponse
-{
-    try {
-        // This part checks for ungraded subjects in the current term (no changes)
-        $enrolledSubjects = $student->subjects;
-        $subjectIds = $enrolledSubjects->pluck('id');
-        if ($subjectIds->isNotEmpty()) {
-            $grades = Grade::where('pre_enrolled_student_id', $student->id)
-                          ->whereIn('subject_id', $subjectIds)
-                          ->get()->keyBy('subject_id');
-            
-            $ungradedSubjects = [];
-            foreach ($enrolledSubjects as $subject) {
-                $grade = $grades->get($subject->id);
-                if (!$grade || $grade->status === 'In Progress' || is_null($grade->final_grade)) {
-                    $ungradedSubjects[] = ['subject_code' => $subject->subject_code, 'descriptive_title' => $subject->descriptive_title];
+    {
+        try {
+            // This part checks for ungraded subjects in the current term (no changes)
+            $enrolledSubjects = $student->subjects;
+            $subjectIds = $enrolledSubjects->pluck('id');
+            if ($subjectIds->isNotEmpty()) {
+                $grades = Grade::where('pre_enrolled_student_id', $student->id)
+                              ->whereIn('subject_id', $subjectIds)
+                              ->get()->keyBy('subject_id');
+                
+                $ungradedSubjects = [];
+                foreach ($enrolledSubjects as $subject) {
+                    $grade = $grades->get($subject->id);
+                    if (!$grade || $grade->status === 'In Progress' || is_null($grade->final_grade)) {
+                        $ungradedSubjects[] = ['subject_code' => $subject->subject_code, 'descriptive_title' => $subject->descriptive_title];
+                    }
+                }
+                
+                if (!empty($ungradedSubjects)) {
+                    return response()->json([
+                        'success' => true, 
+                        'eligible' => false,
+                        'message' => 'Student has ungraded subjects from the current term.',
+                        'ungraded_subjects' => $ungradedSubjects
+                    ]);
                 }
             }
+
             
-            if (!empty($ungradedSubjects)) {
-                return response()->json([
-                    'success' => true, 
-                    'eligible' => false,
-                    'message' => 'Student has ungraded subjects from the current term.',
-                    'ungraded_subjects' => $ungradedSubjects
-                ]);
-            }
+            // 1. Get IDs of all subjects the student has ALREADY PASSED.
+            $passedSubjectIds = $student->grades()->where('status', 'Passed')->pluck('subject_id');
+
+            // 2. Get FAILED subjects that have not been subsequently passed.
+            $failedSubjects = $student->grades()
+                ->where('status', 'Failed')->with('subject')->get()
+                ->map(fn($grade) => $grade->subject)->whereNotNull()
+                ->whereNotIn('id', $passedSubjectIds)->unique('id')->values();
+            
+            // 3. Get DROPPED subjects that have not been subsequently passed.
+            $droppedSubjects = $student->subjectChangeRequests()
+                ->where('status', 'approved')->with('items.subject')->get()
+                ->flatMap(fn($req) => $req->items)->where('action', 'drop')
+                ->map(fn($item) => $item->subject)->whereNotNull()
+                ->unique('id')->whereNotIn('id', $passedSubjectIds)->values();
+
+            // 4. Return all necessary data for validation on the frontend.
+            return response()->json([
+                'success' => true, 
+                'eligible' => true,
+                'passed_subject_ids' => $passedSubjectIds, 
+                'retakeable_subjects' => [
+                    'failed' => $failedSubjects,
+                    'dropped' => $droppedSubjects,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false, 
+                'message' => 'An error occurred while checking eligibility.',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        // ✅ --- NEW & ENHANCED LOGIC --- ✅
-        
-        // 1. Get IDs of all subjects the student has ALREADY PASSED.
-        $passedSubjectIds = $student->grades()->where('status', 'Passed')->pluck('subject_id');
-
-        // 2. Get FAILED subjects that have not been subsequently passed.
-        $failedSubjects = $student->grades()
-            ->where('status', 'Failed')
-            ->with('subject') // Eager load the subject details
-            ->get()
-            ->map(fn($grade) => $grade->subject)
-            ->whereNotNull()
-            ->whereNotIn('id', $passedSubjectIds) // CRUCIAL: Exclude if passed later
-            ->unique('id')
-            ->values();
-        
-        // 3. Get DROPPED subjects that have not been subsequently passed.
-        $droppedSubjects = $student->subjectChangeRequests()
-            ->where('status', 'approved')
-            ->with('items.subject')
-            ->get()
-            ->flatMap(fn($req) => $req->items)
-            ->where('action', 'drop')
-            ->map(fn($item) => $item->subject)
-            ->whereNotNull()
-            ->unique('id')
-            ->whereNotIn('id', $passedSubjectIds)
-            ->values();
-
-        // 4. Return both lists in a structured response.
-        return response()->json([
-            'success' => true, 
-            'eligible' => true,
-            'retakeable_subjects' => [
-                'failed' => $failedSubjects,
-                'dropped' => $droppedSubjects,
-            ]
-        ]);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false, 
-            'message' => 'An error occurred while checking eligibility.',
-            'error' => $e->getMessage()
-        ], 500);
     }
-}
 
 }
