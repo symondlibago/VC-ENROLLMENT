@@ -31,7 +31,7 @@ class AdminUserSeeder extends Seeder
             ['email' => 'cashier@example.com'],
             [
                 'name' => 'Cashier User',
-                'password' => Hash::make('cashier123'),
+                'password' => Hash::make('password'),
                 'role' => 'Cashier'
             ]
         );
@@ -41,7 +41,7 @@ class AdminUserSeeder extends Seeder
             ['email' => 'programhead@example.com'],
             [
                 'name' => 'Program Head User',
-                'password' => Hash::make('head123'),
+                'password' => Hash::make('password'),
                 'role' => 'Program Head'
             ]
         );
@@ -51,7 +51,7 @@ class AdminUserSeeder extends Seeder
             ['email' => 'registrar@example.com'],
             [
                 'name' => 'Registrar User',
-                'password' => Hash::make('registrar123'),
+                'password' => Hash::make('password'),
                 'role' => 'Registrar'
             ]
         );

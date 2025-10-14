@@ -1595,11 +1595,24 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
                     <h4 className="text-base font-semibold text-gray-800 mb-3">Identification Documents</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* ID Photo Upload */}
-                      <div className="border-2 border-dashed border-gray-300 rounded-2xl p-4 hover:border-[var(--dominant-red)] transition-all duration-300">
+                      <div className="border-2 border-dashed border-gray-300 rounded-2xl p-4 hover:border-[var(--dominant-red)] transition-all duration-300 flex flex-col">
                         <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
                           ID Photo
                         </label>
-                        <div className="flex flex-col items-center justify-center py-4">
+
+                        {/* --- Instructions Added Here --- */}
+                        <div className="text-xs text-gray-700 mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <p className="font-semibold mb-2">Please ensure your photo meets the following criteria:</p>
+                          <ul className="list-disc list-inside space-y-1">
+                            <li>Must have a <strong>plain white background</strong>.</li>
+                            <li>Wear <strong>formal or business attire</strong> (e.g., collared shirt, blouse).</li>
+                            <li>Photo must be recent, clear, and front-facing.</li>
+                            <li>Face should be fully visible; no hats or sunglasses.</li>
+                          </ul>
+                        </div>
+                        {/* --- End of Instructions --- */}
+
+                        <div className="flex-grow flex flex-col items-center justify-center py-4">
                           {formData.idPhoto ? (
                             <div className="relative w-full">
                               <img 
@@ -1610,6 +1623,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
                               <button 
                                 onClick={() => handleFormDataChange('idPhoto', null)}
                                 className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 transform translate-x-1/2 -translate-y-1/2 hover:bg-red-600 transition-colors"
+                                style={{ right: 'calc(50% - 64px)' }} // Adjust position to be relative to the image
                               >
                                 <X className="w-4 h-4" />
                               </button>
@@ -1617,8 +1631,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
                           ) : (
                             <>
                               <Upload className="w-12 h-12 text-gray-400 mb-2" />
-                              <p className="text-sm text-gray-600 text-center mb-2">Click or drag to upload your ID photo</p>
-                              <p className="text-xs text-gray-500 text-center">PNG only, max 5MB</p>
+                              <p className="text-sm text-gray-600 text-center mb-2">Click or drag to upload</p>
                             </>
                           )}
                           <input 
@@ -1657,21 +1670,22 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
                       </div>
                       
                       {/* Signature Upload */}
-                      <div className="border-2 border-dashed border-gray-300 rounded-2xl p-4 hover:border-[var(--dominant-red)] transition-all duration-300">
+                      <div className="border-2 border-dashed border-gray-300 rounded-2xl p-4 hover:border-[var(--dominant-red)] transition-all duration-300 flex flex-col">
                         <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
                           Signature
                         </label>
-                        <div className="flex flex-col items-center justify-center py-4">
+                        <div className="flex-grow flex flex-col items-center justify-center py-4">
                           {formData.signature ? (
                             <div className="relative w-full">
                               <img 
                                 src={URL.createObjectURL(formData.signature)} 
                                 alt="Signature Preview" 
-                                className="w-32 h-32 object-contain mx-auto rounded-lg shadow-md bg-white" 
+                                className="w-40 h-32 object-contain mx-auto rounded-lg bg-white p-2 shadow-md" 
                               />
                               <button 
                                 onClick={() => handleFormDataChange('signature', null)}
                                 className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 transform translate-x-1/2 -translate-y-1/2 hover:bg-red-600 transition-colors"
+                                style={{ right: 'calc(50% - 80px)' }} // Adjust position to be relative to the image
                               >
                                 <X className="w-4 h-4" />
                               </button>
@@ -1679,8 +1693,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
                           ) : (
                             <>
                               <FileSignature className="w-12 h-12 text-gray-400 mb-2" />
-                              <p className="text-sm text-gray-600 text-center mb-2">Click or drag to upload your signature</p>
-                              <p className="text-xs text-gray-500 text-center">PNG only, max 5MB</p>
+                              <p className="text-sm text-gray-600 text-center mb-2">(Optional) Click or drag to upload your signature</p>
                             </>
                           )}
                           <input 

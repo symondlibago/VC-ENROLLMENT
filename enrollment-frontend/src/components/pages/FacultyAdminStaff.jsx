@@ -156,7 +156,7 @@ const FacultyAdminStaff = () => {
                         <ShieldCheck className="w-5 h-5" />
                     </button>
                 </div>
-                <Button className="gradient-primary text-white liquid-button" onClick={() => { setSelectedItem(null); activeTab === 'instructors' ? setIsInstructorModalOpen(true) : setIsStaffModalOpen(true); }}>
+                <Button className="gradient-primary cursor-pointer text-white liquid-button" onClick={() => { setSelectedItem(null); activeTab === 'instructors' ? setIsInstructorModalOpen(true) : setIsStaffModalOpen(true); }}>
                   <UserPlus className="w-4 h-4 mr-2" />{addButtonText}
                 </Button>
               </div>

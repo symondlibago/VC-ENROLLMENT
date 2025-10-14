@@ -24,8 +24,6 @@ const LoginPage = ({ onLogin, onBack }) => {
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [loginOtpState, setLoginOtpState] = useState({ isOpen: false, isLoading: false, error: '', tempToken: null });
   
-  const [registerForm, setRegisterForm] = useState({ name: '', email: '', password: '', password_confirmation: '' });
-
   const [resetStep, setResetStep] = useState(1);
   const [resetForm, setResetForm] = useState({ email: '', otp: '', password: '', password_confirmation: '' });
 
@@ -71,21 +69,6 @@ const LoginPage = ({ onLogin, onBack }) => {
     }
   };
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setModalError('');
-    try {
-      await authAPI.register(registerForm);
-      setSuccessAlert({ isVisible: true, message: 'Registration successful! Redirecting...' });
-      setTimeout(() => onLogin(), 1500);
-    } catch (error) {
-      setModalError(error.message || 'Registration failed.');
-    } finally {
-        setIsLoading(false);
-    }
-  };
-
   const handleResetRequest = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -123,7 +106,6 @@ const LoginPage = ({ onLogin, onBack }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      {/* --- MODIFIED: Pass the new onLoginSuccess prop to the modal --- */}
       <OtpModal 
         isOpen={loginOtpState.isOpen} 
         onClose={() => setLoginOtpState({ ...loginOtpState, isOpen: false, isLoading: false })} 
@@ -138,7 +120,7 @@ const LoginPage = ({ onLogin, onBack }) => {
       <motion.div className="w-full max-w-md relative z-10" variants={containerVariants} initial="hidden" animate="visible">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <Button variant="ghost" onClick={onBack} className="absolute left-0 text-gray-600 hover:text-[var(--dominant-red)]">
+            <Button variant="ghost" onClick={onBack} className="absolute left-0 text-red-800 hover:text-white cursor-pointer">
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div className="w-12 h-12 bg-[var(--dominant-red)] rounded-2xl flex items-center justify-center">
@@ -152,9 +134,8 @@ const LoginPage = ({ onLogin, onBack }) => {
         <Card className="shadow-lg border-0">
           <CardContent className="p-0">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 rounded-t-lg h-12">
+              <TabsList className="grid w-full grid-cols-2 rounded-t-lg h-12">
                 <TabsTrigger value="login">Login</TabsTrigger>
-                <TabsTrigger value="register">Register</TabsTrigger>
                 <TabsTrigger value="reset">Reset</TabsTrigger>
               </TabsList>
 
@@ -179,7 +160,7 @@ const LoginPage = ({ onLogin, onBack }) => {
                       </div>
                     </div>
                   </div>
-                  <Button type="submit" className="w-full gradient-primary text-white group" disabled={isLoading}>
+                  <Button type="submit" className="w-full gradient-primary text-white group cursor-pointer" disabled={isLoading}>
                     {isLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <>Sign In <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" /></>}
                   </Button>
                   <div className="relative">
@@ -190,44 +171,6 @@ const LoginPage = ({ onLogin, onBack }) => {
                     <Button variant="outline" disabled={isLoading}><Github className="w-4 h-4 mr-2" />GitHub</Button>
                     <Button variant="outline" disabled={isLoading}><Chrome className="w-4 h-4 mr-2" />Google</Button>
                   </div>
-                </motion.form>
-              </TabsContent>
-
-              <TabsContent value="register" className="p-6">
-                <motion.form key="register" variants={formVariants} initial="hidden" animate="visible" exit="exit" onSubmit={handleRegister} className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="register-name">Full Name</Label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                        <Input id="register-name" name="name" type="text" placeholder="Enter your full name" value={registerForm.name} onChange={handleFormChange(setRegisterForm, registerForm)} className="pl-10" required disabled={isLoading} />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="register-email">Email Address</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                        <Input id="register-email" name="email" type="email" placeholder="Enter your email" value={registerForm.email} onChange={handleFormChange(setRegisterForm, registerForm)} className="pl-10" required disabled={isLoading} />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="register-password">Password</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                        <Input id="register-password" name="password" type="password" placeholder="Create a password" value={registerForm.password} onChange={handleFormChange(setRegisterForm, registerForm)} className="pl-10" required disabled={isLoading} />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="register-confirm">Confirm Password</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                        <Input id="register-confirm" name="password_confirmation" type="password" placeholder="Confirm your password" value={registerForm.password_confirmation} onChange={handleFormChange(setRegisterForm, registerForm)} className="pl-10" required disabled={isLoading} />
-                      </div>
-                    </div>
-                  </div>
-                  <Button type="submit" className="w-full gradient-primary text-white group" disabled={isLoading}>
-                    {isLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <>Create Account <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" /></>}
-                  </Button>
                 </motion.form>
               </TabsContent>
 

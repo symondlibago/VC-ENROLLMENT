@@ -133,8 +133,6 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
   
   const handleSaveChanges = async () => {
     setIsSaving(true);
-    
-    // --- START OF CHANGE ---
     // 1. Filter for grades that have actually changed.
     // 2. Map the results to a new, clean array containing only the necessary data.
     const changedGradesPayload = editedGrades
@@ -148,7 +146,6 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
         final_grade: g.final_grade,
         status: g.status,
       }));
-    // --- END OF CHANGE ---
 
     if (changedGradesPayload.length === 0) {
         setAlert({ isVisible: true, message: "No changes to save.", type: 'info' });
@@ -215,9 +212,9 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
                 <h2 className="text-xl font-semibold">Grades for {studentName}</h2>
                 <p className="text-sm text-red-100">View and manage academic records.</p>
               </div>
-              <button onClick={onClose} className="p-1 rounded-full hover:text-red-800 hover:bg-white transition-colors">
+              <Button onClick={onClose} className="p-1 bg-transparent cursor-pointer hover:text-red-800 hover:bg-white transition-colors">
                 <X size={20} />
-              </button>
+              </Button>
             </div>
             
             <div className="p-6 flex-grow overflow-y-auto">
@@ -230,7 +227,7 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
                   It will only show if 'canEdit' is true AND the user is not already editing.
                 */}
                 {canEdit && !isEditing && (
-                    <Button onClick={() => setIsEditing(true)}>
+                    <Button className="cursor-pointer" onClick={() => setIsEditing(true)}>
                         <Edit className="w-4 h-4 mr-2" /> Edit Grades
                     </Button>
                 )}
@@ -299,10 +296,10 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
             {/* The save/cancel footer also depends on the role-protected button being clicked */}
             {isEditing && (
                 <div className="flex justify-end gap-4 p-4 border-t bg-gray-50">
-                    <Button variant="ghost" onClick={handleCancel}>
+                    <Button className="cursor-pointer" variant="ghost" onClick={handleCancel}>
                         <XCircle className="w-4 h-4 mr-2"/> Cancel
                     </Button>
-                    <Button onClick={handleSaveChanges} disabled={isSaving}>
+                    <Button className="cursor-pointer" onClick={handleSaveChanges} disabled={isSaving}>
                         {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2"/>}
                         {isSaving ? 'Saving...' : 'Save Changes'}
                     </Button>

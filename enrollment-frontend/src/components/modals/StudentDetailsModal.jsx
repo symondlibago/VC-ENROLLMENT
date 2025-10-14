@@ -325,9 +325,9 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
       <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-red-800 text-white z-10 flex items-center justify-between p-4 border-b">
           <h2 className="text-xl font-semibold">Student Details</h2>
-          <button onClick={onClose} className="p-1 rounded-full hover:text-red-800 hover:bg-white transition-colors">
+          <Button onClick={onClose} className="p-1 hover:text-red-800 hover:bg-white transition-colors bg-transparent cursor-pointer">
             <X size={20} />
-          </button>
+          </Button>
         </div>
         <div className="p-6">
           {loading ? (

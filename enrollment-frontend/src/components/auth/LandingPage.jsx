@@ -182,7 +182,7 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
               <Button
                 size="lg"
                 onClick={handleLoginClick} 
-                className="gradient-primary text-white px-8 py-4 text-lg liquid-button group"
+                className="gradient-primary text-white px-8 py-4 text-lg liquid-button group cursor-pointer"
               >
                 Login
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -191,7 +191,7 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
                 variant="outline"
                 size="lg"
                 onClick={handleEnrollClick} 
-                className="px-8 py-4 text-lg border-2 border-gray-300 hover:border-[var(--dominant-red)] liquid-button group"
+                className="px-8 py-4 text-lg border-2 border-gray-300 hover:border-[var(--dominant-red)] liquid-button group cursor-pointer"
               >
                 <Play className="mr-2 w-5 h-5" />
                 Enroll Now

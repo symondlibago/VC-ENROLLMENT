@@ -331,13 +331,13 @@ const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchT
                                 <TableCell className="text-right">
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" className="h-8 w-8 p-0">
+                                            <Button variant="ghost" className="h-8 w-8 p-0 cursor-pointer">
                                                 <MoreVertical size={16} />
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => onViewDetails(e.id)}>
-                                                <Eye size={14} className="mr-2" />View Details
+                                            <DropdownMenuItem className="cursor-pointer" onClick={() => onViewDetails(e.id)}>
+                                                <Eye size={14} className="mr-2 hover:text-white" />View Details
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>

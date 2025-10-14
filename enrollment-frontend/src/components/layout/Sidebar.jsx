@@ -180,7 +180,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
             <motion.button
               key={item.id}
               onClick={() => handleNavigation(item)}
-              className={`w-full flex items-center space-x-3 px-3 py-3 rounded-xl transition-all duration-300 liquid-morph group relative ${
+              className={`w-full flex items-center cursor-pointer space-x-3 px-3 py-3 rounded-xl transition-all duration-300 liquid-morph group relative ${
                 isActive 
                   ? 'bg-white text-[var(--dominant-red)] shadow-lg' 
                   : 'text-white hover:bg-white/10'
