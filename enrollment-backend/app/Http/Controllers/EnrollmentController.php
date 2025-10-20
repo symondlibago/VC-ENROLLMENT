@@ -1144,4 +1144,200 @@ public function checkEnrollmentEligibility(Request $request, PreEnrolledStudent 
         }
     }
 
+    /**
+ * NEW: Get the authenticated student's academic status and next term info.
+ */
+public function getStudentEnrollmentEligibilityStatus(Request $request): JsonResponse
+{
+    try {
+        $user = Auth::user();
+        
+        // Find the student profile associated with the authenticated user
+        $student = PreEnrolledStudent::with(['course.program', 'grades', 'shifteeRequests', 'subjectChangeRequests.items.subject'])
+            ->where('user_id', $user->id)
+            ->where('enrollment_status', 'enrolled')
+            ->first();
+
+        if (!$student) {
+            return response()->json([
+                'success' => true,
+                'status_data' => [
+                    'academic_status' => 'Ineligible',
+                    'message' => 'Your enrollment status is not currently "Enrolled".',
+                    'next_term' => ['year' => 'N/A', 'semester' => 'N/A', 'schoolYear' => 'N/A'],
+                    'ungraded_subjects' => [],
+                    'retakeable_subjects' => ['failed' => [], 'dropped' => []],
+                ]
+            ]);
+        }
+        
+        // --- 1. Check for Ungraded Subjects (Makes them INELIGIBLE TO PROCEED) ---
+        $enrolledSubjects = $student->subjects;
+        $subjectIds = $enrolledSubjects->pluck('id');
+        $ungradedSubjects = [];
+        
+        if ($subjectIds->isNotEmpty()) {
+            $grades = Grade::where('pre_enrolled_student_id', $student->id)
+                          ->whereIn('subject_id', $subjectIds)
+                          ->get()->keyBy('subject_id');
+            
+            foreach ($enrolledSubjects as $subject) {
+                $grade = $grades->get($subject->id);
+                // Check if grade is missing or marked as 'In Progress' or final_grade is null
+                if (!$grade || $grade->status === 'In Progress' || is_null($grade->final_grade)) {
+                    $ungradedSubjects[] = ['subject_code' => $subject->subject_code, 'descriptive_title' => $subject->descriptive_title];
+                }
+            }
+        }
+        
+        if (!empty($ungradedSubjects)) {
+             // Ineligible case: Cannot enroll until grades are posted
+             return response()->json([
+                'success' => true,
+                'status_data' => [
+                    'academic_status' => 'Ineligible',
+                    'message' => 'You have ungraded subjects from the current term.',
+                    'next_term' => ['year' => $student->year, 'semester' => $student->semester, 'schoolYear' => $student->school_year],
+                    'ungraded_subjects' => $ungradedSubjects,
+                    'retakeable_subjects' => ['failed' => [], 'dropped' => []],
+                ]
+            ]);
+        }
+
+        // --- 2. Determine Academic Status (Regular/Irregular) ---
+        
+        // Get IDs of all subjects the student has ALREADY PASSED.
+        $passedSubjectIds = $student->grades()->where('status', 'Passed')->pluck('subject_id');
+
+        // Get FAILED subjects that have not been subsequently passed.
+        $failedSubjects = $student->grades()
+            ->where('status', 'Failed')->with('subject')->get()
+            ->map(fn($grade) => $grade->subject)->whereNotNull()
+            ->whereNotIn('id', $passedSubjectIds)->unique('id')->values();
+        
+        // Get DROPPED subjects that have not been subsequently passed.
+        $droppedSubjects = $student->subjectChangeRequests()
+            ->where('status', 'approved')->with('items.subject')->get()
+            ->flatMap(fn($req) => $req->items)->where('action', 'drop')
+            ->map(fn($item) => $item->subject)->whereNotNull()
+            ->unique('id')->whereNotIn('id', $passedSubjectIds)->values();
+
+        // NOTE: The missing summer subject check from getEnrolledStudents can be optionally added here.
+        // For now, we will use the failed/dropped subjects to define Irregular status.
+        $isIrregular = $failedSubjects->isNotEmpty() || $droppedSubjects->isNotEmpty();
+        $academicStatus = $isIrregular ? 'Irregular' : 'Regular';
+        
+        // --- 3. Determine Next Term Info (Simple example: increment year/semester) ---
+        // NOTE: This logic should ideally be handled by a service layer. Using simple hardcoded values for now.
+        $nextTerm = $this->calculateNextTerm(
+            $student->year, 
+            $student->semester, 
+            $student->school_year
+        ); 
+        
+        return response()->json([
+            'success' => true,
+            'status_data' => [
+                'academic_status' => $academicStatus,
+                'message' => 'Enrollment status check complete.',
+                'next_term' => $nextTerm, // <--- Now contains the correct calculated term
+                'ungraded_subjects' => $ungradedSubjects,
+                'retakeable_subjects' => ['failed' => $failedSubjects, 'dropped' => $droppedSubjects],
+            ]
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'An error occurred while checking eligibility.',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+
+
+
+
+// HELPER FUNCTION RETAIN IT HERE FOR NOW ---------------------------------------------------------------------------------------
+
+/**
+ * Helper to calculate the next sequential term based on the current term.
+ * Assumes a standard progression: 1st Sem -> 2nd Sem -> Summer -> Next Year 1st Sem.
+ *
+ * @param string $currentYear The current year (e.g., '1st Year', '1st Year Summer')
+ * @param string $currentSemester The current semester (e.g., '1st Semester', '2nd Semester')
+ * @param string $currentSchoolYear The current school year (e.g., '2024-2025')
+ * @return array
+ */
+private function calculateNextTerm(string $currentYear, string $currentSemester, string $currentSchoolYear): array
+{
+    $yearMap = [
+        '1st Year' => 1, '2nd Year' => 2, '3rd Year' => 3, '4th Year' => 4,
+        '1st Year Summer' => 1.5, '2nd Year Summer' => 2.5,
+    ];
+
+    // Determine the next sequential step
+    if ($currentSemester === '1st Semester') {
+        $nextSemester = '2nd Semester';
+        $nextYear = $currentYear;
+        $nextSchoolYear = $currentSchoolYear;
+    } elseif ($currentSemester === '2nd Semester') {
+        // Check for a summer term specific to the current year level
+        if ($currentYear === '1st Year' || $currentYear === '2nd Year') {
+            $nextSemester = '1st Semester'; // We treat Summer as an optional intermediate step, but the next *main* enrollment is 1st Sem
+            $nextYear = $currentYear . ' Summer'; // If you include summer as an enrollment term
+
+            // If you want to skip summer and go directly to the next year's 1st sem:
+            $currentYearIndex = $yearMap[$currentYear] ?? 0;
+            $nextYearIndex = $currentYearIndex + 1;
+
+            $nextYearMap = array_flip($yearMap);
+            $nextYear = $nextYearMap[$nextYearIndex] ?? $currentYear; // e.g., '2nd Year'
+
+            // Increment school year: '2024-2025' -> '2025-2026'
+            list($start, $end) = explode('-', $currentSchoolYear);
+            $nextSchoolYear = (int)$start + 1 . '-' . (int)$end + 1;
+        } else {
+             // For 3rd and 4th year, simply move to the next school year's 1st semester
+             $currentYearIndex = $yearMap[$currentYear] ?? 0;
+             $nextYearIndex = $currentYearIndex + 1;
+
+             $nextYearMap = array_flip($yearMap);
+             $nextYear = $nextYearMap[$nextYearIndex] ?? $currentYear;
+             $nextSemester = '1st Semester';
+
+             list($start, $end) = explode('-', $currentSchoolYear);
+             $nextSchoolYear = (int)$start + 1 . '-' . (int)$end + 1;
+        }
+    } else { // Handle summer progression (if applicable)
+         // Assuming Summer enrollment is optional or handled by the Program Head. 
+         // If a student just finished summer, the next logical step is the next year's 1st sem.
+         $currentYearIndex = $yearMap[$currentYear] ?? 0;
+         $nextYearIndex = (int)$currentYearIndex + 1; // e.g., 1.5 -> 2, 2.5 -> 3
+
+         $nextYearMap = array_flip($yearMap);
+         $nextYear = $nextYearMap[$nextYearIndex] ?? $currentYear;
+         $nextSemester = '1st Semester';
+
+         list($start, $end) = explode('-', $currentSchoolYear);
+         $nextSchoolYear = (int)$start + 1 . '-' . (int)$end + 1;
+    }
+
+    // Handle max year case (e.g., 4th Year 2nd Sem -> Graduation)
+    if (str_contains($currentYear, '4th Year') && $currentSemester === '2nd Semester') {
+         return [
+            'year' => 'Graduated', 
+            'semester' => 'N/A', 
+            'schoolYear' => $currentSchoolYear,
+         ];
+    }
+
+    return [
+        'year' => $nextYear,
+        'semester' => $nextSemester,
+        'schoolYear' => $nextSchoolYear,
+    ];
+}
+
 }

@@ -1065,6 +1065,15 @@ export const studentAPI = {
     }
   },
 
+  checkMyEnrollmentEligibility: async () => {
+    try {
+      const response = await api.get('/student/eligibility'); 
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to check enrollment eligibility' };
+    }
+  },
+
 };
 
 

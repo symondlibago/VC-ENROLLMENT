@@ -17,6 +17,7 @@ import {
   BookUser,
   BookMarked,
   ClipboardList,
+  CheckCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -53,7 +54,9 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
     { id: 'my-schedule', icon: Calendar, label: 'My Schedule', path: '/my-schedule' },
     { id: 'my-grades', icon: BarChart3, label: 'My Grades', badge: null, path: '/my-grades' },
     { id: 'evaluation-records', icon: ClipboardList, label: 'Evaluation Records', path: '/evaluation-records' },
+    { id: 'enrollment-eligibility', icon: CheckCircle, label: 'Enrollment Eligibility', path: '/enrollment-eligibility' },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
+    
   ];
 
   // --- MODIFIED: Determine which menu to display based on user role ---
