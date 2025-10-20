@@ -81,7 +81,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/student/curriculum', [EnrollmentController::class, 'getStudentCurriculum']);
     Route::get('/student/schedule', [EnrollmentController::class, 'getStudentSchedule']);
     Route::get('/student/eligibility', [EnrollmentController::class, 'getStudentEnrollmentEligibilityStatus']);
-    
+    Route::get('/student/subjects-for-term', [EnrollmentController::class, 'getSubjectsForNextTerm']);
+
     // Upload Receipts
     Route::get('upload-receipts', [UploadReceiptController::class, 'index']);
 

@@ -1074,6 +1074,17 @@ export const studentAPI = {
     }
   },
 
+  getSubjectsForNextTerm: async (year, semester) => {
+    try {
+      const response = await api.get('/student/subjects-for-term', {
+        params: { year, semester }
+      }); 
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch subjects.' };
+    }
+  },
+
 };
 
 
