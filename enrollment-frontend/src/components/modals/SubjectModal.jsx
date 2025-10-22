@@ -193,12 +193,12 @@ const SubjectModal = ({
 
   // Handle input changes
   const handleInputChange = (field, value) => {
-    const isNumericField = ['lec_hrs', 'lab_hrs', 'number_of_hours'].includes(field);
+    const isNumericField = ['lec_hrs', 'lab_hrs', 'number_of_hours', 'total_units'].includes(field);
     const numericValue = isNumericField ? parseFloat(value) || 0 : value;
 
     setFormData(prev => {
       const newFormData = { ...prev, [field]: numericValue };
-      if (field === 'lec_hrs' || field === 'lab_hrs') {
+      if (programType === 'Bachelor' && (field === 'lec_hrs' || field === 'lab_hrs')) {
         const lec = field === 'lec_hrs' ? numericValue : prev.lec_hrs;
         const lab = field === 'lab_hrs' ? numericValue : prev.lab_hrs;
         newFormData.total_units = (Number(lec) || 0) + (Number(lab) || 0);
@@ -220,6 +220,9 @@ const SubjectModal = ({
     if (!formData.semester) newErrors.semester = 'Semester is required';
     if (programType === 'SHS' && (!formData.number_of_hours || formData.number_of_hours <= 0)) {
       newErrors.number_of_hours = 'Number of hours is required and must be greater than 0';
+    }
+    if (programType === 'Diploma' && (!formData.total_units || formData.total_units <= 0)) {
+      newErrors.total_units = 'Total units are required and must be greater than 0';
     }
     if (!formData.course_id) newErrors.course_id = 'Course is required';
     setErrors(newErrors);
@@ -312,6 +315,24 @@ const SubjectModal = ({
                       <Label htmlFor="total_units" className="text-sm font-medium text-gray-700">Units</Label>
                       <Input id="total_units" type="number" value={formData.total_units} placeholder="0" disabled className="bg-gray-100 cursor-not-allowed" />
                     </div>
+                  </div>
+                )}
+
+                {programType === 'Diploma' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="total_units" className="text-sm font-medium text-gray-700">Total Units *</Label>
+                    <Input
+                      id="total_units"
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      value={formData.total_units}
+                      onChange={(e) => handleInputChange('total_units', e.target.value)}
+                      placeholder="Enter total units"
+                      disabled={isLoading}
+                      className={`${errors.total_units ? 'border-red-500' : 'border-gray-300'}`}
+                    />
+                    {errors.total_units && <p className="text-sm text-red-600">{errors.total_units}</p>}
                   </div>
                 )}
 
