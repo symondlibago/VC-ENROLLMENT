@@ -100,13 +100,11 @@ const SubjectDetailsModal = ({
     
     switch (programType) {
       case 'Bachelor':
+      case 'Diploma':
         return columnName !== 'number_of_hours';
       case 'SHS':
         // Show subject_code, descriptive_title, number_of_hours, year, semester
         return ['subject_code', 'descriptive_title', 'number_of_hours', 'year', 'semester'].includes(columnName);
-      case 'Diploma':
-        // Show subject_code, descriptive_title, total_units, year, semester
-        return ['subject_code', 'descriptive_title', 'total_units', 'prerequisite_id', 'year', 'semester'].includes(columnName);
       default:
         return true;
     }
@@ -450,3 +448,4 @@ const SubjectDetailsModal = ({
 };
 
 export default SubjectDetailsModal;
+

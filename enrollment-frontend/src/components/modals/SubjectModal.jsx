@@ -111,8 +111,8 @@ const SubjectModal = ({
     semester: '1st Semester',
     course_id: '',
     number_of_hours: 0,
-    prerequisite_id: null, // <-- MODIFIED: Use prerequisite_id
-    prerequisite: null,    // <-- NEW: To hold the full prerequisite object for the search input
+    prerequisite_id: null,
+    prerequisite: null,
   });
 
   // Validation state
@@ -168,8 +168,8 @@ const SubjectModal = ({
           semester: subject.semester || '1st Semester',
           course_id: subject.course_id || (course ? course.id : ''),
           number_of_hours: subject.number_of_hours || 0,
-          prerequisite_id: subject.prerequisite_id || null, // <-- MODIFIED
-          prerequisite: subject.prerequisite || null,        // <-- MODIFIED
+          prerequisite_id: subject.prerequisite_id || null,
+          prerequisite: subject.prerequisite || null,
         });
       } else {
         // Create mode - reset form
@@ -183,8 +183,8 @@ const SubjectModal = ({
           semester: '1st Semester',
           course_id: course ? course.id : '',
           number_of_hours: 0,
-          prerequisite_id: null, // <-- MODIFIED
-          prerequisite: null,        // <-- MODIFIED
+          prerequisite_id: null,
+          prerequisite: null,
         });
       }
       setErrors({});
@@ -193,12 +193,12 @@ const SubjectModal = ({
 
   // Handle input changes
   const handleInputChange = (field, value) => {
-    const isNumericField = ['lec_hrs', 'lab_hrs', 'number_of_hours', 'total_units'].includes(field);
+    const isNumericField = ['lec_hrs', 'lab_hrs', 'number_of_hours'].includes(field);
     const numericValue = isNumericField ? parseFloat(value) || 0 : value;
 
     setFormData(prev => {
       const newFormData = { ...prev, [field]: numericValue };
-      if (programType === 'Bachelor' && (field === 'lec_hrs' || field === 'lab_hrs')) {
+      if ((programType === 'Bachelor' || programType === 'Diploma') && (field === 'lec_hrs' || field === 'lab_hrs')) {
         const lec = field === 'lec_hrs' ? numericValue : prev.lec_hrs;
         const lab = field === 'lab_hrs' ? numericValue : prev.lab_hrs;
         newFormData.total_units = (Number(lec) || 0) + (Number(lab) || 0);
@@ -221,9 +221,6 @@ const SubjectModal = ({
     if (programType === 'SHS' && (!formData.number_of_hours || formData.number_of_hours <= 0)) {
       newErrors.number_of_hours = 'Number of hours is required and must be greater than 0';
     }
-    if (programType === 'Diploma' && (!formData.total_units || formData.total_units <= 0)) {
-      newErrors.total_units = 'Total units are required and must be greater than 0';
-    }
     if (!formData.course_id) newErrors.course_id = 'Course is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -242,10 +239,13 @@ const SubjectModal = ({
   const shouldShowField = (fieldName) => {
     if (!programType) return true; 
     switch (programType) {
-      case 'Bachelor': return fieldName !== 'number_of_hours';
-      case 'SHS': return ['subject_code', 'descriptive_title', 'number_of_hours', 'year', 'semester'].includes(fieldName);
-      case 'Diploma': return ['subject_code', 'descriptive_title', 'year', 'semester', 'prerequisite_id'].includes(fieldName);
-      default: return true;
+      case 'Bachelor':
+      case 'Diploma':
+        return fieldName !== 'number_of_hours';
+      case 'SHS': 
+        return ['subject_code', 'descriptive_title', 'number_of_hours', 'year', 'semester'].includes(fieldName);
+      default: 
+        return true;
     }
   };
 
@@ -301,7 +301,7 @@ const SubjectModal = ({
                   </div>
                 )}
 
-                {programType === 'Bachelor' && (
+                {(programType === 'Bachelor' || programType === 'Diploma') && (
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="lec_hrs" className="text-sm font-medium text-gray-700">Lec Hrs</Label>
@@ -318,25 +318,6 @@ const SubjectModal = ({
                   </div>
                 )}
 
-                {programType === 'Diploma' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="total_units" className="text-sm font-medium text-gray-700">Total Units *</Label>
-                    <Input
-                      id="total_units"
-                      type="number"
-                      min="0"
-                      step="0.5"
-                      value={formData.total_units}
-                      onChange={(e) => handleInputChange('total_units', e.target.value)}
-                      placeholder="Enter total units"
-                      disabled={isLoading}
-                      className={`${errors.total_units ? 'border-red-500' : 'border-gray-300'}`}
-                    />
-                    {errors.total_units && <p className="text-sm text-red-600">{errors.total_units}</p>}
-                  </div>
-                )}
-
-                {/* --- UPDATED: Searchable Prerequisite Input --- */}
                 {shouldShowField('prerequisite_id') && (
                   <div className="space-y-2">
                     <Label htmlFor="prerequisite" className="text-sm font-medium text-gray-700">Pre-requisite (Optional)</Label>
@@ -407,3 +388,4 @@ const SubjectModal = ({
 };
 
 export default SubjectModal;
+
