@@ -139,7 +139,7 @@ function App() {
             />
           </div>
           <div>
-            <h1 className="text-xl font-bold heading-bold text-gray-900">EduEnroll</h1>
+            <h1 className="text-xl font-bold heading-bold text-gray-900">VIPC Enroll</h1>
             <p className="text-sm text-gray-500">Loading...</p>
           </div>
         </motion.div>
@@ -293,7 +293,7 @@ function App() {
                     animate={{ opacity: 1, transition: { duration: 0.6, delay: 0.4 } }}
                     >
                     <div className="flex items-center justify-between text-sm text-gray-500">
-                        <p>© 2025 EduEnroll Management System. All rights reserved.</p>
+                        <p>© 2025 VIPC Enroll Management System. All rights reserved.</p>
                         <div className="flex items-center space-x-4">
                         <button onClick={handleLogout} className="hover:text-[var(--dominant-red)] liquid-morph">
                             Logout

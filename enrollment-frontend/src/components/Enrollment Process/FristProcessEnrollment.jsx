@@ -24,6 +24,7 @@ import CourseChoicesModal from '../modals/CourseChoicesModal';
 import EnrollmentConfirmationModal from '../modals/EnrollmentConfirmationModal';
 import ValidationErrorModal from '../modals/ValidationErrorModal';
 import { subjectAPI, enrollmentAPI } from '@/services/api';
+import VipcLogo from '/circlelogo.png';
 
 const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
   const [department, setDepartment] = useState('');
@@ -579,31 +580,32 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
         initial="hidden"
         animate="visible"
       >
-        {/* Hero Section */}
-        <motion.div 
-          className="text-center mb-12"
-          variants={itemVariants}
-        >
-          <div className="flex justify-center mb-6">
-            <div className="relative">
-              <div className="w-20 h-20 bg-gradient-to-br from-[var(--dominant-red)] to-red-600 rounded-3xl flex items-center justify-center shadow-2xl">
-                <GraduationCap className="w-10 h-10 text-white" />
-              </div>
-              <div className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg">
-                <span className="text-[var(--dominant-red)] font-bold text-sm">VIPC</span>
-              </div>
+      {/* Header Section */}
+      <motion.div 
+    className="text-center mb-12"
+    variants={itemVariants}
+>
+    <div className="flex justify-center mb-6">
+        <div className="relative">
+            <div className="w-30 h-30 rounded-full flex items-center justify-center shadow-2xl overflow-hidden">
+                <img 
+                    src={VipcLogo} 
+                    alt="VIPC Logo" 
+                    className="w-[110%] h-[100%] object-contain"
+                />
             </div>
-          </div>
-          <h1 className="text-2xl md:text-4xl font-bold heading-bold text-gray-900 mb-4">
-            Welcome to
-            <span className="text-[var(--dominant-red)] block">VIPC Enrollment</span>
-          </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
-            Vineyard International Polytechnic College
-            <br />
-            <span className="text-base">1st Semester, School Year 2025 - 2026</span>
-          </p>
-        </motion.div>
+        </div>
+    </div>
+    <h1 className="text-2xl md:text-4xl font-bold heading-bold text-gray-900 mb-4">
+        Welcome to
+        <span className="text-[var(--dominant-red)] block">VIPC Enrollment</span>
+    </h1>
+    <p className="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
+        Vineyard International Polytechnic College
+        <br />
+        <span className="text-base">1st Semester, School Year 2025 - 2026</span>
+    </p>
+</motion.div>
 
         {/* Progress Steps */}
         <motion.div 

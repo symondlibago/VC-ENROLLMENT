@@ -20,6 +20,8 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import VipcLogo from '/circlelogo.png';
+
 
 const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
   const navigate = useNavigate();
@@ -117,7 +119,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
       switch (user?.role) {
           case 'instructor': return 'Instructor Portal';
           case 'Student': return 'Student Portal';
-          default: return 'Management System';
+          default: return 'Enrollment System';
       }
   };
 
@@ -130,48 +132,52 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
     >
       {/* Header */}
       <div className="p-4 border-b border-white/10">
-        <div className="flex items-center justify-between">
-          <AnimatePresence mode="wait">
+    <div className="flex items-center justify-between">
+        <AnimatePresence mode="wait">
             {!isCollapsed && (
-              <motion.div
-                variants={itemVariants}
-                initial="collapsed"
-                animate="expanded"
-                exit="collapsed"
-                className="flex items-center space-x-3"
-              >
-                <motion.div 
-                  className="w-8 h-8 bg-white rounded-lg flex items-center justify-center"
-                  whileHover={{ rotate: 5, scale: 1.05 }}
-                  transition={{ duration: 0.3 }}
+                <motion.div
+                    variants={itemVariants}
+                    initial="collapsed"
+                    animate="expanded"
+                    exit="collapsed"
+                    className="flex items-center space-x-3"
                 >
-                  <GraduationCap className="w-5 h-5 text-[var(--dominant-red)]" />
+                    <motion.div 
+                        className="w-10 h-10 bg-white rounded-full flex items-center justify-center p-0.5 overflow-hidden" // Added p-0.5 for a slight border
+                        whileHover={{ rotate: 5, scale: 1.05 }}
+                        transition={{ duration: 0.3 }}
+                    >
+                        <img 
+                            src={VipcLogo} 
+                            alt="VIPC Logo" 
+                            className="w-full h-full object-contain"
+                        />
+                    </motion.div>
+                    <div>
+                        <h1 className="text-lg font-bold text-white">VIPC Enroll</h1>
+                        <p className="text-xs text-white/70">
+                            {getPortalName()}
+                        </p>
+                    </div>
                 </motion.div>
-                <div>
-                  <h1 className="text-lg font-bold heading-bold">EduEnroll</h1>
-                  <p className="text-xs text-white/70">
-                    {getPortalName()}
-                  </p>
-                </div>
-              </motion.div>
             )}
-          </AnimatePresence>
-          
-          <Button
+        </AnimatePresence>
+        
+        <Button
             variant="ghost"
             size="sm"
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="text-white hover:bg-white/10 liquid-button p-2"
-          >
+        >
             <motion.div
-              animate={{ rotate: isCollapsed ? 0 : 180 }}
-              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+                animate={{ rotate: isCollapsed ? 0 : 180 }}
+                transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
             >
-              {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
             </motion.div>
-          </Button>
-        </div>
-      </div>
+        </Button>
+    </div>
+</div>
 
       {/* Navigation Menu */}
       <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
@@ -266,7 +272,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
               className="text-center"
             >
               <p className="text-xs text-white/70">Version 1.0</p>
-              <p className="text-xs text-white/50">© 2025 EduEnroll</p>
+              <p className="text-xs text-white/50">© 2025 VIPC Enroll</p>
             </motion.div>
           )}
         </AnimatePresence>

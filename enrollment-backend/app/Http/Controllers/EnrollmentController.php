@@ -999,8 +999,8 @@ public function getStudentsForIdReleasing()
         ->where('enrollment_status', 'enrolled')
         ->where(function ($query) use ($searchTerm) {
             $query->where('student_id_number', 'like', '%' . $searchTerm . '%')
-                ->orWhere(DB::raw("CONCAT(first_name, ' ', last_name)"), 'like', '%' . $searchTerm . '%')
-                ->orWhere(DB::raw("CONCAT(last_name, ' ', first_name)"), 'like', '%' . $searchTerm . '%');
+            ->orWhere(DB::raw("CONCAT_WS(' ', first_name, last_name)"), 'LIKE', '%' . $searchTerm . '%')
+            ->orWhere(DB::raw("CONCAT_WS(' ', last_name, first_name)"), 'LIKE', '%' . $searchTerm . '%');
         })
         ->select('id', 'student_id_number', 'first_name', 'last_name', 'middle_name', 'course_id', 'year', 'semester')
         ->limit(10)

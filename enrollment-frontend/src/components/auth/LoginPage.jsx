@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { authAPI } from '../../services/api';
 import { toast } from 'sonner';
+import VipcLogo from '/circlelogo.png';
 
 import SuccessAlert from '../modals/SuccessAlert';
 import ValidationErrorModal from '../modals/ValidationErrorModal';
@@ -118,18 +119,23 @@ const LoginPage = ({ onLogin, onBack }) => {
       <ValidationErrorModal isOpen={!!modalError} message={modalError} onClose={() => setModalError('')} />
       
       <motion.div className="w-full max-w-md relative z-10" variants={containerVariants} initial="hidden" animate="visible">
-        <div className="text-center mb-8">
+      <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
             <Button variant="ghost" onClick={onBack} className="absolute left-0 text-red-800 hover:text-white cursor-pointer">
-              <ArrowLeft className="w-5 h-5" />
+                <ArrowLeft className="w-5 h-5" />
             </Button>
-            <div className="w-12 h-12 bg-[var(--dominant-red)] rounded-2xl flex items-center justify-center">
-              <GraduationCap className="w-7 h-7 text-white" />
+            
+            <div className="w-12 h-12 bg-transparent rounded-2xl flex items-center justify-center">
+                <img 
+                    src={VipcLogo} 
+                    alt="VIPC Logo" 
+                    className="w-full h-full object-contain p-0.1 border-0 rounded-full"
+                />
             </div>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome to EduEnroll</h1>
-          <p className="text-gray-600">Access your enrollment management dashboard</p>
         </div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome to VIPC Enroll</h1>
+        <p className="text-gray-600">Access your enrollment management dashboard</p>
+      </div>
         
         <Card className="shadow-lg border-0">
           <CardContent className="p-0">
@@ -228,7 +234,7 @@ const LoginPage = ({ onLogin, onBack }) => {
         </Card>
 
         <div className="text-center mt-8 text-sm text-gray-500">
-          <p>© 2024 EduEnroll. All rights reserved.</p>
+          <p>© 2025 VIPC Enroll. All rights reserved.</p>
           <div className="flex justify-center space-x-4 mt-2">
             <a href="#" className="hover:text-[var(--dominant-red)]">Privacy Policy</a>
             <a href="#" className="hover:text-[var(--dominant-red)]">Terms of Service</a>

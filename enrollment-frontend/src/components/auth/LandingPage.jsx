@@ -13,7 +13,13 @@ import {
   TrendingUp,
   Shield,
   Zap,
-  Globe
+  Globe,
+  ClipboardCheck, // New Icon for Registration
+  Factory,        // New Icon for Facilities
+  Link,           // New Icon for Linkage
+  CalendarCheck,  // New Icon for Enrollment
+  HeartHandshake, // New Icon for Mission
+  School          // New Icon for Institution
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -22,8 +28,8 @@ import { Badge } from '@/components/ui/badge';
 const LandingPage = ({ onGetStarted, onEnrollNow }) => {
   const [isVisible, setIsVisible] = useState(false);
   const { scrollY } = useScroll();
-  const y1 = useTransform(scrollY, [0, 300], [0, -50]);
-  const y2 = useTransform(scrollY, [0, 300], [0, -100]);
+  // Simplified scroll transformation for aesthetic background movement
+  const y1 = useTransform(scrollY, [0, 500], [0, -75]); 
   
   const handleEnrollClick = () => {
     if (onEnrollNow) {
@@ -41,78 +47,47 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
     setIsVisible(true);
   }, []);
 
-  const features = [
+  // 💡 NEW: Features based on Vineyard College's actual strengths
+  const collegeStrengths = [
     {
-      icon: Users,
-      title: 'Student Management',
-      description: 'Comprehensive student profiles, enrollment tracking, and academic progress monitoring.',
-      color: 'bg-blue-50 text-blue-600'
-    },
-    {
-      icon: BookOpen,
-      title: 'Course Management',
-      description: 'Create, organize, and manage courses with flexible scheduling and capacity control.',
-      color: 'bg-green-50 text-green-600'
-    },
-    {
-      icon: Award,
-      title: 'Certification System',
-      description: 'Automated certificate generation and digital credential management.',
-      color: 'bg-purple-50 text-purple-600'
-    },
-    {
-      icon: TrendingUp,
-      title: 'Analytics Dashboard',
-      description: 'Real-time insights into enrollment trends, student performance, and system metrics.',
-      color: 'bg-orange-50 text-orange-600'
-    },
-    {
-      icon: Shield,
-      title: 'Secure Platform',
-      description: 'Enterprise-grade security with role-based access control and data encryption.',
+      icon: HeartHandshake,
+      title: 'Our Purpose and Mission',
+      description: 'Providing quality basic, technical/vocational, higher, and advanced education responsive to the needs of time and society.',
       color: 'bg-red-50 text-[var(--dominant-red)]'
     },
     {
-      icon: Globe,
-      title: 'Multi-Campus Support',
-      description: 'Manage multiple campuses, departments, and programs from a single platform.',
+      icon: ClipboardCheck,
+      title: 'National Registration',
+      description: 'Fully registered with DepEd, TESDA, CHED, and DOT, ensuring recognized and compliant educational standards.',
+      color: 'bg-blue-50 text-blue-600'
+    },
+    {
+      icon: Factory,
+      title: 'Industry-Standard Facilities',
+      description: 'Equipped with state-of-the-art hospitality and culinary training facilities, simulating the real workplace environment.',
+      color: 'bg-green-50 text-green-600'
+    },
+    {
+      icon: Link,
+      title: 'Direct Industry Linkage',
+      description: 'Guaranteed industry connections with various hotels and resorts all over Asia and Australia for OJT and employment.',
+      color: 'bg-purple-50 text-purple-600'
+    },
+    {
+      icon: CalendarCheck,
+      title: 'Efficient Online Enrollment',
+      description: 'Streamlined admissions process allowing students to check eligibility and enroll seamlessly for the next academic term.',
+      color: 'bg-orange-50 text-orange-600'
+    },
+    {
+      icon: School,
+      title: 'Non-Profit Institution',
+      description: 'A non-stock and non-profit educational institution focused solely on student growth and community service.',
       color: 'bg-indigo-50 text-indigo-600'
     }
   ];
-
-  const testimonials = [
-    {
-      name: 'Dr. Sarah Johnson',
-      role: 'Academic Director',
-      institution: 'Stanford University',
-      content: 'EduEnroll has transformed our enrollment process. The intuitive interface and powerful features have increased our efficiency by 300%.',
-      avatar: 'SJ',
-      rating: 5
-    },
-    {
-      name: 'Michael Chen',
-      role: 'IT Administrator',
-      institution: 'MIT',
-      content: 'The best enrollment system we\'ve used. The analytics and reporting features provide incredible insights into our student data.',
-      avatar: 'MC',
-      rating: 5
-    },
-    {
-      name: 'Emily Rodriguez',
-      role: 'Registrar',
-      institution: 'Harvard University',
-      content: 'Student satisfaction has improved dramatically since implementing EduEnroll. The mobile-friendly design is a game-changer.',
-      avatar: 'ER',
-      rating: 5
-    }
-  ];
-
-  const stats = [
-    { number: '50K+', label: 'Students Enrolled' },
-    { number: '1,200+', label: 'Institutions' },
-    { number: '99.9%', label: 'Uptime' },
-    { number: '24/7', label: 'Support' }
-  ];
+  
+  // 💡 REMOVED: Testimonials and Stats for realism, as requested.
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -157,22 +132,25 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
 
         <div className="container mx-auto px-6 relative z-10">
           <div className="text-center max-w-4xl mx-auto">
+            <motion.p
+               variants={itemVariants}
+               className="text-xl md:text-2xl text-[var(--dominant-red)] font-semibold mb-2 leading-relaxed tracking-wider"
+            >
+              WELCOME TO
+            </motion.p>
             <motion.h1
               variants={itemVariants}
-              className="text-5xl md:text-7xl font-bold heading-bold text-gray-900 mb-6 leading-tight"
+              className="text-4xl md:text-6xl font-extrabold heading-bold text-gray-900 mb-6 leading-tight uppercase"
             >
-              Transform Your
-              <span className="text-[var(--dominant-red)] block">
-                Enrollment Process
-              </span>
+              VINEYARD INTERNATIONAL POLYTECHNIC COLLEGE
             </motion.h1>
 
             <motion.p
               variants={itemVariants}
-              className="text-xl md:text-2xl text-gray-600 mb-8 leading-relaxed"
+              className="text-lg md:text-xl text-gray-600 mb-10 leading-relaxed max-w-3xl mx-auto"
             >
-              The most advanced enrollment management system trusted by leading educational institutions worldwide. 
-              Streamline admissions, manage students, and boost efficiency with our cutting-edge platform.
+              A non-stock and non-profit Educational Institution providing quality basic, technical/vocational, 
+              higher, and advanced education responsive to the need of time and society.
             </motion.p>
 
             <motion.div
@@ -182,7 +160,7 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
               <Button
                 size="lg"
                 onClick={handleLoginClick} 
-                className="gradient-primary text-white px-8 py-4 text-lg liquid-button group cursor-pointer"
+                className="gradient-primary text-white px-8 py-4 text-lg liquid-button group cursor-pointer shadow-xl hover:shadow-2xl"
               >
                 Login
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -191,31 +169,13 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
                 variant="outline"
                 size="lg"
                 onClick={handleEnrollClick} 
-                className="px-8 py-4 text-lg border-2 border-gray-300 hover:border-[var(--dominant-red)] liquid-button group cursor-pointer"
+                className="px-8 py-4 text-lg border-2 border-[var(--dominant-red)] text-[var(--dominant-red)] bg-white hover:bg-red-800 liquid-button group cursor-pointer"
               >
                 <Play className="mr-2 w-5 h-5" />
-                Enroll Now
+                Start New Enrollment
               </Button>
             </motion.div>
 
-            {/* Stats */}
-            <motion.div
-              variants={itemVariants}
-              className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-2xl mx-auto"
-            >
-              {stats.map((stat, index) => (
-                <motion.div
-                  key={stat.label}
-                  className="text-center"
-                  whileHover={{ scale: 1.05 }}
-                >
-                  <div className="text-2xl md:text-3xl font-bold heading-bold text-[var(--dominant-red)] mb-1">
-                    {stat.number}
-                  </div>
-                  <div className="text-sm text-gray-600">{stat.label}</div>
-                </motion.div>
-              ))}
-            </motion.div>
           </div>
         </div>
 
@@ -231,7 +191,7 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
         </motion.div>
       </motion.section>
 
-      {/* Features Section */}
+      {/* College Strengths Section (Replaces Features) */}
       <motion.section
         className="py-24 bg-white"
         initial="hidden"
@@ -242,23 +202,22 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
         <div className="container mx-auto px-6">
           <motion.div variants={itemVariants} className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold heading-bold text-gray-900 mb-6">
-              Everything You Need to
-              <span className="text-[var(--dominant-red)]"> Succeed</span>
+              Our Core Strengths & 
+              <span className="text-[var(--dominant-red)]"> Commitments</span>
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Our comprehensive platform provides all the tools you need to manage enrollments, 
-              track student progress, and optimize your educational operations.
+              What sets Vineyard International Polytechnic College apart as an international training center.
             </p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, index) => {
+            {collegeStrengths.map((feature, index) => {
               const Icon = feature.icon;
               return (
                 <motion.div
                   key={feature.title}
                   variants={itemVariants}
-                  whileHover={{ y: -10 }}
+                  whileHover={{ y: -6 }} // Reduced lift for a smoother card-hover effect
                   className="liquid-hover"
                 >
                   <Card className="card-hover border-0 shadow-lg h-full">
@@ -266,7 +225,7 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
                       <div className={`w-16 h-16 rounded-2xl ${feature.color} flex items-center justify-center mb-6`}>
                         <Icon className="w-8 h-8" />
                       </div>
-                      <h3 className="text-xl font-bold heading-bold text-gray-900 mb-4">
+                      <h3 className="text-xl font-bold text-gray-900 mb-4">
                         {feature.title}
                       </h3>
                       <p className="text-gray-600 leading-relaxed">
@@ -281,63 +240,9 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
         </div>
       </motion.section>
 
-      {/* Testimonials Section */}
-      <motion.section
-        className="py-24 gradient-soft"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-100px" }}
-        variants={containerVariants}
-      >
-        <div className="container mx-auto px-6">
-          <motion.div variants={itemVariants} className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold heading-bold text-gray-900 mb-6">
-              Trusted by Leading
-              <span className="text-[var(--dominant-red)]"> Institutions</span>
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Join thousands of educational institutions that have transformed their enrollment process with EduEnroll.
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <motion.div
-                key={testimonial.name}
-                variants={itemVariants}
-                whileHover={{ scale: 1.02 }}
-                className="liquid-hover"
-              >
-                <Card className="card-hover border-0 shadow-lg h-full">
-                  <CardContent className="p-8">
-                    <div className="flex items-center mb-4">
-                      {[...Array(testimonial.rating)].map((_, i) => (
-                        <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
-                      ))}
-                    </div>
-                    <Quote className="w-8 h-8 text-[var(--dominant-red)] mb-4" />
-                    <p className="text-gray-700 mb-6 leading-relaxed">
-                      "{testimonial.content}"
-                    </p>
-                    <div className="flex items-center">
-                      <div className="w-12 h-12 bg-[var(--dominant-red)] rounded-full flex items-center justify-center text-white font-bold mr-4">
-                        {testimonial.avatar}
-                      </div>
-                      <div>
-                        <div className="font-bold text-gray-900">{testimonial.name}</div>
-                        <div className="text-sm text-gray-600">{testimonial.role}</div>
-                        <div className="text-sm text-[var(--dominant-red)]">{testimonial.institution}</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </motion.section>
-
-      {/* CTA Section */}
+      {/* 💡 REMOVED: Testimonials Section for realism */}
+      
+      {/* CTA Section (Updated) */}
       <motion.section
         className="py-24 gradient-primary text-white relative overflow-hidden"
         initial="hidden"
@@ -345,30 +250,21 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
         viewport={{ once: true, margin: "-100px" }}
         variants={containerVariants}
       >
-        <motion.div
-          className="absolute inset-0 opacity-20"
-          style={{ y: y2 }}
-        >
-          <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl"></div>
-          <div className="absolute bottom-0 right-0 w-72 h-72 bg-white rounded-full blur-3xl"></div>
-        </motion.div>
-
         <div className="container mx-auto px-6 relative z-10">
           <motion.div variants={itemVariants} className="text-center max-w-4xl mx-auto">
             <h2 className="text-4xl md:text-5xl font-bold heading-bold mb-6">
-              Ready to Transform Your Enrollment Process?
+              Begin Your Journey with Vineyard College
             </h2>
             <p className="text-xl mb-8 opacity-90">
-              Join thousands of institutions already using EduEnroll to streamline their operations 
-              and improve student satisfaction.
+              Apply now and gain access to industry-standard training and global opportunities.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 size="lg"
                 onClick={handleEnrollClick}
-                className="bg-white text-[var(--dominant-red)] hover:bg-gray-100 px-8 py-4 text-lg liquid-button group"
+                className="bg-white text-[var(--dominant-red)] hover:bg-gray-100 px-8 py-4 text-lg liquid-button group shadow-xl hover:shadow-2xl"
               >
-                Enroll Now !
+                Enroll Today!
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
             </div>
@@ -380,4 +276,3 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
 };
 
 export default LandingPage;
-

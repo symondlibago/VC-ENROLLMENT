@@ -28,10 +28,21 @@ use App\Http\Controllers\ManagementController;
 */
 
 // Public authentication routes
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/reset-password', [AuthController::class, 'resetPassword']);
-Route::post('/login/verify-pin', [AuthController::class, 'verifyPin']);
+Route::middleware('throttle:3,1')->group(function () {
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+    Route::post('/login/verify-pin', [AuthController::class, 'verifyPin']);
+
+    // Reset Password
+    Route::post('/forgot-password', [AuthController::class, 'sendPasswordResetOtp']);
+    Route::post('/reset-password-with-otp', [AuthController::class, 'resetPasswordWithOtp']);
+
+    // Reset PIN
+    Route::post('/forgot-pin/send-otp', [AuthController::class, 'sendPinResetOtp']);
+    Route::post('/forgot-pin/verify-otp', [AuthController::class, 'verifyPinResetOtp']);
+    Route::post('/forgot-pin/reset-pin', [AuthController::class, 'resetPinWithToken']);
+});
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -138,11 +149,3 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('upload-receipts', [UploadReceiptController::class, 'store']);
     Route::get('upload-receipts/search-students', [UploadReceiptController::class, 'searchStudents']);
 
-    // Reset Password
-    Route::post('/forgot-password', [AuthController::class, 'sendPasswordResetOtp']);
-    Route::post('/reset-password-with-otp', [AuthController::class, 'resetPasswordWithOtp']);
-
-    // Reset PIN
-    Route::post('/forgot-pin/send-otp', [AuthController::class, 'sendPinResetOtp']);
-    Route::post('/forgot-pin/verify-otp', [AuthController::class, 'verifyPinResetOtp']);
-    Route::post('/forgot-pin/reset-pin', [AuthController::class, 'resetPinWithToken']);
