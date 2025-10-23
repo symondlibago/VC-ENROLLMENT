@@ -456,10 +456,11 @@ export const enrollmentAPI = {
     }
   },
 
-  submitApproval: async (studentId, { status, remarks }) => {
+  submitApproval: async (studentId, { status, remarks, roleName }) => {
     const response = await api.post(`/enrollments/${studentId}/approval`, {
         status,
-        remarks 
+        remarks,
+        role: roleName
     });
     return response.data;
   },

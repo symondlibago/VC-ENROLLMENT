@@ -318,6 +318,8 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
         $validator = Validator::make($request->all(), [
             'status' => 'required|string|in:approved,rejected',
             'remarks' => 'nullable|string|max:1000',
+            // ✅ 2. Validate the 'role' being sent from the frontend
+            'role' => ['required', 'string', Rule::in(['Program Head', 'Registrar', 'Cashier'])],
         ]);
 
         if ($validator->fails()) {
@@ -326,23 +328,28 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
 
         $user = Auth::user();
         $student = PreEnrolledStudent::with('enrollmentApprovals')->findOrFail($id);
-        $userRole = $user->role;
+        $userRole = $user->role; // This is the role of the logged-in user (e.g., 'Admin')
+        
+        $roleToApprove = $request->input('role');
 
         // Authorization & Workflow Logic (no changes here)
         $isAuthorized = false;
         $programHeadApproval = $student->getApprovalStatusFor('Program Head');
         $registrarApproval = $student->getApprovalStatusFor('Registrar');
 
+        // This logic correctly authorizes an Admin to proceed
         switch ($userRole) {
             case 'Admin':
+                $isAuthorized = true; // Admin can always approve
+                break;
             case 'Program Head':
-                if ($userRole === 'Program Head' || $userRole === 'Admin') $isAuthorized = true;
+                if ($roleToApprove === 'Program Head') $isAuthorized = true;
                 break;
             case 'Registrar':
-                if (optional($programHeadApproval)->status === 'approved') $isAuthorized = true;
+                if ($roleToApprove === 'Registrar' && optional($programHeadApproval)->status === 'approved') $isAuthorized = true;
                 break;
             case 'Cashier':
-                if (optional($programHeadApproval)->status === 'approved' && optional($registrarApproval)->status === 'approved') $isAuthorized = true;
+                if ($roleToApprove === 'Cashier' && optional($programHeadApproval)->status === 'approved' && optional($registrarApproval)->status === 'approved') $isAuthorized = true;
                 break;
         }
 
@@ -352,12 +359,15 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
         
         try {
             $approval = EnrollmentApproval::updateOrCreate(
-                ['pre_enrolled_student_id' => $student->id, 'role' => $userRole],
+                // ✅ 4. Use the '$roleToApprove' variable to find/create the record
+                ['pre_enrolled_student_id' => $student->id, 'role' => $roleToApprove],
+                // ✅ 5. Save the 'user_id' of whoever is logged in (the Admin)
                 ['user_id' => $user->id, 'status' => $request->input('status'), 'remarks' => $request->input('remarks')]
             );
             
             $student->load('enrollmentApprovals'); // Refresh approvals relationship
 
+            // ... (rest of the logic is unchanged)
             $programHeadStatus = optional($student->getApprovalStatusFor('Program Head'))->status;
             $registrarStatus = optional($student->getApprovalStatusFor('Registrar'))->status;
             $cashierStatus = optional($student->getApprovalStatusFor('Cashier'))->status;
