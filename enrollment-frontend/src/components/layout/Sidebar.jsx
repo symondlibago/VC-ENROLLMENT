@@ -63,12 +63,29 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
 
   // --- MODIFIED: Determine which menu to display based on user role ---
   const getMenuItems = () => {
-    switch (user?.role) {
+    const role = user?.role;
+
+    switch (role) {
       case 'instructor':
         return instructorMenuItems;
-      case 'Student': // Match the role from the database
+      case 'Student':
         return studentMenuItems;
-      default:
+      
+      case 'Admin': // Admin sees all admin items
+        return adminMenuItems;
+
+      case 'Program Head':
+      case 'Registrar': { // Program Head and Registrar have the same restrictions
+        const hiddenItems = ['grades', 'id-releasing', 'facultyadminstaff', 'courses'];
+        return adminMenuItems.filter(item => !hiddenItems.includes(item.id));
+      }
+
+      case 'Cashier': { // Cashier has a specific list
+        const allowedItems = ['dashboard', 'enrollment', 'schedule', 'shiftee', 'id-releasing', 'settings'];
+        return adminMenuItems.filter(item => allowedItems.includes(item.id));
+      }
+
+      default: // Default case (e.g., if role is null or unrecognized)
         return adminMenuItems;
     }
   };
@@ -119,6 +136,10 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
       switch (user?.role) {
           case 'instructor': return 'Instructor Portal';
           case 'Student': return 'Student Portal';
+          case 'Admin': return 'Admin Portal';
+          case 'Program Head': return 'Program Head Portal';
+          case 'Registrar': return 'Registrar Portal';
+          case 'Cashier': return 'Cashier Portal';
           default: return 'Enrollment System';
       }
   };
@@ -247,7 +268,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
 
               {isCollapsed && (
                 <motion.div
-                  className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50"
+                  className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowDrap z-50"
                   initial={{ opacity: 0, x: -10 }}
                   whileHover={{ opacity: 1, x: 0 }}
                 >

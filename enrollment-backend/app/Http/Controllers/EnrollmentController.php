@@ -151,6 +151,7 @@ class EnrollmentController extends Controller
         // Prepare the data for the frontend
         $data = [
             'student' => [
+                'student_id_number' => $student->student_id_number,
                 'fullName' => $student->getFullNameAttribute(),
                 'course' => $student->course->course_name ?? 'N/A',
                 'semester' => $student->semester,

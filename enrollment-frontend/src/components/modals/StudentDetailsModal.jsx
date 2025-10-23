@@ -359,7 +359,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="text-lg font-medium text-black">ENROLLMENT INFORMATION</h3>
-                  {student.enrollment_approvals && (
+                  {(currentUserRole === 'Cashier' || currentUserRole === 'Admin') && student.enrollment_approvals && (
                     <DownloadCOR 
                       student={student} 
                       subjectsWithSchedules={subjectsWithSchedules} 

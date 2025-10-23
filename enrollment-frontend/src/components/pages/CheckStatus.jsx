@@ -250,6 +250,7 @@ const CheckStatus = ({ onBack }) => {
                         <h4 className="text-base font-bold heading-bold text-gray-900 ml-2">Student Information</h4>
                       </div>
                       <div className="space-y-2">
+                      <div><p className="text-gray-600 text-xs font-semibold">Student ID Number</p><p className="text-gray-900 font-bold text-sm">{searchResult.student.student_id_number}</p></div>
                         <div><p className="text-gray-600 text-xs font-semibold">Full Name</p><p className="text-gray-900 font-bold text-sm">{searchResult.student.fullName}</p></div>
                         <div><p className="text-gray-600 text-xs font-semibold">Course</p><p className="text-gray-900 font-bold text-sm">{searchResult.student.course}</p></div>
                       </div>
