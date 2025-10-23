@@ -28,6 +28,9 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
                 const studentData = response.data.student;
                 // Initialize form data with ALL editable fields
                 setFormData({
+                    // ✅ ADDED student_id_number
+                    student_id_number: studentData.student_id_number || '',
+
                     // Basic Info
                     last_name: studentData.last_name || '',
                     first_name: studentData.first_name || '',
@@ -93,9 +96,9 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
     };
 
     const handleSaveChanges = async () => {
-        // Basic frontend check for required fields
-        if (!formData.first_name || !formData.last_name || !formData.email_address) {
-            setValidationError({ isOpen: true, message: 'First Name, Last Name, and Email are required fields.' });
+        // ✅ UPDATED basic frontend check
+        if (!formData.student_id_number || !formData.first_name || !formData.last_name || !formData.email_address) {
+            setValidationError({ isOpen: true, message: 'Student ID, First Name, Last Name, and Email are required fields.' });
             return;
         }
 
@@ -112,8 +115,14 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
 
         } catch (error) {
             if (error.errors) {
-                const firstError = Object.values(error.errors)[0][0];
-                setValidationError({ isOpen: true, message: firstError });
+                // ✅ Handle new validation error for student_id_number
+                let errorMsg = '';
+                if (error.errors.student_id_number) {
+                    errorMsg = error.errors.student_id_number[0];
+                } else {
+                    errorMsg = Object.values(error.errors)[0][0];
+                }
+                setValidationError({ isOpen: true, message: errorMsg });
             } else {
                 setAlert({ isVisible: true, message: error.message || "Failed to update details.", type: 'error' });
             }
@@ -163,6 +172,12 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
                                     {/* --- Basic Information --- */}
                                     <div className="p-4 border rounded-lg space-y-4">
                                         <h3 className="text-base font-semibold text-gray-900">Basic Information</h3>
+                                        
+                                        {/* ✅ ADDED Student ID Number input */}
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            {renderInput("student_id_number", "Student ID Number", { placeholder: "2025-0001" })}
+                                        </div>
+
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             {renderInput("first_name", "First Name", { placeholder: "Juan" })}
                                             {renderInput("middle_name", "Middle Name", { placeholder: "Reyes" })}

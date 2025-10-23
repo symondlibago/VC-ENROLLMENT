@@ -23,7 +23,7 @@ class PreEnrolledStudentObserver
 
                 // Sanitize last name for the password (lowercase, no spaces)
                 $passwordPart = strtolower(str_replace(' ', '', $student->last_name));
-                $rawPassword = $passwordPart . '@' . $student->student_id_number;
+                $rawPassword = $passwordPart . '@' . 'vipc2025';
 
                 // 2. Create the new user
                 $newUser = User::create([
