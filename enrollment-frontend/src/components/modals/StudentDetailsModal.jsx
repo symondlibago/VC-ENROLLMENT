@@ -53,8 +53,8 @@ const ApprovalAction = ({
     setError('');
     setIsSaving(true);
     try {
-      await enrollmentAPI.submitApproval(studentId, { status, remarks });
-      onApprovalSaved(); // This will trigger a full data refresh in the parent
+      await enrollmentAPI.submitApproval(studentId, { status, remarks, roleName });
+      onApprovalSaved();
     } catch (err) {
       setError(err.message || 'Failed to save approval.');
       console.error("Approval save error:", err);
