@@ -126,7 +126,7 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
           className="absolute inset-0 opacity-10"
           style={{ y: y1 }}
         >
-          <div className="absolute top-20 left-20 w-72 h-72 bg-[var(--dominant-red)] rounded-full blur-3xl"></div>
+          <div className="absolute top-20 left-20 w-72 h-72 bg-red-800 rounded-full blur-3xl"></div>
           <div className="absolute bottom-20 right-20 w-96 h-96 bg-blue-500 rounded-full blur-3xl"></div>
         </motion.div>
 
@@ -134,7 +134,7 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
           <div className="text-center max-w-4xl mx-auto">
             <motion.p
                variants={itemVariants}
-               className="text-xl md:text-2xl text-[var(--dominant-red)] font-semibold mb-2 leading-relaxed tracking-wider"
+               className="text-xl md:text-2xl text-red-800 font-semibold mb-2 leading-relaxed tracking-wider"
             >
               WELCOME TO
             </motion.p>
@@ -169,7 +169,7 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
                 variant="outline"
                 size="lg"
                 onClick={handleEnrollClick} 
-                className="px-8 py-4 text-lg border-2 border-[var(--dominant-red)] text-[var(--dominant-red)] bg-white hover:bg-red-800 liquid-button group cursor-pointer"
+                className="px-8 py-4 text-lg border-2 border-red-80 text-red-800 bg-white hover:bg-red-800 liquid-button group cursor-pointer"
               >
                 <Play className="mr-2 w-5 h-5" />
                 Start New Enrollment
@@ -203,7 +203,7 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
           <motion.div variants={itemVariants} className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold heading-bold text-gray-900 mb-6">
               Our Core Strengths & 
-              <span className="text-[var(--dominant-red)]"> Commitments</span>
+              <span className="text-red-800"> Commitments</span>
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               What sets Vineyard International Polytechnic College apart as an international training center.
@@ -262,7 +262,7 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
               <Button
                 size="lg"
                 onClick={handleEnrollClick}
-                className="bg-white text-[var(--dominant-red)] hover:bg-gray-100 px-8 py-4 text-lg liquid-button group shadow-xl hover:shadow-2xl"
+                className="bg-white text-red-800 hover:bg-gray-100 px-8 py-4 text-lg liquid-button group shadow-xl hover:shadow-2xl"
               >
                 Enroll Today!
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />

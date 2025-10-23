@@ -236,8 +236,8 @@ const LoginPage = ({ onLogin, onBack }) => {
         <div className="text-center mt-8 text-sm text-gray-500">
           <p>© 2025 VIPC Enroll. All rights reserved.</p>
           <div className="flex justify-center space-x-4 mt-2">
-            <a href="#" className="hover:text-[var(--dominant-red)]">Privacy Policy</a>
-            <a href="#" className="hover:text-[var(--dominant-red)]">Terms of Service</a>
+            <a href="#">Privacy Policy</a>
+            <a href="#">Terms of Service</a>
           </div>
         </div>
       </motion.div>
