@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\DB;
 
 class PreEnrolledStudent extends Model
 {
@@ -71,21 +72,26 @@ class PreEnrolledStudent extends Model
     {
         static::creating(function ($student) {
             if (!$student->student_id_number) {
-                $currentYear = date('Y');
-                $lastStudentOfTheYear = self::whereYear('created_at', $currentYear)
-                                            ->orderBy('id', 'desc')
-                                            ->first();
                 
-                $nextNumber = 1;
-                if ($lastStudentOfTheYear) {
-                    $lastIdParts = explode('-', $lastStudentOfTheYear->student_id_number);
-                    $lastNumber = end($lastIdParts);
-                    if (is_numeric($lastNumber)) {
-                        $nextNumber = (int)$lastNumber + 1;
+                $prefix = date('Y'); // e.g., '2025'
+
+                $lastKnownNumber = 2224;
+                $lastStudent = self::orderByRaw('CAST(SUBSTRING_INDEX(student_id_number, "-", -1) AS UNSIGNED) DESC')
+                                    ->first();
+
+                $nextNumber = $lastKnownNumber + 1; 
+
+                if ($lastStudent) {
+                    $lastIdParts = explode('-', $lastStudent->student_id_number);
+                    
+                    if (count($lastIdParts) === 2) {
+                        $lastNumberInDb = (int)$lastIdParts[1];
+                        if ($lastNumberInDb > $lastKnownNumber) {
+                            $nextNumber = $lastNumberInDb + 1;
+                        }
                     }
                 }
-                
-                $student->student_id_number = $currentYear . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+                $student->student_id_number = $prefix . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
             }
         });
     }
