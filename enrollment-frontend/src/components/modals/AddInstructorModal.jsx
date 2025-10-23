@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import ValidationErrorModal from './ValidationErrorModal'; // Import the new modal
+import ValidationErrorModal from './ValidationErrorModal';
 
 const AddInstructorModal = ({ isOpen, onClose, onSave, instructor }) => {
   const isEditMode = Boolean(instructor);
