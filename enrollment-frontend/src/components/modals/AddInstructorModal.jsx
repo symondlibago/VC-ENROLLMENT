@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Check, Loader2, KeyRound } from 'lucide-react';
+import { X, User, Check, Loader2, KeyRound,Eye, EyeOff} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +17,9 @@ import ValidationErrorModal from './ValidationErrorModal'; // Import the new mod
 
 const AddInstructorModal = ({ isOpen, onClose, onSave, instructor }) => {
   const isEditMode = Boolean(instructor);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   
   const [formData, setFormData] = useState({
     name: '', title: '', email: '', department: '', status: 'Active',
@@ -105,13 +108,16 @@ const AddInstructorModal = ({ isOpen, onClose, onSave, instructor }) => {
             initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-6 border-b">
-              <h2 className="text-xl font-bold heading-bold text-gray-900 flex items-center">
-                <User className="w-5 h-5 text-[var(--dominant-red)] mr-2" />
-                {isEditMode ? 'Edit Instructor' : 'Add New Instructor'}
-              </h2>
-              <Button variant="ghost" size="sm" onClick={onClose}><X className="w-5 h-5" /></Button>
-            </div>
+            <div className="flex items-center justify-between p-6 border-b bg-red-800">
+            <h2 className="text-xl font-bold text-white flex items-center">
+              <User className="w-5 h-5 text-white mr-2" />
+              {isEditMode ? 'Edit Instructor' : 'Add New Instructor'}
+            </h2>
+            <Button variant="ghost" size="sm" onClick={onClose} className="text-white hover:text-red-800 hover:bg-white cursor-pointer">
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+
 
             <form onSubmit={handleSubmit}>
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)] space-y-4">
@@ -131,24 +137,74 @@ const AddInstructorModal = ({ isOpen, onClose, onSave, instructor }) => {
                 </div>
                 
                 {!isEditMode && (
-                  <>
-                    <div className="border-t pt-4 mt-2">
-                      <Label className="flex items-center text-gray-600">
-                        <KeyRound className="w-4 h-4 mr-2" /> Set Account Password
+                <>
+                  <div className="border-t pt-4 mt-2">
+                    <Label className="flex items-center text-gray-600">
+                      <KeyRound className="w-4 h-4 mr-2" /> Set Account Password
+                    </Label>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Password field */}
+                    <div className="space-y-2 relative">
+                      <Label htmlFor="password">
+                        Password <span className="text-red-500">*</span>
                       </Label>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                       <div className="space-y-2">
-                        <Label htmlFor="password">Password <span className="text-red-500">*</span></Label>
-                        <Input id="password" name="password" type="password" value={formData.password} onChange={handleChange} required={!isEditMode} className="border border-gray-300"/>
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          name="password"
+                          type={showPassword ? "text" : "password"}
+                          value={formData.password}
+                          onChange={handleChange}
+                          required={!isEditMode}
+                          className="border border-gray-300 pr-10" // add padding-right for icon space
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((prev) => !prev)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 cursor-pointer"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="w-5 h-5" />
+                          ) : (
+                            <Eye className="w-5 h-5" />
+                          )}
+                        </button>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="password_confirmation">Confirm Password <span className="text-red-500">*</span></Label>
-                        <Input id="password_confirmation" name="password_confirmation" type="password" value={formData.password_confirmation} onChange={handleChange} required={!isEditMode} className="border border-gray-300"/>
+                    </div>
+
+                    {/* Confirm Password field */}
+                    <div className="space-y-2 relative">
+                      <Label htmlFor="password_confirmation">
+                        Confirm Password <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="password_confirmation"
+                          name="password_confirmation"
+                          type={showConfirmPassword ? "text" : "password"}
+                          value={formData.password_confirmation}
+                          onChange={handleChange}
+                          required={!isEditMode}
+                          className="border border-gray-300 pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword((prev) => !prev)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 cursor-pointer"
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff className="w-5 h-5" />
+                          ) : (
+                            <Eye className="w-5 h-5" />
+                          )}
+                        </button>
                       </div>
                     </div>
-                  </>
-                )}
+                  </div>
+                </>
+              )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                   <div className="space-y-2">

@@ -341,7 +341,7 @@ const SubjectModal = ({
                           {formData.year} <ChevronDown className="w-4 h-4 ml-2" />
                         </button>
                         {isYearDropdownOpen && (
-                          <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          <div className="absolute z-10 bottom-full mb-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                             {getYearOptions().map((year) => (
                               <button key={year} type="button" className="w-full px-3 py-2 text-left hover:bg-gray-50" onClick={() => { handleInputChange('year', year); setIsYearDropdownOpen(false); }}>{year}</button>
                             ))}
@@ -388,4 +388,3 @@ const SubjectModal = ({
 };
 
 export default SubjectModal;
-
