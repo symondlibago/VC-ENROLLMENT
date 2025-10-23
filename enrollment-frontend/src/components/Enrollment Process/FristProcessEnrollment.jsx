@@ -740,7 +740,10 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
         {currentStep === 1 && (
           <motion.div 
             className="max-w-4xl mx-auto"
-            variants={itemVariants}
+            /* --- FIX 1: Replaced variants={itemVariants} with self-contained animation --- */
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
           >
             <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
               <div className="bg-gradient-to-r from-[var(--dominant-red)] to-red-600 p-6 text-white">
@@ -832,9 +835,10 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
         {currentStep === 2 && (
           <motion.div 
             className="max-w-6xl mx-auto"
-            variants={itemVariants}
-            initial="hidden"
-            animate="visible"
+            /* --- FIX 2: Replaced variants={itemVariants} and redundant props with self-contained animation --- */
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
           >
             <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
               <div className="bg-gradient-to-r from-[var(--dominant-red)] to-red-600 p-6 text-white">
@@ -1757,10 +1761,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
         {currentStep === 3 && (
           <motion.div 
             className="max-w-7xl mx-auto"
-            variants={itemVariants}
+            /* --- FIX 3 (The one you asked for): Replaced variants={itemVariants} with self-contained animation --- */
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
           >
             <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
-              <div className="bg-gradient-to-r from-[var(--dominant-red)] to-red-600 p-6 text-white">
+              <div className="bg-linear-to-r from-[var(--dominant-red)] to-red-600 p-6 text-white">
                 <h2 className="text-2xl font-bold heading-bold mb-2">Subject Setup</h2>
                 <p className="text-red-100 text-sm">Select your subjects for enrollment</p>
               </div>
@@ -1951,9 +1958,12 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
         {currentStep === 4 && (
           <motion.div 
             className="max-w-6xl mx-auto"
-            variants={itemVariants}
+            /* --- FIX 4: Replaced variants={itemVariants} with self-contained animation --- */
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
           >
-            <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
+            <div className="bg-background/90 backdrop-blur-sm rounded-3xl shadow-2xl border-border/20 overflow-hidden">
               <div className="bg-gradient-to-r from-[var(--dominant-red)] to-red-600 p-6 text-white">
                 <h2 className="text-2xl font-bold heading-bold mb-2">Review Your Information</h2>
                 <p className="text-red-100 text-sm">Please review all your information before submitting your enrollment</p>
@@ -1961,7 +1971,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
 
               <div className="p-6 space-y-6">
                 {/* Enrollment Type & Course */}
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-200">
+                <div className="bg-muted rounded-2xl p-6 border border-border">
                   <h3 className="text-lg font-bold heading-bold text-gray-900 mb-3 flex items-center">
                     <GraduationCap className="w-5 h-5 mr-2 text-[var(--dominant-red)]" />
                     Enrollment Details
@@ -2282,4 +2292,3 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
 };
 
 export default EnrollmentPage;
-

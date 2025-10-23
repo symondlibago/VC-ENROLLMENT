@@ -17,7 +17,8 @@ const StudentGradebookView = ({ loading, filteredStudents, searchTerm, onSearchT
       {loading ? (
         <div className="flex items-center justify-center min-h-[60vh]"><LoadingSpinner /></div>
       ) : (
-      <motion.div variants={{ hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } }}>
+      /* --- FIX: Removed motion.div and variants --- */
+      <div>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -70,7 +71,8 @@ const StudentGradebookView = ({ loading, filteredStudents, searchTerm, onSearchT
             )}
           </CardContent>
         </Card>
-      </motion.div>
+      {/* --- FIX: Changed closing motion.div to div --- */}
+      </div>
       )}
     </>
 );
@@ -163,7 +165,8 @@ const GradeSubmissionManager = () => {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+    /* --- FIX: Removed motion.div and animation props --- */
+    <div>
        <SuccessAlert isVisible={alert.isVisible} message={alert.message} type={alert.type} onClose={() => setAlert(prev => ({ ...prev, isVisible: false }))} />
       <Card>
         <CardHeader>
@@ -207,7 +210,8 @@ const GradeSubmissionManager = () => {
           </div>
         </CardContent>
       </Card>
-    </motion.div>
+    {/* --- FIX: Changed closing motion.div to div --- */}
+    </div>
   );
 };
 
@@ -306,17 +310,20 @@ const Grades = () => {
           </div>
         </motion.div>
         
-        {activeTab === 'gradebook' ? (
-          <StudentGradebookView 
-            loading={loading}
-            filteredStudents={filteredStudents}
-            searchTerm={searchTerm}
-            onSearchTermChange={setSearchTerm}
-            onViewGrades={handleViewGrades}
-          />
-        ) : (
-          <GradeSubmissionManager />
-        )}
+        {/* --- FIX: Wrapped conditional content in a motion.div with itemVariants --- */}
+        <motion.div variants={itemVariants}>
+          {activeTab === 'gradebook' ? (
+            <StudentGradebookView 
+              loading={loading}
+              filteredStudents={filteredStudents}
+              searchTerm={searchTerm}
+              onSearchTermChange={setSearchTerm}
+              onViewGrades={handleViewGrades}
+            />
+          ) : (
+            <GradeSubmissionManager />
+          )}
+        </motion.div>
 
       </motion.div>
     </>

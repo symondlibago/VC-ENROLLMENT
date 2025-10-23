@@ -93,60 +93,64 @@ const StudentSchedule = () => {
         <p className="text-gray-600 mt-1">Your class schedule for the current semester.</p>
       </motion.div>
 
-      {loading ? (
-        <div className="flex justify-center items-center py-20"><LoadingSpinner size="lg" color="red" /></div>
-      ) : error ? (
-        <div className="text-center p-10 bg-red-50 rounded-lg">
-          <AlertCircle className="mx-auto w-12 h-12 text-red-500" />
-          <h2 className="mt-4 text-xl font-semibold text-red-800">Could Not Load Schedule</h2>
-          <p className="text-red-600">{error}</p>
-        </div>
-      ) : schedule.length > 0 ? (
-        <motion.div 
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-            variants={containerVariants}
-        >
-          {dayOrder.filter(day => groupedSchedule[day]).map(day => (
-            <motion.div key={day} variants={itemVariants}>
-              <Card className="h-full">
-                <CardHeader>
-                  <CardTitle className="text-xl text-red-800">{day}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {groupedSchedule[day].map(item => (
-                    <div key={item.id} className="p-3 bg-red-50 rounded-lg border">
-                      <p className="font-bold text-gray-800 flex items-center mb-1">
-                        <Clock className="w-4 h-4 mr-2 text-red-700" />
-                        {item.time || 'No time set'}
-                      </p>
-                      <div className="text-sm space-y-1 pl-6">
-                         <p className="flex items-start">
-                           <BookOpen className="w-4 h-4 mr-2 mt-0.5 text-gray-400 shrink-0" />
-                           <span className="font-semibold">{item.subject_code}</span>: {item.descriptive_title}
-                         </p>
-                         <p className="flex items-center">
-                           <MapPin className="w-4 h-4 mr-2 text-gray-400 shrink-0" />
-                           {item.room_no || 'TBA'}
-                         </p>
-                         <p className="flex items-center">
-                           <User className="w-4 h-4 mr-2 text-gray-400 shrink-0" />
-                           {item.instructor_name}
-                         </p>
+      {/* --- FIX: Wrap all conditional content in one motion.div --- */}
+      <motion.div variants={itemVariants}>
+        {loading ? (
+          <div className="flex justify-center items-center py-20"><LoadingSpinner size="lg" color="red" /></div>
+        ) : error ? (
+          <div className="text-center p-10 bg-red-50 rounded-lg">
+            <AlertCircle className="mx-auto w-12 h-12 text-red-500" />
+            <h2 className="mt-4 text-xl font-semibold text-red-800">Could Not Load Schedule</h2>
+            <p className="text-red-600">{error}</p>
+          </div>
+        ) : schedule.length > 0 ? (
+          /* --- FIX: Removed motion.div and variants --- */
+          <div 
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          >
+            {dayOrder.filter(day => groupedSchedule[day]).map(day => (
+              /* --- FIX: Removed motion.div and variants --- */
+              <div key={day}>
+                <Card className="h-full">
+                  <CardHeader>
+                    <CardTitle className="text-xl text-red-800">{day}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {groupedSchedule[day].map(item => (
+                      <div key={item.id} className="p-3 bg-red-50 rounded-lg border">
+                        <p className="font-bold text-gray-800 flex items-center mb-1">
+                          <Clock className="w-4 h-4 mr-2 text-red-700" />
+                          {item.time || 'No time set'}
+                        </p>
+                        <div className="text-sm space-y-1 pl-6">
+                          <p className="flex items-start">
+                            <BookOpen className="w-4 h-4 mr-2 mt-0.5 text-gray-400 shrink-0" />
+                            <span className="font-semibold">{item.subject_code}</span>: {item.descriptive_title}
+                          </p>
+                          <p className="flex items-center">
+                            <MapPin className="w-4 h-4 mr-2 text-gray-400 shrink-0" />
+                            {item.room_no || 'TBA'}
+                          </p>
+                          <p className="flex items-center">
+                            <User className="w-4 h-4 mr-2 text-gray-400 shrink-0" />
+                            {item.instructor_name}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </motion.div>
-      ) : (
-        <motion.div variants={itemVariants} className="text-center p-10 bg-gray-50 rounded-lg">
-          <Inbox className="mx-auto w-12 h-12 text-gray-400" />
-          <h2 className="mt-4 text-xl font-semibold">No Schedule Found</h2>
-          <p className="text-gray-500">You do not have any classes scheduled for this semester.</p>
-        </motion.div>
-      )}
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center p-10 bg-gray-50 rounded-lg">
+            <Inbox className="mx-auto w-12 h-12 text-gray-400" />
+            <h2 className="mt-4 text-xl font-semibold">No Schedule Found</h2>
+            <p className="text-gray-500">You do not have any classes scheduled for this semester.</p>
+          </div>
+        )}
+      </motion.div>
     </motion.div>
   );
 };

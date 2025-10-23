@@ -170,7 +170,8 @@ const FacultyAdminStaff = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
               {currentData.map((item) => (
-                <motion.div key={item.id} variants={itemVariants} whileHover={{ scale: 1.02, y: -4 }} className="liquid-hover">
+                /* --- FIX: Removed variants={itemVariants} from this line --- */
+                <motion.div key={item.id} whileHover={{ scale: 1.02, y: -4 }} className="liquid-hover">
                   <Card className="card-hover border-0 shadow-sm text-center">
                     <CardContent className="p-6">
                       <div className="flex items-center justify-end">

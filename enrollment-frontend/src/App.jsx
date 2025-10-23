@@ -124,14 +124,14 @@ function App() {
   
   if (isLoading) {
     return (
-      <div className="fixed inset-0 bg-white z-[100] flex items-center justify-center">
+      <div className="fixed inset-0 bg-white z-100 flex items-center justify-center">
         <motion.div
           className="flex items-center space-x-3"
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.6 }}
         >
-          <div className="w-8 h-8 bg-[var(--dominant-red)] rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
             <motion.div
               className="w-4 h-4 bg-white rounded"
               animate={{ rotate: 360 }}
@@ -234,7 +234,7 @@ function App() {
         
         {currentView === 'dashboard' && (
             <motion.div
-            className="min-h-screen bg-[var(--snowy-white)] overflow-hidden"
+            className="min-h-screen bg-(--snowy-white) overflow-hidden"
             variants={layoutVariants}
             initial="initial"
             animate="animate"
@@ -295,12 +295,12 @@ function App() {
                     <div className="flex items-center justify-between text-sm text-gray-500">
                         <p>© 2025 VIPC Enroll Management System. All rights reserved.</p>
                         <div className="flex items-center space-x-4">
-                        <button onClick={handleLogout} className="hover:text-[var(--dominant-red)] liquid-morph">
+                        <button onClick={handleLogout} className="hover:text-primary liquid-morph">
                             Logout
                         </button>
-                        <a href="#" className="hover:text-[var(--dominant-red)] liquid-morph">Privacy Policy</a>
-                        <a href="#" className="hover:text-[var(--dominant-red)] liquid-morph">Terms of Service</a>
-                        <a href="#" className="hover:text-[var(--dominant-red)] liquid-morph">Support</a>
+                        <a href="#" className="hover:text-primary liquid-morph">Privacy Policy</a>
+                        <a href="#" className="hover:text-primary liquid-morph">Terms of Service</a>
+                        <a href="#" className="hover:text-primary liquid-morph">Support</a>
                         </div>
                     </div>
                 </motion.footer>

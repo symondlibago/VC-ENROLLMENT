@@ -174,7 +174,7 @@ const SubjectDetailsModal = ({
             exit="exit"
           >
             <motion.div 
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[100vh] overflow-hidden"
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-screen overflow-hidden"
               variants={modalVariants}
               initial="hidden"
               animate="visible"
@@ -302,7 +302,7 @@ const SubjectDetailsModal = ({
                 {/* Subjects Table */}
                 {loading ? (
                   <div className="flex justify-center items-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--dominant-red)]"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-800"></div>
                   </div>
                 ) : subjects.length > 0 ? (
                   <div className="border rounded-lg overflow-hidden">
@@ -316,27 +316,27 @@ const SubjectDetailsModal = ({
                             <TableHead>Descriptive Title</TableHead>
                           )}
                           {shouldShowColumn('lec_hrs') && (
-                            <TableHead className="text-center w-[80px]">Lec Hrs</TableHead>
+                            <TableHead className="text-center w-20">Lec Hrs</TableHead>
                           )}
                           {shouldShowColumn('lab_hrs') && (
-                            <TableHead className="text-center w-[80px]">Lab Hrs</TableHead>
+                            <TableHead className="text-center w-20">Lab Hrs</TableHead>
                           )}
                           {shouldShowColumn('total_units') && (
-                            <TableHead className="text-center w-[80px]">Units</TableHead>
+                            <TableHead className="text-center w-20">Units</TableHead>
                           )}
                           {shouldShowColumn('number_of_hours') && (
-                            <TableHead className="text-center w-[80px]">Number of Hours</TableHead>
+                            <TableHead className="text-center w-20">Number of Hours</TableHead>
                           )}
                           {shouldShowColumn('prerequisite_id') && (
-                            <TableHead className="text-center w-[80px]">Pre Requisites</TableHead>
+                            <TableHead className="text-center w-20">Pre Requisites</TableHead>
                           )}
                           {shouldShowColumn('year') && (
-                            <TableHead className="text-center w-[80px]">
+                            <TableHead className="text-center w-20">
                               {programType === 'SHS' ? 'Grade' : 'Year'}
                             </TableHead>
                           )}
                           {shouldShowColumn('semester') && (
-                            <TableHead className="text-center w-[80px]">Semester</TableHead>
+                            <TableHead className="text-center w-20">Semester</TableHead>
                           )}
                           <TableHead className="text-right w-[100px]">Actions</TableHead>
                         </TableRow>
@@ -408,7 +408,7 @@ const SubjectDetailsModal = ({
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12">
                     <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4">
-                      <BookMarked className="w-8 h-8 text-[var(--dominant-red)]" />
+                      <BookMarked className="w-8 h-8 text-red-800" />
                     </div>
                     <h3 className="text-xl font-semibold text-gray-800 mb-2">No Subjects Available</h3>
                     <p className="text-gray-600 text-center max-w-md">
