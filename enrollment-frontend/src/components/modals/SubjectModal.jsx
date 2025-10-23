@@ -111,8 +111,8 @@ const SubjectModal = ({
     semester: '1st Semester',
     course_id: '',
     number_of_hours: 0,
-    prerequisite_id: null, // <-- MODIFIED: Use prerequisite_id
-    prerequisite: null,    // <-- NEW: To hold the full prerequisite object for the search input
+    prerequisite_id: null,
+    prerequisite: null,
   });
 
   // Validation state
@@ -168,8 +168,8 @@ const SubjectModal = ({
           semester: subject.semester || '1st Semester',
           course_id: subject.course_id || (course ? course.id : ''),
           number_of_hours: subject.number_of_hours || 0,
-          prerequisite_id: subject.prerequisite_id || null, // <-- MODIFIED
-          prerequisite: subject.prerequisite || null,        // <-- MODIFIED
+          prerequisite_id: subject.prerequisite_id || null,
+          prerequisite: subject.prerequisite || null,
         });
       } else {
         // Create mode - reset form
@@ -183,8 +183,8 @@ const SubjectModal = ({
           semester: '1st Semester',
           course_id: course ? course.id : '',
           number_of_hours: 0,
-          prerequisite_id: null, // <-- MODIFIED
-          prerequisite: null,        // <-- MODIFIED
+          prerequisite_id: null,
+          prerequisite: null,
         });
       }
       setErrors({});
@@ -198,7 +198,7 @@ const SubjectModal = ({
 
     setFormData(prev => {
       const newFormData = { ...prev, [field]: numericValue };
-      if (field === 'lec_hrs' || field === 'lab_hrs') {
+      if ((programType === 'Bachelor' || programType === 'Diploma') && (field === 'lec_hrs' || field === 'lab_hrs')) {
         const lec = field === 'lec_hrs' ? numericValue : prev.lec_hrs;
         const lab = field === 'lab_hrs' ? numericValue : prev.lab_hrs;
         newFormData.total_units = (Number(lec) || 0) + (Number(lab) || 0);
@@ -239,10 +239,13 @@ const SubjectModal = ({
   const shouldShowField = (fieldName) => {
     if (!programType) return true; 
     switch (programType) {
-      case 'Bachelor': return fieldName !== 'number_of_hours';
-      case 'SHS': return ['subject_code', 'descriptive_title', 'number_of_hours', 'year', 'semester'].includes(fieldName);
-      case 'Diploma': return ['subject_code', 'descriptive_title', 'year', 'semester', 'prerequisite_id'].includes(fieldName);
-      default: return true;
+      case 'Bachelor':
+      case 'Diploma':
+        return fieldName !== 'number_of_hours';
+      case 'SHS': 
+        return ['subject_code', 'descriptive_title', 'number_of_hours', 'year', 'semester'].includes(fieldName);
+      default: 
+        return true;
     }
   };
 
@@ -298,7 +301,7 @@ const SubjectModal = ({
                   </div>
                 )}
 
-                {programType === 'Bachelor' && (
+                {(programType === 'Bachelor' || programType === 'Diploma') && (
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="lec_hrs" className="text-sm font-medium text-gray-700">Lec Hrs</Label>
@@ -315,7 +318,6 @@ const SubjectModal = ({
                   </div>
                 )}
 
-                {/* --- UPDATED: Searchable Prerequisite Input --- */}
                 {shouldShowField('prerequisite_id') && (
                   <div className="space-y-2">
                     <Label htmlFor="prerequisite" className="text-sm font-medium text-gray-700">Pre-requisite (Optional)</Label>
