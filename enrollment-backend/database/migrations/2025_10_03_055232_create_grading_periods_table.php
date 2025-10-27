@@ -16,7 +16,7 @@ return new class extends Migration
     {
         Schema::create('grading_periods', function (Blueprint $table) {
             $table->id();
-            $table->string('name')->unique(); // e.g., prelim, midterm, semifinal, final
+            $table->string('name')->unique(); // e.g., prelim, midterm, semifinal, final, enrollment
             $table->date('start_date')->nullable();
             $table->date('end_date')->nullable();
             $table->timestamps();
@@ -28,6 +28,7 @@ return new class extends Migration
             ['name' => 'midterm', 'created_at' => now(), 'updated_at' => now()],
             ['name' => 'semifinal', 'created_at' => now(), 'updated_at' => now()],
             ['name' => 'final', 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'enrollment', 'created_at' => now(), 'updated_at' => now()], // ✅ ADDED
         ]);
     }
 

@@ -109,6 +109,7 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
 
 // Main Component
 const Students = () => {
+  // ... (no changes in this section)
   const [activeView, setActiveView] = useState('sections');
   const [loading, setLoading] = useState(true);
 
@@ -437,6 +438,7 @@ const Students = () => {
 
 // Sub-component for Sections View (No changes)
 const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, onSectionClick, onAddSectionClick, onEditClick, onDeleteClick }) => {
+    // ... (no changes in this component)
     const courseOptions = useMemo(() => [
       { label: 'Filter by All Courses', value: 'all' },
       ...courses.map(course => ({ label: course.course_code, value: course.id.toString() }))
@@ -513,6 +515,7 @@ const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilte
 
 // Sub-component for Students View
 const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter, onEditStudent, onViewStudentDetails, currentUser }) => {
+    // ... (no changes in this section)
     const courseOptions = useMemo(() => [
       { label: 'Filter by All Courses', value: 'all' },
       ...courses.map(course => ({ label: course.course_code, value: course.id.toString() }))
@@ -592,9 +595,20 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
           </div>
         </TableCell>
         <TableCell>
-        <Badge variant={student.academic_status === 'Irregular' ? "destructive" : "default"} 
-        className={student.academic_status === 'Regular' ? 'bg-blue-100 text-blue-800' : ''}>
-        {student.academic_status}
+        {/* ✅ --- UPDATED BADGE STYLING --- */}
+        <Badge 
+          variant={
+            student.academic_status === 'Irregular' ? "destructive" :
+            student.academic_status === 'Withdraw' ? "secondary" :
+            "default" 
+          } 
+          className={
+            student.academic_status === 'Regular' ? 'bg-blue-100 text-blue-800' : 
+            student.academic_status === 'Withdraw' ? 'bg-yellow-100 text-yellow-800' : 
+            ''
+          }
+        >
+          {student.academic_status}
         </Badge>
         </TableCell>
         <TableCell className="text-right">

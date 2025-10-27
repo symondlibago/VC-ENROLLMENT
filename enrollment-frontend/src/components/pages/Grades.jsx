@@ -5,76 +5,75 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { enrollmentAPI, managementAPI } from '@/services/api';
+import { enrollmentAPI, managementAPI } from '@/services/api'; // No change to imports
 import LoadingSpinner from '@/components/layout/LoadingSpinner';
 import StudentGradesModal from '@/components/modals/StudentGradesModal';
 import SuccessAlert from '@/components/modals/SuccessAlert';
 import CustomCalendar from '@/components/layout/CustomCalendar';
 
-// SECTION 1: The view for the student list
+// SECTION 1: The view for the student list (No changes)
 const StudentGradebookView = ({ loading, filteredStudents, searchTerm, onSearchTermChange, onViewGrades }) => (
-    <>
-      {loading ? (
-        <div className="flex items-center justify-center min-h-[60vh]"><LoadingSpinner /></div>
-      ) : (
-      /* --- FIX: Removed motion.div and variants --- */
-      <div>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Users className="w-6 h-6 mr-3 text-red-800" />
-              All Enrolled Students ({filteredStudents.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search students by name, ID, or course..."
-                value={searchTerm}
-                onChange={(e) => onSearchTermChange(e.target.value)}
-                className="pl-10 border-1 border-gray-300"
-              />
-            </div>
+  <>
+    {loading ? (
+      <div className="flex items-center justify-center min-h-[60vh]"><LoadingSpinner /></div>
+    ) : (
+    /* --- FIX: Removed motion.div and variants --- */
+    <div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Users className="w-6 h-6 mr-3 text-red-800" />
+            All Enrolled Students ({filteredStudents.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              placeholder="Search students by name, ID, or course..."
+              value={searchTerm}
+              onChange={(e) => onSearchTermChange(e.target.value)}
+              className="pl-10 border-1 border-gray-300"
+            />
+          </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="text-xs text-black uppercase">
-                  <tr>
-                    <th className="px-6 py-3 flex items-center gap-2"><Hash size={16} /> Student ID</th>
-                    <th className="px-6 py-3"><div className="flex items-center gap-2"><User size={16} /> Name</div></th>
-                    <th className="px-6 py-3"><div className="flex items-center gap-2"><GraduationCap size={16} /> Course</div></th>
-                    <th className="px-6 py-3"><div className="flex items-center gap-2"><CalendarDays size={16} /> Year Level</div></th>
-                    <th className="px-6 py-3"><div className="flex items-center gap-2"><Settings2 size={16} /> Action</div></th>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="text-xs text-black uppercase">
+                <tr>
+                  <th className="px-6 py-3 flex items-center gap-2"><Hash size={16} /> Student ID</th>
+                  <th className="px-6 py-3"><div className="flex items-center gap-2"><User size={16} /> Name</div></th>
+                  <th className="px-6 py-3"><div className="flex items-center gap-2"><GraduationCap size={16} /> Course</div></th>
+                  <th className="px-6 py-3"><div className="flex items-center gap-2"><CalendarDays size={16} /> Year Level</div></th>
+                  <th className="px-6 py-3"><div className="flex items-center gap-2"><Settings2 size={16} /> Action</div></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredStudents.map((student) => (
+                  <tr key={student.id} className="bg-white border-b hover:bg-gray-50">
+                    <td className="px-6 py-4 font-mono"><div className="flex items-center gap-2"><Hash size={14} className="text-gray-500" /><span>{student.student_id_number}</span></div></td>
+                    <td className="px-6 py-4 font-medium text-gray-900"><div className="flex items-center gap-2"><User size={14} className="text-gray-500" /><span>{student.name}</span></div></td>
+                    <td className="px-6 py-4"><div className="flex items-center gap-2"><GraduationCap size={14} className="text-gray-500" /><span>{student.courseName}</span></div></td>
+                    <td className="px-6 py-4"><div className="flex items-center gap-2"><CalendarDays size={14} className="text-gray-500" /><span>{student.year}</span></div></td>
+                    <td className="px-6 py-4">
+                      <Button variant="outline" size="sm" onClick={() => onViewGrades(student.id, student.name)} className="gradient-primary text-white liquid-button cursor-pointer">
+                        <Eye className="w-4 h-4 mr-2" /> View Grades
+                      </Button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredStudents.map((student) => (
-                    <tr key={student.id} className="bg-white border-b hover:bg-gray-50">
-                      <td className="px-6 py-4 font-mono"><div className="flex items-center gap-2"><Hash size={14} className="text-gray-500" /><span>{student.student_id_number}</span></div></td>
-                      <td className="px-6 py-4 font-medium text-gray-900"><div className="flex items-center gap-2"><User size={14} className="text-gray-500" /><span>{student.name}</span></div></td>
-                      <td className="px-6 py-4"><div className="flex items-center gap-2"><GraduationCap size={14} className="text-gray-500" /><span>{student.courseName}</span></div></td>
-                      <td className="px-6 py-4"><div className="flex items-center gap-2"><CalendarDays size={14} className="text-gray-500" /><span>{student.year}</span></div></td>
-                      <td className="px-6 py-4">
-                        <Button variant="outline" size="sm" onClick={() => onViewGrades(student.id, student.name)} className="gradient-primary text-white liquid-button cursor-pointer">
-                          <Eye className="w-4 h-4 mr-2" /> View Grades
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-            {filteredStudents.length === 0 && (
-              <div className="text-center py-12"><Users className="w-16 h-16 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-900">No students found</h3><p className="text-gray-500">Try adjusting your search criteria.</p></div>
-            )}
-          </CardContent>
-        </Card>
-      {/* --- FIX: Changed closing motion.div to div --- */}
-      </div>
-      )}
-    </>
+          {filteredStudents.length === 0 && (
+            <div className="text-center py-12"><Users className="w-16 h-16 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-900">No students found</h3><p className="text-gray-500">Try adjusting your search criteria.</p></div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+    )}
+  </>
 );
 
 
@@ -90,6 +89,7 @@ const GradeSubmissionManager = () => {
     midterm: 'Midterm',
     semifinal: 'Semi-Final',
     final: 'Final',
+    enrollment: 'Enrollment Period',
   };
 
   useEffect(() => {
@@ -98,12 +98,16 @@ const GradeSubmissionManager = () => {
       try {
         const response = await managementAPI.getGradingPeriods();
         if (response.success) {
-          const initialPeriods = { prelim: {}, midterm: {}, semifinal: {}, final: {} };
+          const initialPeriods = { prelim: {}, midterm: {}, semifinal: {}, final: {}, enrollment: {} };
+          
           for (const key in response.data) {
-            initialPeriods[key] = {
-              start_date: response.data[key].start_date || '',
-              end_date: response.data[key].end_date || '',
-            };
+            // Check if the key from the DB is one we manage
+            if (initialPeriods.hasOwnProperty(key)) {
+              initialPeriods[key] = {
+                start_date: response.data[key].start_date || '',
+                end_date: response.data[key].end_date || '',
+              };
+            }
           }
           setPeriods(initialPeriods);
         }
@@ -116,14 +120,11 @@ const GradeSubmissionManager = () => {
     fetchPeriods();
   }, []);
 
-  // --- UPDATED: Handles date format conversion from the custom calendar ---
   const handleDateChange = (periodKey, dateType, valueFromCalendar) => {
     let formattedDate = '';
-    // The calendar returns MM/DD/YYYY, convert it to YYYY-MM-DD for the backend
     if (valueFromCalendar) {
       const date = new Date(valueFromCalendar);
       if (!isNaN(date)) {
-        // toISOString() returns 'YYYY-MM-DDTHH:mm:ss.sssZ', we split at 'T' to get just the date part.
         formattedDate = date.toISOString().split('T')[0];
       }
     }
@@ -165,20 +166,25 @@ const GradeSubmissionManager = () => {
   if (loading) return <LoadingSpinner />;
 
   return (
-    /* --- FIX: Removed motion.div and animation props --- */
     <div>
        <SuccessAlert isVisible={alert.isVisible} message={alert.message} type={alert.type} onClose={() => setAlert(prev => ({ ...prev, isVisible: false }))} />
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center"><SlidersHorizontal className="w-6 h-6 mr-3 text-red-800" /> Grade Submission Settings</CardTitle>
-          <CardDescription>Define the start and end dates for each grading period. Instructors will only be able to input grades within these open windows.</CardDescription>
+          <CardDescription>Define the start and end dates for grading periods and student enrollment.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {Object.entries(periodNames).map(([key, name]) => {
             const periodData = periods[key] || {};
             const status = getStatus(periodData.start_date, periodData.end_date);
+            
+            // --- CHANGE HERE: Define the position based on the key ---
+            const popupPosition = (key === 'semifinal' || key === 'final' || key === 'enrollment') 
+              ? 'above' 
+              : 'below';
+
             return (
-              <div key={key} className="p-4 border rounded-lg grid grid-cols-1 md:grid-cols-4 items-center gap-4">
+              <div key={key} className={`p-4 border rounded-lg grid grid-cols-1 md:grid-cols-4 items-center gap-4 ${key === 'enrollment' ? ' border-gray-200' : ''}`}>
                 <div className="md:col-span-1">
                   <h3 className="font-semibold text-lg">{name}</h3>
                   <Badge className={status.color}>{status.text}</Badge>
@@ -189,6 +195,8 @@ const GradeSubmissionManager = () => {
                     value={periodData.start_date}
                     onChange={(date) => handleDateChange(key, 'start_date', date)}
                     placeholder="Select start date"
+                    // --- CHANGE HERE: Pass the position prop ---
+                    position={popupPosition}
                   />
                 </div>
                 <div className="md:col-span-1">
@@ -197,6 +205,8 @@ const GradeSubmissionManager = () => {
                     value={periodData.end_date}
                     onChange={(date) => handleDateChange(key, 'end_date', date)}
                     placeholder="Select end date"
+                    // --- CHANGE HERE: Pass the position prop ---
+                    position={popupPosition}
                   />
                 </div>
               </div>
@@ -210,12 +220,11 @@ const GradeSubmissionManager = () => {
           </div>
         </CardContent>
       </Card>
-    {/* --- FIX: Changed closing motion.div to div --- */}
     </div>
   );
 };
 
-// This is the main component that toggles between the two sections
+// This is the main component that toggles between the two sections (No changes)
 const Grades = () => {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -310,7 +319,6 @@ const Grades = () => {
           </div>
         </motion.div>
         
-        {/* --- FIX: Wrapped conditional content in a motion.div with itemVariants --- */}
         <motion.div variants={itemVariants}>
           {activeTab === 'gradebook' ? (
             <StudentGradebookView 
