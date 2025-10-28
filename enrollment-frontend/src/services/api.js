@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: 'http://192.168.1.12:8000/api',
+  baseURL: 'http://localhost:8000/api',
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -489,6 +489,15 @@ export const enrollmentAPI = {
       return response.data;
     } catch (error) {
       throw error.response?.data || { success: false, message: 'Failed to fetch student details' };
+    }
+  },
+
+  creditSubject: async (studentId, subjectId) => {
+    try {
+      const response = await api.post(`/enrollments/${studentId}/credit-subject`, { subject_id: subjectId });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to credit subject' };
     }
   },
 

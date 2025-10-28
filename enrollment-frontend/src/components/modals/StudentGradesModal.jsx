@@ -67,11 +67,7 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
   const [alert, setAlert] = useState({ isVisible: false, message: '', type: 'success' });
   const [filters, setFilters] = useState({ year: '', semester: '' });
   
-  // STEP 1: Get the current user's data from the auth service.
   const user = authAPI.getUserData();
-
-  // STEP 2: Create a boolean flag. This will be true only for 'Admin' or 'Registrar'.
-  // This makes the code cleaner and easier to read.
   const canEdit = user && (user.role === 'Admin' || user.role === 'Registrar');
 
   const fetchGrades = async () => {
@@ -108,21 +104,29 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
     setFilters(prev => ({ ...prev, [name]: value }));
   };
 
+  // --- MODIFICATION: Updated handleGradeDataChange ---
   const handleGradeDataChange = (gradeId, field, value) => {
     setEditedGrades(prev => prev.map(grade => {
       if (grade.id === gradeId) {
         const updatedGrade = { ...grade, [field]: value };
         
-        if (field === 'final_grade' && !['INC', 'NFE', 'NFR', 'DA'].includes(updatedGrade.status)) {
+        // Auto-update status based on final grade, unless it's a special status
+        if (field === 'final_grade' && !['INC', 'NFE', 'NFR', 'DA', 'Credited'].includes(updatedGrade.status)) {
           if (value !== null && value !== '') {
               updatedGrade.status = parseFloat(value) <= 3.0 ? 'Passed' : 'Failed';
           } else {
               updatedGrade.status = 'In Progress';
           }
-      }
+        }
         
+        // If a special status is selected, nullify the grade
         if (field === 'status' && ['INC', 'NFE', 'NFR', 'DA'].includes(value)) {
             updatedGrade.final_grade = null;
+        }
+
+        // If 'Credited' is selected, set grade to 1.0
+        if (field === 'status' && value === 'Credited') {
+            updatedGrade.final_grade = 1.0;
         }
 
         return updatedGrade;
@@ -133,8 +137,6 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
   
   const handleSaveChanges = async () => {
     setIsSaving(true);
-    // 1. Filter for grades that have actually changed.
-    // 2. Map the results to a new, clean array containing only the necessary data.
     const changedGradesPayload = editedGrades
       .filter(editedGrade => {
         const originalGrade = grades.find(g => g.id === editedGrade.id);
@@ -155,7 +157,6 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
     }
 
     try {
-        // Send the new, cleaner payload to the API
         const response = await gradeAPI.updateStudentGrades(changedGradesPayload);
         if (response.success) {
             setAlert({ isVisible: true, message: 'Grades updated successfully!', type: 'success' });
@@ -174,15 +175,19 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
     setEditedGrades(JSON.parse(JSON.stringify(grades))); // Revert changes
   };
 
+  // --- MODIFICATION: Added 'Credited' badge ---
   const getStatusBadge = (status) => {
     if (status === 'Passed') return <Badge className="bg-green-100 text-green-800">{status}</Badge>;
     if (status === 'Failed') return <Badge variant="destructive">{status}</Badge>;
+    if (status === 'Credited') return <Badge className="bg-blue-100 text-blue-800">{status}</Badge>;
     if (['INC', 'NFE', 'NFR', 'DA'].includes(status)) return <Badge className="bg-yellow-100 text-yellow-800">{status}</Badge>;
     return <Badge variant="outline">{status || 'In Progress'}</Badge>;
   };
   
   const yearOptions = [ { label: 'All Years', value: '' }, { label: 'Grade 11', value: 'Grade 11' }, { label: 'Grade 12', value: 'Grade 12' }, { label: '1st Year', value: '1st Year' }, { label: '2nd Year', value: '2nd Year' }, { label: '3rd Year', value: '3rd Year' }, { label: '4th Year', value: '4th Year' }];
   const semesterOptions = [ { label: 'All Semesters', value: '' }, { label: '1st Semester', value: '1st Semester' }, { label: '2nd Semester', value: '2nd Semester' }];
+  
+  // --- MODIFICATION: Added 'Credited' to options ---
   const statusOptions = [
       { label: 'In Progress', value: 'In Progress'},
       { label: 'Passed', value: 'Passed' },
@@ -191,6 +196,7 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
       { label: 'NFE (No Final Exam)', value: 'NFE' },
       { label: 'NFR (No Final Req.)', value: 'NFR' },
       { label: 'DA (Dropped)', value: 'DA' },
+      { label: 'Credited', value: 'Credited' },
   ];
 
   if (!isOpen) return null;
@@ -207,6 +213,7 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
             initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
             className="bg-white rounded-lg shadow-lg w-full max-w-6xl max-h-[90vh] flex flex-col"
           >
+            {/* Header (no changes) */}
             <div className="sticky top-0 bg-red-800 text-white z-10 flex items-center justify-between p-4 border-b">
               <div>
                 <h2 className="text-xl font-semibold">Grades for {studentName}</h2>
@@ -218,14 +225,12 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
             </div>
             
             <div className="p-6 flex-grow overflow-y-auto">
+              {/* Filters and Edit Button (no changes) */}
               <div className="flex justify-between items-center mb-4">
                 <div className="flex gap-4">
                     <MotionDropdown value={filters.year} onChange={(value) => handleFilterChange('year', value)} options={yearOptions} placeholder="Filter by Year..." />
                     <MotionDropdown value={filters.semester} onChange={(value) => handleFilterChange('semester', value)} options={semesterOptions} placeholder="Filter by Semester..." />
                 </div>
-                {/* STEP 3: Conditionally render the "Edit Grades" button.
-                  It will only show if 'canEdit' is true AND the user is not already editing.
-                */}
                 {canEdit && !isEditing && (
                     <Button className="cursor-pointer" onClick={() => setIsEditing(true)}>
                         <Edit className="w-4 h-4 mr-2" /> Edit Grades
@@ -238,6 +243,7 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
                   <div className="flex justify-center items-center h-48"><LoadingSpinner /></div>
                 ) : (
                   <table className="w-full text-sm text-left">
+                    {/* Header (no changes) */}
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
                       <tr>
                         <th className="px-6 py-3">Subject Code</th>
@@ -261,7 +267,6 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
                             <td className="px-2 py-2 text-center">{grade.midterm_grade ?? '-'}</td>
                             <td className="px-2 py-2 text-center">{grade.semifinal_grade ?? '-'}</td>
                             <td className="px-2 py-2 text-center">
-                               {/* The 'isEditing' state now depends on the role-protected button */}
                                {isEditing ? (
                                 <Input 
                                   type="number" 
@@ -269,6 +274,8 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
                                   max="5"
                                   step="0.01"
                                   className="w-20 mx-auto text-center"
+                                  // --- MODIFICATION: Disable input if status is 'Credited' ---
+                                  disabled={grade.status === 'Credited'}
                                   value={grade.final_grade ?? ''}
                                   onChange={(e) => handleGradeDataChange(grade.id, 'final_grade', e.target.value === '' ? null : parseFloat(e.target.value))}
                               />
@@ -293,7 +300,8 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
                 )}
               </div>
             </div>
-            {/* The save/cancel footer also depends on the role-protected button being clicked */}
+            
+            {/* Footer (no changes) */}
             {isEditing && (
                 <div className="flex justify-end gap-4 p-4 border-t bg-gray-50">
                     <Button className="cursor-pointer" variant="ghost" onClick={handleCancel}>

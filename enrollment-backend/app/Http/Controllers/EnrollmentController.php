@@ -755,6 +755,66 @@ public function getStudentsForIdReleasing()
         }
     }
 
+
+    /**
+     * NEW: Credit a subject for a transferee student.
+     */
+    public function creditSubject(Request $request, PreEnrolledStudent $student): JsonResponse
+    {
+        // 1. Authorization
+        $user = Auth::user();
+        if (!$user || !in_array($user->role, ['Admin', 'Registrar'])) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        // 2. Business Logic Validation
+        if ($student->enrollment_type !== 'Transferee') {
+            return response()->json([
+                'success' => false, 
+                'message' => 'Subject crediting is only available for Transferee students.'
+            ], 422);
+        }
+
+        // 3. Request Validation
+        $validator = Validator::make($request->all(), [
+            'subject_id' => 'required|exists:subjects,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        // 4. Perform Action
+        try {
+            // Use updateOrCreate to either create a new grade record or update an existing one.
+            // This sets the subject as "Credited" and gives it a default "Passed" grade.
+            $grade = Grade::updateOrCreate(
+                [
+                    'pre_enrolled_student_id' => $student->id,
+                    'subject_id' => $request->input('subject_id'),
+                ],
+                [
+                    'status' => 'Credited',
+                    'final_grade' => 1.00, // Default "Passed" grade
+                    'instructor_id' => 1, // Or a default system/registrar instructor ID
+                ]
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Subject credited successfully.',
+                'data' => $grade,
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while crediting the subject.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function updateStudentGrades(Request $request)
     {
         // 1. Authorization: Only Admin and Registrar can access
@@ -768,7 +828,7 @@ public function getStudentsForIdReleasing()
             'grades' => 'required|array',
             'grades.*.id' => 'required|exists:grades,id',
             'grades.*.final_grade' => 'nullable|numeric|min:1|max:5',
-            'grades.*.status' => ['required', 'string', Rule::in(['Passed', 'Failed', 'In Progress', 'INC', 'NFE', 'NFR', 'DA'])],
+            'grades.*.status' => ['required', 'string', Rule::in(['Passed', 'Failed', 'In Progress', 'INC', 'NFE', 'NFR', 'DA', 'Credited'])],
         ]);
 
         if ($validator->fails()) {

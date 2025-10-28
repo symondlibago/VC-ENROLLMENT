@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Save, Loader2, Clock} from 'lucide-react';
+// --- MODIFICATION: Added Check, Loader2, and Badge ---
+import { X, Save, Loader2, Clock, Check } from 'lucide-react';
 import { enrollmentAPI, paymentAPI } from '../../services/api'; 
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea"; // <-- Import Textarea
+import { Textarea } from "@/components/ui/textarea"; 
+import { Badge } from "@/components/ui/badge"; // <-- Added Badge
 import { 
   Select,
   SelectTrigger,
@@ -150,6 +152,9 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
   const [subjectsWithSchedules, setSubjectsWithSchedules] = useState([]);
   const [error, setError] = useState(null);
   
+  // --- MODIFICATION: Added state for crediting subject ---
+  const [creditingSubjectId, setCreditingSubjectId] = useState(null);
+
   // Payment form state
   const [paymentData, setPaymentData] = useState({
     previous_account: '',
@@ -182,6 +187,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
       const response = await enrollmentAPI.getStudentDetails(studentId);
       
       if (response.success) {
+        // --- MODIFICATION: studentData now contains the 'grades' array ---
         const studentData = response.data.student;
         const subjectsData = response.data.subjects || [];
 
@@ -204,6 +210,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     }
   }, [isOpen, fetchStudentDetails]);
 
+  // useEffect for payment calculation (no changes)
   useEffect(() => {
     if (!student || !subjectsWithSchedules) return;
 
@@ -264,10 +271,12 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     fetchStudentDetails(); // Re-fetch all data to ensure UI consistency
   };
 
+  // handlePaymentInputChange (no changes)
   const handlePaymentInputChange = (field, value) => {
     setPaymentData(prev => ({ ...prev, [field]: value }));
   };
   
+  // handlePaymentDateChange (no changes)
   const handlePaymentDateChange = (dateString) => {
     if (!dateString) {
       setPaymentData(prev => ({ ...prev, payment_date: '' }));
@@ -277,6 +286,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     setPaymentData(prev => ({ ...prev, payment_date: formattedDate }));
   };
 
+  // handleSavePayment (no changes)
   const handleSavePayment = async () => {
     if (!paymentData.registration_fee || parseFloat(paymentData.registration_fee) <= 0) {
       setValidationModal({ isOpen: true, message: 'Registration Fee is required and must be greater than zero.' });
@@ -316,19 +326,51 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     }
   };
 
+  // --- MODIFICATION: Added handler for crediting a subject ---
+  const handleCreditSubject = async (subjectId) => {
+    setCreditingSubjectId(subjectId); // Set loading state for this specific button
+    try {
+      // This assumes you've added `creditSubject` to `enrollmentAPI` in `api.js`
+      const response = await enrollmentAPI.creditSubject(student.id, subjectId);
+      if (response.success) {
+        setAlert({
+          isVisible: true,
+          message: 'Subject credited successfully!',
+          type: 'success',
+        });
+        fetchStudentDetails(); // Refresh all student data
+      }
+    } catch (error) {
+      setAlert({
+        isVisible: true,
+        message: error.message || 'Failed to credit subject.',
+        type: 'error',
+      });
+    } finally {
+      setCreditingSubjectId(null); // Clear loading state
+    }
+  };
+
+
   if (!isOpen) return null;
+
+  // --- MODIFICATION: Added check for crediting permission ---
+  const canCreditSubjects = (currentUserRole === 'Admin' || currentUserRole === 'Registrar') &&
+                            student?.enrollment_type === 'Transferee';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <SuccessAlert isVisible={alert.isVisible} message={alert.message} type={alert.type} onClose={() => setAlert({ ...alert, isVisible: false })} />
       <ValidationErrorModal isOpen={validationModal.isOpen} message={validationModal.message} onClose={() => setValidationModal({ isOpen: false, message: '' })} />
       <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        {/* Header (no changes) */}
         <div className="sticky top-0 bg-red-800 text-white z-10 flex items-center justify-between p-4 border-b">
           <h2 className="text-xl font-semibold">Student Details</h2>
           <Button onClick={onClose} className="p-1 hover:text-red-800 hover:bg-white transition-colors bg-transparent cursor-pointer">
             <X size={20} />
           </Button>
         </div>
+        
         <div className="p-6">
           {loading ? (
             <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div></div>
@@ -337,7 +379,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
           ) : student ? (
             <div className="space-y-6">
               
-              {/* Basic Information */}
+              {/* Basic Information (no changes) */}
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h3 className="text-xl font-medium mb-3 text-black">BASIC INFORMATION</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -355,7 +397,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                 </div>
               </div>
 
-              {/* Enrollment Information */}
+              {/* Enrollment Information (no changes) */}
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="text-lg font-medium text-black">ENROLLMENT INFORMATION</h3>
@@ -379,49 +421,77 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                 </div>
               </div>
 
-              
-
-             {/* Selected Subjects */}
+             {/* --- MODIFICATION: Selected Subjects Table --- */}
             <div className="bg-gray-50 p-4 rounded-lg">
               <h3 className="text-lg font-medium mb-3 text-black">SELECTED SUBJECTS & SCHEDULE</h3>
               {subjectsWithSchedules.length > 0 ? (
                 <div className="overflow-x-auto">
-                  {/* 1. Added 'table-fixed' to enforce column widths */}
                   <table className="min-w-full divide-y divide-gray-200 table-fixed">
                     <thead className="bg-gray-100">
                       <tr>
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-                        {/* 2. Added a width class (e.g., w-2/5) to the title header */}
                         <th className="w-2/5 px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descriptive Title</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lecture</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Laboratory</th>
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Units</th>
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Schedule (Day / Time / Room)</th>
+                        {/* Added "Credit" column */}
+                        {canCreditSubjects && (
+                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Credit</th>
+                        )}
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {subjectsWithSchedules.map((subject) => (
-                        <tr key={subject.id}>
-                          <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.subject_code}</td>
-                          {/* 3. Replaced 'whitespace-nowrap' with 'whitespace-normal' and 'break-words' */}
-                          <td className="px-4 py-2 whitespace-normal break-words text-sm">{subject.descriptive_title}</td>
-                          <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lec_hrs}</td>
-                          <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lab_hrs}</td>
-                          <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.total_units}</td>
-                          <td className="px-4 py-2 whitespace-pre-wrap text-xs">
-                              {subject.schedules && subject.schedules.length > 0
-                                  ? subject.schedules.map(s => `${s.day || 'TBA'} / ${s.time || 'TBA'} / ${s.room_no || 'TBA'}`).join('\n')
-                                  : 'TBA'}
-                          </td>
-                        </tr>
-                      ))}
+                      {subjectsWithSchedules.map((subject) => {
+                        
+                        // Check if this subject is already credited by looking at student.grades
+                        const grade = student.grades?.find(g => g.subject_id === subject.id);
+                        const isCredited = grade && grade.status === 'Credited';
+
+                        return (
+                          <tr key={subject.id}>
+                            <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.subject_code}</td>
+                            <td className="px-4 py-2 whitespace-normal break-words text-sm">{subject.descriptive_title}</td>
+                            <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.total_units}</td>
+                            <td className="px-4 py-2 whitespace-pre-wrap text-xs">
+                                {subject.schedules && subject.schedules.length > 0
+                                    ? subject.schedules.map(s => `${s.day || 'TBA'} / ${s.time || 'TBA'} / ${s.room_no || 'TBA'}`).join('\n')
+                                    : 'TBA'}
+                            </td>
+
+                            {/* Render the button or badge */}
+                            {canCreditSubjects && (
+                              <td className="px-4 py-2 text-center">
+                                {isCredited ? (
+                                  <Badge className="bg-blue-100 text-blue-800 cursor-default">
+                                    <Check className="w-3 h-3 mr-1" />
+                                    Credited
+                                  </Badge>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs h-7 px-2"
+                                    onClick={() => handleCreditSubject(subject.id)}
+                                    disabled={creditingSubjectId === subject.id}
+                                  >
+                                    {creditingSubjectId === subject.id ? (
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      "Credit"
+                                    )}
+                                  </Button>
+                                )}
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               ) : <p className="text-gray-500">No subjects selected</p>}
             </div>
 
-              {/* MODIFIED: Approval Actions Section */}
+              {/* Approval Actions Section (no changes) */}
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h3 className="text-lg font-medium mb-3 text-black">APPROVAL ACTIONS</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -458,7 +528,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                   <p className="text-xs text-yellow-600 mt-2">Waiting for Program Head & Registrar approval.</p>}
               </div>
 
-              {/* Payment Information Section */}
+              {/* Payment Information Section (no changes) */}
               {currentUserRole === 'Cashier' && (
                 <div className="bg-gray-50 p-4 rounded-lg border-2 border-red-200">
                   <h3 className="text-lg font-medium mb-4 text-black flex items-center">PAYMENT INFORMATION</h3>
@@ -510,7 +580,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                 </div>
               )}
               
-              {/* Parent/Guardian Information */}
+              {/* Parent/Guardian Information (no changes) */}
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h3 className="text-lg font-medium mb-3 text-black">PARENT/GUARDIAN INFORMATION</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -545,7 +615,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                 </div>
               </div>
 
-              {/* Emergency Contact */}
+              {/* Emergency Contact (no changes) */}
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h3 className="text-lg font-medium mb-3 text-black">EMERGENCY CONTACT</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -564,7 +634,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                 </div>
               </div>
 
-              {/* Educational Background with Images */}
+              {/* Educational Background with Images (no changes) */}
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Left Side: Educational Background Header + Details */}

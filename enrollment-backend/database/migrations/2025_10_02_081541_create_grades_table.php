@@ -20,7 +20,7 @@ return new class extends Migration
             $table->decimal('midterm_grade', 5, 2)->nullable();
             $table->decimal('semifinal_grade', 5, 2)->nullable();
             $table->decimal('final_grade', 5, 2)->nullable();
-            $table->enum('status', ['Passed', 'Failed', 'INC', 'In Progress', 'NFE', 'NFR', 'DA'])->default('In Progress');
+            $table->enum('status', ['Passed', 'Failed', 'INC', 'In Progress', 'NFE', 'NFR', 'DA', 'Credited'])->default('In Progress');
             $table->timestamps();
 
             // Ensure a student has only one grade entry per subject

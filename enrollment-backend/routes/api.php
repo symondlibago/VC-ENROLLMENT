@@ -80,7 +80,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/id-releasing/students/{id}/status', [EnrollmentController::class, 'updateIdStatus']);
     Route::post('/id-releasing/students/bulk-status', [EnrollmentController::class, 'bulkUpdateIdStatus']);
     Route::post('/grades/update-batch', [EnrollmentController::class, 'updateStudentGrades']);
-
+    Route::post('/enrollments/{student}/credit-subject', [EnrollmentController::class, 'creditSubject']);
+    
     // Routes for Continuing Student Enrollment
     Route::get('/enrolled-students/search', [EnrollmentController::class, 'searchEnrolledStudents']);
     Route::post('/enrollments/continuing', [EnrollmentController::class, 'submitContinuingEnrollment']);
