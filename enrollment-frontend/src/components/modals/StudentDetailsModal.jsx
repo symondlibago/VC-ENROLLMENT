@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // --- MODIFICATION: Added Check, Loader2, and Badge ---
 import { X, Save, Loader2, Clock, Check } from 'lucide-react';
 import { enrollmentAPI, paymentAPI } from '../../services/api'; 
@@ -173,6 +173,17 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     payment_date: new Date().toISOString().split('T')[0]
   });
   
+  // --- NEW: State to track which fields are manually edited ---
+  const [manualEdit, setManualEdit] = useState({
+    tuition_fee: false,
+    laboratory_fee: false,
+    bundled_program_fee: false,
+    total_amount: false,
+    discount_deduction: false,
+    remaining_amount: false,
+    term_payment: false,
+  });
+
   const [paymentSaving, setPaymentSaving] = useState(false);
   
   const [alert, setAlert] = useState({ isVisible: false, message: '', type: 'success' });
@@ -193,6 +204,17 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
 
         setStudent(studentData);
         setSubjectsWithSchedules(subjectsData);
+        
+        // --- NEW: Reset manual edit flags on data fetch ---
+        setManualEdit({
+            tuition_fee: false,
+            laboratory_fee: false,
+            bundled_program_fee: false,
+            total_amount: false,
+            discount_deduction: false,
+            remaining_amount: false,
+            term_payment: false,
+        });
 
       } else {
         setError('Failed to load student details');
@@ -210,10 +232,11 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     }
   }, [isOpen, fetchStudentDetails]);
 
-  // useEffect for payment calculation (no changes)
+  // --- ✅ RESTORED: useEffect for payment calculation ---
   useEffect(() => {
     if (!student || !subjectsWithSchedules) return;
 
+    // Calculate auto-values
     const totalLecHrs = subjectsWithSchedules.reduce((sum, subject) => sum + (parseFloat(subject.lec_hrs) || 0), 0);
     const newTuitionFee = totalLecHrs * 528;
 
@@ -228,27 +251,34 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
         newBundledProgramFee = 0;
     }
 
+    // Get current values from state (which might be manually set)
     const prevAccount = parseFloat(paymentData.previous_account) || 0;
     const regFee = parseFloat(paymentData.registration_fee) || 0;
     const miscFee = parseFloat(paymentData.miscellaneous_fee) || 0;
     const otherFee = parseFloat(paymentData.other_fees) || 0;
     const paymentAmount = parseFloat(paymentData.payment_amount) || 0;
     const discountPercent = parseFloat(paymentData.discount) || 0;
+    
+    // Use manually edited values if available, otherwise use calculated values
+    const tuition = manualEdit.tuition_fee ? parseFloat(paymentData.tuition_fee) : newTuitionFee;
+    const lab = manualEdit.laboratory_fee ? parseFloat(paymentData.laboratory_fee) : newLaboratoryFee;
+    const bundled = manualEdit.bundled_program_fee ? parseFloat(paymentData.bundled_program_fee) : newBundledProgramFee;
 
-    const newTotalAmount = prevAccount + newTuitionFee + newLaboratoryFee + miscFee + otherFee + newBundledProgramFee + regFee;
+    const newTotalAmount = prevAccount + tuition + lab + miscFee + otherFee + bundled + regFee;
     const newDiscountDeduction = newTotalAmount * (discountPercent / 100);
-    const newRemainingAmount = newTotalAmount - newDiscountDeduction - paymentAmount;
+    const newRemainingAmount = newTotalAmount - (manualEdit.discount_deduction ? parseFloat(paymentData.discount_deduction) : newDiscountDeduction) - paymentAmount;
     const newTermPayment = newRemainingAmount > 0 ? newRemainingAmount / 4 : 0;
 
     setPaymentData(prev => ({
         ...prev,
-        tuition_fee: newTuitionFee.toFixed(2),
-        laboratory_fee: newLaboratoryFee.toFixed(2),
-        bundled_program_fee: newBundledProgramFee.toFixed(2),
-        total_amount: newTotalAmount.toFixed(2),
-        discount_deduction: newDiscountDeduction.toFixed(2),
-        remaining_amount: newRemainingAmount.toFixed(2),
-        term_payment: newTermPayment.toFixed(2),
+        // Only update fields that haven't been manually edited
+        tuition_fee: manualEdit.tuition_fee ? prev.tuition_fee : newTuitionFee.toFixed(2),
+        laboratory_fee: manualEdit.laboratory_fee ? prev.laboratory_fee : newLaboratoryFee.toFixed(2),
+        bundled_program_fee: manualEdit.bundled_program_fee ? prev.bundled_program_fee : newBundledProgramFee.toFixed(2),
+        total_amount: manualEdit.total_amount ? prev.total_amount : newTotalAmount.toFixed(2),
+        discount_deduction: manualEdit.discount_deduction ? prev.discount_deduction : newDiscountDeduction.toFixed(2),
+        remaining_amount: manualEdit.remaining_amount ? prev.remaining_amount : newRemainingAmount.toFixed(2),
+        term_payment: manualEdit.term_payment ? prev.term_payment : newTermPayment.toFixed(2),
     }));
 
   }, [
@@ -259,7 +289,9 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     paymentData.miscellaneous_fee, 
     paymentData.other_fees, 
     paymentData.payment_amount, 
-    paymentData.discount
+    paymentData.discount,
+    // --- NEW: Depend on manualEdit state ---
+    manualEdit 
   ]);
 
   const handleApprovalUpdated = () => {
@@ -271,9 +303,14 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     fetchStudentDetails(); // Re-fetch all data to ensure UI consistency
   };
 
-  // handlePaymentInputChange (no changes)
+  // --- MODIFIED: handlePaymentInputChange to track manual edits ---
   const handlePaymentInputChange = (field, value) => {
     setPaymentData(prev => ({ ...prev, [field]: value }));
+    
+    // If one of the auto-calculated fields is edited, flag it
+    if (Object.keys(manualEdit).includes(field)) {
+      setManualEdit(prev => ({ ...prev, [field]: true }));
+    }
   };
   
   // handlePaymentDateChange (no changes)
@@ -354,6 +391,20 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
 
   if (!isOpen) return null;
 
+  // --- NEW: Calculate Totals for Subjects Table ---
+  const subjectTotals = useMemo(() => {
+    if (!subjectsWithSchedules) {
+      return { units: 0, lec: 0, lab: 0 };
+    }
+    return subjectsWithSchedules.reduce((acc, subject) => {
+      acc.units += parseFloat(subject.total_units) || 0;
+      acc.lec += parseFloat(subject.lec_hrs) || 0;
+      acc.lab += parseFloat(subject.lab_hrs) || 0;
+      return acc;
+    }, { units: 0, lec: 0, lab: 0 });
+  }, [subjectsWithSchedules]);
+
+
   // --- MODIFICATION: Added check for crediting permission ---
   const canCreditSubjects = (currentUserRole === 'Admin' || currentUserRole === 'Registrar') &&
                             student?.enrollment_type === 'Transferee';
@@ -421,7 +472,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                 </div>
               </div>
 
-             {/* --- MODIFICATION: Selected Subjects Table --- */}
+             {/* --- ✅ MODIFICATION: Selected Subjects Table --- */}
             <div className="bg-gray-50 p-4 rounded-lg">
               <h3 className="text-lg font-medium mb-3 text-black">SELECTED SUBJECTS & SCHEDULE</h3>
               {subjectsWithSchedules.length > 0 ? (
@@ -432,6 +483,10 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
                         <th className="w-2/5 px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descriptive Title</th>
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Units</th>
+                        {/* --- NEW HEADERS --- */}
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lec Hrs</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lab Hrs</th>
+                        {/* --- END NEW --- */}
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Schedule (Day / Time / Room)</th>
                         {/* Added "Credit" column */}
                         {canCreditSubjects && (
@@ -451,6 +506,10 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                             <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.subject_code}</td>
                             <td className="px-4 py-2 whitespace-normal break-words text-sm">{subject.descriptive_title}</td>
                             <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.total_units}</td>
+                            {/* --- NEW CELLS --- */}
+                            <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lec_hrs || 0}</td>
+                            <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lab_hrs || 0}</td>
+                            {/* --- END NEW --- */}
                             <td className="px-4 py-2 whitespace-pre-wrap text-xs">
                                 {subject.schedules && subject.schedules.length > 0
                                     ? subject.schedules.map(s => `${s.day || 'TBA'} / ${s.time || 'TBA'} / ${s.room_no || 'TBA'}`).join('\n')
@@ -486,6 +545,28 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                         );
                       })}
                     </tbody>
+                    {/* --- NEW FOOTER --- */}
+                    <tfoot className="bg-gray-50 border-t-2 border-gray-300">
+                      <tr>
+                        <td colSpan="2" className="px-4 py-3 text-right text-sm font-bold text-gray-700 uppercase">
+                          Totals:
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">
+                          {subjectTotals.units.toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">
+                          {subjectTotals.lec.toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">
+                          {subjectTotals.lab.toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3"></td>
+                        {canCreditSubjects && (
+                          <td className="px-4 py-3"></td>
+                        )}
+                      </tr>
+                    </tfoot>
+                    {/* --- END NEW FOOTER --- */}
                   </table>
                 </div>
               ) : <p className="text-gray-500">No subjects selected</p>}
@@ -528,7 +609,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                   <p className="text-xs text-yellow-600 mt-2">Waiting for Program Head & Registrar approval.</p>}
               </div>
 
-              {/* Payment Information Section (no changes) */}
+              {/* --- ✅ MODIFICATION: Payment Information Section --- */}
               {currentUserRole === 'Cashier' && (
                 <div className="bg-gray-50 p-4 rounded-lg border-2 border-red-200">
                   <h3 className="text-lg font-medium mb-4 text-black flex items-center">PAYMENT INFORMATION</h3>
@@ -538,22 +619,29 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div><label className="block text-sm font-medium text-gray-700 mb-1">Previous Account</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.previous_account} onChange={(e) => handlePaymentInputChange('previous_account', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
                         <div><label className="block text-sm font-medium text-gray-700 mb-1">Registration Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.registration_fee} onChange={(e) => handlePaymentInputChange('registration_fee', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Tuition Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" readOnly value={paymentData.tuition_fee} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Laboratory Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" readOnly value={paymentData.laboratory_fee} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                        {/* --- Field Made Editable (readOnly removed, bg-gray-100 removed, classes added) --- */}
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Tuition Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.tuition_fee} onChange={(e) => handlePaymentInputChange('tuition_fee', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
+                        {/* --- Field Made Editable --- */}
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Laboratory Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.laboratory_fee} onChange={(e) => handlePaymentInputChange('laboratory_fee', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
                         <div><label className="block text-sm font-medium text-gray-700 mb-1">Miscellaneous Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.miscellaneous_fee} onChange={(e) => handlePaymentInputChange('miscellaneous_fee', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
                         <div><label className="block text-sm font-medium text-gray-700 mb-1">Other Fees</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.other_fees} onChange={(e) => handlePaymentInputChange('other_fees', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Bundled Program Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" readOnly value={paymentData.bundled_program_fee} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                        {/* --- Field Made Editable --- */}
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Bundled Program Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.bundled_program_fee} onChange={(e) => handlePaymentInputChange('bundled_program_fee', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
                       </div>
                     </div>
                     <div>
                       <h4 className="text-md font-medium mb-3 text-gray-700">Payment Details</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Total Amount</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" readOnly value={paymentData.total_amount} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                        {/* --- Field Made Editable --- */}
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Total Amount</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.total_amount} onChange={(e) => handlePaymentInputChange('total_amount', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
                         <div><label className="block text-sm font-medium text-gray-700 mb-1">Payment Amount</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.payment_amount} onChange={(e) => handlePaymentInputChange("payment_amount", e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
                         <div><label className="block text-sm font-medium text-gray-700 mb-1">Discount %</label><div className="relative"><input type="number" value={paymentData.discount} onChange={(e) => handlePaymentInputChange("discount", e.target.value)} className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0" min="0" max="100" step="0.01" /></div></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Discount Deduction</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" readOnly value={paymentData.discount_deduction} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Remaining Amount</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" readOnly value={paymentData.remaining_amount} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Term Payment</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" readOnly value={paymentData.term_payment} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                        {/* --- Field Made Editable --- */}
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Discount Deduction</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.discount_deduction} onChange={(e) => handlePaymentInputChange('discount_deduction', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
+                        {/* --- Field Made Editable --- */}
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Remaining Amount</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.remaining_amount} onChange={(e) => handlePaymentInputChange('remaining_amount', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
+                        {/* --- Field Made Editable --- */}
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Term Payment</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.term_payment} onChange={(e) => handlePaymentInputChange('term_payment', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
                         <div><label className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label><CustomCalendar value={paymentData.payment_date} onChange={handlePaymentDateChange} placeholder="Select Payment Date" /></div>
                       </div>
                     </div>
