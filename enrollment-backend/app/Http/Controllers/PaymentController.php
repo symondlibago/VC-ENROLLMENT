@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB; 
+use App\Models\TermPayment;
 
 class PaymentController extends Controller
 {
@@ -42,6 +44,10 @@ class PaymentController extends Controller
             'remaining_amount' => 'nullable|numeric',
             'term_payment' => 'nullable|numeric|min:0',
             'payment_date' => 'nullable|date',
+            'term_payments' => 'nullable|array',
+            'term_payments.*.or_number' => 'nullable|string|max:255',
+            'term_payments.*.amount' => 'required|numeric|min:0',
+            'term_payments.*.payment_date' => 'required|date',
         ]);
 
         if ($validator->fails()) {
@@ -51,12 +57,90 @@ class PaymentController extends Controller
             ], 422);
         }
 
-        $payment = Payment::create($request->all());
-        
+        try {
+            DB::beginTransaction();
+
+            // ✅ --- FIX: Use updateOrCreate ---
+            // This finds a payment with the matching student ID and updates it.
+            // If one doesn't exist, it creates it.
+            $payment = Payment::updateOrCreate(
+                [
+                    // Key to find the record:
+                    'pre_enrolled_student_id' => $request->input('pre_enrolled_student_id')
+                ],
+                [
+                    // Data to update or create with:
+                    // (We exclude term_payments and student_id from this part)
+                    'enrollment_code_id' => $request->input('enrollment_code_id'),
+                    'previous_account' => $request->input('previous_account'),
+                    'registration_fee' => $request->input('registration_fee'),
+                    'tuition_fee' => $request->input('tuition_fee'),
+                    'laboratory_fee' => $request->input('laboratory_fee'),
+                    'miscellaneous_fee' => $request->input('miscellaneous_fee'),
+                    'other_fees' => $request->input('other_fees'),
+                    'bundled_program_fee' => $request->input('bundled_program_fee'),
+                    'total_amount' => $request->input('total_amount'),
+                    'payment_amount' => $request->input('payment_amount'),
+                    'discount' => $request->input('discount'),
+                    'discount_deduction' => $request->input('discount_deduction'),
+                    'remaining_amount' => $request->input('remaining_amount'),
+                    'term_payment' => $request->input('term_payment'),
+                    'payment_date' => $request->input('payment_date'),
+                ]
+            );
+            
+            // ✅ --- FIX: Delete old term payments ---
+            // This prevents duplicates and makes the list an exact copy of what's in the modal.
+            TermPayment::where('payment_id', $payment->id)->delete();
+            
+            // Check if any term payments were sent
+            if ($request->has('term_payments') && is_array($request->term_payments)) {
+                foreach ($request->term_payments as $termPaymentData) {
+                    // Create a new TermPayment and link it to the (now correct) payment record
+                    TermPayment::create([
+                        'payment_id' => $payment->id,
+                        'pre_enrolled_student_id' => $payment->pre_enrolled_student_id,
+                        'or_number' => $termPaymentData['or_number'],
+                        'amount' => $termPaymentData['amount'],
+                        'payment_date' => $termPaymentData['payment_date'],
+                    ]);
+                }
+            }
+
+            DB::commit(); // All good, save changes
+
+            return response()->json([
+                'success' => true,
+                'data' => $payment->load('termPayments') // Return updated payment
+            ], 200); // 200 (OK) is better for an update
+
+        } catch (\Exception $e) {
+            DB::rollBack(); // Something went wrong, undo changes
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to save payment.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getPaymentByStudent($student_id)
+    {
+        $payment = Payment::with('termPayments') // Eager load installments
+                         ->where('pre_enrolled_student_id', $student_id)
+                         ->first();
+
+        if (!$payment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No payment record found for this student.'
+            ], 404);
+        }
+
         return response()->json([
             'success' => true,
             'data' => $payment
-        ], 201);
+        ]);
     }
 
     /**

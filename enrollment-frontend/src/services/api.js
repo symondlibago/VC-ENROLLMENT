@@ -693,8 +693,20 @@ export const paymentAPI = {
     } catch (error) {
       throw error.response?.data || { success: false, message: 'Failed to save payment' };
     }
+  },
+
+  getByStudentId: async (studentId) => {
+    try {
+      const response = await api.get(`/students/${studentId}/payment`);
+      return response.data;
+    } catch (error) {
+      // A 404 error is expected if they haven't paid, so we throw it
+      // to be caught by the modal
+      throw error.response?.data || { success: false, message: 'Failed to fetch payment data' };
+    }
   }
 };
+
 // Schedule API methods
 export const scheduleAPI = {
   // Get schedules by subject ID

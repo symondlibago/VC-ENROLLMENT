@@ -18,6 +18,7 @@ import {
   BookMarked,
   ClipboardList,
   CheckCircle,
+  Receipt, // <-- NEW: Added Receipt icon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import VipcLogo from '/circlelogo.png';
@@ -34,6 +35,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
     { id: 'students', icon: Users, label: 'Students', badge: '24', path: '/students' },
     { id: 'courses', icon: BookOpen, label: 'Courses', badge: null, path: '/courses' },
     { id: 'enrollment', icon: GraduationCap, label: 'Enrollment', badge: '5', path: '/enrollment' },
+    { id: 'termpayment', icon: Receipt, label: 'Term Payment', badge: null, path: '/term-payment' }, 
     { id: 'schedule', icon: Calendar, label: 'Add/Drop Subjects', badge: null, path: '/addingdroppingsubjects' },
     { id: 'shiftee', icon: FileText, label: 'Shiftee', badge: null, path: '/shiftee' },
     { id: 'facultyadminstaff', icon: User, label: 'Faculty & Admin Staff', badge: null, path: '/facultyadminstaff' },
@@ -76,12 +78,12 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
 
       case 'Program Head':
       case 'Registrar': { // Program Head and Registrar have the same restrictions
-        const hiddenItems = ['grades', 'id-releasing', 'facultyadminstaff', 'courses'];
+        const hiddenItems = ['grades', 'id-releasing', 'facultyadminstaff', 'courses', 'termpayment']; // <-- Hide new page from them
         return adminMenuItems.filter(item => !hiddenItems.includes(item.id));
       }
 
       case 'Cashier': { // Cashier has a specific list
-        const allowedItems = ['dashboard', 'enrollment', 'schedule', 'shiftee', 'id-releasing', 'settings'];
+        const allowedItems = ['dashboard', 'enrollment', 'termpayment', 'schedule', 'shiftee', 'id-releasing', 'settings']; // <-- Added termpayment
         return adminMenuItems.filter(item => allowedItems.includes(item.id));
       }
 

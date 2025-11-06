@@ -66,6 +66,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Payment routes
     Route::apiResource('payments', PaymentController::class);
+    Route::get('/students/{student_id}/payment', [PaymentController::class, 'getPaymentByStudent']);
 
     // Section routes
     Route::apiResource('sections', SectionController::class);
