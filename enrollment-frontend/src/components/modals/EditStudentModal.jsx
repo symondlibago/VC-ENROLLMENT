@@ -5,6 +5,8 @@ import { enrollmentAPI } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+// ✅ --- ADDED SELECT COMPONENT ---
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import SuccessAlert from './SuccessAlert';
 import ValidationErrorModal from './ValidationErrorModal';
 import CustomCalendar from '../layout/CustomCalendar';
@@ -28,8 +30,10 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
                 const studentData = response.data.student;
                 // Initialize form data with ALL editable fields
                 setFormData({
-                    // ✅ ADDED student_id_number
                     student_id_number: studentData.student_id_number || '',
+                    
+                    // ✅ --- ADDED academic_status ---
+                    academic_status: studentData.academic_status || 'Regular',
 
                     // Basic Info
                     last_name: studentData.last_name || '',
@@ -91,6 +95,11 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
         setFormData(prev => ({ ...prev, [id]: value }));
     };
 
+    // ✅ --- ADDED Handler for Select component ---
+    const handleSelectChange = (field, value) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+    };
+
     const handleDateChange = (field, dateString) => {
         setFormData(prev => ({ ...prev, [field]: dateString }));
     };
@@ -119,6 +128,8 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
                 let errorMsg = '';
                 if (error.errors.student_id_number) {
                     errorMsg = error.errors.student_id_number[0];
+                } else if (error.errors.academic_status) { // ✅ Handle new error
+                    errorMsg = error.errors.academic_status[0];
                 } else {
                     errorMsg = Object.values(error.errors)[0][0];
                 }
@@ -138,6 +149,30 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
         <div className="space-y-1">
             <Label htmlFor={id} className="text-sm font-medium text-gray-700">{label}</Label>
             <Input id={id} value={formData[id] || ''} onChange={handleInputChange} disabled={saving} className="border-gray-300 focus:ring-gray-500" {...props} />
+        </div>
+    );
+    
+    // ✅ --- ADDED Helper for Select component ---
+    const renderSelect = (id, label, placeholder, options) => (
+        <div className="space-y-1">
+            <Label htmlFor={id} className="text-sm font-medium text-gray-700">{label}</Label>
+            <Select 
+                id={id} 
+                value={formData[id] || ''} 
+                onValueChange={(value) => handleSelectChange(id, value)} 
+                disabled={saving}
+            >
+                <SelectTrigger className="w-full border-gray-300 focus:ring-gray-500">
+                    <SelectValue placeholder={placeholder} />
+                </SelectTrigger>
+                <SelectContent>
+                    {options.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
         </div>
     );
 
@@ -173,9 +208,16 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
                                     <div className="p-4 border rounded-lg space-y-4">
                                         <h3 className="text-base font-semibold text-gray-900">Basic Information</h3>
                                         
-                                        {/* ✅ ADDED Student ID Number input */}
+                                        {/* ✅ UPDATED Student ID and Academic Status Row */}
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             {renderInput("student_id_number", "Student ID Number", { placeholder: "2025-0001" })}
+                                            <div className="md:col-span-1">
+                                                {renderSelect("academic_status", "Academic Status", "Select Status", [
+                                                    { value: "Regular", label: "Regular" },
+                                                    { value: "Irregular", label: "Irregular" },
+                                                    { value: "Withdraw", label: "Withdraw" },
+                                                ])}
+                                            </div>
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

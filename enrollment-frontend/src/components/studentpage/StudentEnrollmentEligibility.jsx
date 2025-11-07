@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { studentAPI, enrollmentAPI } from '@/services/api'; 
+// ✅ ADDED managementAPI
+import { studentAPI, enrollmentAPI, managementAPI } from '@/services/api'; 
 import {
   CheckCircle,
   XCircle,
@@ -82,6 +83,21 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
 
 // #endregion
 
+// ✅ HELPER: Function to get period status
+const getPeriodStatus = (startDate, endDate) => {
+    if (!startDate || !endDate) return { status: 'Not Set', message: 'Enrollment schedule is not yet posted. Please contact the Registrar.' };
+    const now = new Date();
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999); // Include the entire end day
+
+    const options = { month: 'long', day: 'numeric', year: 'numeric' };
+
+    if (now < start) return { status: 'Upcoming', message: `Enrollment opens on ${start.toLocaleDateString(undefined, options)}. Please check back on that date.` };
+    if (now > end) return { status: 'Closed', message: 'The enrollment period has ended. Please contact the Registrar.' };
+    return { status: 'Open', message: 'The enrollment period is open.' };
+};
+
 const StudentEnrollmentEligibility = () => {
     // --- STEP STATE ---
     const [currentStep, setCurrentStep] = useState(1);
@@ -118,6 +134,12 @@ const StudentEnrollmentEligibility = () => {
     const [isValidationModalOpen, setIsValidationModalOpen] = useState(false); 
     const [validationMessage, setValidationMessage] = useState('');
 
+    // ✅ NEW STATE for Enrollment Period
+    const [enrollmentPeriod, setEnrollmentPeriod] = useState({ 
+        status: 'Loading', 
+        message: 'Loading enrollment schedule...' 
+    });
+
     // --- STATIC OPTIONS (Pulled from ContinuingEnrollmentModal) ---
     const schoolYearOptions = [
         { label: '2025-2026', value: '2025-2026' },
@@ -142,7 +164,7 @@ const StudentEnrollmentEligibility = () => {
             setLoading(true);
             setError(null);
             try {
-                // Endpoint fetches data for the authenticated student
+                // --- 1. Fetch Eligibility Status ---
                 const response = await studentAPI.checkMyEnrollmentEligibility(); 
                 
                 if (response.success && response.status_data) {
@@ -159,6 +181,21 @@ const StudentEnrollmentEligibility = () => {
                 } else {
                     setError(response.message || 'Failed to check eligibility status.');
                 }
+
+                // --- 2. Fetch Enrollment Period ---
+                try {
+                    const periodResponse = await managementAPI.getGradingPeriods();
+                    if (periodResponse.success && periodResponse.data.enrollment) {
+                        const { start_date, end_date } = periodResponse.data.enrollment;
+                        setEnrollmentPeriod(getPeriodStatus(start_date, end_date));
+                    } else {
+                        setEnrollmentPeriod({ status: 'Not Set', message: 'Enrollment schedule could not be loaded. Please contact support.' });
+                    }
+                } catch (periodError) {
+                    console.error("Failed to load enrollment period:", periodError);
+                    setEnrollmentPeriod({ status: 'Not Set', message: 'Enrollment schedule could not be loaded. Please contact support.' });
+                }
+
 
             } catch (err) {
                 setError(err.message);
@@ -180,6 +217,13 @@ const StudentEnrollmentEligibility = () => {
         if (eligibility.academic_status !== 'Regular') {
             // This button should be disabled for Irregular/Ineligible, but good practice to check
             setValidationMessage(`Only Regular students can use self-enrollment. Please contact the Registrar to resolve your '${eligibility.academic_status}' status.`);
+            setIsValidationModalOpen(true);
+            return;
+        }
+
+        // ✅ NEW: Check enrollment period status
+        if (enrollmentPeriod.status !== 'Open') {
+            setValidationMessage(`Enrollment is not currently open. ${enrollmentPeriod.message}`);
             setIsValidationModalOpen(true);
             return;
         }
@@ -297,7 +341,9 @@ const StudentEnrollmentEligibility = () => {
     
     // Status Display
     const statusType = eligibility.academic_status; 
-    const isButtonEnabled = statusType === 'Regular';
+    // ✅ MODIFIED: Check both academic status and enrollment period
+    const isEnrollmentOpen = enrollmentPeriod.status === 'Open';
+    const isButtonEnabled = statusType === 'Regular' && isEnrollmentOpen;
     const isIneligible = statusType === 'Ineligible';
 
     const getStatusDisplay = () => {
@@ -370,15 +416,30 @@ const StudentEnrollmentEligibility = () => {
 
                     {/* Action Button and Warning Messages */}
                     <div className="pt-6 border-t border-gray-100">
+                        {/* ✅ MODIFIED: This block now checks isButtonEnabled and enrollmentPeriod.status */}
                         {statusType === 'Regular' && (
-                            <div className="p-4 bg-green-50 border border-green-200 rounded-xl space-y-3">
-                                <div className="flex items-center text-green-700 font-semibold">
-                                    <CheckCircle className="w-5 h-5 mr-3" />
-                                    <span>Congratulations! You are Regular and fully eligible to enroll.</span>
+                            <div className={`p-4 border rounded-xl space-y-3 ${isButtonEnabled ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
+                                <div className={`flex items-center font-semibold ${isButtonEnabled ? 'text-green-700' : 'text-blue-700'}`}>
+                                    {isButtonEnabled ? <CheckCircle className="w-5 h-5 mr-3" /> : <AlertCircle className="w-5 h-5 mr-3" />}
+                                    
+                                    {loading ? (
+                                        <span>Checking enrollment schedule...</span>
+                                    ) : (
+                                        <span>
+                                            {isButtonEnabled 
+                                                ? 'Congratulations! You are Regular and eligible to enroll.' 
+                                                : enrollmentPeriod.message
+                                            }
+                                        </span>
+                                    )}
                                 </div>
-                                <Button onClick={handleEnrollNow} disabled={loading} className="w-full bg-red-800 hover:bg-red-700 text-white font-bold liquid-morph">
+                                <Button 
+                                    onClick={handleEnrollNow} 
+                                    disabled={!isButtonEnabled || loading} 
+                                    className={`w-full text-white font-bold liquid-morph ${isButtonEnabled ? 'bg-red-800 hover:bg-red-700' : 'bg-gray-400 cursor-not-allowed'}`}
+                                >
                                     <ArrowRight className="mr-2 h-5 w-5" />
-                                    Proceed to Enrollment
+                                    {isButtonEnabled ? 'Proceed to Enrollment' : (enrollmentPeriod.status === 'Upcoming' ? 'Enrollment Upcoming' : 'Enrollment Closed')}
                                 </Button>
                             </div>
                         )}

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Payment extends Model
 {
@@ -36,5 +37,10 @@ class Payment extends Model
     public function enrollmentCode()
     {
         return $this->belongsTo(EnrollmentCode::class);
+    }
+
+    public function termPayments(): HasMany
+    {
+        return $this->hasMany(TermPayment::class);
     }
 }

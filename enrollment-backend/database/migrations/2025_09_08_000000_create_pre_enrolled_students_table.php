@@ -64,7 +64,7 @@ return new class extends Migration
             
             // Enrollment Status and Academic Status
             $table->enum('enrollment_status', ['pending', 'enrolled', 'rejected'])->default('pending');
-            $table->enum('academic_status', ['Regular', 'Irregular'])->default('Regular'); 
+            $table->enum('academic_status', ['Regular', 'Irregular', 'Withdraw'])->default('Regular'); 
 
             // Add identification fields after educational background
             $table->string('id_photo')->nullable();

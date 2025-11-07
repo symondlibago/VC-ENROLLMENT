@@ -12,6 +12,7 @@ import Shiftee from './components/pages/Shiftee';
 import FacultyAdminStaff from './components/pages/FacultyAdminStaff';
 import Grades from './components/pages/Grades';
 import IDReleasing from './components/pages/IDReleasing';
+import TermPayment from './components/pages/TermPayment';
 import Settings from './components/pages/Settings';
 import LandingPage from './components/auth/LandingPage';
 import LoginPage from './components/auth/LoginPage';
@@ -185,6 +186,7 @@ function App() {
         <Route path="/students" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Students /></motion.div>} />
         <Route path="/courses" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Courses /></motion.div>} />
         <Route path="/enrollment" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Enrollment /></motion.div>} />
+        <Route path="/term-payment" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><TermPayment /></motion.div>} />
         <Route path="/addingdroppingsubjects" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><AddingDroppingSubjects /></motion.div>} />
         <Route path="/shiftee" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Shiftee /></motion.div>} />
         <Route path="/facultyadminstaff" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><FacultyAdminStaff /></motion.div>} />
@@ -312,4 +314,3 @@ function App() {
 }
 
 export default App;
-

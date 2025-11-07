@@ -13,6 +13,21 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 14;
 
+    // Helper function to abbreviate day names
+    const abbreviateDay = (day) => {
+      if (!day) return 'TBA';
+      switch (day.toLowerCase()) {
+        case 'monday': return 'M';
+        case 'tuesday': return 'T';
+        case 'wednesday': return 'W';
+        case 'thursday': return 'Th';
+        case 'friday': return 'F';
+        case 'saturday': return 'Sa';
+        case 'sunday': return 'Su';
+        default: return day.substring(0, 3);
+      }
+    };
+
     const drawBrandingAndTitle = (startY) => {
       const imgWidth = 80; const imgHeight = 15;
       const imgX = (pageWidth - imgWidth) / 2;
@@ -34,15 +49,16 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
       return y;
     };
     
-    const drawStudentDetails = (startY) => {
+    // REDUCED FONT SIZE FOR STUDENT DETAILS
+    const drawStudentDetails = (startY, fontSize = 8) => { 
       let y = startY + 7;
-      doc.setFontSize(8);
+      doc.setFontSize(fontSize);
       doc.text('Student No.:', margin, y);
       doc.text(student.student_id_number || 'N/A', margin + 30, y);
-      y += 4;
+      y += 3.5; // Adjusted spacing
       doc.text('Student Name:', margin, y);
       doc.text(`${student.last_name}, ${student.first_name} ${student.middle_name || ''}`, margin + 30, y);
-      y += 4;
+      y += 3.5; // Adjusted spacing
       doc.text('Course & Year:', margin, y);
       const courseText = `[${student.course?.course_code || 'N/A'}] ${student.course?.course_name || 'N/A'} - ${student.year || 'N/A'} (${student.enrollment_type || ''})`;
       doc.text(courseText, margin + 30, y);
@@ -71,19 +87,18 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
         return finalY;
     };
 
-    // --- UPDATED drawStudentPersonalDetails function ---
+    // --- Student Personal Details function (called on the final page) ---
     const drawStudentPersonalDetails = () => {
       doc.addPage();
       const startY = 15;
       let y = startY;
       const smallMargin = 10;
-      const contentWidth = pageWidth - 2 * smallMargin;
 
       // Title
       doc.setFontSize(10).setFont('helvetica', 'bold').text('STUDENT PERSONAL DATA', pageWidth / 2, y, { align: 'center' });
       y += 8;
 
-      // Basic Info Fields
+     // Basic Info Fields
       const fieldSpacing = 5;
       const labelFontSize = 8;
       const valueFontSize = 9;
@@ -210,29 +225,44 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
       doc.text('and comply with the rules and policies of Vineyard International Polytechnic College.', smallMargin, y);
       y += 10;
 
-      // Student's Signature
+      // Student's Signature (for Personal Data Page)
       doc.line(smallMargin, y, smallMargin + 50, y);
       doc.setFontSize(7).text('Student\'s Signature over Printed Name', smallMargin, y + 3);
     };
 
-    // --- Section 1: Registrar's Copy ---
+    // --- Section 1: Registrar's Copy (Enrollment Form) ---
     let yPos1 = drawBrandingAndTitle(10);
     yPos1 = drawStudentDetails(yPos1);
 
     let totalLecHrs = 0, totalLabHrs = 0, totalUnits = 0;
     const subjectsTableRows = [];
     subjectsWithSchedules.forEach(subject => {
-      subjectsTableRows.push([ subject.subject_code, subject.descriptive_title, subject.lec_hrs, subject.lab_hrs, subject.total_units, subject.schedules?.map(s => s.day || 'TBA').join('\n') || 'TBA', subject.schedules?.map(s => s.time || 'TBA').join('\n') || 'TBA', subject.schedules?.map(s => s.room_no || 'TBA').join('\n') || 'TBA' ]);
+      subjectsTableRows.push([ 
+        subject.subject_code, 
+        subject.descriptive_title, 
+        subject.lec_hrs, 
+        subject.lab_hrs, 
+        subject.total_units, 
+        subject.schedules?.map(s => s.day || 'TBA').join('\n') || 'TBA', 
+        subject.schedules?.map(s => s.time || 'TBA').join('\n') || 'TBA', 
+        subject.schedules?.map(s => s.room_no || 'TBA').join('\n') || 'TBA' 
+      ]);
       totalLecHrs += subject.lec_hrs || 0;
       totalLabHrs += subject.lab_hrs || 0;
       totalUnits += subject.total_units || 0;
     });
     subjectsTableRows.push(['', 'TOTAL', totalLecHrs, totalLabHrs, totalUnits, '', '', '']);
 
+    // REDUCE FONT SIZE FOR REGISTRAR'S COPY TABLE TO 6
     autoTable(doc, {
-      head: [["Code", "Descriptive Title", "Lec", "Lab", "Units", "Day", "Time", "Room"]], body: subjectsTableRows, startY: yPos1 + 5,
-      margin: { left: margin, right: margin }, theme: 'grid', headStyles: { fillColor: [255, 255, 255], textColor: 0, lineWidth: 0.1, lineColor: 100, fontSize: 7 },
-      styles: { fontSize: 7, cellPadding: 1, lineWidth: 0.1, lineColor: 100, valign: 'middle' }, columnStyles: { 1: { cellWidth: 50 } },
+      head: [["Code", "Descriptive Title", "Lec", "Lab", "Units", "Day", "Time", "Room"]], 
+      body: subjectsTableRows, 
+      startY: yPos1 + 5,
+      margin: { left: margin, right: margin }, 
+      theme: 'grid', 
+      headStyles: { fillColor: [255, 255, 255], textColor: 0, lineWidth: 0.1, lineColor: 100, fontSize: 6 },
+      styles: { fontSize: 6, cellPadding: 1, lineWidth: 0.1, lineColor: 100, valign: 'middle' }, 
+      columnStyles: { 1: { cellWidth: 50 } },
       didParseCell: (data) => { if (data.row.index === subjectsTableRows.length - 1) data.cell.styles.fontStyle = 'bold'; },
     });
     
@@ -257,11 +287,29 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
     const separatorY = approvalY + 5;
     doc.setLineDashPattern([2, 1], 0).line(margin, separatorY, pageWidth - margin, separatorY).setLineDashPattern([], 0);
 
-    // --- Section 2: Student's Copy ---
+    // --- Section 2: Student's Copy (COR) ---
+    // Safety check to ensure COR starts on a fresh page if the top section was too long
+    if (separatorY > 260) {
+        doc.addPage();
+    }
+    
     let yPos2 = drawSecondSectionHeader(separatorY + 2);
-    yPos2 = drawStudentDetails(yPos2);
+    yPos2 = drawStudentDetails(yPos2, 7); 
 
     const fullSubjectsBody = [...subjectsTableRows]; 
+    
+    // Create a new body for the Section 2 table with abbreviated days
+    const section2SubjectsBody = fullSubjectsBody.map((row, index) => {
+      if (index === fullSubjectsBody.length - 1) { return row; }
+      
+      const dayString = row[5]; 
+      const abbreviatedDays = dayString.split('\n').map(abbreviateDay).join(' / ');
+      
+      return [
+        row[0], row[1], row[2], row[3], row[4], abbreviatedDays, row[6], row[7]
+      ];
+    });
+
     const formatCurrency = (val) => `${parseFloat(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const paymentBody = [
         ['Previous Account', formatCurrency(paymentData.previous_account)], ['Registration Fee', formatCurrency(paymentData.registration_fee)], ['Tuition Fee', formatCurrency(paymentData.tuition_fee)],
@@ -270,44 +318,82 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
         ['Discount', formatCurrency(paymentData.discount)], ['REMAINING AMOUNT', formatCurrency(paymentData.remaining_amount)], ['TERM PAYMENT', formatCurrency(paymentData.term_payment)],
     ];
     
+    
+    const tableStartY = yPos2 + 5;
+    let paymentTableFinalY = tableStartY;
+    let subjectTableFinalY = tableStartY;
+    
+    const subjectTableRightEdge = pageWidth * 0.65; 
+    const paymentTableLeftEdge = pageWidth * 0.68; 
+
+    // 1. Draw Account Details Table (Right side)
     autoTable(doc, {
-        head: [["Course Code", "Course Description", "Lec", "Lab", "Total Units", "Time", "Day", "Room No."]], body: fullSubjectsBody, startY: yPos2 + 5,
-        margin: { left: margin, right: pageWidth * 0.32 }, theme: 'grid', headStyles: { fillColor: [255, 255, 255], textColor: 0, lineWidth: 0.1, lineColor: 100, fontSize: 7 },
-        styles: { fontSize: 7, cellPadding: 1, lineWidth: 0.1, lineColor: 100, valign: 'middle' }, columnStyles: { 1: { cellWidth: 35 } },
-        didParseCell: (data) => { if (data.row.index === fullSubjectsBody.length - 1) data.cell.styles.fontStyle = 'bold'; }
-    });
-    autoTable(doc, {
-        head: [["ACCOUNT", "AMOUNT"]], body: paymentBody, startY: yPos2 + 5,
-        margin: { left: pageWidth * 0.68 + 2, right: margin }, theme: 'grid', headStyles: { fillColor: [255, 255, 255], textColor: 0, lineWidth: 0.1, lineColor: 100, fontSize: 7 },
-        styles: { fontSize: 7, cellPadding: 1, lineWidth: 0.1, lineColor: 100 }, columnStyles: { 1: { halign: 'right' } },
-        didParseCell: (data) => {
-            const boldRows = ['TOTAL', 'REMAINING AMOUNT', 'TERM PAYMENT'];
-            if (boldRows.includes(data.row.raw[0])) data.cell.styles.fontStyle = 'bold';
-        }
+      head: [["ACCOUNT", "AMOUNT"]], body: paymentBody, 
+      startY: tableStartY, 
+      margin: { left: paymentTableLeftEdge, right: margin }, 
+      theme: 'grid', 
+      headStyles: { fillColor: [255, 255, 255], textColor: 0, lineWidth: 0.1, lineColor: 100, fontSize: 6.5 },
+      styles: { fontSize: 6.5, cellPadding: 1, lineWidth: 0.1, lineColor: 100 }, 
+      columnStyles: { 1: { halign: 'right' } },
+      didParseCell: (data) => {
+          const boldRows = ['TOTAL', 'REMAINING AMOUNT', 'TERM PAYMENT'];
+          if (boldRows.includes(data.row.raw[0])) data.cell.styles.fontStyle = 'bold';
+      },
     });
 
-    let finalY2 = doc.lastAutoTable.finalY;
+    paymentTableFinalY = doc.lastAutoTable.finalY; 
 
-    if (finalY2 > 250) {
+    // 2. Draw Subject Details Table (Left side)
+    autoTable(doc, {
+      head: [["Course Code", "Course Description", "Lec", "Lab", "Units", "Day", "Time", "Room No."]], 
+      body: section2SubjectsBody, 
+      startY: tableStartY, 
+      margin: { left: margin, right: pageWidth - subjectTableRightEdge }, 
+      theme: 'grid', 
+      headStyles: { fillColor: [255, 255, 255], textColor: 0, lineWidth: 0.1, lineColor: 100, fontSize: 6 },
+      styles: { fontSize: 6, cellPadding: 1, lineWidth: 0.1, lineColor: 100, valign: 'middle' }, 
+      columnStyles: { 
+        1: { cellWidth: 35 }, 2: { cellWidth: 8 }, 3: { cellWidth: 8 }, 4: { cellWidth: 8 }
+      },
+      didParseCell: (data) => { 
+        if (data.row.index === section2SubjectsBody.length - 1) data.cell.styles.fontStyle = 'bold'; 
+      }
+    });
+
+    subjectTableFinalY = doc.lastAutoTable.finalY;
+
+    // 3. Set the final Y based on the MAX of the two tables
+    let finalY2 = Math.max(subjectTableFinalY, paymentTableFinalY);
+    
+    // Safety check for signatures if tables ran too long (Page 1 limit)
+    const maxPrintableY = 270;
+    if (finalY2 > maxPrintableY) {
+        // If the tables overflowed the page, the signature must start on the next page
         doc.addPage();
-        finalY2 = 10;
+        finalY2 = margin; // Reset Y position to top margin of the new page
     }
-    
-    doc.setFontSize(9).setFont('helvetica', 'normal').text('This is to certify that the information indicated above are true and correct.', margin, finalY2 + 8);
-    doc.line(margin, finalY2 + 20, margin + 70, finalY2 + 20);
-    doc.text('Student\'s Signature over Printed Name', margin, finalY2 + 24);
 
-    const releaseName = 'MIKAELLA JANE REMOTO'; const releaseTitle = 'Finance Officer';
-    const releaseNameWidth = doc.getStringUnitWidth(releaseName) * 9 / doc.internal.scaleFactor;
-    const releaseX = pageWidth - margin - releaseNameWidth;
-    const signatureLineY = finalY2 + 20;
+    const signatureStartOffset = 5; 
+    const signatureLineY = finalY2 + signatureStartOffset + 10;
     
-    doc.text('RELEASED BY:', releaseX, finalY2 + 15);
-    doc.line(releaseX, signatureLineY, pageWidth - margin, signatureLineY);
-    doc.setFont('helvetica', 'bold').text(releaseName, releaseX, signatureLineY);
-    doc.setFont('helvetica', 'normal').text(releaseTitle, releaseX, signatureLineY + 4);
+    // --- Student's Signature (Left Side - Below Subject Table) ---
+    doc.line(margin, signatureLineY, margin + 70, signatureLineY); // Longer line for Student Name
+    doc.setFontSize(7).text('Student\'s Signature over Printed Name', margin, signatureLineY + 4);
 
-    // Call the updated function to draw the second page
+    // --- Released By (Right Side - Below Account Box) ---
+    const releaseName = 'MIKAELLA JANE REMOTO'; 
+    const releaseTitle = 'Finance Officer';
+    
+    const releaseX = pageWidth - margin; // Right margin position
+    
+    // Right alignment for the Release By block
+    doc.setFontSize(8).text('RELEASED BY:', releaseX, finalY2 + signatureStartOffset + 5, { align: 'right' }); 
+    doc.line(releaseX - 40, signatureLineY, releaseX, signatureLineY); 
+    
+    doc.setFontSize(9).setFont('helvetica', 'bold').text(releaseName, releaseX, signatureLineY - 0.5, { align: 'right' }); 
+    doc.setFontSize(8).setFont('helvetica', 'normal').text(releaseTitle, releaseX, signatureLineY + 3.5, { align: 'right' }); 
+
+    // Call the updated function to draw the second page (Personal Data)
     drawStudentPersonalDetails();
 
     doc.save(`COR_${student.last_name}_${student.school_year}.pdf`);

@@ -108,9 +108,10 @@ class InstructorController extends Controller
                 ];
             }
 
-            // Get students who are fully enrolled in this subject
+            // Get students who are fully enrolled in this subject AND NOT withdrawn
             $enrolledStudents = $schedule->subject->students()
                 ->where('enrollment_status', 'enrolled') // From pre_enrolled_students table
+                ->where('academic_status', '!=', 'Withdraw') // ✅ **ADDED THIS FILTER**
                 ->get();
 
             foreach ($enrolledStudents as $student) {
@@ -197,6 +198,7 @@ class InstructorController extends Controller
 
                 $enrolledStudents = $schedule->subject->students()
                     ->where('enrollment_status', 'enrolled')
+                    ->where('academic_status', '!=', 'Withdraw') // ✅ **ADDED THIS FILTER**
                     ->get();
 
                 foreach ($enrolledStudents as $student) {
