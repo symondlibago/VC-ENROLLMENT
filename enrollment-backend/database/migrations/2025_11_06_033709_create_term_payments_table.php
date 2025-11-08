@@ -18,10 +18,12 @@ return new class extends Migration
             
             // This is for easy lookup
             $table->foreignId('pre_enrolled_student_id')->constrained('pre_enrolled_students')->onDelete('cascade');
-            
             $table->string('or_number')->nullable();
             $table->decimal('amount', 10, 2)->default(0);
             $table->date('payment_date');
+            $table->string('year')->nullable();
+            $table->string('semester')->nullable();
+            $table->string('school_year')->nullable();
             $table->timestamps();
         });
     }

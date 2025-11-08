@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { enrollmentAPI } from '@/services/api'; // Import enrollmentAPI
 import TermPaymentModal from '../modals/TermPaymentModal'; // Import the new modal  
+import SuccessAlert from '../modals/SuccessAlert';
 
 // Helper function to get status color
 const getStatusColor = (status) => {
@@ -43,6 +44,9 @@ const TermPayment = () => {
     
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [selectedStudentId, setSelectedStudentId] = useState(null); // Store student ID
+
+    // ✅ 2. Add the alert state here
+    const [alert, setAlert] = useState({ isVisible: false, message: '', type: 'success' });
 
     // Fetch enrolled students
     useEffect(() => {
@@ -79,6 +83,13 @@ const TermPayment = () => {
 
     return (
         <div className="p-6 space-y-6 max-w-7xl mx-auto">
+            <SuccessAlert 
+                isVisible={alert.isVisible} 
+                message={alert.message} 
+                type={alert.type} 
+                onClose={() => setAlert({ ...alert, isVisible: false })} 
+            />
+
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -170,7 +181,18 @@ const TermPayment = () => {
                 <TermPaymentModal 
                     isOpen={isPaymentModalOpen} 
                     onClose={() => setIsPaymentModalOpen(false)} 
-                    studentId={selectedStudentId} />
+                    studentId={selectedStudentId}
+                    
+                    
+                    onSaveSuccess={(message) => {
+                        setIsPaymentModalOpen(false); // 1. Close the modal
+                        setAlert({ isVisible: true, message: message, type: 'success' }); // 2. Show the alert
+                    }}
+                    onSaveError={(message) => {
+                        // Show error alert, but keep the modal open
+                        setAlert({ isVisible: true, message: message, type: 'error' });
+                    }}
+                />
             )}
         </div>
     );

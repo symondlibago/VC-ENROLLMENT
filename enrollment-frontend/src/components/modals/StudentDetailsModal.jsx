@@ -107,10 +107,10 @@ const ApprovalAction = ({
           value={remarks}
           onChange={(e) => setRemarks(e.target.value)}
           disabled={!canEdit || disabled}
-          className="min-h-[80px]"
+          className="min-h-20"
         />
       </div>
-      <div className="flex items-center justify-between pt-1 min-h-[36px]">
+      <div className="flex items-center justify-between pt-1 min-h-9">
         <div className="text-xs text-gray-500 flex items-center">
           {formattedDate && (
             <>
@@ -136,7 +136,7 @@ const ApprovalAction = ({
   );
 };
 
-// ... defaultPaymentState & defaultManualEdit (No changes) ...
+
 const defaultPaymentState = {
   previous_account: '',
   registration_fee: '',
@@ -154,13 +154,20 @@ const defaultPaymentState = {
   payment_date: new Date().toISOString().split('T')[0]
 };
 
+// ✅ --- FIX 1: Add ALL fields to the manualEdit state ---
 const defaultManualEdit = {
+  previous_account: false,
+  registration_fee: false,
   tuition_fee: false,
   laboratory_fee: false,
+  miscellaneous_fee: false,
+  other_fees: false,
   bundled_program_fee: false,
   total_amount: false,
+  discount: false,
   discount_deduction: false,
   remaining_amount: false, // Always false
+  payment_amount: false,
   term_payment: false,
 };
 
@@ -182,60 +189,76 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
   const [alert, setAlert] = useState({ isVisible: false, message: '', type: 'success' });
   const [validationModal, setValidationModal] = useState({ isOpen: false, message: '' });
 
-  // ✅ --- FIX 1: Re-implementing the hybrid fetch logic ---
   const fetchStudentDetails = useCallback(async () => {
     if (!studentId) return;
     try {
       setLoading(true);
       setError(null);
       
-      // Reset states
       setPaymentData(defaultPaymentState);
-      setManualEdit(defaultManualEdit);
+      setManualEdit(defaultManualEdit); // Reset to all false
       setStudent(null);
       setSubjectsWithSchedules([]);
 
-      // Fetch student details
-      const studentDetailsPromise = enrollmentAPI.getStudentDetails(studentId)
-        .then(res => {
-          if (res.success) {
-            setStudent(res.data.student);
-            setSubjectsWithSchedules(res.data.subjects || []);
-          } else {
-            throw new Error('Failed to load student details');
-          }
-        });
+      const studentRes = await enrollmentAPI.getStudentDetails(studentId);
+      if (!studentRes.success) {
+        throw new Error('Failed to load student details');
+      }
+      const studentData = studentRes.data.student;
+      const studentSubjects = studentRes.data.subjects || [];
+      
+      setStudent(studentData); 
+      setSubjectsWithSchedules(studentSubjects); 
 
-      // Fetch existing payment data
-      const paymentDataPromise = paymentAPI.getByStudentId(studentId)
-        .then(res => {
-          if (res.success) {
-            // CASE B: Payment exists. Load it and lock the fields.
-            setPaymentData(res.data);
-            setManualEdit({
-              tuition_fee: true,
-              laboratory_fee: true,
-              bundled_program_fee: true,
-              total_amount: true,
-              discount_deduction: true,
-              remaining_amount: false, // Always calculable
-              term_payment: true,
-            });
-          }
-        })
-        .catch(err => {
-          // CASE A: No payment exists (404). This is normal.
-          // We don't throw an error, we just let the calculator run.
-          if (err.message && (err.message.includes('No payment record found') || err.message.includes('404'))) {
-            return null; // Resolve promise, continue normally
-          } else {
-            // A real error (like 500)
-            throw new Error('Failed to load payment data');
-          }
-        });
+      let paymentRes = null;
+      try {
+        paymentRes = await paymentAPI.getByStudentId(studentId);
+      } catch (err) {
+        if (err.message && (err.message.includes('No payment record found') || err.message.includes('404'))) {
+          // This is fine, it's a new term
+        } else {
+          throw new Error('Failed to load payment data'); // A real error
+        }
+      }
 
-      // Wait for all data
-      await Promise.all([studentDetailsPromise, paymentDataPromise]);
+      // 3. Compare timestamps and set payment data
+      if (paymentRes && paymentRes.success) {
+        const payment = paymentRes.data;
+        const studentLastUpdated = new Date(studentData.updated_at);
+        const paymentLastUpdated = new Date(payment.updated_at);
+
+        if (studentLastUpdated > paymentLastUpdated) {
+          // CASE B: STALE payment. This is a new term.
+          console.log("Stale payment record detected. Auto-calculating new fees.");
+          setPaymentData(prev => ({
+            ...prev,
+            previous_account: payment.previous_account || ''
+          }));
+          // manualEdit remains all `false`
+
+        } else {
+          // CASE C: CURRENT payment. Load it and lock fields.
+          setPaymentData(payment);
+          // ✅ --- FIX 2: Set ALL fields to true so they lock ---
+          setManualEdit({
+            previous_account: true,
+            registration_fee: true,
+            tuition_fee: true,
+            laboratory_fee: true,
+            miscellaneous_fee: true,
+            other_fees: true,
+            bundled_program_fee: true,
+            total_amount: true,
+            discount: true,
+            discount_deduction: true,
+            remaining_amount: false, 
+            payment_amount: true,
+            term_payment: true,
+          });
+        }
+      }
+      // If paymentRes is null (Case A), manualEdit remains all `false`
+      // and the calculator will run.
 
     } catch (error) {
       setError(error.message || 'An error occurred while fetching student details');
@@ -243,7 +266,6 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
       setLoading(false);
     }
   }, [studentId]);
-  // ✅ --- END OF FIX 1 ---
 
   useEffect(() => {
     if (isOpen) {
@@ -251,12 +273,11 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     }
   }, [isOpen, fetchStudentDetails]);
 
-  // ✅ --- FIX 2: Add `loading` back to the calculation ---
+  // ✅ --- FIX 3: The complete calculation logic ---
   useEffect(() => {
-    // This prevents the calculator from running before the fetch is complete
     if (loading || !student || !subjectsWithSchedules) return;
 
-    // --- 1. Calculate base fees ---
+    // --- 1. Calculate base auto-fees ---
     const totalLecHrs = subjectsWithSchedules.reduce((sum, subject) => sum + (parseFloat(subject.lec_hrs) || 0), 0);
     const newTuitionFee = totalLecHrs * 528;
     const totalLabHrs = subjectsWithSchedules.reduce((sum, subject) => sum + (parseFloat(subject.lab_hrs) || 0), 0);
@@ -269,25 +290,27 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
         newBundledProgramFee = 0;
     }
     
-    // --- 2. Get all values, parsing to prevent NaN ---
+    // --- 2. Get all values, respecting manualEdit flags ---
+    // If flag is true, use state value. If false, use auto-calculated value (or 0).
+    const tuition = manualEdit.tuition_fee ? (parseFloat(paymentData.tuition_fee) || 0) : newTuitionFee;
+    const lab = manualEdit.laboratory_fee ? (parseFloat(paymentData.laboratory_fee) || 0) : newLaboratoryFee;
+    const bundled = manualEdit.bundled_program_fee ? (parseFloat(paymentData.bundled_program_fee) || 0) : newBundledProgramFee;
+    
+    // These fields don't have auto-values, so we just parse them
     const prevAccount = parseFloat(paymentData.previous_account) || 0;
     const regFee = parseFloat(paymentData.registration_fee) || 0;
     const miscFee = parseFloat(paymentData.miscellaneous_fee) || 0;
     const otherFee = parseFloat(paymentData.other_fees) || 0;
-    const paymentAmount = parseFloat(paymentData.payment_amount) || 0; // This is the Down Payment
+    const paymentAmount = parseFloat(paymentData.payment_amount) || 0;
     const discountPercent = parseFloat(paymentData.discount) || 0;
-    
-    // This logic now works for BOTH cases:
-    // Case A (Freshman): manualEdit.tuition_fee is FALSE, so it uses newTuitionFee.
-    // Case B (Scholar): manualEdit.tuition_fee is TRUE, so it uses paymentData.tuition_fee (0.00).
-    const tuition = manualEdit.tuition_fee ? (parseFloat(paymentData.tuition_fee) || 0) : newTuitionFee;
-    const lab = manualEdit.laboratory_fee ? (parseFloat(paymentData.laboratory_fee) || 0) : newLaboratoryFee;
-    const bundled = manualEdit.bundled_program_fee ? (parseFloat(paymentData.bundled_program_fee) || 0) : newBundledProgramFee;
 
     // --- 3. Calculate Total and Discount ---
     const total = prevAccount + regFee + miscFee + otherFee + tuition + lab + bundled;
+    
+    // If total_amount is locked, use it. Otherwise, use the new `total`.
     const newTotalAmount = manualEdit.total_amount ? (parseFloat(paymentData.total_amount) || 0) : total;
     
+    // If discount_deduction is locked, use it. Otherwise, calculate it.
     const newDiscountDeduction = manualEdit.discount_deduction
         ? (parseFloat(paymentData.discount_deduction) || 0)
         : newTotalAmount * (discountPercent / 100);
@@ -295,54 +318,65 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     // --- 4. Calculate Final Remaining Amount & Term Payment ---
     const balanceAfterDownPayment = newTotalAmount - newDiscountDeduction - paymentAmount; 
     const newRemainingAmount = balanceAfterDownPayment;
-    const newTermPayment = (newRemainingAmount > 0 ? newRemainingAmount / 4 : 0);
+
+    // If term_payment is locked, use it. Otherwise, calculate it.
+    const newTermPayment = manualEdit.term_payment
+      ? (parseFloat(paymentData.term_payment) || 0)
+      : (newRemainingAmount > 0 ? newRemainingAmount / 4 : 0);
 
     // --- 5. Set State ---
     setPaymentData(prev => ({
         ...prev,
+        // Only update auto-fields if they are NOT manually edited
         tuition_fee: manualEdit.tuition_fee ? prev.tuition_fee : newTuitionFee.toFixed(2),
         laboratory_fee: manualEdit.laboratory_fee ? prev.laboratory_fee : newLaboratoryFee.toFixed(2),
         bundled_program_fee: manualEdit.bundled_program_fee ? prev.bundled_program_fee : newBundledProgramFee.toFixed(2),
         total_amount: manualEdit.total_amount ? prev.total_amount : newTotalAmount.toFixed(2),
         discount_deduction: manualEdit.discount_deduction ? prev.discount_deduction : newDiscountDeduction.toFixed(2),
-        remaining_amount: newRemainingAmount.toFixed(2), // Always set to calculated value
+        
+        // These are always calculated
+        remaining_amount: newRemainingAmount.toFixed(2), 
         term_payment: manualEdit.term_payment ? prev.term_payment : newTermPayment.toFixed(2),
     }));
 
   }, [
-    loading, // <-- Re-added
-    student, 
-    subjectsWithSchedules, 
+    loading, student, subjectsWithSchedules, 
     paymentData.previous_account, 
     paymentData.registration_fee, 
     paymentData.miscellaneous_fee, 
     paymentData.other_fees, 
     paymentData.payment_amount, 
     paymentData.discount,
-    manualEdit 
+    paymentData.tuition_fee, // Add all manual fields to dependency array
+    paymentData.laboratory_fee,
+    paymentData.bundled_program_fee,
+    paymentData.total_amount,
+    paymentData.discount_deduction,
+    paymentData.term_payment,
+    manualEdit // Run when manualEdit changes
   ]);
-  // ✅ --- END OF FIX 2 ---
+  // --- END OF FIX 3 ---
 
-  // ... handleApprovalUpdated (No changes) ...
   const handleApprovalUpdated = () => {
     setAlert({
         isVisible: true,
         message: 'Approval status saved successfully!',
         type: 'success',
     });
-    fetchStudentDetails(); // Re-fetch all data to ensure UI consistency
+    fetchStudentDetails(); 
   };
 
-  // ... handlePaymentInputChange (No changes) ...
+  // ✅ --- FIX 4: Update manualEdit for ALL fields ---
   const handlePaymentInputChange = (field, value) => {
     if (field === 'remaining_amount') return;
     setPaymentData(prev => ({ ...prev, [field]: value }));
+    
+    // This now correctly flags ANY field as manually edited
     if (Object.keys(manualEdit).includes(field)) {
       setManualEdit(prev => ({ ...prev, [field]: true }));
     }
   };
   
-  // ... handlePaymentDateChange (No changes) ...
   const handlePaymentDateChange = (dateString) => {
     if (!dateString) {
       setPaymentData(prev => ({ ...prev, payment_date: '' }));
@@ -352,17 +386,32 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     setPaymentData(prev => ({ ...prev, payment_date: formattedDate }));
   };
 
-  // ... handleSavePayment (No changes) ...
+  // ✅ --- FIX 5: The "Scholar" validation fix ---
   const handleSavePayment = async () => {
-    if (paymentData.registration_fee === '' || parseFloat(paymentData.registration_fee) < 0) { 
-      setValidationModal({ isOpen: true, message: 'Registration Fee is required.' }); return;
+    // Parse values once, checking for validity
+    const regFee = parseFloat(paymentData.registration_fee);
+    const paymentAmount = parseFloat(paymentData.payment_amount);
+    const totalAmount = parseFloat(paymentData.total_amount);
+
+    // Check Registration Fee:
+    if (regFee < 0 || (paymentData.registration_fee !== '' && isNaN(regFee))) {
+      setValidationModal({ isOpen: true, message: 'Registration Fee must be a valid, non-negative number.' }); 
+      return;
     }
-    if (paymentData.payment_amount === '' || parseFloat(paymentData.payment_amount) < 0) { 
-      setValidationModal({ isOpen: true, message: 'Payment Amount (Down Payment) is required.' }); return;
+    
+    // Check Payment Amount:
+    if (paymentAmount < 0 || (paymentData.payment_amount !== '' && isNaN(paymentAmount))) {
+      setValidationModal({ isOpen: true, message: 'Payment Amount must be a valid, non-negative number.' }); 
+      return;
     }
-    if (paymentData.total_amount === '' || parseFloat(paymentData.total_amount) < 0) { 
-      setValidationModal({ isOpen: true, message: 'Total Amount is required.' }); return;
+
+    // Check Total Amount:
+    if (totalAmount < 0 || (paymentData.total_amount !== '' && isNaN(totalAmount))) {
+      setValidationModal({ isOpen: true, message: 'Total Amount must be a valid, non-negative number.' }); 
+      return;
     }
+    
+    // Check Payment Date (this check is fine as is)
     if (!paymentData.payment_date) {
       setValidationModal({ isOpen: true, message: 'Payment Date is required.' });
       return;
@@ -372,8 +421,14 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
       setPaymentSaving(true);
       const paymentPayload = {
         ...paymentData,
+        // Send the parsed number or 0 (if the field was empty)
+        registration_fee: isNaN(regFee) ? 0 : regFee, 
+        payment_amount: isNaN(paymentAmount) ? 0 : paymentAmount,
+        total_amount: isNaN(totalAmount) ? 0 : totalAmount,
+
         pre_enrolled_student_id: student.id,
         enrollment_code_id: student.enrollment_code?.id || student.enrollment_code_id
+        // No term_payments are sent from this modal
       };
       const response = await paymentAPI.create(paymentPayload);
       if (response.success) {
@@ -395,8 +450,8 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
       setPaymentSaving(false);
     }
   };
+  // --- END OF FIX 5 ---
 
-  // ... handleCreditSubject (No changes) ...
   const handleCreditSubject = async (subjectId) => {
     setCreditingSubjectId(subjectId); 
     try {
@@ -420,7 +475,6 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     }
   };
 
-  // ... subjectTotals calculation (No changes) ...
   const subjectTotals = useMemo(() => {
     if (!subjectsWithSchedules) {
       return { units: 0, lec: 0, lab: 0 };
@@ -437,7 +491,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
   const canCreditSubjects = (currentUserRole === 'Admin' || currentUserRole === 'Registrar') &&
                             student?.enrollment_type === 'Transferee';
 
-  // ✅ --- FIX 3: Add `error` check to the main render ---
+  // ... return() statement (No changes) ...
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <SuccessAlert isVisible={alert.isVisible} message={alert.message} type={alert.type} onClose={() => setAlert({ ...alert, isVisible: false })} />
@@ -455,7 +509,6 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
           {loading ? (
             <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div></div>
           ) : error ? (
-            // This will now only show for REAL errors
             <div className="text-red-500 text-center p-4">{error}</div>
           ) : student ? (
             <div className="space-y-6">
@@ -530,7 +583,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                         return (
                           <tr key={subject.id}>
                             <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.subject_code}</td>
-                            <td className="px-4 py-2 whitespace-normal break-words text-sm">{subject.descriptive_title}</td>
+                            <td className="px-4 py-2 whitespace-normal wrap-break-word text-sm">{subject.descriptive_title}</td>
                             <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.total_units}</td>
                             <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lec_hrs || 0}</td>
                             <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lab_hrs || 0}</td>
@@ -579,7 +632,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">
                           {subjectTotals.lec.toFixed(2)}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowGrap text-sm font-bold text-gray-900">
+                        <td className="px-4 py-3 whitespace-nowDrap text-sm font-bold text-gray-900">
                           {subjectTotals.lab.toFixed(2)}
                         </td>
                         <td className="px-4 py-3"></td>
@@ -657,7 +710,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Remaining Amount</label>
                           <div className="relative">
-                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span>
+                            <span className="absolute left-3 top-1/Haf-translate-y-1/2 text-gray-500 text-sm">₱</span>
                             <input 
                               type="number" 
                               value={paymentData.remaining_amount} 

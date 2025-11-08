@@ -60,17 +60,11 @@ class PaymentController extends Controller
         try {
             DB::beginTransaction();
 
-            // ✅ --- FIX: Use updateOrCreate ---
-            // This finds a payment with the matching student ID and updates it.
-            // If one doesn't exist, it creates it.
             $payment = Payment::updateOrCreate(
                 [
-                    // Key to find the record:
                     'pre_enrolled_student_id' => $request->input('pre_enrolled_student_id')
                 ],
                 [
-                    // Data to update or create with:
-                    // (We exclude term_payments and student_id from this part)
                     'enrollment_code_id' => $request->input('enrollment_code_id'),
                     'previous_account' => $request->input('previous_account'),
                     'registration_fee' => $request->input('registration_fee'),
@@ -89,33 +83,46 @@ class PaymentController extends Controller
                 ]
             );
             
-            // ✅ --- FIX: Delete old term payments ---
-            // This prevents duplicates and makes the list an exact copy of what's in the modal.
-            TermPayment::where('payment_id', $payment->id)->delete();
-            
-            // Check if any term payments were sent
-            if ($request->has('term_payments') && is_array($request->term_payments)) {
-                foreach ($request->term_payments as $termPaymentData) {
-                    // Create a new TermPayment and link it to the (now correct) payment record
-                    TermPayment::create([
-                        'payment_id' => $payment->id,
-                        'pre_enrolled_student_id' => $payment->pre_enrolled_student_id,
-                        'or_number' => $termPaymentData['or_number'],
-                        'amount' => $termPaymentData['amount'],
-                        'payment_date' => $termPaymentData['payment_date'],
-                    ]);
+            if ($request->has('term_payments')) {
+                
+                $payment->loadMissing('preEnrolledStudent');
+                $student = $payment->preEnrolledStudent;
+
+                // 2. Delete ONLY the payments for the CURRENT term
+                // This leaves all historical payments untouched.
+                TermPayment::where('payment_id', $payment->id)
+                           ->where('year', $student->year)
+                           ->where('semester', $student->semester)
+                           ->where('school_year', $student->school_year)
+                           ->delete();
+                
+                // 3. Re-add the list of payments sent from the frontend,
+                //    STAMPING them with the student's current term.
+                if (is_array($request->term_payments)) {
+                    foreach ($request->term_payments as $termPaymentData) {
+                        TermPayment::create([
+                            'payment_id' => $payment->id,
+                            'pre_enrolled_student_id' => $payment->pre_enrolled_student_id,
+                            'or_number' => $termPaymentData['or_number'],
+                            'amount' => $termPaymentData['amount'],
+                            'payment_date' => $termPaymentData['payment_date'],
+                            'year' => $student->year,
+                            'semester' => $student->semester, 
+                            'school_year' => $student->school_year,
+                        ]);
+                    }
                 }
             }
 
-            DB::commit(); // All good, save changes
+            DB::commit(); 
 
             return response()->json([
                 'success' => true,
                 'data' => $payment->load('termPayments') // Return updated payment
-            ], 200); // 200 (OK) is better for an update
+            ], 200); 
 
         } catch (\Exception $e) {
-            DB::rollBack(); // Something went wrong, undo changes
+            DB::rollBack(); 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to save payment.',
@@ -126,7 +133,8 @@ class PaymentController extends Controller
 
     public function getPaymentByStudent($student_id)
     {
-        $payment = Payment::with('termPayments') // Eager load installments
+        // Add `preEnrolledStudent` to the eager load
+        $payment = Payment::with(['termPayments', 'preEnrolledStudent']) 
                          ->where('pre_enrolled_student_id', $student_id)
                          ->first();
 

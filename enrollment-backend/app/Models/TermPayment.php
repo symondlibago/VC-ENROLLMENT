@@ -12,6 +12,9 @@ class TermPayment extends Model
     protected $fillable = [
         'payment_id',
         'pre_enrolled_student_id',
+        'year',
+        'semester',
+        'school_year',
         'or_number',
         'amount',
         'payment_date',
