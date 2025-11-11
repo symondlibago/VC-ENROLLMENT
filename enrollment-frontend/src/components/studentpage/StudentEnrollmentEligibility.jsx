@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-// ✅ ADDED managementAPI
-import { studentAPI, enrollmentAPI, managementAPI } from '@/services/api'; 
+// ✅ ADDED subjectAPI
+import { studentAPI, enrollmentAPI, managementAPI, subjectAPI } from '@/services/api'; 
 import {
   CheckCircle,
   XCircle,
@@ -17,6 +17,7 @@ import {
   Save,
   ChevronLeft,
   ChevronDown,
+  TriangleAlert, // ✅ ADDED
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -83,6 +84,47 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
 
 // #endregion
 
+// ✅ NEW: Inline Warning Modal Component
+const IrregularWarningModal = ({ isOpen, onClose, onConfirm, subjects }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md m-4"
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="bg-red-100 p-3 rounded-full mb-4">
+            <TriangleAlert className="h-8 w-8 text-red-700" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-800">Irregular Status Warning</h3>
+          <p className="text-gray-600 mt-2">
+            You have untaken summer subjects. Proceeding will mark you as <span className="font-bold text-red-700">Irregular</span>.
+          </p>
+          <div className="mt-4 w-full bg-gray-50 border rounded-lg p-3 text-left">
+            <p className="text-sm font-semibold mb-2">Untaken Subjects:</p>
+            <ul className="text-sm text-gray-700 space-y-1">
+              {subjects.map(sub => (
+                <li key={sub.id} className="font-mono text-xs">
+                  <span className="font-semibold">{sub.subject_code}</span>: {sub.descriptive_title} ({sub.year})
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="flex items-center justify-center space-x-4 mt-6 w-full">
+            <Button variant="outline" onClick={onClose} className="w-20 cursor-pointer">Cancel</Button>
+            <Button onClick={onConfirm} className="w-40 bg-red-800 hover:bg-red-600 text-white cursor-pointer">Continue Anyway</Button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+
 // ✅ HELPER: Function to get period status
 const getPeriodStatus = (startDate, endDate) => {
     if (!startDate || !endDate) return { status: 'Not Set', message: 'Enrollment schedule is not yet posted. Please contact the Registrar.' };
@@ -109,7 +151,9 @@ const StudentEnrollmentEligibility = () => {
         next_term: { year: 'N/A', semester: 'N/A', schoolYear: 'N/A' },
         ungraded_subjects: [],
         retakeable_subjects: { failed: [], dropped: [] },
-        student_id: null, // Placeholder for student ID from backend
+        student_id: null,
+        course_id: null, 
+        program_code: 'Bachelor', 
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -127,20 +171,21 @@ const StudentEnrollmentEligibility = () => {
     const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
     const [currentSemesterFilter, setCurrentSemesterFilter] = useState('1st Semester');
     
-    // ✅ NEW STATE for SuccessAlert
     const [alert, setAlert] = useState({ isVisible: false, message: '', type: 'success' });
-    
-    // ✅ NEW STATE for ValidationErrorModal
     const [isValidationModalOpen, setIsValidationModalOpen] = useState(false); 
     const [validationMessage, setValidationMessage] = useState('');
 
-    // ✅ NEW STATE for Enrollment Period
+    // ✅ NEW STATE for Irregular Warning
+    const [eligibilityData, setEligibilityData] = useState(null); 
+    const [showIrregularWarning, setShowIrregularWarning] = useState(false);
+    const [untakenSummerSubjects, setUntakenSummerSubjects] = useState([]);
+
     const [enrollmentPeriod, setEnrollmentPeriod] = useState({ 
         status: 'Loading', 
         message: 'Loading enrollment schedule...' 
     });
 
-    // --- STATIC OPTIONS (Pulled from ContinuingEnrollmentModal) ---
+    // --- STATIC OPTIONS ---
     const schoolYearOptions = [
         { label: '2025-2026', value: '2025-2026' },
         { label: '2026-2027', value: '2026-2027' }
@@ -164,25 +209,20 @@ const StudentEnrollmentEligibility = () => {
             setLoading(true);
             setError(null);
             try {
-                // --- 1. Fetch Eligibility Status ---
                 const response = await studentAPI.checkMyEnrollmentEligibility(); 
                 
                 if (response.success && response.status_data) {
                     const data = response.status_data;
                     setEligibility(data);
-
-                    // Initialize academicInfo with the *calculated next term*
                     setAcademicInfo({
                         year: data.next_term.year,
                         semester: data.next_term.semester,
                         school_year: data.next_term.schoolYear,
                     });
-
                 } else {
                     setError(response.message || 'Failed to check eligibility status.');
                 }
 
-                // --- 2. Fetch Enrollment Period ---
                 try {
                     const periodResponse = await managementAPI.getGradingPeriods();
                     if (periodResponse.success && periodResponse.data.enrollment) {
@@ -195,8 +235,6 @@ const StudentEnrollmentEligibility = () => {
                     console.error("Failed to load enrollment period:", periodError);
                     setEnrollmentPeriod({ status: 'Not Set', message: 'Enrollment schedule could not be loaded. Please contact support.' });
                 }
-
-
             } catch (err) {
                 setError(err.message);
             } finally {
@@ -206,59 +244,22 @@ const StudentEnrollmentEligibility = () => {
         fetchEligibility();
     }, []);
 
-    // ✅ HELPER: Function to show SuccessAlert
     const showAlert = (message, type = 'success') => {
         setAlert({ isVisible: true, message, type });
     };
 
-
-    // --- Step 1 to Step 2 Transition ---
-    const handleEnrollNow = async () => {
-        if (eligibility.academic_status !== 'Regular') {
-            // This button should be disabled for Irregular/Ineligible, but good practice to check
-            setValidationMessage(`Only Regular students can use self-enrollment. Please contact the Registrar to resolve your '${eligibility.academic_status}' status.`);
-            setIsValidationModalOpen(true);
-            return;
-        }
-
-        // ✅ NEW: Check enrollment period status
-        if (enrollmentPeriod.status !== 'Open') {
-            setValidationMessage(`Enrollment is not currently open. ${enrollmentPeriod.message}`);
-            setIsValidationModalOpen(true);
-            return;
-        }
-
-        // Fetch passed subject IDs for prerequisite checking in Step 3
-        try {
-            // Check for eligibility.student_id to prevent a null value from being sent.
-            if (!eligibility.student_id) {
-                 throw new Error("Student ID not found from eligibility check. Cannot proceed.");
-            }
-            
-            // This call should now work correctly after Fix 1
-            const eligibilityRes = await enrollmentAPI.checkEnrollmentEligibility(eligibility.student_id); 
-            
-            if (eligibilityRes.success) {
-                setPassedSubjectIds(new Set(eligibilityRes.passed_subject_ids || []));
-            } else {
-                // Handle case where eligibility check fails (e.g., if student_id is null before fix 1)
-                throw new Error(eligibilityRes.message || "Failed to fetch necessary prerequisite data.");
-            }
-        } catch(e) {
-             // Non-critical error, proceed but display an alert
-             setValidationMessage("Warning: Could not fetch prerequisite check data. Proceed with caution.");
-             setIsValidationModalOpen(true);
-             console.error("Failed to fetch passed subjects for prerequisites.", e);
-        }
-        
+    // ✅ NEW: Function to proceed to step 2
+    const proceedToStep2 = (eligibilityResult) => {
+        if (!eligibilityResult || !eligibilityResult.success) return;
+        setPassedSubjectIds(new Set(eligibilityResult.passed_subject_ids || []));
         setCurrentStep(2);
     };
 
-    // --- Step 2 to Step 3 Transition ---
-    const handleGoToSubjectSetup = async () => {
+    // ✅ NEW: Helper function to proceed to Step 3
+    const proceedToSubjectSetup = async () => {
         setIsLoadingSubjects(true);
         try {
-            // Use the student-authenticated API to fetch subjects for the selected term
+            // This is the original logic from your handleGoToSubjectSetup
             const res = await studentAPI.getSubjectsForNextTerm(academicInfo.year, academicInfo.semester);
 
             if (res.success) {
@@ -269,10 +270,7 @@ const StudentEnrollmentEligibility = () => {
                     return acc;
                 }, {});
                 setAvailableSubjects(subjectsBySem);
-                
-                // Automatically set the filter to the selected semester
                 setCurrentSemesterFilter(academicInfo.semester);
-                
                 setCurrentStep(3);
             } else {
                 setValidationMessage(res.message || "Could not load subjects for the selected term.");
@@ -285,6 +283,105 @@ const StudentEnrollmentEligibility = () => {
             setIsLoadingSubjects(false);
         }
     };
+
+    // ✅ MODIFIED: Handler for the irregular warning confirmation
+    const handleConfirmIrregular = () => {
+        setShowIrregularWarning(false);
+        proceedToSubjectSetup(); // Call the new helper to go to Step 3
+    };
+
+
+    // --- Step 1 to Step 2 Transition ---
+    // ✅ MODIFIED: This function is now simpler
+    const handleEnrollNow = async () => {
+        if (eligibility.academic_status !== 'Regular') {
+            setValidationMessage(`Only Regular students can use self-enrollment. Please contact the Registrar to resolve your '${eligibility.academic_status}' status.`);
+            setIsValidationModalOpen(true);
+            return;
+        }
+
+        if (enrollmentPeriod.status !== 'Open') {
+            setValidationMessage(`Enrollment is not currently open. ${enrollmentPeriod.message}`);
+            setIsValidationModalOpen(true);
+            return;
+        }
+
+        try {
+            if (!eligibility.student_id) {
+                 throw new Error("Student ID not found from eligibility check. Cannot proceed.");
+            }
+            
+            // Just check for ungraded subjects and get passed IDs
+            const eligibilityRes = await enrollmentAPI.checkEnrollmentEligibility(eligibility.student_id); 
+            
+            if (!eligibilityRes.success || !eligibilityRes.eligible) {
+                // This means there are ungraded subjects
+                const ungradedList = (eligibilityRes.ungraded_subjects || []).map(s => `- ${s.subject_code}: ${s.descriptive_title}`).join('\n');
+                const errorMessage = (
+                  <div>
+                    <p className="mb-2">Cannot proceed. All subjects from the previous term must have a final grade.</p>
+                    <pre className="bg-gray-100 p-2 rounded text-sm text-left whitespace-pre-wrap">{ungradedList}</pre>
+                  </div>
+                );
+                setValidationMessage(errorMessage);
+                setIsValidationModalOpen(true);
+                return; 
+            }
+            
+            // Store data and proceed to Step 2
+            setEligibilityData(eligibilityRes); 
+            proceedToStep2(eligibilityRes); // This sets passedSubjectIds and currentStep = 2
+
+        } catch(e) {
+             setValidationMessage(e.message || "An error occurred while checking eligibility.");
+             setIsValidationModalOpen(true);
+             console.error("Failed to check eligibility.", e);
+        }
+    };
+
+    // --- Step 2 to Step 3 Transition ---
+    // ✅ MODIFIED: This function now contains the summer check logic
+    const handleGoToSubjectSetup = async () => {
+        setIsLoadingSubjects(true);
+        try {
+            // --- ✅ START: Summer Subject Validation ---
+            if (eligibility.program_code === 'Diploma') {
+                const allSubjectsRes = await subjectAPI.getByCourse(eligibility.course_id); 
+                if (allSubjectsRes.success) {
+                    const missedSubjects = [];
+                    // Use academicInfo.year (from Step 2 dropdown), not eligibility.next_term.year
+                    const studentYearValue = parseInt(academicInfo.year, 10); 
+                    
+                    if (studentYearValue >= 2) {
+                        const summer1 = allSubjectsRes.data.filter(s => s.year === '1st Year Summer' && !passedSubjectIds.has(s.id));
+                        missedSubjects.push(...summer1);
+                    }
+                    if (studentYearValue >= 3) {
+                        const summer2 = allSubjectsRes.data.filter(s => s.year === '2nd Year Summer' && !passedSubjectIds.has(s.id));
+                        missedSubjects.push(...summer2);
+                    }
+
+                    if (missedSubjects.length > 0) {
+                        setUntakenSummerSubjects(missedSubjects);
+                        setShowIrregularWarning(true); 
+                        setIsLoadingSubjects(false); // Stop loading
+                        return; // Stop and show warning
+                    }
+                }
+            }
+            // --- ✅ END: Summer Subject Validation ---
+
+            // --- If no warning, proceed directly ---
+            await proceedToSubjectSetup();
+
+        } catch (error) {
+            setValidationMessage(error.message || "An error occurred while checking subjects.");
+            setIsValidationModalOpen(true);
+            setIsLoadingSubjects(false); // Stop loading on error
+        }
+        // Note: setIsLoading(false) is handled by proceedToSubjectSetup if it's called
+    };
+
 
     // --- Step 3 Handlers ---
     const handleAddSubject = (subject) => {
@@ -305,31 +402,23 @@ const StudentEnrollmentEligibility = () => {
         }
         setIsSubmitting(true);
         try {
-            // Note: We need the student's ID, which should be returned by the eligibility endpoint.
             const payload = {
-                original_student_id: eligibility.student_id, // This will now contain the correct ID after Fix 1
+                original_student_id: eligibility.student_id,
                 ...academicInfo,
                 selected_subjects: selectedSubjects.map(s => s.id),
             };
             
-            // Reusing the admin's continuing enrollment submission endpoint
             const res = await enrollmentAPI.submitContinuingEnrollment(payload);
 
             if (res.success) {
-                // ✅ Use SuccessAlert
                 showAlert('Enrollment submitted successfully! Please proceed to the Cashier for payment.', 'success');
-                
-                // Redirect back to the eligibility check state
                 setCurrentStep(1); 
-                // Force a reload of eligibility data to show new pending status
                 window.location.reload(); 
             } else {
-                 // ✅ Use ValidationErrorModal for backend failures
                  setValidationMessage(res.message || "Enrollment submission failed. Please check the form and try again.");
                  setIsValidationModalOpen(true);
             }
         } catch (error) {
-            // ✅ Use ValidationErrorModal for network/submission errors
             setValidationMessage(error.message || "An unexpected error occurred during submission.");
             setIsValidationModalOpen(true);
         } finally {
@@ -338,10 +427,7 @@ const StudentEnrollmentEligibility = () => {
     };
 
     // ## MEMOIZED LOGIC ##
-    
-    // Status Display
     const statusType = eligibility.academic_status; 
-    // ✅ MODIFIED: Check both academic status and enrollment period
     const isEnrollmentOpen = enrollmentPeriod.status === 'Open';
     const isButtonEnabled = statusType === 'Regular' && isEnrollmentOpen;
     const isIneligible = statusType === 'Ineligible';
@@ -358,20 +444,12 @@ const StudentEnrollmentEligibility = () => {
     const nextTermInfo = eligibility.next_term;
     const retakeableSubjects = eligibility.retakeable_subjects;
     
-    // Subject Setup Logic (Step 3)
     const displayableSubjects = useMemo(() => {
-        // Since this is a regular enrollment, we only show standard subjects, not failed/dropped retakes.
-        // We filter by the chosen semester from academicInfo (which comes from Step 2/Auto-Calc).
         const regularSubjects = availableSubjects[academicInfo.semester] || [];
         
         return regularSubjects.map(sub => {
-            // Check for prerequisite status
             const prerequisiteNotMet = sub.prerequisite && sub.prerequisite.id && !passedSubjectIds.has(sub.prerequisite.id);
-
-            return {
-                ...sub,
-                prerequisiteNotMet: prerequisiteNotMet,
-            };
+            return { ...sub, prerequisiteNotMet };
         });
     }, [availableSubjects, academicInfo.semester, passedSubjectIds]);
 
@@ -392,7 +470,6 @@ const StudentEnrollmentEligibility = () => {
                         )}
                     </div>
                     
-                    {/* Target Enrollment Term (Using the NEXT term info from Eligibility API) */}
                     <div className="border-t border-gray-200 pt-6 space-y-4">
                         <h3 className="text-xl font-semibold text-gray-700 flex items-center">
                             <Calendar className="w-5 h-5 mr-3 text-red-700" />
@@ -414,9 +491,7 @@ const StudentEnrollmentEligibility = () => {
                         </div>
                     </div>
 
-                    {/* Action Button and Warning Messages */}
                     <div className="pt-6 border-t border-gray-100">
-                        {/* ✅ MODIFIED: This block now checks isButtonEnabled and enrollmentPeriod.status */}
                         {statusType === 'Regular' && (
                             <div className={`p-4 border rounded-xl space-y-3 ${isButtonEnabled ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
                                 <div className={`flex items-center font-semibold ${isButtonEnabled ? 'text-green-700' : 'text-blue-700'}`}>
@@ -625,19 +700,22 @@ const StudentEnrollmentEligibility = () => {
             initial="hidden"
             animate="visible"
         >
-            {/* ✅ ADDED: SuccessAlert component */}
             <SuccessAlert 
                 isVisible={alert.isVisible} 
                 message={alert.message} 
                 type={alert.type} 
                 onClose={() => setAlert({ ...alert, isVisible: false })} 
             />
-
-            {/* ✅ ADDED: ValidationErrorModal component */}
             <ValidationErrorModal 
                 isOpen={isValidationModalOpen} 
                 onClose={() => setIsValidationModalOpen(false)} 
                 message={validationMessage} 
+            />
+            <IrregularWarningModal
+                isOpen={showIrregularWarning}
+                onClose={() => setShowIrregularWarning(false)}
+                onConfirm={handleConfirmIrregular}
+                subjects={untakenSummerSubjects}
             />
             
             <motion.div variants={itemVariants}>
@@ -658,7 +736,6 @@ const StudentEnrollmentEligibility = () => {
                 </div>
             </AnimatePresence>
             
-            {/* Footer Navigation (Only visible for Step 2 and 3) */}
             {(currentStep === 2 || currentStep === 3) && (
                 <div className="flex items-center justify-between p-4 border-t bg-gray-50 rounded-b-2xl shadow-inner">
                     <Button variant="outline" onClick={() => setCurrentStep(currentStep - 1)} className="cursor-pointer">
@@ -681,7 +758,6 @@ const StudentEnrollmentEligibility = () => {
     );
 };
 
-// Re-defining for self-containment
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
 const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
 

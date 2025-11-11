@@ -137,7 +137,19 @@ const StudentGrades = () => {
   }, [rosterData, selectedSubjectId, searchTerm]);
 
   const handleGradeChange = (studentId, field, value) => {
-    const numericValue = value === '' ? null : parseFloat(value);
+    let numericValue = null;
+
+    if (value !== '') {
+        numericValue = parseFloat(value);
+        
+        if (isNaN(numericValue)) {
+          return;
+        }
+
+        if (numericValue > 5) {
+            numericValue = 5;
+        }
+    }
     setRosterData(currentRoster => 
       currentRoster.map(subject => {
         if (subject.subject_id.toString() !== selectedSubjectId) {

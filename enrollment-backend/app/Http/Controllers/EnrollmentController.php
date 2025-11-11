@@ -1120,6 +1120,7 @@ public function submitContinuingEnrollment(Request $request): JsonResponse
             return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
         }
 
+        // 1. Check Enrollment Period
         try {
             $enrollmentPeriod = GradingPeriod::where('name', 'enrollment')->first();
             $now = Carbon::now();
@@ -1128,10 +1129,9 @@ public function submitContinuingEnrollment(Request $request): JsonResponse
                 return response()->json([
                     'success' => false, 
                     'message' => 'The enrollment period has not been set by the administration. Please contact the Registrar.'
-                ], 422); // 422 Unprocessable Entity
+                ], 422);
             }
 
-            // Set end_date to the end of the day to include the last day
             $endDate = Carbon::parse($enrollmentPeriod->end_date)->endOfDay();
             $startDate = Carbon::parse($enrollmentPeriod->start_date)->startOfDay();
 
@@ -1139,7 +1139,7 @@ public function submitContinuingEnrollment(Request $request): JsonResponse
                  return response()->json([
                     'success' => false, 
                     'message' => 'The enrollment period is currently closed. Please check the schedule or contact the Registrar.'
-                ], 422); // 422 Unprocessable Entity
+                ], 422);
             }
 
         } catch (\Exception $e) {
@@ -1150,9 +1150,84 @@ public function submitContinuingEnrollment(Request $request): JsonResponse
             ], 500);
         }
 
+        // 2. Process Enrollment
         try {
             DB::beginTransaction();
-            $student = PreEnrolledStudent::with('subjects')->findOrFail($request->input('original_student_id'));
+            
+            // ✅ DEFINE $student FIRST
+            $student = PreEnrolledStudent::with(['subjects', 'course.program', 'grades', 'shifteeRequests', 'subjectChangeRequests.items.subject'])
+                ->findOrFail($request->input('original_student_id'));
+            
+            
+            // 1. Get all passed subjects up to this point
+            $passedSubjectIds = $student->grades()->where('status', 'Passed')->pluck('subject_id');
+            
+            // 2. Check for failed subjects (not yet retaken and passed)
+            $hasFailedSubjects = $student->grades()
+                ->where('status', 'Failed')
+                ->whereNotIn('subject_id', $passedSubjectIds)
+                ->exists();
+                
+            // 3. Check for dropped subjects (not yet retaken and passed)
+            $hasDroppedSubjects = $student->subjectChangeRequests()
+                ->where('status', 'approved')
+                ->whereHas('items', function ($query) {
+                    $query->where('action', 'drop');
+                })
+                ->whereHas('items.subject', function ($query) use ($passedSubjectIds) {
+                    $query->whereNotIn('id', $passedSubjectIds);
+                })
+                ->exists();
+
+            // 4. Check if student is an approved shiftee
+            $isApprovedShiftee = $student->shifteeRequests()->where('status', 'approved')->exists();
+                
+            // 5. Check for missed summer subjects
+            $hasMissedSummerSubjects = false;
+            if ($student->course && $student->course->program && $student->course->program->program_code === 'Diploma') {
+                
+                $allCurriculumSubjects = \App\Models\Subject::where('course_id', $student->course_id)->get();
+
+                $getYearValue = function ($yearStr) {
+                    if (str_contains($yearStr, 'Summer')) {
+                        return (int)filter_var($yearStr, FILTER_SANITIZE_NUMBER_INT) + 0.5;
+                    }
+                    return (int)filter_var($yearStr, FILTER_SANITIZE_NUMBER_INT);
+                };
+                
+                // Check against the year they are ENROLLING INTO
+                $studentYearValue = $getYearValue($request->input('year'));
+
+                // Check for 1st Year Summer if student is enrolling in 2nd year or higher
+                if ($studentYearValue >= 2) {
+                    $summer1Subjects = $allCurriculumSubjects->where('year', '1st Year Summer');
+                    if ($summer1Subjects->isNotEmpty() && $summer1Subjects->pluck('id')->diff($passedSubjectIds)->isNotEmpty()) {
+                        $hasMissedSummerSubjects = true;
+                    }
+                }
+
+                // Check for 2nd Year Summer if student is enrolling in 3rd year or higher
+                if (!$hasMissedSummerSubjects && $studentYearValue >= 3) {
+                    $summer2Subjects = $allCurriculumSubjects->where('year', '2nd Year Summer');
+                    if ($summer2Subjects->isNotEmpty() && $summer2Subjects->pluck('id')->diff($passedSubjectIds)->isNotEmpty()) {
+                        $hasMissedSummerSubjects = true;
+                    }
+                }
+            }
+            
+            // 6. Set the final status
+            $newAcademicStatus = 'Regular';
+            if ($hasFailedSubjects || $hasDroppedSubjects || $hasMissedSummerSubjects || $isApprovedShiftee) {
+                $newAcademicStatus = 'Irregular';
+            }
+            
+            // Respect manual overrides like 'Withdraw', otherwise set the new calculated status
+            if ($student->academic_status !== 'Withdraw') {
+                $student->academic_status = $newAcademicStatus; // ✅ SET IT ON THE MODEL
+            }
+
+
+            // 3. Archive previous term
             $subjectsFromLastTerm = $student->subjects->map(fn($subject) => [
                 'subject_code' => $subject->subject_code,
                 'descriptive_title' => $subject->descriptive_title,
@@ -1167,20 +1242,25 @@ public function submitContinuingEnrollment(Request $request): JsonResponse
                     'school_year' => $student->school_year,
                     'year' => $student->year,
                     'enrollment_type' => $student->enrollment_type,
-                    'academic_status' => $student->academic_status,
+                    'academic_status' => $student->academic_status, // This will archive the *old* status
                     'subjects_taken' => $subjectsFromLastTerm,
                 ]);
             }
 
+            // 4. Update student record for the new term
             $student->year = $request->input('year');
             $student->semester = $request->input('semester');
             $student->school_year = $request->input('school_year');
             $student->enrollment_type = 'Continuing';
             $student->enrollment_status = 'pending';
             $student->enrollmentApprovals()->delete();
+            
+            // ✅ This save() will now include the new academic_status
             $student->save();
 
+            // 5. Sync subjects for the new term
             $student->subjects()->sync($request->input('selected_subjects'));
+            
             DB::commit();
 
             return response()->json([
@@ -1273,7 +1353,6 @@ public function getStudentEnrollmentEligibilityStatus(Request $request): JsonRes
     try {
         $user = Auth::user();
         
-        // Find the student profile associated with the authenticated user
         $student = PreEnrolledStudent::with([
             'course.program', 
             'grades', 
@@ -1299,7 +1378,7 @@ public function getStudentEnrollmentEligibilityStatus(Request $request): JsonRes
             ]);
         }
         
-        // --- 1. Check for Ungraded Subjects (Makes them INELIGIBLE TO PROCEED) ---
+        // --- 1. Check for Ungraded Subjects ---
         $enrolledSubjects = $student->subjects;
         $subjectIds = $enrolledSubjects->pluck('id');
         $ungradedSubjects = [];
@@ -1311,7 +1390,6 @@ public function getStudentEnrollmentEligibilityStatus(Request $request): JsonRes
             
                           foreach ($enrolledSubjects as $subject) {
                             $grade = $grades->get($subject->id);
-                            // Check if grade is missing or marked as 'In Progress' or final_grade is null
                             if (!$grade || $grade->status === 'In Progress' || is_null($grade->final_grade)) {
                                 $ungradedSubjects[] = [
                                     'subject_code' => $subject->subject_code ?? 'N/A', 
@@ -1322,7 +1400,6 @@ public function getStudentEnrollmentEligibilityStatus(Request $request): JsonRes
         }
         
         if (!empty($ungradedSubjects)) {
-             // Ineligible case: Cannot enroll until grades are posted
              return response()->json([
                 'success' => true,
                 'status_data' => [
@@ -1338,29 +1415,83 @@ public function getStudentEnrollmentEligibilityStatus(Request $request): JsonRes
 
         // --- 2. Determine Academic Status (Regular/Irregular) ---
         
-        // Get IDs of all subjects the student has ALREADY PASSED.
+        // ✅ --- START OF FIX ---
+        
+        // 1. Get the status from the database first.
+        $academicStatus = $student->academic_status;
         $passedSubjectIds = $student->grades()->where('status', 'Passed')->pluck('subject_id');
 
-        // Get FAILED subjects that have not been subsequently passed.
-        $failedSubjects = $student->grades()
-            ->where('status', 'Failed')->with('subject.prerequisite')->get()
-            ->map(fn($grade) => $grade->subject)->whereNotNull()
-            ->whereNotIn('id', $passedSubjectIds)->unique('id')->values();
-        
-        // Get DROPPED subjects that have not been subsequently passed.
-        $droppedSubjects = $student->subjectChangeRequests()
-            ->where('status', 'approved')->with('items.subject.prerequisite')->get()
-            ->flatMap(fn($req) => $req->items)->where('action', 'drop')
-            ->map(fn($item) => $item->subject)->whereNotNull()
-            ->unique('id')->whereNotIn('id', $passedSubjectIds)->values();
+        // Only run the irregularity checks if the student is currently 'Regular'.
+        if ($academicStatus === 'Regular') {
+            
+            // 2. Check for failed subjects (not yet retaken and passed)
+            $failedSubjects = $student->grades()
+                ->where('status', 'Failed')->with('subject.prerequisite')->get()
+                ->map(fn($grade) => $grade->subject)->whereNotNull()
+                ->whereNotIn('id', $passedSubjectIds)->unique('id')->values();
 
-        // NOTE: The missing summer subject check from getEnrolledStudents can be optionally added here.
-        // For now, we will use the failed/dropped subjects to define Irregular status.
-        $isIrregular = $failedSubjects->isNotEmpty() || $droppedSubjects->isNotEmpty();
-        $academicStatus = $isIrregular ? 'Irregular' : 'Regular';
+            // 3. Check for dropped subjects (not yet retaken and passed)
+            $droppedSubjects = $student->subjectChangeRequests()
+                ->where('status', 'approved')->with('items.subject.prerequisite')->get()
+                ->flatMap(fn($req) => $req->items)->where('action', 'drop')
+                ->map(fn($item) => $item->subject)->whereNotNull()
+                ->unique('id')->whereNotIn('id', $passedSubjectIds)->values();
+
+            // 4. Check if student is an approved shiftee
+            $isApprovedShiftee = $student->shifteeRequests->where('status', 'approved')->isNotEmpty();
+
+            // 5. Check for missed summer subjects
+            $hasMissedSummerSubjects = false;
+            if ($student->course && $student->course->program && $student->course->program->program_code === 'Diploma') {
+                
+                $allCurriculumSubjects = \App\Models\Subject::where('course_id', $student->course_id)->get();
+                
+                $getYearValue = function ($yearStr) {
+                    if (str_contains($yearStr, 'Summer')) {
+                        return (int)filter_var($yearStr, FILTER_SANITIZE_NUMBER_INT) + 0.5;
+                    }
+                    return (int)filter_var($yearStr, FILTER_SANITIZE_NUMBER_INT);
+                };
+
+                // Use the student's CURRENT year to check, not the next term
+                $studentYearValue = $getYearValue($student->year); 
+
+                if ($studentYearValue >= 2) {
+                    $summer1Subjects = $allCurriculumSubjects->where('year', '1st Year Summer');
+                    if ($summer1Subjects->isNotEmpty() && $summer1Subjects->pluck('id')->diff($passedSubjectIds)->isNotEmpty()) {
+                        $hasMissedSummerSubjects = true;
+                    }
+                }
+
+                if (!$hasMissedSummerSubjects && $studentYearValue >= 3) {
+                    $summer2Subjects = $allCurriculumSubjects->where('year', '2nd Year Summer');
+                    if ($summer2Subjects->isNotEmpty() && $summer2Subjects->pluck('id')->diff($passedSubjectIds)->isNotEmpty()) {
+                        $hasMissedSummerSubjects = true;
+                    }
+                }
+            }
+            
+            // 6. Update the final status
+            if ($failedSubjects->isNotEmpty() || $droppedSubjects->isNotEmpty() || $isApprovedShiftee || $hasMissedSummerSubjects) {
+                $academicStatus = 'Irregular';
+            }
+
+        } else {
+            // If status is already "Irregular" or "Withdraw", we still need to get failed/dropped subjects to show the user
+            $failedSubjects = $student->grades()
+                ->where('status', 'Failed')->with('subject.prerequisite')->get()
+                ->map(fn($grade) => $grade->subject)->whereNotNull()
+                ->whereNotIn('id', $passedSubjectIds)->unique('id')->values();
+            
+            $droppedSubjects = $student->subjectChangeRequests()
+                ->where('status', 'approved')->with('items.subject.prerequisite')->get()
+                ->flatMap(fn($req) => $req->items)->where('action', 'drop')
+                ->map(fn($item) => $item->subject)->whereNotNull()
+                ->unique('id')->whereNotIn('id', $passedSubjectIds)->values();
+        }
+        // ✅ --- END OF FIX ---
         
-        // --- 3. Determine Next Term Info (Simple example: increment year/semester) ---
-        // NOTE: This logic should ideally be handled by a service layer. Using simple hardcoded values for now.
+        // --- 3. Determine Next Term Info ---
         $nextTerm = $this->calculateNextTerm(
             $student->year, 
             $student->semester, 
@@ -1371,7 +1502,7 @@ public function getStudentEnrollmentEligibilityStatus(Request $request): JsonRes
         return response()->json([
             'success' => true,
             'status_data' => [
-                'academic_status' => $academicStatus,
+                'academic_status' => $academicStatus, // This will now correctly be 'Irregular'
                 'message' => 'Enrollment status check complete.',
                 'next_term' => $nextTerm, 
                 'ungraded_subjects' => $ungradedSubjects,
@@ -1388,6 +1519,8 @@ public function getStudentEnrollmentEligibilityStatus(Request $request): JsonRes
                     ])->all(),
                 ],
                 'student_id' => $student->id,
+                'course_id' => $student->course_id,
+                'program_code' => $student->course->program->program_code ?? 'Bachelor',
             ]
         ]);
 
