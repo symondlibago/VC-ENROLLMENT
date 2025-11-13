@@ -55,7 +55,8 @@ const ApprovalAction = ({
     try {
       await enrollmentAPI.submitApproval(studentId, { status, remarks, roleName });
       onApprovalSaved();
-    } catch (err) {
+    } catch (err)
+ {
       setError(err.message || 'Failed to save approval.');
     } finally {
       setIsSaving(false);
@@ -154,7 +155,7 @@ const defaultPaymentState = {
   payment_date: new Date().toISOString().split('T')[0]
 };
 
-// ✅ --- FIX 1: Add ALL fields to the manualEdit state ---
+// ... (defaultManualEdit is unchanged) ...
 const defaultManualEdit = {
   previous_account: false,
   registration_fee: false,
@@ -229,12 +230,19 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
 
         if (studentLastUpdated > paymentLastUpdated) {
           // CASE B: STALE payment. This is a new term.
-          console.log("Stale payment record detected. Auto-calculating new fees.");
+          console.log("Stale payment record detected. Carrying over remaining balance.");
+          
+          // ✅ --- THIS IS THE FIX ---
+          // The remaining amount from the PREVIOUS term becomes the "Previous Account" for THIS term.
+          const previousTermRemainingAmount = payment.remaining_amount || 0;
+          
           setPaymentData(prev => ({
-            ...prev,
-            previous_account: payment.previous_account || ''
+            ...prev, // ...keeps the defaultPaymentState (all zeros)
+            // Set the previous_account to the old remaining_amount
+            previous_account: previousTermRemainingAmount.toString()
           }));
-          // manualEdit remains all `false`
+          // manualEdit remains all `false`, so the new calculator will run with this carried-over balance.
+          // --- END OF FIX ---
 
         } else {
           // CASE C: CURRENT payment. Load it and lock fields.
@@ -273,7 +281,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     }
   }, [isOpen, fetchStudentDetails]);
 
-  // ✅ --- FIX 3: The complete calculation logic ---
+  // ... (useEffect for calculation is unchanged) ...
   useEffect(() => {
     if (loading || !student || !subjectsWithSchedules) return;
 
@@ -355,8 +363,8 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     paymentData.term_payment,
     manualEdit // Run when manualEdit changes
   ]);
-  // --- END OF FIX 3 ---
 
+  // ... (handleApprovalUpdated is unchanged) ...
   const handleApprovalUpdated = () => {
     setAlert({
         isVisible: true,
@@ -366,7 +374,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     fetchStudentDetails(); 
   };
 
-  // ✅ --- FIX 4: Update manualEdit for ALL fields ---
+  // ... (handlePaymentInputChange is unchanged) ...
   const handlePaymentInputChange = (field, value) => {
     if (field === 'remaining_amount') return;
     setPaymentData(prev => ({ ...prev, [field]: value }));
@@ -377,6 +385,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     }
   };
   
+  // ... (handlePaymentDateChange is unchanged) ...
   const handlePaymentDateChange = (dateString) => {
     if (!dateString) {
       setPaymentData(prev => ({ ...prev, payment_date: '' }));
@@ -386,7 +395,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     setPaymentData(prev => ({ ...prev, payment_date: formattedDate }));
   };
 
-  // ✅ --- FIX 5: The "Scholar" validation fix ---
+  // ... (handleSavePayment is unchanged) ...
   const handleSavePayment = async () => {
     // Parse values once, checking for validity
     const regFee = parseFloat(paymentData.registration_fee);
@@ -450,8 +459,8 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
       setPaymentSaving(false);
     }
   };
-  // --- END OF FIX 5 ---
 
+  // ... (handleCreditSubject is unchanged) ...
   const handleCreditSubject = async (subjectId) => {
     setCreditingSubjectId(subjectId); 
     try {
@@ -475,6 +484,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     }
   };
 
+  // ... (subjectTotals is unchanged) ...
   const subjectTotals = useMemo(() => {
     if (!subjectsWithSchedules) {
       return { units: 0, lec: 0, lab: 0 };
@@ -487,11 +497,11 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     }, { units: 0, lec: 0, lab: 0 });
   }, [subjectsWithSchedules]);
 
-  // ... canCreditSubjects (No changes) ...
+  // ... (canCreditSubjects is unchanged) ...
   const canCreditSubjects = (currentUserRole === 'Admin' || currentUserRole === 'Registrar') &&
                             student?.enrollment_type === 'Transferee';
 
-  // ... return() statement (No changes) ...
+  // ... (Rest of the JSX is unchanged) ...
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <SuccessAlert isVisible={alert.isVisible} message={alert.message} type={alert.type} onClose={() => setAlert({ ...alert, isVisible: false })} />

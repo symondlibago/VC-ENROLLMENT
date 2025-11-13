@@ -27,7 +27,7 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
       <motion.button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-2 text-left bg-white border border-gray-200 rounded-lg focus:border-[var(--dominant-red)] focus:ring-2 focus:ring-[var(--dominant-red)]/20 liquid-morph flex items-center justify-between min-w-[200px]"
+        className="w-full px-4 py-2 text-left bg-white border border-gray-200 rounded-lg focus:border-(--dominant-red) focus:ring-2 focus:ring-(--dominant-red)/20 liquid-morph flex items-center justify-between min-w-[200px]"
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
       >
@@ -222,7 +222,7 @@ const StudentGrades = () => {
       <motion.div variants={itemVariants}>
         <div className="gradient-soft rounded-2xl p-8 border border-gray-100">
           <h1 className="text-3xl font-bold heading-bold text-gray-900 mb-2 flex items-center">
-            <FileText className="w-8 h-8 text-[var(--dominant-red)] mr-3" />
+            <FileText className="w-8 h-8 text-(--dominant-red) mr-3" />
             Student Grades
           </h1>
           <p className="text-gray-600 text-lg">Input and manage grades for students in your classes.</p>
@@ -240,7 +240,7 @@ const StudentGrades = () => {
           <CardContent className="p-6 flex flex-col md:flex-row gap-4 items-center justify-between">
             <div className="flex-1 w-full relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input placeholder="Search students by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border-1 border-gray-300 focus:border-red-800 focus:ring-1 focus:ring-red-800 rounded-lg"/>
+              <Input placeholder="Search students by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border border-gray-300 focus:border-red-800 focus:ring-1 focus:ring-red-800 rounded-lg"/>
             </div>
             <div className="w-full md:w-auto min-w-[250px]">
               <MotionDropdown value={selectedSubjectId} onChange={setSelectedSubjectId} options={subjectOptions} placeholder="Select a subject..." />
@@ -288,7 +288,7 @@ const StudentGrades = () => {
                         <Input type="number" min="1" max="5" step="0.01" 
                           value={student.grades?.prelim_grade ?? ''} 
                           onChange={(e) => handleGradeChange(student.id, 'prelim_grade', e.target.value)} 
-                          className="w-20 border-1 border-gray-300 rounded-md text-black" 
+                          className="w-20 border border-gray-300 rounded-md text-black" 
                           disabled={!isPeriodOpen('prelim')}
                         />
                       </td>
@@ -296,7 +296,7 @@ const StudentGrades = () => {
                         <Input type="number" min="1" max="5" step="0.01"
                           value={student.grades?.midterm_grade ?? ''} 
                           onChange={(e) => handleGradeChange(student.id, 'midterm_grade', e.target.value)} 
-                          className="w-20 border-1 border-gray-300 rounded-md text-black" 
+                          className="w-20 border border-gray-300 rounded-md text-black" 
                           disabled={!isPeriodOpen('midterm')}
                         />
                       </td>
@@ -304,7 +304,7 @@ const StudentGrades = () => {
                         <Input type="number" min="1" max="5" step="0.01"
                           value={student.grades?.semifinal_grade ?? ''} 
                           onChange={(e) => handleGradeChange(student.id, 'semifinal_grade', e.target.value)} 
-                          className="w-20 border-1 border-gray-300 rounded-md text-black" 
+                          className="w-20 border border-gray-300 rounded-md text-black" 
                           disabled={!isPeriodOpen('semifinal')}
                         />
                       </td>
@@ -312,7 +312,7 @@ const StudentGrades = () => {
                         <Input type="number" min="1" max="5" step="0.01"
                           value={student.grades?.final_grade ?? ''} 
                           onChange={(e) => handleGradeChange(student.id, 'final_grade', e.target.value)} 
-                          className="w-20 border-1 border-gray-300 rounded-md text-black" 
+                          className="w-20 border border-gray-300 rounded-md text-black" 
                           disabled={!isPeriodOpen('final')}
                         />
                       </td>

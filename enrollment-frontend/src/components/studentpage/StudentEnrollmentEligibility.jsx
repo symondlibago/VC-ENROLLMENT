@@ -629,12 +629,12 @@ const StudentEnrollmentEligibility = () => {
                 <p className="text-gray-600 mt-1">Select your subjects for {academicInfo.semester}, S.Y. {academicInfo.school_year}.</p>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[500px]">
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-200 flex flex-col">
+                <div className="bg-linear-to-br from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-200 flex flex-col">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-bold text-gray-900">Available Subjects ({academicInfo.semester})</h3>
                     </div>
                     
-                    <div className="space-y-3 overflow-y-auto flex-grow pr-2">
+                    <div className="space-y-3 overflow-y-auto grow pr-2">
                         {isLoadingSubjects ? <div className="flex justify-center items-center h-full"><Loader2 className="animate-spin text-red-800 w-8 h-8" /></div>
                           : displayableSubjects.length === 0 ? <div className="text-center text-gray-500 pt-16"><BookOpen className="w-12 h-12 mx-auto mb-2 text-gray-300" /><p>No subjects found for this term.</p></div>
                             : displayableSubjects.map(sub => {
@@ -666,12 +666,12 @@ const StudentEnrollmentEligibility = () => {
                             })}
                     </div>
                 </div>
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-4 border border-green-200 flex flex-col">
+                <div className="bg-linear-to-br from-green-50 to-emerald-50 rounded-2xl p-4 border border-green-200 flex flex-col">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-bold text-gray-900">Selected Subjects</h3>
                         <div className="bg-green-100 text-green-800 px-3 py-1 rounded-lg text-sm font-bold">Total: {getTotalUnits()} units</div>
                     </div>
-                    <div className="space-y-3 overflow-y-auto flex-grow pr-2">
+                    <div className="space-y-3 overflow-y-auto grow pr-2">
                         {selectedSubjects.length > 0 ? selectedSubjects.map(sub => (
                             <motion.div key={sub.id} className="bg-white rounded-xl p-3 shadow-sm border" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
                                 <div className="flex items-center justify-between">
