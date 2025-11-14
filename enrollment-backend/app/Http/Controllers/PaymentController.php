@@ -42,6 +42,7 @@ class PaymentController extends Controller
             'discount' => 'nullable|numeric|min:0',
             'discount_deduction' => 'nullable|numeric|min:0',
             'remaining_amount' => 'nullable|numeric',
+            'advance_payment' => 'nullable|numeric|min:0',
             'term_payment' => 'nullable|numeric|min:0',
             'payment_date' => 'nullable|date',
             'term_payments' => 'nullable|array',
@@ -78,6 +79,7 @@ class PaymentController extends Controller
                     'discount' => $request->input('discount'),
                     'discount_deduction' => $request->input('discount_deduction'),
                     'remaining_amount' => $request->input('remaining_amount'),
+                    'advance_payment' => $request->input('advance_payment'),
                     'term_payment' => $request->input('term_payment'),
                     'payment_date' => $request->input('payment_date'),
                 ]
@@ -198,6 +200,7 @@ class PaymentController extends Controller
             'discount' => 'numeric|min:0',
             'discount_deduction' => 'numeric|min:0',
             'remaining_amount' => 'numeric',
+            'advance_payment' => 'numeric|min:0',
             'term_payment' => 'numeric|min:0',
             'payment_date' => 'date',
         ]);

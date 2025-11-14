@@ -27,6 +27,7 @@ class Payment extends Model
         'remaining_amount',
         'term_payment',
         'payment_date',
+        'advance_payment',
     ];
 
     public function preEnrolledStudent()

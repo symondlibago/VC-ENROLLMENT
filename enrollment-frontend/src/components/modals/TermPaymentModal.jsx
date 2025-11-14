@@ -4,7 +4,6 @@ import { enrollmentAPI, paymentAPI } from '../../services/api';
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-// ✅ 1. SuccessAlert import is GONE
 import ValidationErrorModal from './ValidationErrorModal';
 import CustomCalendar from '../layout/CustomCalendar';
 
@@ -22,14 +21,15 @@ const defaultPaymentState = {
   discount_deduction: 0,
   remaining_amount: 0,
   term_payment: 0,
-  payment_date: new Date().toISOString().split('T')[0]
+  payment_date: new Date().toISOString().split('T')[0],
+  advance_payment: 0, 
 };
 
-// ✅ 2. Accept the new props: onSaveSuccess and onSaveError
 const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveError }) => {
   const [loading, setLoading] = useState(true);
   const [student, setStudent] = useState(null);
-  const [subjectsWithSchedules, setSubjectsWithSchedules] = useState([]);
+  // REMOVE subjectsWithSchedules state, it's not needed here
+  // const [subjectsWithSchedules, setSubjectsWithSchedules] = useState([]); 
   const [error, setError] = useState(null);
   
   const [paymentData, setPaymentData] = useState(defaultPaymentState);
@@ -43,21 +43,13 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
   const [historicalPayments, setHistoricalPayments] = useState([]); 
   const [currentTermPayments, setCurrentTermPayments] = useState([]); 
   
-  const [manualEdit, setManualEdit] = useState({
-    tuition_fee: false,
-    laboratory_fee: false,
-    bundled_program_fee: false,
-    total_amount: false,
-    discount_deduction: false,
-    remaining_amount: false, 
-    term_payment: false,
-  });
+  // REMOVE manualEdit state, it's not needed here
+  // const [manualEdit, setManualEdit] = useState({ ... });
 
   const [paymentSaving, setPaymentSaving] = useState(false);
-  // ✅ 3. The local alert state is GONE
   const [validationModal, setValidationModal] = useState({ isOpen: false, message: '' });
 
-  // ... (useEffect for data fetching is unchanged) ...
+  // ... useEffect (data fetching) (MODIFIED) ...
   useEffect(() => {
     if (isOpen) {
       setLoading(true);
@@ -71,13 +63,10 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
         or_number: '',
         amount: ''
       });
-      setManualEdit({
-        tuition_fee: false, laboratory_fee: false, bundled_program_fee: false,
-        total_amount: false, discount_deduction: false, remaining_amount: false,
-        term_payment: false,
-      });
+      // REMOVED manualEdit reset
+      // REMOVED setSubjectsWithSchedules reset
 
-      // Fetch student details
+      // Fetch student details (only for student name)
       const studentDetailsPromise = enrollmentAPI.getStudentDetails(studentId);
       
       // Fetch payment data
@@ -96,14 +85,15 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
           if (studentRes.success) {
             currentStudent = studentRes.data.student;
             setStudent(currentStudent);
-            setSubjectsWithSchedules(studentRes.data.subjects || []);
+            // REMOVED setSubjectsWithSchedules
+            // setSubjectsWithSchedules(studentRes.data.subjects || []);
           } else {
             throw new Error('Failed to load student details');
           }
 
           if (paymentRes && paymentRes.success) {
             const payment = paymentRes.data;
-            setPaymentData(payment); 
+            setPaymentData(payment); // This correctly loads the { ... laboratory_fee: "5000.00" ... }
             
             const allTermPayments = payment.term_payments || [];
             const studentCurrentYear = currentStudent.year;
@@ -141,79 +131,66 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
     }
   }, [isOpen, studentId]);
 
-  // ... (useEffect for calculations is unchanged) ...
+
+  // ✅ --- START OF THE REAL FIX ---
+  // This useEffect is now SIMPLE. It only calculates the remaining balance
+  // based on the term payments. It TRUSTS all the other fee data.
   useEffect(() => {
-    if (loading || !student || !subjectsWithSchedules) return; 
+    // Wait until data is loaded
+    if (loading) return; 
 
-    const totalLecHrs = subjectsWithSchedules.reduce((sum, subject) => sum + (parseFloat(subject.lec_hrs) || 0), 0);
-    const newTuitionFee = totalLecHrs * 528;
-    const totalLabHrs = subjectsWithSchedules.reduce((sum, subject) => sum + (parseFloat(subject.lab_hrs) || 0), 0);
-    const newLaboratoryFee = totalLabHrs * 350; 
-    let newBundledProgramFee = 0;
-    const programCode = student.course?.program?.program_code;
-    if (programCode === 'SHS' || programCode === 'Diploma') {
-        newBundledProgramFee = 17750;
-    } else if (programCode === 'Bachelor') {
-        newBundledProgramFee = 0;
-    }
-    const prevAccount = parseFloat(paymentData.previous_account) || 0;
-    const regFee = parseFloat(paymentData.registration_fee) || 0;
-    const miscFee = parseFloat(paymentData.miscellaneous_fee) || 0;
-    const otherFee = parseFloat(paymentData.other_fees) || 0;
-    const paymentAmount = parseFloat(paymentData.payment_amount) || 0; 
-    const discountPercent = parseFloat(paymentData.discount) || 0;
+    // --- 1. Get all loaded fee values ---
+    // These values were set by StudentDetailsModal and loaded from the DB.
+    // We TRUST them.
+    const totalAmount = parseFloat(paymentData.total_amount) || 0;
+    const downPayment = parseFloat(paymentData.payment_amount) || 0;
+    const discountDeduction = parseFloat(paymentData.discount_deduction) || 0;
     
-    const tuition = manualEdit.tuition_fee ? (parseFloat(paymentData.tuition_fee) || 0) : newTuitionFee;
-    const lab = manualEdit.laboratory_fee ? (parseFloat(paymentData.laboratory_fee) || 0) : newLaboratoryFee;
-    const bundled = manualEdit.bundled_program_fee ? (parseFloat(paymentData.bundled_program_fee) || 0) : newBundledProgramFee;
+    // This is the starting balance *after* the down payment was made.
+    const balanceAfterDownPayment = totalAmount - discountDeduction - downPayment;
 
-    const total = prevAccount + tuition + lab + miscFee + otherFee + bundled + regFee;
-    const newTotalAmount = manualEdit.total_amount ? (parseFloat(paymentData.total_amount) || 0) : total;
-
-    const newDiscountDeduction = manualEdit.discount_deduction
-      ? (parseFloat(paymentData.discount_deduction) || 0)
-      : newTotalAmount * (discountPercent / 100);
-
-    const balanceAfterDownPayment = newTotalAmount - newDiscountDeduction - paymentAmount; 
-    
-    const newTermPayment = balanceAfterDownPayment > 0 ? balanceAfterDownPayment / 4 : 0;
-    
+    // --- 2. Calculate total of *new* payments made in this modal ---
     const totalCurrentPayments = currentTermPayments.reduce((sum, payment) => sum + (parseFloat(payment.amount) || 0), 0);
-    
-    const newRemainingAmount = balanceAfterDownPayment - totalCurrentPayments;
 
+    // --- 3. Calculate the new final remaining amount ---
+    let newRemainingAmount = balanceAfterDownPayment - totalCurrentPayments;
+    let calculatedNewAdvance = 0; 
+    
+    if (newRemainingAmount < 0) {
+        calculatedNewAdvance = Math.abs(newRemainingAmount); // Store the overpayment amount
+        newRemainingAmount = 0; // Cap remaining amount at 0
+    }
+    
+    // --- 4. Set State ---
+    // We only update remaining_amount and advance_payment.
+    // All other fields (tuition, lab_fee, etc.) are kept as they were loaded.
     setPaymentData(prev => ({
-        ...prev,
-        tuition_fee: manualEdit.tuition_fee ? prev.tuition_fee : newTuitionFee.toFixed(2),
-        laboratory_fee: manualEdit.laboratory_fee ? prev.laboratory_fee : newLaboratoryFee.toFixed(2),
-        bundled_program_fee: manualEdit.bundled_program_fee ? prev.bundled_program_fee : newBundledProgramFee.toFixed(2),
-        total_amount: manualEdit.total_amount ? prev.total_amount : newTotalAmount.toFixed(2),
-        discount_deduction: manualEdit.discount_deduction ? prev.discount_deduction : newDiscountDeduction.toFixed(2),
+        ...prev, // Keep all loaded data (tuition, lab_fee, etc.)
         remaining_amount: newRemainingAmount.toFixed(2),
-        term_payment: manualEdit.term_payment ? prev.term_payment : newTermPayment.toFixed(2),
+        advance_payment: calculatedNewAdvance.toFixed(2),
     }));
 
   }, [
+    // Dependencies:
     loading, 
-    student, 
-    subjectsWithSchedules, 
-    paymentData.previous_account, 
-    paymentData.registration_fee, 
-    paymentData.miscellaneous_fee, 
-    paymentData.other_fees, 
+    paymentData.total_amount,      // Use primitive values
     paymentData.payment_amount, 
-    paymentData.discount,
-    manualEdit,
-    currentTermPayments 
+    paymentData.discount_deduction,
+    currentTermPayments            // Recalculate when a new term payment is added
   ]);
+  // ✅ --- END OF THE REAL FIX ---
 
-  // ... (handlePaymentInputChange, handlePaymentDateChange, handleTermPaymentInputChange, handleTermPaymentDateChange, handleAddTermPayment, handleRemoveTermPayment are all unchanged) ...
+
+  // ... all handlers (handlePaymentInputChange, handleSavePayment, etc.) (No changes) ...
+
+  // MODIFIED: Removed manualEdit logic
   const handlePaymentInputChange = (field, value) => {
-    if (field === 'remaining_amount') return; 
+    if (field === 'remaining_amount' || field === 'advance_payment') return; // Don't allow manual edit
     setPaymentData(prev => ({ ...prev, [field]: value }));
-    if (Object.keys(manualEdit).includes(field)) {
-      setManualEdit(prev => ({ ...prev, [field]: true }));
-    }
+    // REMOVED manualEdit logic
+    // if (Object.keys(manualEdit).includes(field)) {
+    //   setManualEdit(prev => ({ ...prev, [field]: true }));
+    // }
   };
   const handlePaymentDateChange = (dateString) => {
     if (!dateString) { setPaymentData(prev => ({ ...prev, payment_date: '' })); return; }
@@ -249,7 +226,6 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
     setCurrentTermPayments(prev => prev.filter(p => p.id !== id));
   };
 
-  // ✅ 4. Update handleSavePayment to use the new props
   const handleSavePayment = async () => {
     const regFee = parseFloat(paymentData.registration_fee);
     const paymentAmount = parseFloat(paymentData.payment_amount);
@@ -287,31 +263,30 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
       const response = await paymentAPI.create(paymentPayload); 
 
       if (response.success) {
-        // ✅ Call the onSaveSuccess prop (it will close the modal AND show the alert)
         onSaveSuccess('Payment information saved successfully!');
       } else {
-        // ✅ Call the onSaveError prop (it will show the error alert)
         onSaveError(response.message || 'Failed to save payment information.');
       }
     } catch (error) {
-      // ✅ Call the onSaveError prop
       onSaveError(error.message || 'An error occurred while saving payment.');
       console.error('Payment save error:', error);
     } finally {
       setPaymentSaving(false);
     }
   };
-  // --- END OF FIX ---
+
 
   if (!isOpen) return null;
+
+  // ... Rest of the return() (JSX) is identical ...
+  // All the inputs are read-only or disabled by default
+  // The UI will now correctly show the 5000.00 lab fee
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      {/* ✅ 5. The SuccessAlert component is GONE from here */}
       <ValidationErrorModal isOpen={validationModal.isOpen} message={validationModal.message} onClose={() => setValidationModal({ isOpen: false, message: '' })} />
       
       <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        {/* ... (Rest of the modal JSX is unchanged) ... */}
-        {/* Header */}
+        {/* Header (No changes) */}
         <div className="sticky top-0 bg-red-800 text-white z-10 flex items-center justify-between p-4 border-b">
           <h2 className="text-xl font-semibold">
             Payment Information {student ? `- ${student.last_name}, ${student.first_name}` : ''}
@@ -335,24 +310,25 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
                   {/* Fee Structure */}
                   <div>
                     <h4 className="text-md font-medium mb-3 text-gray-700">Fee Structure</h4>
+                    {/* These fields are now read-only and will show the DB values */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Previous Account</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.previous_account} onChange={(e) => handlePaymentInputChange('previous_account', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Registration Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.registration_fee} onChange={(e) => handlePaymentInputChange('registration_fee', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Tuition Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.tuition_fee} onChange={(e) => handlePaymentInputChange('tuition_fee', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Laboratory Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.laboratory_fee} onChange={(e) => handlePaymentInputChange('laboratory_fee', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Miscellaneous Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.miscellaneous_fee} onChange={(e) => handlePaymentInputChange('miscellaneous_fee', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Other Fees</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.other_fees} onChange={(e) => handlePaymentInputChange('other_fees', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Bundled Program Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.bundled_program_fee} onChange={(e) => handlePaymentInputChange('bundled_program_fee', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
+                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Previous Account</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.previous_account} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Registration Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.registration_fee} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Tuition Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.tuition_fee} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Laboratory Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.laboratory_fee} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Miscellaneous Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.miscellaneous_fee} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Other Fees</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.other_fees} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Bundled Program Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.bundled_program_fee} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
                     </div>
                   </div>
                   {/* Payment Details */}
                   <div>
                     <h4 className="text-md font-medium mb-3 text-gray-700">Payment Details</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Total Amount</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.total_amount} onChange={(e) => handlePaymentInputChange('total_amount', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Payment Amount (Down Payment)</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.payment_amount} onChange={(e) => handlePaymentInputChange("payment_amount", e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Discount %</label><div className="relative"><input type="number" value={paymentData.discount} onChange={(e) => handlePaymentInputChange("discount", e.target.value)} className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0" min="0" max="100" step="0.01" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Discount Deduction</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.discount_deduction} onChange={(e) => handlePaymentInputChange('discount_deduction', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
+                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Total Amount</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.total_amount} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Payment Amount (Down Payment)</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.payment_amount} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Discount %</label><div className="relative"><input type="number" value={paymentData.discount} readOnly className="w-full px-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Discount Deduction</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.discount_deduction} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
                       
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Remaining Amount</label>
@@ -368,14 +344,31 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
                         </div>
                       </div>
 
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Term Payment (Calculated)</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.term_payment} onChange={(e) => handlePaymentInputChange('term_payment', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none" placeholder="0.00" min="0" step="0.01" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label><CustomCalendar value={paymentData.payment_date} onChange={handlePaymentDateChange} placeholder="Select Payment Date" /></div>
+                      {/* --- ✅ THIS IS THE UI FIELD --- */}
+                      <div>
+                        <label className="block text-sm font-medium text-green-700 mb-1">Advance Payment (Credit)</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-green-700 text-sm">₱</span>
+                          <input 
+                            type="number" 
+                            value={paymentData.advance_payment} 
+                            readOnly 
+                            // ✅ This styling makes it green only if it has a value
+                            className={`w-full pl-8 pr-3 py-2 border-2 rounded-md focus:outline-none ${parseFloat(paymentData.advance_payment) > 0 ? 'border-green-200 bg-green-50 text-green-800 font-medium' : 'border-gray-300 bg-gray-100'}`} 
+                            placeholder="0.00" 
+                          />
+                        </div>
+                      </div>
+                      {/* --- END OF UI FIELD --- */}
+
+                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Term Payment (Calculated)</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.term_payment} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label><CustomCalendar value={paymentData.payment_date} placeholder="Select Payment Date" disabled={true} /></div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* --- CARD 2: PAYMENT HISTORY (READ-ONLY) --- */}
+              {/* --- CARD 2: PAYMENT HISTORY (READ-ONLY) (No changes) --- */}
               {historicalPayments.length > 0 && (
                 <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
                   <h3 className="text-lg font-medium mb-4 text-gray-700 flex items-center">
@@ -401,7 +394,7 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
                 </div>
               )}
 
-              {/* --- CARD 3: CURRENT TERM PAYMENTS (EDITABLE) --- */}
+              {/* --- CARD 3: CURRENT TERM PAYMENTS (EDITABLE) (No changes) --- */}
               <div className="bg-gray-50 p-4 rounded-lg border-2 border-blue-200">
                 <h3 className="text-lg font-medium mb-4 text-black flex items-center">
                   Manage Term Payments
@@ -472,7 +465,7 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
               {/* --- END OF UI --- */}
 
 
-              {/* --- SAVE BUTTON --- */}
+              {/* --- SAVE BUTTON (No changes) --- */}
               <div className="flex justify-end pt-4 border-t border-gray-200">
                 <Button
                   onClick={handleSavePayment}

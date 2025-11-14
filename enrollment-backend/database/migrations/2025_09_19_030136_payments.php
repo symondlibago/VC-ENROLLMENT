@@ -28,6 +28,8 @@ return new class extends Migration
             $table->decimal('remaining_amount', 10, 2)->nullable();
             $table->decimal('term_payment')->nullable();
             $table->date('payment_date')->nullable();
+            $table->decimal('advance_payment', 10, 2)->nullable()->default(0);
+
             $table->timestamps();
         });
     }
