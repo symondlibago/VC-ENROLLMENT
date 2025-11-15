@@ -16,7 +16,7 @@ const defaultPaymentState = {
   other_fees: '',
   bundled_program_fee: 0,
   total_amount: 0,
-  payment_amount: '', // This is the DOWN PAYMENT
+  payment_amount: '',
   discount: '',
   discount_deduction: 0,
   remaining_amount: 0,
@@ -28,8 +28,6 @@ const defaultPaymentState = {
 const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveError }) => {
   const [loading, setLoading] = useState(true);
   const [student, setStudent] = useState(null);
-  // REMOVE subjectsWithSchedules state, it's not needed here
-  // const [subjectsWithSchedules, setSubjectsWithSchedules] = useState([]); 
   const [error, setError] = useState(null);
   
   const [paymentData, setPaymentData] = useState(defaultPaymentState);
@@ -42,19 +40,13 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
 
   const [historicalPayments, setHistoricalPayments] = useState([]); 
   const [currentTermPayments, setCurrentTermPayments] = useState([]); 
-  
-  // REMOVE manualEdit state, it's not needed here
-  // const [manualEdit, setManualEdit] = useState({ ... });
-
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [validationModal, setValidationModal] = useState({ isOpen: false, message: '' });
 
-  // ... useEffect (data fetching) (MODIFIED) ...
   useEffect(() => {
     if (isOpen) {
       setLoading(true);
       setError(null);
-      // Reset states
       setPaymentData(defaultPaymentState);
       setHistoricalPayments([]); // Reset history
       setCurrentTermPayments([]); // Reset current
@@ -63,9 +55,6 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
         or_number: '',
         amount: ''
       });
-      // REMOVED manualEdit reset
-      // REMOVED setSubjectsWithSchedules reset
-
       // Fetch student details (only for student name)
       const studentDetailsPromise = enrollmentAPI.getStudentDetails(studentId);
       
@@ -85,15 +74,13 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
           if (studentRes.success) {
             currentStudent = studentRes.data.student;
             setStudent(currentStudent);
-            // REMOVED setSubjectsWithSchedules
-            // setSubjectsWithSchedules(studentRes.data.subjects || []);
           } else {
             throw new Error('Failed to load student details');
           }
 
           if (paymentRes && paymentRes.success) {
             const payment = paymentRes.data;
-            setPaymentData(payment); // This correctly loads the { ... laboratory_fee: "5000.00" ... }
+            setPaymentData(payment); 
             
             const allTermPayments = payment.term_payments || [];
             const studentCurrentYear = currentStudent.year;
@@ -132,16 +119,9 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
   }, [isOpen, studentId]);
 
 
-  // ✅ --- START OF THE REAL FIX ---
-  // This useEffect is now SIMPLE. It only calculates the remaining balance
-  // based on the term payments. It TRUSTS all the other fee data.
   useEffect(() => {
     // Wait until data is loaded
     if (loading) return; 
-
-    // --- 1. Get all loaded fee values ---
-    // These values were set by StudentDetailsModal and loaded from the DB.
-    // We TRUST them.
     const totalAmount = parseFloat(paymentData.total_amount) || 0;
     const downPayment = parseFloat(paymentData.payment_amount) || 0;
     const discountDeduction = parseFloat(paymentData.discount_deduction) || 0;
@@ -178,19 +158,11 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
     paymentData.discount_deduction,
     currentTermPayments            // Recalculate when a new term payment is added
   ]);
-  // ✅ --- END OF THE REAL FIX ---
-
-
-  // ... all handlers (handlePaymentInputChange, handleSavePayment, etc.) (No changes) ...
 
   // MODIFIED: Removed manualEdit logic
   const handlePaymentInputChange = (field, value) => {
     if (field === 'remaining_amount' || field === 'advance_payment') return; // Don't allow manual edit
     setPaymentData(prev => ({ ...prev, [field]: value }));
-    // REMOVED manualEdit logic
-    // if (Object.keys(manualEdit).includes(field)) {
-    //   setManualEdit(prev => ({ ...prev, [field]: true }));
-    // }
   };
   const handlePaymentDateChange = (dateString) => {
     if (!dateString) { setPaymentData(prev => ({ ...prev, payment_date: '' })); return; }
@@ -274,18 +246,14 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
       setPaymentSaving(false);
     }
   };
-
-
   if (!isOpen) return null;
-
-  // ... Rest of the return() (JSX) is identical ...
-  // All the inputs are read-only or disabled by default
-  // The UI will now correctly show the 5000.00 lab fee
+  
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <ValidationErrorModal isOpen={validationModal.isOpen} message={validationModal.message} onClose={() => setValidationModal({ isOpen: false, message: '' })} />
       
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+      {/* MODIFICATION: Changed max-w-4xl to max-w-6xl */}
+      <div className="bg-white rounded-lg shadow-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto">
         {/* Header (No changes) */}
         <div className="sticky top-0 bg-red-800 text-white z-10 flex items-center justify-between p-4 border-b">
           <h2 className="text-xl font-semibold">
@@ -303,98 +271,99 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
             <div className="text-red-500 text-center p-4">{error}</div>
           ) : student ? (
             <div className="space-y-6">
-              {/* --- CARD 1: Main Payment Information --- */}
-              <div className="bg-gray-50 p-4 rounded-lg border-2 border-red-200">
-                <h3 className="text-lg font-medium mb-4 text-black flex items-center">PAYMENT INFORMATION</h3>
-                <div className="space-y-6">
-                  {/* Fee Structure */}
-                  <div>
-                    <h4 className="text-md font-medium mb-3 text-gray-700">Fee Structure</h4>
-                    {/* These fields are now read-only and will show the DB values */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Previous Account</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.previous_account} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Registration Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.registration_fee} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Tuition Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.tuition_fee} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Laboratory Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.laboratory_fee} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Miscellaneous Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.miscellaneous_fee} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Other Fees</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.other_fees} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Bundled Program Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.bundled_program_fee} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+              
+              {/* MODIFICATION: Added Grid Wrapper */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                
+                {/* --- CARD 1: Main Payment Information (Left Column) --- */}
+                <div className="bg-gray-50 p-4 rounded-lg border-2 border-red-200">
+                  <h3 className="text-lg font-medium mb-4 text-black flex items-center">PAYMENT INFORMATION</h3>
+                  <div className="space-y-6">
+                    {/* Fee Structure */}
+                    <div>
+                      <h4 className="text-md font-medium mb-3 text-gray-700">Fee Structure</h4>
+                      {/* These fields are now read-only and will show the DB values */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Previous Account</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.previous_account} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Registration Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.registration_fee} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Tuition Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.tuition_fee} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Laboratory Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.laboratory_fee} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Miscellaneous Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.miscellaneous_fee} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Other Fees</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.other_fees} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                        <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 mb-1">Bundled Program Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.bundled_program_fee} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                      </div>
                     </div>
-                  </div>
-                  {/* Payment Details */}
-                  <div>
-                    <h4 className="text-md font-medium mb-3 text-gray-700">Payment Details</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Total Amount</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.total_amount} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Payment Amount (Down Payment)</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.payment_amount} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Discount %</label><div className="relative"><input type="number" value={paymentData.discount} readOnly className="w-full px-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Discount Deduction</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.discount_deduction} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Remaining Amount</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span>
-                          <input 
-                            type="number" 
-                            value={paymentData.remaining_amount} 
-                            readOnly 
-                            className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none bg-gray-100" 
-                            placeholder="0.00" 
-                          />
+                    {/* Payment Details */}
+                    <div>
+                      <h4 className="text-md font-medium mb-3 text-gray-700">Payment Details</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Total Amount</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.total_amount} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Payment Amount (Down Payment)</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.payment_amount} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Discount %</label><div className="relative"><input type="number" value={paymentData.discount} readOnly className="w-full px-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Discount Deduction</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.discount_deduction} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Remaining Amount</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span>
+                            <input 
+                              type="number" 
+                              value={paymentData.remaining_amount} 
+                              readOnly 
+                              className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none bg-gray-100" 
+                              placeholder="0.00" 
+                            />
+                          </div>
                         </div>
-                      </div>
 
-                      {/* --- ✅ THIS IS THE UI FIELD --- */}
-                      <div>
-                        <label className="block text-sm font-medium text-green-700 mb-1">Advance Payment (Credit)</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-green-700 text-sm">₱</span>
-                          <input 
-                            type="number" 
-                            value={paymentData.advance_payment} 
-                            readOnly 
-                            // ✅ This styling makes it green only if it has a value
-                            className={`w-full pl-8 pr-3 py-2 border-2 rounded-md focus:outline-none ${parseFloat(paymentData.advance_payment) > 0 ? 'border-green-200 bg-green-50 text-green-800 font-medium' : 'border-gray-300 bg-gray-100'}`} 
-                            placeholder="0.00" 
-                          />
+                        <div>
+                          <label className="block text-sm font-medium text-green-700 mb-1">Advance Payment (Credit)</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-green-700 text-sm">₱</span>
+                            <input 
+                              type="number" 
+                              value={paymentData.advance_payment} 
+                              readOnly 
+                              className={`w-full pl-8 pr-3 py-2 border-2 rounded-md focus:outline-none ${parseFloat(paymentData.advance_payment) > 0 ? 'border-green-200 bg-green-50 text-green-800 font-medium' : 'border-gray-300 bg-gray-100'}`} 
+                              placeholder="0.00" 
+                            />
+                          </div>
                         </div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Term Payment (Calculated)</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.term_payment} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label><CustomCalendar value={paymentData.payment_date} placeholder="Select Payment Date" disabled={true} /></div>
                       </div>
-                      {/* --- END OF UI FIELD --- */}
-
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Term Payment (Calculated)</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.term_payment} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label><CustomCalendar value={paymentData.payment_date} placeholder="Select Payment Date" disabled={true} /></div>
                     </div>
                   </div>
                 </div>
-              </div>
-
-              {/* --- CARD 2: PAYMENT HISTORY (READ-ONLY) (No changes) --- */}
-              {historicalPayments.length > 0 && (
                 <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
                   <h3 className="text-lg font-medium mb-4 text-gray-700 flex items-center">
                     <Clock className="w-5 h-5 mr-2 text-gray-500" />
                     Payment History
                   </h3>
-                  <div className="divide-y divide-gray-200 rounded-lg border">
-                      {historicalPayments.map((payment, index) => (
-                        <div key={payment.id || index} className={`p-3 flex justify-between items-center ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                          <div className="flex gap-4">
-                            <span className="font-mono text-sm text-gray-600">{new Date(payment.payment_date).toLocaleDateString()}</span>
-                            <span className="text-sm font-mono text-gray-800">OR #: {payment.or_number || 'N/A'}</span>
+                  {historicalPayments.length > 0 ? (
+                    <div className="divide-y divide-gray-200 rounded-lg border max-h-[60vh] overflow-y-auto">
+                        {historicalPayments.map((payment, index) => (
+                          <div key={payment.id || index} className={`p-3 flex justify-between items-center ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                            <div className="flex gap-4">
+                              <span className="font-mono text-sm text-gray-600">{new Date(payment.payment_date).toLocaleDateString()}</span>
+                              <span className="text-sm font-mono text-gray-800">OR #: {payment.or_number || 'N/A'}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-mono text-green-700">
+                                ₱{parseFloat(payment.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                              <CheckCircle className="w-4 h-4 text-green-600" />
+                            </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <span className="font-medium font-mono text-green-700">
-                              ₱{parseFloat(payment.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
-                            <CheckCircle className="w-4 h-4 text-green-600" />
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                  ) : (
+                    <div className="text-center py-12 text-gray-500">
+                      <p>No previous payment history found.</p>
                     </div>
+                  )}
                 </div>
-              )}
-
-              {/* --- CARD 3: CURRENT TERM PAYMENTS (EDITABLE) (No changes) --- */}
+              </div> 
               <div className="bg-gray-50 p-4 rounded-lg border-2 border-blue-200">
                 <h3 className="text-lg font-medium mb-4 text-black flex items-center">
                   Manage Term Payments
@@ -405,37 +374,36 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
                     <CustomCalendar 
                       value={termPaymentInput.payment_date} 
                       onChange={handleTermPaymentDateChange} 
-                      placeholder="Select Date" />
+                      placeholder="Select Date"
+                    />
                   </div>
                   <div className="md:col-span-1">
                     <Label className="block text-sm font-medium text-gray-700 mb-1">OR #</Label>
-                    <Input 
+                    <input 
                       type="text" 
                       value={termPaymentInput.or_number} 
                       onChange={(e) => handleTermPaymentInputChange('or_number', e.target.value)} 
-                      placeholder="Official Receipt #" />
+                      className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none placeholder:text-gray-400 bg-gray-100" placeholder="e.g 12345"/>
                   </div>
                   <div className="md:col-span-1">
                     <Label className="block text-sm font-medium text-gray-700 mb-1">Amount</Label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span>
-                      <Input 
+                      <input 
                         type="number" 
                         value={termPaymentInput.amount} 
                         onChange={(e) => handleTermPaymentInputChange('amount', e.target.value)} 
-                        className="pl-8" 
-                        placeholder="0.00" min="0" step="0.01" />
+                        className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none placeholder:text-gray-400 bg-gray-100" placeholder="0.00"/>
                     </div>
                   </div>
                   <div className="md:col-span-1">
-                    <Button onClick={handleAddTermPayment} className="w-full bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={handleAddTermPayment} className="w-full bg-green-600 hover:bg-green-700 cursor-pointer h-11">
                       <Plus className="w-4 h-4 mr-2" />
                       Add Payment
                     </Button>
                   </div>
                 </div>
 
-                {/* Display added/editable term payments */}
                 {currentTermPayments.length > 0 && (
                   <div className="mt-6">
                     <h4 className="text-md font-medium mb-3 text-gray-700">
@@ -449,7 +417,7 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
                             <span className="text-sm font-mono text-gray-800">OR #: {payment.or_number || 'N/A'}</span>
                           </div>
                           <div className="flex items-center gap-3">
-                            <span className="font-medium font-mono text-gray-900">
+                            <span className="text-sm font-mono text-gray-900">
                               ₱{parseFloat(payment.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                             <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700 h-8 w-8" onClick={() => handleRemoveTermPayment(payment.id)}>
@@ -462,10 +430,7 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
                   </div>
                 )}
               </div>
-              {/* --- END OF UI --- */}
 
-
-              {/* --- SAVE BUTTON (No changes) --- */}
               <div className="flex justify-end pt-4 border-t border-gray-200">
                 <Button
                   onClick={handleSavePayment}
