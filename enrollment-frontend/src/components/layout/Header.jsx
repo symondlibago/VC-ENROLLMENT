@@ -47,6 +47,7 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
     '/evaluation-records': { title: 'Evaluation Records', subtitle: 'Your evaluation records for this semester' },
     '/my-schedule': { title: 'My Schedule', subtitle: 'Your weekly schedule record for this semester' },
     '/enrollment-eligibility': { title: 'Enrollment Eligibility', subtitle: 'Check your status for the next academic term' },
+    '/my-payments': { title: 'My Payments', subtitle: 'View your tuition and payment history' },
     
   };
 

@@ -704,6 +704,17 @@ export const paymentAPI = {
       // to be caught by the modal
       throw error.response?.data || { success: false, message: 'Failed to fetch payment data' };
     }
+  },
+
+  getPaymentForAuthenticatedStudent: async () => {
+    try {
+      const response = await api.get('/student/payment-history');
+      return response.data;
+    } catch (error) {
+       // Gracefully handle 404 (No record found)
+      const message = error.response?.data?.message || 'Failed to fetch payment data';
+      throw { success: false, message, status: error.response?.status };
+    }
   }
 };
 

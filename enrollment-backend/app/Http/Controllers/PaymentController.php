@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB; 
 use App\Models\TermPayment;
+use Illuminate\Support\Facades\Auth;
 
 class PaymentController extends Controller
 {
@@ -138,6 +139,50 @@ class PaymentController extends Controller
         // Add `preEnrolledStudent` to the eager load
         $payment = Payment::with(['termPayments', 'preEnrolledStudent']) 
                          ->where('pre_enrolled_student_id', $student_id)
+                         ->first();
+
+        if (!$payment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No payment record found for this student.'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $payment
+        ]);
+    }
+
+    /**
+     * Get payment and term payment details for the authenticated student.
+     */
+    public function getPaymentForAuthenticatedStudent()
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated.'
+            ], 401);
+        }
+
+        // Find the PreEnrolledStudent record associated with the authenticated User
+        $student = \App\Models\PreEnrolledStudent::where('user_id', $user->id)
+                                                 ->where('enrollment_status', 'enrolled')
+                                                 ->first();
+
+        if (!$student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No enrolled student record found for this user.'
+            ], 404);
+        }
+
+        // Re-use the logic from getPaymentByStudent, but use the found student's ID
+        $payment = Payment::with(['termPayments', 'preEnrolledStudent']) 
+                         ->where('pre_enrolled_student_id', $student->id)
                          ->first();
 
         if (!$payment) {

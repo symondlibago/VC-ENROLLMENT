@@ -18,7 +18,7 @@ import {
   BookMarked,
   ClipboardList,
   CheckCircle,
-  Receipt, // <-- NEW: Added Receipt icon
+  Receipt,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import VipcLogo from '/circlelogo.png';
@@ -57,6 +57,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
     { id: 'subject-enrolled', icon: BookMarked, label: 'Subject Enrolled', badge: null, path: '/subject-enrolled' },
     { id: 'my-schedule', icon: Calendar, label: 'My Schedule', path: '/my-schedule' },
     { id: 'my-grades', icon: BarChart3, label: 'My Grades', badge: null, path: '/my-grades' },
+    { id: 'my-payments', icon: Receipt, label: 'My Payments', path: '/my-payments' },
     { id: 'evaluation-records', icon: ClipboardList, label: 'Evaluation Records', path: '/evaluation-records' },
     { id: 'enrollment-eligibility', icon: CheckCircle, label: 'Enrollment Eligibility', path: '/enrollment-eligibility' },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },

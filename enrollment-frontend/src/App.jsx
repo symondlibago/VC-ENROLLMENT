@@ -29,6 +29,7 @@ import StudentGrade from './components/studentpage/StudentGrade';
 import EvaluationRecords from './components/studentpage/EvaluationRecords';
 import StudentSchedule from './components/studentpage/StudentSchedule';
 import StudentEnrollmentEligibility from './components/studentpage/StudentEnrollmentEligibility';
+import StudentPayments from './components/studentpage/StudentPayments';
 
 
 function App() {
@@ -171,6 +172,7 @@ function App() {
           <Route path="/my-schedule" element={<motion.div variants={pageTransitionVariants}><StudentSchedule /></motion.div>} />
           <Route path="/my-grades" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><StudentGrade /></motion.div>} />
           <Route path="/evaluation-records" element={<motion.div variants={pageTransitionVariants}><EvaluationRecords /></motion.div>} />
+          <Route path="/my-payments" element={<motion.div variants={pageTransitionVariants}><StudentPayments /></motion.div>} />
           <Route path="/enrollment-eligibility" element={<motion.div variants={pageTransitionVariants}><StudentEnrollmentEligibility /></motion.div>} />
           <Route path="/settings" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Settings /></motion.div>} />
           <Route path="*" element={<Navigate to="/subject-enrolled" replace />} />
@@ -297,12 +299,9 @@ function App() {
                     <div className="flex items-center justify-between text-sm text-gray-500">
                         <p>© 2025 VIPC Enroll Management System. All rights reserved.</p>
                         <div className="flex items-center space-x-4">
-                        <button onClick={handleLogout} className="hover:text-primary liquid-morph">
+                        <button onClick={handleLogout} className="hover:text-primary liquid-morph cursor-pointer">
                             Logout
                         </button>
-                        <a href="#" className="hover:text-primary liquid-morph">Privacy Policy</a>
-                        <a href="#" className="hover:text-primary liquid-morph">Terms of Service</a>
-                        <a href="#" className="hover:text-primary liquid-morph">Support</a>
                         </div>
                     </div>
                 </motion.footer>

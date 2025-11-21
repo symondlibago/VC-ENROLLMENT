@@ -481,12 +481,12 @@ const StudentEnrollmentEligibility = () => {
                                 <p className="text-lg font-semibold text-gray-900">{nextTermInfo.schoolYear}</p>
                             </div>
                             <div className="p-3">
-                                <p className="text-xs font-medium text-gray-500">Semester</p>
-                                <p className="text-lg font-semibold text-gray-900">{nextTermInfo.semester}</p>
-                            </div>
-                            <div className="p-3">
                                 <p className="text-xs font-medium text-gray-500">Target Year Level</p>
                                 <p className="text-lg font-semibold text-gray-900">{nextTermInfo.year}</p>
+                            </div>
+                            <div className="p-3">
+                                <p className="text-xs font-medium text-gray-500">Semester</p>
+                                <p className="text-lg font-semibold text-gray-900">{nextTermInfo.semester}</p>
                             </div>
                         </div>
                     </div>
@@ -511,7 +511,7 @@ const StudentEnrollmentEligibility = () => {
                                 <Button 
                                     onClick={handleEnrollNow} 
                                     disabled={!isButtonEnabled || loading} 
-                                    className={`w-full text-white font-bold liquid-morph ${isButtonEnabled ? 'bg-red-800 hover:bg-red-700' : 'bg-gray-400 cursor-not-allowed'}`}
+                                    className={`w-full text-white font-bold liquid-morph ${isButtonEnabled ? 'bg-red-800 hover:bg-red-700' : 'bg-gray-400 cursor-not-allowed'} cursor-pointer`}
                                 >
                                     <ArrowRight className="mr-2 h-5 w-5" />
                                     {isButtonEnabled ? 'Proceed to Enrollment' : (enrollmentPeriod.status === 'Upcoming' ? 'Enrollment Upcoming' : 'Enrollment Closed')}
@@ -656,7 +656,7 @@ const StudentEnrollmentEligibility = () => {
                                       <p className="text-xs text-gray-500 mt-1">Prerequisite: {sub.prerequisite ? sub.prerequisite.subject_code : 'None'}</p>
                                     </div>
                                     <div title={!isAddable ? `Prerequisite ${sub.prerequisite?.subject_code} not passed` : 'Add this subject'}>
-                                      <Button size="sm" onClick={() => handleAddSubject(sub)} disabled={!isAddable} className="ml-2 mt-1 shrink-0">
+                                      <Button size="sm" onClick={() => handleAddSubject(sub)} disabled={!isAddable} className="ml-2 mt-1 shrink-0 cursor-pointer">
                                         {isAlreadyAdded ? 'Added' : 'Add'}
                                       </Button>
                                     </div>
@@ -682,7 +682,7 @@ const StudentEnrollmentEligibility = () => {
                                         </div>
                                         <h4 className="font-semibold text-gray-800 text-sm">{sub.descriptive_title}</h4>
                                     </div>
-                                    <Button size="sm" variant="destructive" onClick={() => handleRemoveSubject(sub.id)}>Remove</Button>
+                                    <Button size="sm" className="cursor-pointer" variant="destructive" onClick={() => handleRemoveSubject(sub.id)}>Remove</Button>
                                 </div>
                             </motion.div>
                         )) : <div className="text-center text-gray-500 pt-16"><BookOpen className="w-12 h-12 mx-auto mb-2 text-gray-300" /><p>Add subjects from the left panel.</p></div>}
