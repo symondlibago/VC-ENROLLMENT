@@ -6,8 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ValidationErrorModal from './ValidationErrorModal';
 import CustomCalendar from '../layout/CustomCalendar';
+// Import the new component
+import DownloadExamPermit from '../layout/DownloadExamPermit'; 
 
 const defaultPaymentState = {
+  // ... (keep existing default state)
   previous_account: '',
   registration_fee: '',
   tuition_fee: 0,
@@ -26,10 +29,10 @@ const defaultPaymentState = {
 };
 
 const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveError }) => {
+  // ... (keep existing state and useEffects)
   const [loading, setLoading] = useState(true);
   const [student, setStudent] = useState(null);
   const [error, setError] = useState(null);
-  
   const [paymentData, setPaymentData] = useState(defaultPaymentState);
   
   const [termPaymentInput, setTermPaymentInput] = useState({
@@ -43,22 +46,22 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [validationModal, setValidationModal] = useState({ isOpen: false, message: '' });
 
+  // ... (keep existing fetch logic in useEffect)
   useEffect(() => {
     if (isOpen) {
       setLoading(true);
       setError(null);
       setPaymentData(defaultPaymentState);
-      setHistoricalPayments([]); // Reset history
-      setCurrentTermPayments([]); // Reset current
+      setHistoricalPayments([]);
+      setCurrentTermPayments([]);
       setTermPaymentInput({
         payment_date: new Date().toISOString().split('T')[0],
         or_number: '',
         amount: ''
       });
-      // Fetch student details (only for student name)
+
       const studentDetailsPromise = enrollmentAPI.getStudentDetails(studentId);
       
-      // Fetch payment data
       const paymentDataPromise = paymentAPI.getByStudentId(studentId)
         .catch(err => {
           if (err.message && (err.message.includes('404') || err.message.includes('No payment record found'))) {
@@ -69,10 +72,11 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
 
       Promise.all([studentDetailsPromise, paymentDataPromise])
         .then(([studentRes, paymentRes]) => {
-          
           let currentStudent;
           if (studentRes.success) {
             currentStudent = studentRes.data.student;
+            // Ensure subjects are included in the student object
+            currentStudent.subjects = studentRes.data.subjects || []; 
             setStudent(currentStudent);
           } else {
             throw new Error('Failed to load student details');
@@ -101,13 +105,11 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
 
             setHistoricalPayments(history);
             setCurrentTermPayments(current);
-            
           }
           else {
              setHistoricalPayments([]);
              setCurrentTermPayments([]);
           }
-          
         })
         .catch(err => {
           setError(err.message || 'An error occurred while loading payment data.');
@@ -118,50 +120,42 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
     }
   }, [isOpen, studentId]);
 
-
+  // ... (keep existing calculation logic useEffect)
   useEffect(() => {
-    // Wait until data is loaded
     if (loading) return; 
     const totalAmount = parseFloat(paymentData.total_amount) || 0;
     const downPayment = parseFloat(paymentData.payment_amount) || 0;
     const discountDeduction = parseFloat(paymentData.discount_deduction) || 0;
     
-    // This is the starting balance *after* the down payment was made.
     const balanceAfterDownPayment = totalAmount - discountDeduction - downPayment;
 
-    // --- 2. Calculate total of *new* payments made in this modal ---
     const totalCurrentPayments = currentTermPayments.reduce((sum, payment) => sum + (parseFloat(payment.amount) || 0), 0);
 
-    // --- 3. Calculate the new final remaining amount ---
     let newRemainingAmount = balanceAfterDownPayment - totalCurrentPayments;
     let calculatedNewAdvance = 0; 
     
     if (newRemainingAmount < 0) {
-        calculatedNewAdvance = Math.abs(newRemainingAmount); // Store the overpayment amount
-        newRemainingAmount = 0; // Cap remaining amount at 0
+        calculatedNewAdvance = Math.abs(newRemainingAmount);
+        newRemainingAmount = 0;
     }
     
-    // --- 4. Set State ---
-    // We only update remaining_amount and advance_payment.
-    // All other fields (tuition, lab_fee, etc.) are kept as they were loaded.
     setPaymentData(prev => ({
-        ...prev, // Keep all loaded data (tuition, lab_fee, etc.)
+        ...prev,
         remaining_amount: newRemainingAmount.toFixed(2),
         advance_payment: calculatedNewAdvance.toFixed(2),
     }));
 
   }, [
-    // Dependencies:
     loading, 
-    paymentData.total_amount,      // Use primitive values
+    paymentData.total_amount,
     paymentData.payment_amount, 
     paymentData.discount_deduction,
-    currentTermPayments            // Recalculate when a new term payment is added
+    currentTermPayments
   ]);
 
-  // MODIFIED: Removed manualEdit logic
+  // ... (keep handlers: handlePaymentInputChange, handlePaymentDateChange, etc.)
   const handlePaymentInputChange = (field, value) => {
-    if (field === 'remaining_amount' || field === 'advance_payment') return; // Don't allow manual edit
+    if (field === 'remaining_amount' || field === 'advance_payment') return;
     setPaymentData(prev => ({ ...prev, [field]: value }));
   };
   const handlePaymentDateChange = (dateString) => {
@@ -199,6 +193,7 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
   };
 
   const handleSavePayment = async () => {
+    // ... (Keep existing validation and save logic)
     const regFee = parseFloat(paymentData.registration_fee);
     const paymentAmount = parseFloat(paymentData.payment_amount);
     const totalAmount = parseFloat(paymentData.total_amount);
@@ -246,15 +241,15 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
       setPaymentSaving(false);
     }
   };
+
   if (!isOpen) return null;
   
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <ValidationErrorModal isOpen={validationModal.isOpen} message={validationModal.message} onClose={() => setValidationModal({ isOpen: false, message: '' })} />
       
-      {/* MODIFICATION: Changed max-w-4xl to max-w-6xl */}
       <div className="bg-white rounded-lg shadow-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-        {/* Header (No changes) */}
+        {/* Header */}
         <div className="sticky top-0 bg-red-800 text-white z-10 flex items-center justify-between p-4 border-b">
           <h2 className="text-xl font-semibold">
             Payment Information {student ? `- ${student.last_name}, ${student.first_name}` : ''}
@@ -272,7 +267,7 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
           ) : student ? (
             <div className="space-y-6">
               
-              {/* MODIFICATION: Added Grid Wrapper */}
+              {/* Grid Wrapper */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                 
                 {/* --- CARD 1: Main Payment Information (Left Column) --- */}
@@ -282,8 +277,8 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
                     {/* Fee Structure */}
                     <div>
                       <h4 className="text-md font-medium mb-3 text-gray-700">Fee Structure</h4>
-                      {/* These fields are now read-only and will show the DB values */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* ... (Keep existing read-only inputs for fees) */}
                         <div><label className="block text-sm font-medium text-gray-700 mb-1">Previous Account</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.previous_account} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
                         <div><label className="block text-sm font-medium text-gray-700 mb-1">Registration Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.registration_fee} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
                         <div><label className="block text-sm font-medium text-gray-700 mb-1">Tuition Fee</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.tuition_fee} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
@@ -297,6 +292,7 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
                     <div>
                       <h4 className="text-md font-medium mb-3 text-gray-700">Payment Details</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         {/* ... (Keep existing read-only inputs for totals) */}
                         <div><label className="block text-sm font-medium text-gray-700 mb-1">Total Amount</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.total_amount} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
                         <div><label className="block text-sm font-medium text-gray-700 mb-1">Payment Amount (Down Payment)</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.payment_amount} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
                         <div><label className="block text-sm font-medium text-gray-700 mb-1">Discount %</label><div className="relative"><input type="number" value={paymentData.discount} readOnly className="w-full px-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
@@ -306,13 +302,7 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
                           <label className="block text-sm font-medium text-gray-700 mb-1">Remaining Amount</label>
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span>
-                            <input 
-                              type="number" 
-                              value={paymentData.remaining_amount} 
-                              readOnly 
-                              className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none bg-gray-100" 
-                              placeholder="0.00" 
-                            />
+                            <input type="number" value={paymentData.remaining_amount} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" placeholder="0.00" />
                           </div>
                         </div>
 
@@ -320,13 +310,7 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
                           <label className="block text-sm font-medium text-green-700 mb-1">Advance Payment (Credit)</label>
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-green-700 text-sm">₱</span>
-                            <input 
-                              type="number" 
-                              value={paymentData.advance_payment} 
-                              readOnly 
-                              className={`w-full pl-8 pr-3 py-2 border-2 rounded-md focus:outline-none ${parseFloat(paymentData.advance_payment) > 0 ? 'border-green-200 bg-green-50 text-green-800 font-medium' : 'border-gray-300 bg-gray-100'}`} 
-                              placeholder="0.00" 
-                            />
+                            <input type="number" value={paymentData.advance_payment} readOnly className={`w-full pl-8 pr-3 py-2 border-2 rounded-md ${parseFloat(paymentData.advance_payment) > 0 ? 'border-green-200 bg-green-50 text-green-800 font-medium' : 'border-gray-300 bg-gray-100'}`} placeholder="0.00" />
                           </div>
                         </div>
                         <div><label className="block text-sm font-medium text-gray-700 mb-1">Term Payment (Calculated)</label><div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={paymentData.term_payment} readOnly className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md bg-gray-100" /></div></div>
@@ -335,11 +319,9 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
                     </div>
                   </div>
                 </div>
+                {/* ... (Keep Payment History Column) */}
                 <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
-                  <h3 className="text-lg font-medium mb-4 text-gray-700 flex items-center">
-                    <Clock className="w-5 h-5 mr-2 text-gray-500" />
-                    Payment History
-                  </h3>
+                  <h3 className="text-lg font-medium mb-4 text-gray-700 flex items-center"><Clock className="w-5 h-5 mr-2 text-gray-500" />Payment History</h3>
                   {historicalPayments.length > 0 ? (
                     <div className="divide-y divide-gray-200 rounded-lg border max-h-[60vh] overflow-y-auto">
                         {historicalPayments.map((payment, index) => (
@@ -349,66 +331,39 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
                               <span className="text-sm font-mono text-gray-800">OR #: {payment.or_number || 'N/A'}</span>
                             </div>
                             <div className="flex items-center gap-3">
-                              <span className="text-sm font-mono text-green-700">
-                                ₱{parseFloat(payment.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </span>
+                              <span className="text-sm font-mono text-green-700">₱{parseFloat(payment.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               <CheckCircle className="w-4 h-4 text-green-600" />
                             </div>
                           </div>
                         ))}
                       </div>
-                  ) : (
-                    <div className="text-center py-12 text-gray-500">
-                      <p>No previous payment history found.</p>
-                    </div>
-                  )}
+                  ) : (<div className="text-center py-12 text-gray-500"><p>No previous payment history found.</p></div>)}
                 </div>
               </div> 
+
+              {/* ... (Keep Manage Term Payments Section) */}
               <div className="bg-gray-50 p-4 rounded-lg border-2 border-blue-200">
-                <h3 className="text-lg font-medium mb-4 text-black flex items-center">
-                  Manage Term Payments
-                </h3>
+                <h3 className="text-lg font-medium mb-4 text-black flex items-center">Manage Term Payments</h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                   {/* ... (Keep Inputs) */}
                   <div className="md:col-span-1">
                     <Label className="block text-sm font-medium text-gray-700 mb-1">Payment Date</Label>
-                    <CustomCalendar 
-                      value={termPaymentInput.payment_date} 
-                      onChange={handleTermPaymentDateChange} 
-                      placeholder="Select Date"
-                    />
+                    <CustomCalendar value={termPaymentInput.payment_date} onChange={handleTermPaymentDateChange} placeholder="Select Date"/>
                   </div>
                   <div className="md:col-span-1">
                     <Label className="block text-sm font-medium text-gray-700 mb-1">OR #</Label>
-                    <input 
-                      type="text" 
-                      value={termPaymentInput.or_number} 
-                      onChange={(e) => handleTermPaymentInputChange('or_number', e.target.value)} 
-                      className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none placeholder:text-gray-400 bg-gray-100" placeholder="e.g 12345"/>
+                    <input type="text" value={termPaymentInput.or_number} onChange={(e) => handleTermPaymentInputChange('or_number', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none placeholder:text-gray-400 bg-gray-100" placeholder="e.g 12345"/>
                   </div>
                   <div className="md:col-span-1">
                     <Label className="block text-sm font-medium text-gray-700 mb-1">Amount</Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span>
-                      <input 
-                        type="number" 
-                        value={termPaymentInput.amount} 
-                        onChange={(e) => handleTermPaymentInputChange('amount', e.target.value)} 
-                        className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none placeholder:text-gray-400 bg-gray-100" placeholder="0.00"/>
-                    </div>
+                    <div className="relative"><span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span><input type="number" value={termPaymentInput.amount} onChange={(e) => handleTermPaymentInputChange('amount', e.target.value)} className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded-md focus:border-blue-500 focus:outline-none placeholder:text-gray-400 bg-gray-100" placeholder="0.00"/></div>
                   </div>
-                  <div className="md:col-span-1">
-                    <Button onClick={handleAddTermPayment} className="w-full bg-green-600 hover:bg-green-700 cursor-pointer h-11">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Payment
-                    </Button>
-                  </div>
+                  <div className="md:col-span-1"><Button onClick={handleAddTermPayment} className="w-full bg-green-600 hover:bg-green-700 cursor-pointer h-11"><Plus className="w-4 h-4 mr-2" />Add Payment</Button></div>
                 </div>
 
                 {currentTermPayments.length > 0 && (
                   <div className="mt-6">
-                    <h4 className="text-md font-medium mb-3 text-gray-700">
-                      Payments for This Term
-                    </h4>
+                    <h4 className="text-md font-medium mb-3 text-gray-700">Payments for This Term</h4>
                     <div className="divide-y divide-gray-200 rounded-lg border">
                       {currentTermPayments.map((payment, index) => (
                         <div key={payment.id || Date.now() + index} className={`p-3 flex justify-between items-center ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
@@ -417,12 +372,8 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
                             <span className="text-sm font-mono text-gray-800">OR #: {payment.or_number || 'N/A'}</span>
                           </div>
                           <div className="flex items-center gap-3">
-                            <span className="text-sm font-mono text-gray-900">
-                              ₱{parseFloat(payment.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
-                            <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700 h-8 w-8" onClick={() => handleRemoveTermPayment(payment.id)}>
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <span className="text-sm font-mono text-gray-900">₱{parseFloat(payment.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700 h-8 w-8" onClick={() => handleRemoveTermPayment(payment.id)}><Trash2 className="w-4 h-4" /></Button>
                           </div>
                         </div>
                       ))}
@@ -431,7 +382,12 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
                 )}
               </div>
 
-              <div className="flex justify-end pt-4 border-t border-gray-200">
+              {/* Footer Actions */}
+              <div className="flex justify-end pt-4 border-t border-gray-200 gap-3">
+                
+                {/* Download Exam Permit Component (With Dropdown) */}
+                <DownloadExamPermit student={student} />
+
                 <Button
                   onClick={handleSavePayment}
                   disabled={paymentSaving}

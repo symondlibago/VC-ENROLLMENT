@@ -576,7 +576,7 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
         <TableCell>
           <div className="flex items-center gap-2">
             <User size={14} className="text-gray-500" />
-            <p className="font-bold text-gray-900">{student.name}</p>
+            <p className="font-bold text-gray-900 uppercase">{student.name}</p>
           </div>
         </TableCell>
         <TableCell>

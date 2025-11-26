@@ -94,7 +94,7 @@ const TermPayment = () => {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold heading-bold text-gray-900 flex items-center">
-                        <CreditCard className="w-8 h-8 text-[var(--dominant-red)] mr-3" />
+                        <CreditCard className="w-8 h-8 text-(--dominant-red) mr-3" />
                         Student Payments
                     </h1>
                     <p className="text-gray-600">Review and manage student payment records.</p>
@@ -104,7 +104,7 @@ const TermPayment = () => {
             {/* Filters */}
             <Card>
                 <CardContent className="p-6">
-                    <div className="relative flex-grow w-full border rounded-lg">
+                    <div className="relative grow w-full border rounded-lg">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                         <Input 
                             placeholder="Search by student name or ID..." 
@@ -138,7 +138,7 @@ const TermPayment = () => {
                                             <div className="font-medium font-mono">{student.student_id_number}</div>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="font-medium">{student.name}</div>
+                                            <div className="font-medium uppercase">{student.name}</div>
                                             <div className="text-sm text-gray-500">{student.email}</div>
                                         </TableCell>
                                         <TableCell>

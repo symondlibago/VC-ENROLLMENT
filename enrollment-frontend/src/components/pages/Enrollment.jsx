@@ -297,7 +297,7 @@ const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchT
                                         <div>
                                             <div className="flex items-center">
                                                 <User className="w-3 h-3 mr-2 text-gray-500" />
-                                                <p className="font-bold text-gray-900">{e.name}</p>
+                                                <p className="font-bold text-gray-900 uppercase">{e.name}</p>
                                             </div>
                                             <div className="flex items-center">
                                                 <Mail className="w-3 h-3 mr-2 text-gray-500" />
