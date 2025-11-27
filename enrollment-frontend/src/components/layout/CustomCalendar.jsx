@@ -117,10 +117,10 @@ const CustomCalendar = ({
           key={day}
           className={`w-10 h-10 flex items-center justify-center rounded-lg text-sm font-medium relative ${
             isSelected
-              ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg'
+              ? 'bg-linear-to-br from-red-500 to-red-600 text-white shadow-lg'
               : isToday
-              ? 'bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 border-2 border-blue-200'
-              : 'text-gray-700 hover:bg-gradient-to-br hover:from-red-50 hover:to-pink-50 hover:text-red-600'
+              ? 'bg-linear-to-br from-blue-50 to-blue-100 text-blue-600 border-2 border-blue-200'
+              : 'text-gray-700 hover:bg-linear-to-br hover:from-red-50 hover:to-pink-50 hover:text-red-600'
           }`}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
@@ -153,7 +153,7 @@ const CustomCalendar = ({
       <motion.button
         type="button"
         disabled={disabled}
-        className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-left flex justify-between items-center ${
+        className={`w-full bg-linear-to-br from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-left flex justify-between items-center ${
           disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
         }`}
         onClick={() => !disabled && setIsOpen(!isOpen)}

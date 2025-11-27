@@ -150,8 +150,8 @@ const Enrollment = () => {
         <div>
             <h1 className="text-3xl font-bold heading-bold text-gray-900 flex items-center">
                 {isCashierOrAdmin ?
-                    <CreditCard className="w-8 h-8 text-[var(--dominant-red)] mr-3" /> :
-                    <GraduationCap className="w-8 h-8 text-[var(--dominant-red)] mr-3" />
+                    <CreditCard className="w-8 h-8 text-(--dominant-red) mr-3" /> :
+                    <GraduationCap className="w-8 h-8 text-(--dominant-red) mr-3" />
                 }
                 {pageTitle}
             </h1>
@@ -179,8 +179,8 @@ const Enrollment = () => {
                         }}
                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
                     />
-                    <button onClick={() => setActiveView('enrollments')} className={`relative z-10 p-3 rounded-xl transition-colors ${activeView === 'enrollments' ? 'text-[var(--dominant-red)]' : 'text-gray-600'}`} title="Enrollments"><GraduationCap className="w-5 h-5" /></button>
-                    <button onClick={() => setActiveView('receipts')} className={`relative z-10 p-3 rounded-xl transition-colors ${activeView === 'receipts' ? 'text-[var(--dominant-red)]' : 'text-gray-600'}`} title="Receipts"><Receipt className="w-5 h-5" /></button>
+                    <button onClick={() => setActiveView('enrollments')} className={`relative z-10 p-3 rounded-xl transition-colors ${activeView === 'enrollments' ? 'text-(--dominant-red)' : 'text-gray-600'}`} title="Enrollments"><GraduationCap className="w-5 h-5" /></button>
+                    <button onClick={() => setActiveView('receipts')} className={`relative z-10 p-3 rounded-xl transition-colors ${activeView === 'receipts' ? 'text-(--dominant-red)' : 'text-gray-600'}`} title="Receipts"><Receipt className="w-5 h-5" /></button>
                 </div>
             )}
         </div>
@@ -268,7 +268,7 @@ const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchT
             <Card>
                 <CardContent className="p-6">
                     <div className="flex items-center gap-4">
-                        <div className="relative flex-grow border-1 border-gray-200 rounded-lg">
+                        <div className="relative grow border border-gray-200 rounded-lg">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 " size={20} />
                             <Input placeholder="Search by name, email, or course..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
                         </div>
@@ -308,11 +308,11 @@ const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchT
                                 </TableCell>
                                 <TableCell>
                                     <div className="flex items-center font-medium text-gray-800">
-                                        <GraduationCap className="w-4 h-4 mr-2 text-gray-500 flex-shrink-0" />
+                                        <GraduationCap className="w-4 h-4 mr-2 text-gray-500 shrink-0" />
                                         <span>{e.course || 'N/A'}</span>
                                     </div>
                                     <div className="flex items-center text-xs text-gray-500 mt-1">
-                                        <Book className="w-3 h-3 mr-2 text-gray-500 flex-shrink-0" />
+                                        <Book className="w-3 h-3 mr-2 text-gray-500 shrink-0" />
                                         <span>Program: {e.program || 'N/A'}</span>
                                     </div>
                                 </TableCell>
@@ -438,7 +438,7 @@ const UploadedReceiptsPage = ({ receipts, enrollments, onViewImages, searchTerm,
 const LoadingSpinner = () => (
     <div className="text-center py-12">
         <motion.div
-            className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--dominant-red)] mx-auto"
+            className="animate-spin rounded-full h-12 w-12 border-b-2 border-(--dominant-red) mx-auto"
             animate={{ rotate: 360 }}
             transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
         />

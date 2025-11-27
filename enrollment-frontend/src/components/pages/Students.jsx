@@ -69,7 +69,7 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
       <motion.button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-2 text-left bg-white border border-gray-200 rounded-lg focus:border-[var(--dominant-red)] focus:ring-2 focus:ring-[var(--dominant-red)]/20 liquid-morph flex items-center justify-between min-w-[200px]"
+        className="w-full px-4 py-2 text-left bg-white border border-gray-200 rounded-lg focus:border-(--dominant-red) focus:ring-2 focus:ring-(--dominant-red)/20 liquid-morph flex items-center justify-between min-w-[200px]"
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
       >
@@ -353,7 +353,7 @@ const Students = () => {
         <div className="gradient-soft rounded-2xl p-8 border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold heading-bold text-gray-900 flex items-center"><BookOpen className="w-8 h-8 text-[var(--dominant-red)] mr-3" />Students & Sections</h1>
+              <h1 className="text-3xl font-bold heading-bold text-gray-900 flex items-center"><BookOpen className="w-8 h-8 text-(--dominant-red) mr-3" />Students & Sections</h1>
               <p className="text-gray-600">Manage student sections and view enrollment lists.</p>
             </div>
             <div className="flex items-center space-x-2">
@@ -364,8 +364,8 @@ const Students = () => {
                     animate={{ left: activeView === 'sections' ? '4px' : '50%', right: activeView === 'sections' ? '50%' : '4px' }}
                     transition={{ type: "spring", stiffness: 300, damping: 30, mass: 0.8 }}
                   />
-                  <motion.button onClick={() => setActiveView('sections')} className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${activeView === 'sections' ? 'text-[var(--dominant-red)]' : 'text-gray-600 hover:text-gray-800'}`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} title="Sections"> <ContactRound className="w-5 h-5" /> </motion.button>
-                  <motion.button onClick={() => setActiveView('students')} className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${activeView === 'students' ? 'text-[var(--dominant-red)]' : 'text-gray-600 hover:text-gray-800'}`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} title="Students"> <Users className="w-5 h-5" /> </motion.button>
+                  <motion.button onClick={() => setActiveView('sections')} className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${activeView === 'sections' ? 'text-(--dominant-red)' : 'text-gray-600 hover:text-gray-800'}`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} title="Sections"> <ContactRound className="w-5 h-5" /> </motion.button>
+                  <motion.button onClick={() => setActiveView('students')} className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${activeView === 'students' ? 'text-(--dominant-red)' : 'text-gray-600 hover:text-gray-800'}`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} title="Students"> <Users className="w-5 h-5" /> </motion.button>
               </div>
               <Button className="gradient-primary text-white" onClick={handleAddSectionClick}><Plus className="w-4 h-4 mr-2" />Add Section</Button>
             </div>
@@ -452,7 +452,7 @@ const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilte
               <div className="flex-1 w-full">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input placeholder="Search sections by name or course..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border-1 border-gray-200 focus:ring-red-800 focus:border-red-800"/>
+                  <Input placeholder="Search sections by name or course..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border border-gray-200 focus:ring-red-800 focus:border-red-800"/>
                 </div>
               </div>
               <div className="relative w-full md:w-auto">
@@ -472,11 +472,11 @@ const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilte
             >
               <div onClick={() => onSectionClick(section)} className="cursor-pointer h-full">
                 <Card className="h-full flex flex-col">
-                    <CardContent className="p-6 flex-grow flex flex-col justify-between">
+                    <CardContent className="p-6 grow flex flex-col justify-between">
                         <div>
                             <div className="flex items-start justify-between mb-4">
                                 <div className="flex items-center space-x-3">
-                                    <div className="w-12 h-12 bg-[var(--dominant-red)] rounded-xl flex items-center justify-center shrink-0"><BookOpen className="w-6 h-6 text-white" /></div>
+                                    <div className="w-12 h-12 bg-(--dominant-red) rounded-xl flex items-center justify-center shrink-0"><BookOpen className="w-6 h-6 text-white" /></div>
                                     <div>
                                         <h3 className="font-bold text-gray-900 text-lg">{section.name}</h3>
                                         <Badge className={`text-xs mt-1 ${section.students.length > 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{section.students.length} student{section.students.length !== 1 ? 's' : ''}</Badge>
@@ -537,7 +537,7 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
               <div className="flex-1 w-full">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input placeholder="Search students by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border-1 border-gray-300 focus:border-red-800 focus:ring-1 focus:ring-red-800 rounded-lg"/>
+                  <Input placeholder="Search students by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border border-gray-300 focus:border-red-800 focus:ring-1 focus:ring-red-800 rounded-lg"/>
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-4">
