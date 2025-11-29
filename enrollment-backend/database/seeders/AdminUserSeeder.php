@@ -27,33 +27,33 @@ class AdminUserSeeder extends Seeder
         }
     
         // New Cashier account
-        User::firstOrCreate(
-            ['email' => 'cashier@example.com'],
-            [
-                'name' => 'Cashier User',
-                'password' => Hash::make('password'),
-                'role' => 'Cashier'
-            ]
-        );
+        // User::firstOrCreate(
+        //     ['email' => 'cashier@example.com'],
+        //     [
+        //         'name' => 'Cashier User',
+        //         'password' => Hash::make('password'),
+        //         'role' => 'Cashier'
+        //     ]
+        // );
     
-        // New Program Head account
-        User::firstOrCreate(
-            ['email' => 'programhead@example.com'],
-            [
-                'name' => 'Program Head User',
-                'password' => Hash::make('password'),
-                'role' => 'Program Head'
-            ]
-        );
+        // // New Program Head account
+        // User::firstOrCreate(
+        //     ['email' => 'programhead@example.com'],
+        //     [
+        //         'name' => 'Program Head User',
+        //         'password' => Hash::make('password'),
+        //         'role' => 'Program Head'
+        //     ]
+        // );
     
-        // New Registrar account
-        User::firstOrCreate(
-            ['email' => 'registrar@example.com'],
-            [
-                'name' => 'Registrar User',
-                'password' => Hash::make('password'),
-                'role' => 'Registrar'
-            ]
-        );
+        // // New Registrar account
+        // User::firstOrCreate(
+        //     ['email' => 'registrar@example.com'],
+        //     [
+        //         'name' => 'Registrar User',
+        //         'password' => Hash::make('password'),
+        //         'role' => 'Registrar'
+        //     ]
+        // );
     }
 }

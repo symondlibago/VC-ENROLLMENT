@@ -80,6 +80,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/id-releasing/students', [EnrollmentController::class, 'getStudentsForIdReleasing']);
     Route::put('/id-releasing/students/{id}/status', [EnrollmentController::class, 'updateIdStatus']);
     Route::post('/id-releasing/students/bulk-status', [EnrollmentController::class, 'bulkUpdateIdStatus']);
+    Route::post('/id-releasing/reset', [EnrollmentController::class, 'resetIdStatus']);
     Route::post('/grades/update-batch', [EnrollmentController::class, 'updateStudentGrades']);
     Route::post('/enrollments/{student}/credit-subject', [EnrollmentController::class, 'creditSubject']);
     
@@ -127,10 +128,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
 
     // Management routes
-    Route::get('/management/grading-periods', [ManagementController::class, 'getGradingPeriods']);
     Route::post('/management/grading-periods', [ManagementController::class, 'updateGradingPeriods']);
 
 });
+    // Management routes
+    Route::get('/management/grading-periods', [ManagementController::class, 'getGradingPeriods']);
+
     // Program routes
     Route::apiResource('programs', ProgramController::class);
     

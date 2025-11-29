@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 class EnrollmentController extends Controller
 {
     public function submitEnrollment(Request $request)
@@ -691,6 +692,44 @@ public function getStudentsForIdReleasing()
                 return response()->json(['success' => false, 'message' => 'Failed to bulk update ID status', 'error' => $e->getMessage()], 500);
             }
         }
+
+        /**
+     * NEW: Reset ID status for all students (for new academic year).
+     */
+    public function resetIdStatus(Request $request)
+    {
+        // Authorization: Only Admin can perform this
+        $user = Auth::user();
+        if (!$user || $user->role !== 'Admin') {
+            return response()->json(['success' => false, 'message' => 'Unauthorized. Only Admins can reset ID statuses.'], 403);
+        }
+
+        try {
+            // Update all students who have a status currently.
+            // We set 'id_status' to 'Pending Print' because the database does not allow NULL.
+            PreEnrolledStudent::whereNotNull('id_status')
+                ->where('id_status', '!=', 'Pending Print') // Optional optimization
+                ->update([
+                    'id_status' => 'Pending Print', // ✅ FIXED: Set to default string instead of null
+                    'id_printed_at' => null,        // These are nullable in your DB, so null is fine
+                    'id_released_at' => null,
+                ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'All student ID statuses have been reset successfully.'
+            ]);
+
+        } catch (\Exception $e) {
+            // Log the error for debugging
+            \Illuminate\Support\Facades\Log::error('ID Reset Error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Server Error: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 
 
             /**
