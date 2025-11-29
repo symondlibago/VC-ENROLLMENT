@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { enrollmentAPI, managementAPI } from '@/services/api'; // No change to imports
+import { enrollmentAPI, managementAPI } from '@/services/api'; 
 import LoadingSpinner from '@/components/layout/LoadingSpinner';
 import StudentGradesModal from '@/components/modals/StudentGradesModal';
 import SuccessAlert from '@/components/modals/SuccessAlert';
@@ -17,7 +17,6 @@ const StudentGradebookView = ({ loading, filteredStudents, searchTerm, onSearchT
     {loading ? (
       <div className="flex items-center justify-center min-h-[60vh]"><LoadingSpinner /></div>
     ) : (
-    /* --- FIX: Removed motion.div and variants --- */
     <div>
       <Card>
         <CardHeader>
@@ -101,7 +100,6 @@ const GradeSubmissionManager = () => {
           const initialPeriods = { prelim: {}, midterm: {}, semifinal: {}, final: {}, enrollment: {} };
           
           for (const key in response.data) {
-            // Check if the key from the DB is one we manage
             if (initialPeriods.hasOwnProperty(key)) {
               initialPeriods[key] = {
                 start_date: response.data[key].start_date || '',
@@ -120,12 +118,17 @@ const GradeSubmissionManager = () => {
     fetchPeriods();
   }, []);
 
+  // --- FIX APPLIED HERE ---
   const handleDateChange = (periodKey, dateType, valueFromCalendar) => {
     let formattedDate = '';
     if (valueFromCalendar) {
       const date = new Date(valueFromCalendar);
       if (!isNaN(date)) {
-        formattedDate = date.toISOString().split('T')[0];
+        // Construct YYYY-MM-DD using local time components to avoid UTC shift
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        formattedDate = `${year}-${month}-${day}`;
       }
     }
     
@@ -178,7 +181,6 @@ const GradeSubmissionManager = () => {
             const periodData = periods[key] || {};
             const status = getStatus(periodData.start_date, periodData.end_date);
             
-            // --- CHANGE HERE: Define the position based on the key ---
             const popupPosition = (key === 'semifinal' || key === 'final' || key === 'enrollment') 
               ? 'above' 
               : 'below';
@@ -195,7 +197,6 @@ const GradeSubmissionManager = () => {
                     value={periodData.start_date}
                     onChange={(date) => handleDateChange(key, 'start_date', date)}
                     placeholder="Select start date"
-                    // --- CHANGE HERE: Pass the position prop ---
                     position={popupPosition}
                   />
                 </div>
@@ -205,7 +206,6 @@ const GradeSubmissionManager = () => {
                     value={periodData.end_date}
                     onChange={(date) => handleDateChange(key, 'end_date', date)}
                     placeholder="Select end date"
-                    // --- CHANGE HERE: Pass the position prop ---
                     position={popupPosition}
                   />
                 </div>

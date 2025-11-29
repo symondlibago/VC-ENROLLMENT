@@ -1938,7 +1938,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
                       <div className="mt-6 text-center">
                         <motion.button 
                           onClick={handleContinueToReview}
-                          className="bg-gradient-to-r from-red-800 to-red-600 text-white px-8 py-3 rounded-2xl text-base font-bold heading-bold shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center justify-center mx-auto group"
+                          className="border-2 border-[var(--dominant-red)] bg-linear-to-r from-red-800 to-red-600 text-white px-8 py-3 rounded-2xl text-base font-bold heading-bold shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center justify-center mx-auto group"
                           whileHover={{ scale: 1.05, y: -2 }}
                           whileTap={{ scale: 0.98 }}
                         >
@@ -2226,7 +2226,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
                     disabled={!isDataConfirmed || isSubmitting}
                     className={`px-8 py-3 rounded-2xl text-base font-bold heading-bold shadow-2xl transition-all duration-300 flex items-center justify-center mx-auto group ${
                       isDataConfirmed && !isSubmitting
-                        ? 'bg-gradient-to-r from-[var(--dominant-red)] to-red-600 text-white hover:shadow-3xl cursor-pointer'
+                        ? 'border-2 border-[var(--dominant-red)] bg-linear-to-r from-[var(--dominant-red)] to-red-600 text-white hover:shadow-3xl cursor-pointer'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
                     whileHover={isDataConfirmed && !isSubmitting ? { scale: 1.05, y: -2 } : {}}

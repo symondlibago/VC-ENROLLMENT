@@ -14,24 +14,76 @@ import {
   Shield,
   Zap,
   Globe,
-  ClipboardCheck, // New Icon for Registration
-  Factory,        // New Icon for Facilities
-  Link,           // New Icon for Linkage
-  CalendarCheck,  // New Icon for Enrollment
-  HeartHandshake, // New Icon for Mission
-  School          // New Icon for Institution
+  ClipboardCheck, 
+  Factory,        
+  Link,           
+  CalendarCheck,  
+  HeartHandshake, 
+  School          
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
+// ✅ NEW IMPORTS
+import { managementAPI } from '@/services/api';
+import ValidationErrorModal from '../modals/ValidationErrorModal';
+
+// ✅ HELPER: Function to get period status (Same as StudentEnrollmentEligibility)
+const getPeriodStatus = (startDate, endDate) => {
+    if (!startDate || !endDate) return { status: 'Not Set', message: 'Enrollment schedule is not yet posted. Please contact the Registrar.' };
+    const now = new Date();
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999); 
+
+    const options = { month: 'long', day: 'numeric', year: 'numeric' };
+
+    if (now < start) return { status: 'Upcoming', message: `Enrollment opens on ${start.toLocaleDateString(undefined, options)}. Please check back on that date.` };
+    if (now > end) return { status: 'Closed', message: 'The enrollment period has ended. Please contact the Registrar.' };
+    return { status: 'Open', message: 'The enrollment period is open.' };
+};
+
 const LandingPage = ({ onGetStarted, onEnrollNow }) => {
   const [isVisible, setIsVisible] = useState(false);
   const { scrollY } = useScroll();
-  // Simplified scroll transformation for aesthetic background movement
   const y1 = useTransform(scrollY, [0, 500], [0, -75]); 
+
+  // ✅ STATE for Enrollment Status
+  const [enrollmentPeriod, setEnrollmentPeriod] = useState({ 
+      status: 'Loading', 
+      message: 'Checking enrollment schedule...' 
+  });
+  const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
   
+  // ✅ FETCH Enrollment Status on Mount
+  useEffect(() => {
+    setIsVisible(true);
+
+    const fetchEnrollmentStatus = async () => {
+        try {
+            const periodResponse = await managementAPI.getGradingPeriods();
+            if (periodResponse.success && periodResponse.data.enrollment) {
+                const { start_date, end_date } = periodResponse.data.enrollment;
+                setEnrollmentPeriod(getPeriodStatus(start_date, end_date));
+            } else {
+                setEnrollmentPeriod({ status: 'Not Set', message: 'Enrollment schedule is not yet posted. Please contact the Registrar.' });
+            }
+        } catch (error) {
+            console.error("Failed to load enrollment period:", error);
+            setEnrollmentPeriod({ status: 'Error', message: 'Unable to check enrollment status. Please try again later.' });
+        }
+    };
+    fetchEnrollmentStatus();
+  }, []);
+
+  // ✅ MODIFIED: Check status before navigating
   const handleEnrollClick = () => {
+    if (enrollmentPeriod.status !== 'Open') {
+      setIsValidationModalOpen(true);
+      return;
+    }
+
     if (onEnrollNow) {
       onEnrollNow();
     }
@@ -43,11 +95,6 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
     }
   };
 
-  useEffect(() => {
-    setIsVisible(true);
-  }, []);
-
-  // 💡 NEW: Features based on Vineyard College's actual strengths
   const collegeStrengths = [
     {
       icon: HeartHandshake,
@@ -87,8 +134,6 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
     }
   ];
   
-  // 💡 REMOVED: Testimonials and Stats for realism, as requested.
-
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -114,6 +159,14 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[var(--snowy-white)] via-[var(--whitish-pink)] to-white">
+      
+      {/* ✅ ADDED: Validation Modal */}
+      <ValidationErrorModal 
+        isOpen={isValidationModalOpen} 
+        onClose={() => setIsValidationModalOpen(false)} 
+        message={`Enrollment is currently not available. ${enrollmentPeriod.message}`} 
+      />
+
       {/* Hero Section */}
       <motion.section
         className="relative min-h-screen flex items-center justify-center overflow-hidden"
@@ -121,7 +174,6 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
         animate={isVisible ? "visible" : "hidden"}
         variants={containerVariants}
       >
-        {/* Background Elements */}
         <motion.div
           className="absolute inset-0 opacity-10"
           style={{ y: y1 }}
@@ -179,7 +231,6 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
           </div>
         </div>
 
-        {/* Scroll Indicator */}
         <motion.div
           className="absolute bottom-8 left-1/2 transform -translate-x-1/2"
           animate={{ y: [0, 10, 0] }}
@@ -191,7 +242,7 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
         </motion.div>
       </motion.section>
 
-      {/* College Strengths Section (Replaces Features) */}
+      {/* College Strengths Section */}
       <motion.section
         className="py-24 bg-white"
         initial="hidden"
@@ -217,7 +268,7 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
                 <motion.div
                   key={feature.title}
                   variants={itemVariants}
-                  whileHover={{ y: -6 }} // Reduced lift for a smoother card-hover effect
+                  whileHover={{ y: -6 }}
                   className="liquid-hover"
                 >
                   <Card className="card-hover border-0 shadow-lg h-full">
@@ -239,10 +290,8 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
           </div>
         </div>
       </motion.section>
-
-      {/* 💡 REMOVED: Testimonials Section for realism */}
       
-      {/* CTA Section (Updated) */}
+      {/* CTA Section */}
       <motion.section
         className="py-24 gradient-primary text-white relative overflow-hidden"
         initial="hidden"

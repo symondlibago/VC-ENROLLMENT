@@ -14,6 +14,8 @@ import {
     Phone,
     MapPinned,
     Calendar,
+    RotateCcw, // ✅ Added Icon
+    AlertTriangle // ✅ Added Icon
 } from 'lucide-react';
 
 // UI & Service Imports
@@ -36,31 +38,14 @@ import LoadingSpinner from '../layout/LoadingSpinner';
 import SuccessAlert from '../modals/SuccessAlert';
 import ValidationErrorModal from '../modals/ValidationErrorModal';
 
-
+// ... (ImagePreviewModal and MotionDropdown components remain exactly the same) ...
 const ImagePreviewModal = ({ imageUrl, onClose }) => {
     if (!imageUrl) return null;
-
     return (
-        <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4"
-        >
-            <motion.div
-                initial={{ scale: 0.8 }}
-                animate={{ scale: 1 }}
-                exit={{ scale: 0.8 }}
-                onClick={(e) => e.stopPropagation()}
-                className="relative bg-white p-4 rounded-xl shadow-2xl"
-            >
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} exit={{ scale: 0.8 }} onClick={(e) => e.stopPropagation()} className="relative bg-white p-4 rounded-xl shadow-2xl">
                 <img src={imageUrl} alt="Preview" className="max-w-[80vw] max-h-[80vh] object-contain rounded-lg" />
-                <div className="absolute top-4 right-4">
-                    <Button onClick={onClose} size="icon" variant="destructive">
-                        <X size={20} />
-                    </Button>
-                </div>
+                <div className="absolute top-4 right-4"><Button onClick={onClose} size="icon" variant="destructive"><X size={20} /></Button></div>
             </motion.div>
         </motion.div>
     );
@@ -68,49 +53,19 @@ const ImagePreviewModal = ({ imageUrl, onClose }) => {
 
 const MotionDropdown = ({ value, onChange, options, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const selectedOption = useMemo(() => 
-    options.find(opt => opt.value === value) || { label: placeholder, value: '' },
-    [value, options, placeholder]
-  );
-
-  const handleSelect = (option) => {
-    onChange(option.value);
-    setIsOpen(false);
-  };
-
+  const selectedOption = useMemo(() => options.find(opt => opt.value === value) || { label: placeholder, value: '' }, [value, options, placeholder]);
+  const handleSelect = (option) => { onChange(option.value); setIsOpen(false); };
   return (
     <div className="relative">
-      <motion.button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-2 text-left bg-white border border-gray-200 rounded-lg focus:border-[var(--dominant-red)] focus:ring-2 focus:ring-[var(--dominant-red)]/20 liquid-morph flex items-center justify-between min-w-[200px]"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-      >
+      <motion.button type="button" onClick={() => setIsOpen(!isOpen)} className="w-full px-4 py-2 text-left bg-white border border-gray-200 rounded-lg focus:border-[var(--dominant-red)] focus:ring-2 focus:ring-[var(--dominant-red)]/20 liquid-morph flex items-center justify-between min-w-[200px]" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
         <span className="text-gray-900">{selectedOption.label}</span>
-        <motion.div
-          animate={{ rotate: isOpen ? 180 : 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          <ChevronDown className="w-4 h-4 text-gray-500" />
-        </motion.div>
+        <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.2 }}><ChevronDown className="w-4 h-4 text-gray-500" /></motion.div>
       </motion.button>
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.95 }}
-            transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-            className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden"
-          >
+          <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }} transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }} className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
             {options.map((option, index) => (
-              <motion.button
-                key={option.value} type="button" onClick={() => handleSelect(option)}
-                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors duration-200 border-b border-gray-100 last:border-b-0"
-                initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }} whileHover={{ backgroundColor: '#f9fafb', x: 4 }}
-              >
+              <motion.button key={option.value} type="button" onClick={() => handleSelect(option)} className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors duration-200 border-b border-gray-100 last:border-b-0" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }} whileHover={{ backgroundColor: '#f9fafb', x: 4 }}>
                 <span className="text-gray-900">{option.label}</span>
               </motion.button>
             ))}
@@ -121,15 +76,12 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
   );
 };
 
-
+// ... (StudentIdCard remains exactly the same) ...
 const StudentIdCard = ({ student, onUpdateStatus, onImageClick, isSelected, onSelect }) => {
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';
-        return new Date(dateString).toLocaleDateString('en-US', {
-            year: 'numeric', month: 'long', day: 'numeric'
-        });
+        return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     };
-
     const getStatusColor = (status) => {
         if (!status) return 'bg-gray-100 text-gray-800';
         switch (status) {
@@ -138,15 +90,10 @@ const StudentIdCard = ({ student, onUpdateStatus, onImageClick, isSelected, onSe
             case 'Pending Print': default: return 'bg-yellow-100 text-yellow-800';
         }
     };
-
     return (
         <Card className={`card-hover overflow-hidden relative transition-all ${isSelected ? 'ring-2 ring-[var(--dominant-red)]' : ''}`}>
             <div className="absolute top-2 right-2 z-10 bg-white/70 backdrop-blur-sm p-1 rounded-full">
-                <Checkbox
-                    checked={isSelected}
-                    onCheckedChange={() => onSelect(student.id)}
-                    className="w-5 h-5 border-2 border-red-800"
-                />
+                <Checkbox checked={isSelected} onCheckedChange={() => onSelect(student.id)} className="w-5 h-5 border-2 border-red-800" />
             </div>
             <CardContent className="p-4 space-y-3">
                 <div className="flex justify-center items-center gap-4">
@@ -165,41 +112,17 @@ const StudentIdCard = ({ student, onUpdateStatus, onImageClick, isSelected, onSe
                     <p className="text-sm text-gray-500 font-mono">{student.student_id_number}</p>
                     <p className="text-sm text-gray-600 font-medium">{student.courseName}</p>
                 </div>
-                
                 <div className="border-t pt-3 space-y-2 text-sm">
                     <p className="font-semibold text-gray-500 text-xs mb-1">Emergency Contact</p>
-                    <div className="flex items-center text-gray-800">
-                        <User size={14} className="mr-2 text-gray-400 flex-shrink-0" />
-                        <span>{student.emergency_contact_name || 'N/A'}</span>
-                    </div>
-                    <div className="flex items-center text-gray-800">
-                        <Phone size={14} className="mr-2 text-gray-400 flex-shrink-0" />
-                        <span className='font-mono'>{student.emergency_contact_number || 'N/A'}</span>
-                    </div>
-                    <div className="flex items-center text-gray-800">
-                        <MapPinned size={14} className="mr-2 text-gray-400 flex-shrink-0" />
-                        <span>{student.emergency_contact_address || 'N/A'}</span>
-                    </div>
+                    <div className="flex items-center text-gray-800"><User size={14} className="mr-2 text-gray-400 flex-shrink-0" /><span>{student.emergency_contact_name || 'N/A'}</span></div>
+                    <div className="flex items-center text-gray-800"><Phone size={14} className="mr-2 text-gray-400 flex-shrink-0" /><span className='font-mono'>{student.emergency_contact_number || 'N/A'}</span></div>
+                    <div className="flex items-center text-gray-800"><MapPinned size={14} className="mr-2 text-gray-400 flex-shrink-0" /><span>{student.emergency_contact_address || 'N/A'}</span></div>
                 </div>
-
                 <div className="border-t pt-3 space-y-2 text-sm">
-                    <div className="flex items-center space-x-2">
-                        <span className="font-semibold text-gray-600">Status:</span>
-                        <Badge className={`${getStatusColor(student.id_status)} font-medium`}>{student.id_status || 'Pending Print'}</Badge>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <Calendar size={14} className="mr-2 text-gray-400 flex-shrink-0" />
-                        <span>Date Printed:</span>
-                        <span className="font-medium text-gray-800">{formatDate(student.id_printed_at)}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <Calendar size={14} className="mr-2 text-gray-400 flex-shrink-0" />
-                        <span>Date Released:</span>
-                        <span className="font-medium text-gray-800">{formatDate(student.id_released_at)}</span>
-                    </div>
+                    <div className="flex items-center space-x-2"><span className="font-semibold text-gray-600">Status:</span><Badge className={`${getStatusColor(student.id_status)} font-medium`}>{student.id_status || 'Pending Print'}</Badge></div>
+                    <div className="flex items-center space-x-2"><Calendar size={14} className="mr-2 text-gray-400 flex-shrink-0" /><span>Date Printed:</span><span className="font-medium text-gray-800">{formatDate(student.id_printed_at)}</span></div>
+                    <div className="flex items-center space-x-2"><Calendar size={14} className="mr-2 text-gray-400 flex-shrink-0" /><span>Date Released:</span><span className="font-medium text-gray-800">{formatDate(student.id_released_at)}</span></div>
                 </div>
-
-
                 <div className="text-right -mb-2 -mr-2">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreVertical size={16} /></Button></DropdownMenuTrigger>
@@ -214,6 +137,43 @@ const StudentIdCard = ({ student, onUpdateStatus, onImageClick, isSelected, onSe
     );
 };
 
+// ✅ NEW: Reset Confirmation Modal
+const ResetConfirmationModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md"
+            >
+                <div className="flex flex-col items-center text-center space-y-4">
+                    <div className="bg-red-100 p-3 rounded-full">
+                        <AlertTriangle className="h-8 w-8 text-red-600" />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-900">Reset ID Counters?</h2>
+                    <p className="text-gray-600">
+                        This action will reset the <strong>ID Status</strong>, <strong>Date Printed</strong>, and <strong>Date Released</strong> for <span className="font-bold text-red-600">ALL</span> students. 
+                    </p>
+                    <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                        This is typically done at the start of a new school year to restart the printing count. This action cannot be undone.
+                    </p>
+                    <div className="flex gap-3 w-full pt-2">
+                        <Button variant="outline" className="flex-1" onClick={onClose} disabled={isLoading}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" className="flex-1 bg-red-600 hover:bg-red-700" onClick={onConfirm} disabled={isLoading}>
+                            {isLoading ? 'Resetting...' : 'Yes, Reset All'}
+                        </Button>
+                    </div>
+                </div>
+            </motion.div>
+        </div>
+    );
+};
+
 const IDReleasing = () => {
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -224,6 +184,10 @@ const IDReleasing = () => {
 
     const [alertState, setAlertState] = useState({ isVisible: false, message: '', type: 'success' });
     const [validationError, setValidationError] = useState({ isOpen: false, message: '' });
+    
+    // ✅ NEW STATE for Reset Modal
+    const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+    const [isResetting, setIsResetting] = useState(false);
 
     const handleCloseAlert = () => setAlertState({ ...alertState, isVisible: false });
     const handleCloseModal = () => setValidationError({ isOpen: false, message: '' });
@@ -294,6 +258,25 @@ const IDReleasing = () => {
         }
     };
 
+    // ✅ NEW: Handle Reset Logic
+    const handleResetAllStatus = async () => {
+        setIsResetting(true);
+        try {
+            const res = await enrollmentAPI.resetIdStatus();
+            if (res.success) {
+                setAlertState({ isVisible: true, message: res.message, type: 'success' });
+                fetchStudents(); // Refresh data to see zero counts
+                setIsResetModalOpen(false);
+            } else {
+                setAlertState({ isVisible: true, message: res.message || "Failed to reset.", type: 'error' });
+            }
+        } catch (error) {
+            setAlertState({ isVisible: true, message: error.message || "An error occurred during the reset.", type: 'error' });
+        } finally {
+            setIsResetting(false);
+        }
+    };
+
     const stats = useMemo(() => {
         const total = students.length;
         const printed = students.filter(s => s.id_status === 'Printed' || s.id_status === 'Released').length;
@@ -332,9 +315,37 @@ const IDReleasing = () => {
         <div className="p-6 space-y-6 max-w-7xl mx-auto">
             <SuccessAlert isVisible={alertState.isVisible} message={alertState.message} type={alertState.type} onClose={handleCloseAlert} />
             <ValidationErrorModal isOpen={validationError.isOpen} message={validationError.message} onClose={handleCloseModal} />
+            
+            {/* ✅ NEW: Reset Confirmation Modal */}
+            <ResetConfirmationModal 
+                isOpen={isResetModalOpen} 
+                onClose={() => setIsResetModalOpen(false)} 
+                onConfirm={handleResetAllStatus} 
+                isLoading={isResetting} 
+            />
+
             <AnimatePresence>{previewImageUrl && <ImagePreviewModal imageUrl={previewImageUrl} onClose={() => setPreviewImageUrl(null)} />}</AnimatePresence>
             
-            <div className="gradient-soft rounded-2xl p-8 border border-gray-100"><h1 className="text-3xl font-bold heading-bold text-gray-900 flex items-center"><CreditCard className="w-8 h-8 text-[var(--dominant-red)] mr-3" />ID Releasing Management</h1><p className="text-gray-600">Track, manage, and update the status of student ID cards.</p></div>
+            {/* Header Section with Reset Button */}
+            <div className="gradient-soft rounded-2xl p-8 border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold heading-bold text-gray-900 flex items-center">
+                        <CreditCard className="w-8 h-8 text-[var(--dominant-red)] mr-3" />
+                        ID Releasing Management
+                    </h1>
+                    <p className="text-gray-600 mt-2">Track, manage, and update the status of student ID cards.</p>
+                </div>
+                
+                {/* ✅ UPDATED: Reset Button with "Courses" style */}
+                <Button 
+                    onClick={() => setIsResetModalOpen(true)} 
+                    className="gradient-primary text-white liquid-button"
+                >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Reset ID Count
+                </Button>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="card-hover"><CardContent className="p-6 flex items-center justify-between"><div><p className="text-sm font-medium text-gray-600">Total Students</p><p className="text-2xl font-bold heading-bold text-gray-900">{stats.total}</p></div><div className="p-3 rounded-xl bg-red-50"><Users className="w-6 h-6 text-red-600" /></div></CardContent></Card>
                 <Card className="card-hover"><CardContent className="p-6 flex items-center justify-between"><div><p className="text-sm font-medium text-gray-600">IDs Printed</p><p className="text-2xl font-bold heading-bold text-gray-900">{stats.printed}</p></div><div className="p-3 rounded-xl bg-blue-50"><Printer className="w-6 h-6 text-blue-600" /></div></CardContent></Card>

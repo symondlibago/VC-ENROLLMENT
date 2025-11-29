@@ -14,14 +14,20 @@ import vineyardLogo from '../../assets/vineyard.png';
 const DownloadExamPermit = ({ student }) => {
 
   const generatePDF = (examType) => {
-    const doc = new jsPDF('p', 'mm', 'a4'); // Portrait, millimeters, A4
+    // 1. SETUP: Long Bond Paper (8.5" x 13")
+    const doc = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: [215.9, 330.2] 
+    });
+
     const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 12;
-    let y = 10;
+    const margin = 10;
+    let y = 8; 
 
     // --- 1. HEADER ---
-    const imgWidth = 60; 
-    const imgHeight = 12;
+    const imgWidth = 50; 
+    const imgHeight = 10;
     const imgX = (pageWidth - imgWidth) / 2;
     
     // Logo
@@ -30,204 +36,155 @@ const DownloadExamPermit = ({ student }) => {
     } catch (e) {
         console.error("Logo missing", e);
     }
-
-    // Permit No (Red Text)
-    doc.setFontSize(9).setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 0); // Black
-    doc.text('Permit No.:', margin, y + 8);
     
-    doc.setTextColor(180, 0, 0); // Red
-    // Generate a pseudo permit number based on year and ID
-    const permitNo = `VIPC${new Date().getFullYear().toString().slice(-2)}-${student.student_id_number?.split('-')[1] || '0000'}`;
-    doc.text(permitNo, margin + 20, y + 8);
-    
-    doc.setTextColor(0, 0, 0); // Reset to Black
-    y += 15;
+    // --- REMOVED PERMIT NUMBER TEXT HERE ---
+    // We just simply move 'y' down to clear the logo area.
+    // The logo height is 10, so we move down 12 to leave a small gap.
+    y += 12; 
 
-    // Dashed Line
-    doc.setLineDashPattern([3, 1], 0);
+    // Top Dashed Line
+    doc.setLineDashPattern([2, 1], 0);
+    doc.setLineWidth(0.1);
     doc.line(margin, y, pageWidth - margin, y);
-    doc.setLineDashPattern([], 0); // Reset solid
-    y += 5;
-
+    
     // Title
-    doc.setFontSize(11).setFont('helvetica', 'bold');
+    y += 4;
+    doc.setFontSize(10).setFont('helvetica', 'bold');
     doc.text('E X A M   P E R M I T', pageWidth / 2, y, { align: 'center' });
     y += 2;
     
-    doc.setLineDashPattern([3, 1], 0);
+    // Bottom Dashed Line
     doc.line(margin, y, pageWidth - margin, y);
-    doc.setLineDashPattern([], 0);
-    y += 6;
+    doc.setLineDashPattern([], 0); 
+    y += 1; 
 
-    // --- 2. STUDENT DETAILS GRID ---
-    doc.setFontSize(9).setFont('helvetica', 'bold');
+    // --- 2. COMPACT STUDENT DETAILS GRID ---
+    doc.setFontSize(8);
+    const rowHeight = 4.5; 
     
-    // Left Column X positions
-    const col1Label = margin;
-    const col1Data = margin + 20;
-    
-    // Right Column X positions
-    const col2Label = pageWidth / 2 + 10;
-    const col2Data = pageWidth / 2 + 45;
+    const col1Label = margin; 
+    const col1Data = margin + 18; 
+    const col2Label = pageWidth / 2 + 5; 
+    const col2Data = pageWidth / 2 + 35; 
 
-    const rowHeight = 5;
-
-    // Row 1
-    doc.text('ID:', col1Label, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(student.student_id_number || '', col1Data, y);
-    
-    doc.setFont('helvetica', 'bold');
-    doc.text('ACADEMIC YEAR:', col2Label, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(student.school_year || '', col2Data, y);
+    // ROW 1
     y += rowHeight;
+    doc.setFont('helvetica', 'bold').text('ID:', col1Label, y);
+    doc.setFont('helvetica', 'normal').text(student.student_id_number || '', col1Data, y);
+    doc.setFont('helvetica', 'bold').text('ACADEMIC YEAR:', col2Label, y);
+    doc.setFont('helvetica', 'normal').text(student.school_year || '', col2Data, y);
 
-    // Row 2
-    doc.setFont('helvetica', 'bold');
-    doc.text('NAME:', col1Label, y);
-    doc.setFont('helvetica', 'normal');
+    // ROW 2
+    y += rowHeight;
+    doc.setFont('helvetica', 'bold').text('NAME:', col1Label, y);
     const fullName = `${student.last_name}, ${student.first_name} ${student.middle_name?.[0] || ''}.`;
-    doc.text(fullName.toUpperCase(), col1Data, y);
+    doc.setFont('helvetica', 'normal').text(fullName.toUpperCase(), col1Data, y);
+    doc.setFont('helvetica', 'bold').text('SEMESTER:', col2Label, y);
+    doc.setFont('helvetica', 'normal').text(student.semester.toUpperCase() || '', col2Data, y);
 
-    doc.setFont('helvetica', 'bold');
-    doc.text('SEMESTER:', col2Label, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(student.semester.toUpperCase() || '', col2Data, y);
+    // ROW 3
     y += rowHeight;
+    doc.setFont('helvetica', 'bold').text('COURSE:', col1Label, y);
+    doc.setFont('helvetica', 'normal').text(student.course?.course_code || '', col1Data, y);
+    doc.setFont('helvetica', 'bold').text('PERMIT FOR:', col2Label, y);
+    doc.setFont('helvetica', 'bold').text(examType.toUpperCase(), col2Data, y);
 
-    // Row 3
-    doc.setFont('helvetica', 'bold');
-    doc.text('COURSE:', col1Label, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(student.course?.course_code || '', col1Data, y);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('PERMIT FOR:', col2Label, y);
-    doc.setFont('helvetica', 'bold'); // Bold for the exam type
-    doc.text(examType.toUpperCase(), col2Data, y);
+    // ROW 4
     y += rowHeight;
-
-    // Row 4
-    doc.setFont('helvetica', 'bold');
-    doc.text('YEAR:', col1Label, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(student.year.toUpperCase() || '', col1Data, y);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('DATE ISSUED:', col2Label, y);
+    doc.setFont('helvetica', 'bold').text('YEAR:', col1Label, y);
+    doc.setFont('helvetica', 'normal').text(student.year.toUpperCase() || '', col1Data, y);
+    doc.setFont('helvetica', 'bold').text('DATE ISSUED:', col2Label, y);
     doc.setFont('helvetica', 'normal');
     const dateIssued = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     doc.text(dateIssued, col2Data, y);
-    y += 5; // Spacing before table
-
-    // Double Line before table
+    
+    // Grid Separator
+    y += 2;
     doc.setLineWidth(0.5);
     doc.line(margin, y, pageWidth - margin, y);
-    doc.setLineWidth(0.1); // Reset
-    y += 1; // tiny gap
+    doc.setLineWidth(0.1); 
+    y += 1; 
     doc.line(margin, y, pageWidth - margin, y);
-    y += 5;
 
     // --- 3. SUBJECTS TABLE ---
-    
-    // Prepare data
-    // Assuming student.subjects is available. If strictly using the image layout,
-    // we map subjects to rows.
     const subjects = student.subjects || [];
-    
-    // Fill empty rows to make it look like the permit in the image (approx 8-10 rows total)
     const minRows = 8;
     const tableBody = subjects.map(sub => [
         sub.subject_code,
         sub.descriptive_title,
-        '', // Date column empty
-        ''  // Signature column empty
+        '', 
+        '' 
     ]);
 
-    // Add empty rows if needed
     for (let i = tableBody.length; i < minRows; i++) {
         tableBody.push(['', '', '', '']);
     }
 
-    // Add "0" rows as seen in image bottom? Or just empty. 
-    // The image has '0' in Code and Desc for empty slots, but empty is cleaner.
-    // Let's stick to empty strings for professional look, or '0' if you want exact replica.
-    
     autoTable(doc, {
-        startY: y,
+        startY: y + 1,
         head: [['SUBJECT CODE', 'DESCRIPTION', 'DATE', "INSTRUCTOR'S SIGNATURE"]],
         body: tableBody,
-        theme: 'plain', // Minimalist styling like the image
+        theme: 'plain',
         styles: {
-            fontSize: 8,
-            cellPadding: 3,
+            fontSize: 7, 
+            cellPadding: { top: 0.8, bottom: 0.8, left: 2, right: 2 },
             valign: 'middle',
-            lineWidth: 0, // No vertical lines by default in 'plain'
+            lineWidth: 0, 
+            minCellHeight: 4
         },
         headStyles: {
             fontStyle: 'bold',
             halign: 'center',
             fillColor: [255, 255, 255],
             textColor: [0, 0, 0],
-            lineWidth: 0,
+            lineWidth: 0, 
+            cellPadding: { top: 1, bottom: 1, left: 2, right: 2 },
         },
         columnStyles: {
-            0: { halign: 'center', cellWidth: 30 }, // Code
-            1: { halign: 'center' }, // Description
-            2: { halign: 'center', cellWidth: 30 }, // Date
-            3: { halign: 'center', cellWidth: 50 }, // Signature
-        },
-        didParseCell: (data) => {
-            // Add borderlines manually to match the Excel-like grid in the image
-            // Horizontal lines
-            // data.cell.styles.lineWidth = 0.1;
-            // data.cell.styles.lineColor = [200, 200, 200];
+            0: { halign: 'center', cellWidth: 25 }, 
+            1: { halign: 'center' }, 
+            2: { halign: 'center', cellWidth: 25 }, 
+            3: { halign: 'center', cellWidth: 50 }, 
         },
         didDrawCell: (data) => {
-            // Draw lines for signature in the last column
-            if (data.section === 'body' && data.column.index === 3) {
-                const x = data.cell.x;
-                const y = data.cell.y + data.cell.height - 2;
-                const width = data.cell.width;
-                // Draw line at bottom of cell for signature
-                doc.setLineWidth(0.1);
-                doc.line(x + 2, y, x + width - 2, y);
-            }
-            // Draw line for Date in 3rd column
-            if (data.section === 'body' && data.column.index === 2) {
-                const x = data.cell.x;
-                const y = data.cell.y + data.cell.height - 2;
-                const width = data.cell.width;
-                doc.line(x + 2, y, x + width - 2, y);
+            if (data.section === 'body' && (data.column.index === 2 || data.column.index === 3)) {
+                 doc.setLineWidth(0.1);
+                 const x = data.cell.x;
+                 const y = data.cell.y + data.cell.height - 1; 
+                 const w = data.cell.width;
+                 doc.line(x + 2, y, x + w - 2, y);
             }
         }
     });
 
-    y = doc.lastAutoTable.finalY + 10;
+    // --- 4. FOOTER ---
+    y = doc.lastAutoTable.finalY + 8;
 
-    // --- 4. FOOTER (Cashier) ---
     const cashierName = 'MIKAELLA JANE REMOTO';
     const cashierTitle = 'CASHIER';
 
-    // Right aligned box
-    const footerX = pageWidth - margin - 60;
-    
-    doc.setLineWidth(0.3);
-    doc.line(footerX, y, pageWidth - margin, y); // Signature Line
-    
-    doc.setFontSize(9).setFont('helvetica', 'bold');
-    doc.text(cashierName, footerX + 30, y + 5, { align: 'center' });
-    
-    doc.setFontSize(8).setFont('helvetica', 'normal');
-    doc.text(cashierTitle, footerX + 30, y + 9, { align: 'center' });
+    const lineLength = 50; 
+    const lineEnd = pageWidth - margin;
+    const lineStart = lineEnd - lineLength;
+    const lineCenter = lineStart + (lineLength / 2);
 
-    // --- 5. BORDER (Optional, blue border in image) ---
-    // The image has a blue thick border. Let's add it for style.
-    doc.setDrawColor(0, 0, 139); // Dark Blue
+    // 1. Draw Name ABOVE the line
+    doc.setFontSize(8).setFont('helvetica', 'bold');
+    doc.text(cashierName, lineCenter, y - 1, { align: 'center' });
+
+    // 2. Draw Signature Line
+    doc.setLineWidth(0.3);
+    doc.line(lineStart, y, lineEnd, y); 
+    
+    // 3. Draw Title BELOW the line
+    doc.setFontSize(7).setFont('helvetica', 'normal');
+    doc.text(cashierTitle, lineCenter, y + 4, { align: 'center' });
+
+    // --- 5. OUTER BORDER ---
+    const totalHeight = y + 8; 
+    doc.setDrawColor(0, 0, 139); 
     doc.setLineWidth(0.8);
-    doc.rect(5, 5, pageWidth - 10, (y + 15) - 5); // Rect around content
+    doc.rect(5, 5, pageWidth - 10, totalHeight - 5);
 
     doc.save(`Exam_Permit_${student.last_name}_${examType}.pdf`);
   };
@@ -242,30 +199,15 @@ const DownloadExamPermit = ({ student }) => {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48 bg-white border shadow-md">
-        <DropdownMenuItem 
-            className="cursor-pointer hover:bg-gray-100 p-2"
-            onClick={() => generatePDF('Preliminary')}
-        >
-          Preliminary
-        </DropdownMenuItem>
-        <DropdownMenuItem 
-            className="cursor-pointer hover:bg-gray-100 p-2"
-            onClick={() => generatePDF('Midterm')}
-        >
-          Midterm
-        </DropdownMenuItem>
-        <DropdownMenuItem 
-            className="cursor-pointer hover:bg-gray-100 p-2"
-            onClick={() => generatePDF('Semi-Final')}
-        >
-          Semi-Final
-        </DropdownMenuItem>
-        <DropdownMenuItem 
-            className="cursor-pointer hover:bg-gray-100 p-2"
-            onClick={() => generatePDF('Final')}
-        >
-          Final
-        </DropdownMenuItem>
+        {['Preliminary', 'Midterm', 'Semi-Final', 'Final'].map((type) => (
+             <DropdownMenuItem 
+                key={type}
+                className="cursor-pointer hover:bg-gray-100 p-2"
+                onClick={() => generatePDF(type)}
+            >
+              {type}
+            </DropdownMenuItem>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );

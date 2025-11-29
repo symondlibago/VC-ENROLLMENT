@@ -549,6 +549,15 @@ export const enrollmentAPI = {
         throw error.response?.data || { success: false, message: 'Failed to bulk update ID status' };
     }
   },
+  
+  resetIdStatus: async () => {
+    try {
+        const response = await api.post('/id-releasing/reset');
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { success: false, message: 'Failed to reset ID status' };
+    }
+  },
 
   // NEW: Check if a continuing student can enroll in the next term
   checkEnrollmentEligibility: async (studentId) => {
