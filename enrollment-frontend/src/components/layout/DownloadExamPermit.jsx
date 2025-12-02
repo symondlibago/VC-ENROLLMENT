@@ -199,7 +199,7 @@ const DownloadExamPermit = ({ student }) => {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48 bg-white border shadow-md">
-        {['Preliminary', 'Midterm', 'Semi-Final', 'Final'].map((type) => (
+        {['Preliminary Exam', 'Midterm Exam', 'Semi-Final Exam', 'Final Exam'].map((type) => (
              <DropdownMenuItem 
                 key={type}
                 className="cursor-pointer hover:bg-gray-100 p-2"
