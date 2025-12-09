@@ -88,34 +88,48 @@ class UploadReceiptController extends Controller
     }
 
     public function store(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'student_id' => 'required|exists:pre_enrolled_students,id',
-            'receipt_photo' => 'required|file|mimes:png,jpg,jpeg|max:5120', // 5MB max
-        ]);
+{
+    // 1. Validate
+    $validator = Validator::make($request->all(), [
+        'student_id' => 'required|exists:pre_enrolled_students,id',
+        'receipt_photo' => 'required|file|mimes:png,jpg,jpeg|max:5120',
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $validator->errors()], 422);
-        }
-
-        try {
-            DB::beginTransaction();
-            $student = PreEnrolledStudent::findOrFail($request->input('student_id'));
-            
-            $receiptPath = $request->file('receipt_photo')->store('identification', 's3');
-
-            // Use the new UploadReceipt model
-            UploadReceipt::create([
-                'pre_enrolled_student_id' => $student->id,
-                'receipt_photo_path' => $receiptPath,
-            ]);
-            
-            DB::commit();
-
-            return response()->json(['success' => true, 'message' => 'Receipt uploaded successfully for ' . $student->getFullNameAttribute()], 201);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['success' => false, 'message' => 'Failed to upload receipt', 'error' => $e->getMessage()], 500);
-        }
+    if ($validator->fails()) {
+        return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $validator->errors()], 422);
     }
+
+    try {
+        DB::beginTransaction();
+        $student = PreEnrolledStudent::findOrFail($request->input('student_id'));
+        
+        $file = $request->file('receipt_photo');
+        
+        // Check if file is valid locally first
+        if (!$file->isValid()) {
+            throw new \Exception('File upload error: ' . $file->getErrorMessage());
+        }
+        $receiptPath = \Illuminate\Support\Facades\Storage::disk('s3')->putFile('identification', $file);
+
+        // If the path is empty or false, we MANUALLY throw an error
+        if ($receiptPath === false || empty($receiptPath)) {
+            // This logs the specific S3 error to your storage/logs/laravel.log file
+            throw new \Exception('S3 Upload returned false. Check laravel.log for "League\Flysystem" errors.');
+        }
+
+        UploadReceipt::create([
+            'pre_enrolled_student_id' => $student->id,
+            'receipt_photo_path' => $receiptPath,
+        ]);
+        
+        DB::commit();
+
+        return response()->json(['success' => true, 'message' => 'Receipt uploaded successfully.'], 201);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        // Log the full error so you can see it in storage/logs/laravel.log
+        \Illuminate\Support\Facades\Log::error('Upload Error: ' . $e->getMessage());
+        return response()->json(['success' => false, 'message' => 'Upload failed: ' . $e->getMessage()], 500);
+    }
+}
 }

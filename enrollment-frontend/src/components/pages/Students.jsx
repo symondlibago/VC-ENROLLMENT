@@ -47,6 +47,14 @@ import LoadingSpinner from '../layout/LoadingSpinner';
 import DeleteConfirmationModal from '../modals/DeleteConfirmationModal';
 import { sectionAPI, enrollmentAPI, courseAPI, authAPI } from '@/services/api';
 
+
+const getStatusBadgeVariant = (status) => {
+    const s = status?.toLowerCase();
+    if (s === 'enrolled') return 'bg-green-100 text-green-800 border-green-200';
+    if (s === 'rejected') return 'bg-red-100 text-red-800 border-red-200';
+    return 'bg-yellow-100 text-yellow-800 border-yellow-200'; // For pending/others
+};
+
 // Custom Framer Motion Dropdown Component (No changes)
 const MotionDropdown = ({ value, onChange, options, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -63,6 +71,7 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
     onChange(option.value);
     setIsOpen(false);
   };
+
 
   return (
     <div className="relative">
@@ -109,9 +118,9 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
 
 // Main Component
 const Students = () => {
-  // ... (no changes in this section)
   const [activeView, setActiveView] = useState('sections');
   const [loading, setLoading] = useState(true);
+
 
   // Data states
   const [sections, setSections] = useState([]);
@@ -558,6 +567,7 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
     <TableHead><div className="flex items-center gap-2"><Hash size={16} />Student ID</div></TableHead>
     <TableHead><div className="flex items-center gap-2"><User size={16} />Name</div></TableHead>
     <TableHead><div className="flex items-center gap-2"><GraduationCap size={16} />Course</div></TableHead>
+    <TableHead><div className="flex items-center gap-2"><FileText size={16} />Status</div></TableHead>
     <TableHead><div className="flex items-center gap-2"><Users size={16} />Section</div></TableHead>
     <TableHead><div className="flex items-center gap-2"><BookOpen size={16} />Academic Status</div></TableHead>
     <TableHead className="text-right"><div className="flex items-center justify-end gap-2"><Settings2 size={16} />Action</div></TableHead>
@@ -584,6 +594,11 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
             <GraduationCap size={14} className="text-gray-500" />
             <p className="text-gray-900">{student.courseName}</p>
           </div>
+        </TableCell>
+        <TableCell>
+           <Badge className={`${getStatusBadgeVariant(student.enrollment_status)} hover:bg-opacity-80`}>
+              {student.enrollment_status || 'Pending'}
+           </Badge>
         </TableCell>
         <TableCell>
            {/* ✅ 3. ADDED icon to Section cell to match the header */}

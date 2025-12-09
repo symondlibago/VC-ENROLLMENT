@@ -406,7 +406,6 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
                 'shifteeRequests', 
                 'subjectChangeRequests.items'
             ])
-            ->where('enrollment_status', 'enrolled')
             ->orderBy('student_id_number', 'asc')
             ->get();
 
@@ -484,6 +483,7 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
                 'sectionId' => $student->sections->first()->id ?? null,
                 'sectionName' => $student->sections->isNotEmpty() ? $student->sections->first()->name : 'Unassigned',
                 'academic_status' => $currentAcademicStatus, // This now respects the DB value
+                'enrollment_status' => ucfirst($student->enrollment_status),
             ];
         });
 
