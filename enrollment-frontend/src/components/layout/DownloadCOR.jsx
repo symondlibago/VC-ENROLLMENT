@@ -6,7 +6,7 @@ import { Download } from 'lucide-react';
 import vineyardLogo from '../../assets/vineyard.png';
 import circleLogo from '../../assets/circlelogo.jpg';
 
-const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
+const DownloadCOR = ({ student, subjectsWithSchedules, paymentData, termPayments = [] }) => {
 
   const generatePDF = () => {
     const doc = new jsPDF('p', 'mm', 'a4');
@@ -49,16 +49,15 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
       return y;
     };
     
-    // REDUCED FONT SIZE FOR STUDENT DETAILS
     const drawStudentDetails = (startY, fontSize = 8) => { 
       let y = startY + 7;
       doc.setFontSize(fontSize);
       doc.text('Student No.:', margin, y);
       doc.text(student.student_id_number || 'N/A', margin + 30, y);
-      y += 3.5; // Adjusted spacing
+      y += 3.5; 
       doc.text('Student Name:', margin, y);
       doc.text(`${student.last_name}, ${student.first_name} ${student.middle_name || ''}`, margin + 30, y);
-      y += 3.5; // Adjusted spacing
+      y += 3.5; 
       doc.text('Course & Year:', margin, y);
       const courseText = `[${student.course?.course_code || 'N/A'}] ${student.course?.course_name || 'N/A'} - ${student.year || 'N/A'} (${student.enrollment_type || ''})`;
       doc.text(courseText, margin + 30, y);
@@ -87,21 +86,19 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
         return finalY;
     };
 
-    // --- Student Personal Details function (called on the final page) ---
+    // --- Student Personal Details function (COMPACT VERSION) ---
     const drawStudentPersonalDetails = () => {
       doc.addPage();
-      const startY = 15;
+      const startY = 10;
       let y = startY;
       const smallMargin = 10;
 
-      // Title
       doc.setFontSize(10).setFont('helvetica', 'bold').text('STUDENT PERSONAL DATA', pageWidth / 2, y, { align: 'center' });
-      y += 8;
+      y += 5;
 
-     // Basic Info Fields
-      const fieldSpacing = 5;
-      const labelFontSize = 8;
-      const valueFontSize = 9;
+      const fieldSpacing = 3.5;
+      const labelFontSize = 7;
+      const valueFontSize = 8;
 
       // Name
       const nameLineY = y + 1;
@@ -109,13 +106,15 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
       doc.setFontSize(valueFontSize).text(student.last_name || 'N/A', smallMargin + 18, y);
       doc.setFontSize(valueFontSize).text(student.first_name || 'N/A', smallMargin + 65, y);
       doc.setFontSize(valueFontSize).text(student.middle_name || 'N/A', smallMargin + 112, y);
-      doc.setFontSize(6).text('(Last Name)', smallMargin + 18, y + 4);
-      doc.setFontSize(6).text('(First Name)', smallMargin + 65, y + 4);
-      doc.setFontSize(6).text('(Middle Name)', smallMargin + 112, y + 4);
+      
+      doc.setFontSize(5).text('(Last Name)', smallMargin + 18, y + 3);
+      doc.setFontSize(5).text('(First Name)', smallMargin + 65, y + 3);
+      doc.setFontSize(5).text('(Middle Name)', smallMargin + 112, y + 3);
+      
       doc.line(smallMargin + 18, nameLineY, smallMargin + 60, nameLineY);
       doc.line(smallMargin + 65, nameLineY, smallMargin + 107, nameLineY);
       doc.line(smallMargin + 112, nameLineY, smallMargin + 154, nameLineY);
-      y += fieldSpacing * 2;
+      y += fieldSpacing * 2.5;
 
       // Birth Date and Place
       doc.setFontSize(labelFontSize).text('Birth Date:', smallMargin, y);
@@ -154,10 +153,10 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
       y += fieldSpacing * 2;
 
       // Parents Information Header
-      doc.setFontSize(10).setFont('helvetica', 'bold').text('PARENT\'S INFORMATION', smallMargin, y);
-      y += 3;
+      doc.setFontSize(9).setFont('helvetica', 'bold').text('PARENT\'S INFORMATION', smallMargin, y);
+      y += 2.5;
       doc.line(smallMargin, y, pageWidth - smallMargin, y);
-      y += 5;
+      y += 4;
 
       // Father's Details
       doc.setFontSize(labelFontSize).setFont('helvetica', 'normal');
@@ -185,10 +184,10 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
       y += fieldSpacing * 2;
 
       // School Attended Header
-      doc.setFontSize(10).setFont('helvetica', 'bold').text('SCHOOL ATTENDED', smallMargin, y);
-      y += 3;
+      doc.setFontSize(9).setFont('helvetica', 'bold').text('SCHOOL ATTENDED', smallMargin, y);
+      y += 2.5;
       doc.line(smallMargin, y, pageWidth - smallMargin, y);
-      y += 5;
+      y += 4;
 
       // Educational Background Table
       const schools = [
@@ -207,27 +206,20 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
           body: tableData,
           margin: { left: smallMargin, right: smallMargin },
           theme: 'striped',
-          headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 8, fontStyle: 'bold' },
-          styles: { fontSize: 8, cellPadding: 2 },
-          didDrawPage: (data) => {
-            if (data.pageNumber > 1) {
-                doc.setFontSize(10).setFont('helvetica', 'bold').text('SCHOOL ATTENDED', smallMargin, 10);
-                doc.line(smallMargin, 13, pageWidth - smallMargin, 13);
-            }
-          }
+          headStyles: { fillColor: [220, 220, 220], textColor: 0, fontSize: 7, fontStyle: 'bold', cellPadding: 1 },
+          styles: { fontSize: 7, cellPadding: 1 },
       });
-      y = doc.lastAutoTable.finalY + 10;
+      y = doc.lastAutoTable.finalY + 8;
       
       // Final Certification Line
-      doc.setFontSize(7).setFont('helvetica', 'normal');
+      doc.setFontSize(6).setFont('helvetica', 'normal');
       doc.text('I hereby certify to the truth of the foregoing information and with my enrollment, I hereby bind myself to abide by', smallMargin, y);
       y += 3;
       doc.text('and comply with the rules and policies of Vineyard International Polytechnic College.', smallMargin, y);
       y += 10;
 
-      // Student's Signature (for Personal Data Page)
       doc.line(smallMargin, y, smallMargin + 50, y);
-      doc.setFontSize(7).text('Student\'s Signature over Printed Name', smallMargin, y + 3);
+      doc.setFontSize(6).text('Student\'s Signature over Printed Name', smallMargin, y + 3);
     };
 
     // --- Section 1: Registrar's Copy (Enrollment Form) ---
@@ -253,7 +245,6 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
     });
     subjectsTableRows.push(['', 'TOTAL', totalLecHrs, totalLabHrs, totalUnits, '', '', '']);
 
-    // REDUCE FONT SIZE FOR REGISTRAR'S COPY TABLE TO 6
     autoTable(doc, {
       head: [["Code", "Descriptive Title", "Lec", "Lab", "Units", "Day", "Time", "Room"]], 
       body: subjectsTableRows, 
@@ -288,7 +279,6 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
     doc.setLineDashPattern([2, 1], 0).line(margin, separatorY, pageWidth - margin, separatorY).setLineDashPattern([], 0);
 
     // --- Section 2: Student's Copy (COR) ---
-    // Safety check to ensure COR starts on a fresh page if the top section was too long
     if (separatorY > 260) {
         doc.addPage();
     }
@@ -296,28 +286,59 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
     let yPos2 = drawSecondSectionHeader(separatorY + 2);
     yPos2 = drawStudentDetails(yPos2, 7); 
 
-    const fullSubjectsBody = [...subjectsTableRows]; 
-    
-    // Create a new body for the Section 2 table with abbreviated days
-    const section2SubjectsBody = fullSubjectsBody.map((row, index) => {
-      if (index === fullSubjectsBody.length - 1) { return row; }
-      
+    const section2SubjectsBody = subjectsTableRows.map((row, index) => {
+      if (index === subjectsTableRows.length - 1) { return row; }
       const dayString = row[5]; 
       const abbreviatedDays = dayString.split('\n').map(abbreviateDay).join(' / ');
-      
-      return [
-        row[0], row[1], row[2], row[3], row[4], abbreviatedDays, row[6], row[7]
-      ];
+      return [row[0], row[1], row[2], row[3], row[4], abbreviatedDays, row[6], row[7]];
     });
 
     const formatCurrency = (val) => `${parseFloat(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    const paymentBody = [
-        ['Previous Account', formatCurrency(paymentData.previous_account)], ['Registration Fee', formatCurrency(paymentData.registration_fee)], ['Tuition Fee', formatCurrency(paymentData.tuition_fee)],
-        ['Laboratory Fee', formatCurrency(paymentData.laboratory_fee)], ['Miscellaneous Fee', formatCurrency(paymentData.miscellaneous_fee)], ['Other Fees', formatCurrency(paymentData.other_fees)],
-        ['Bundled Program Fee', formatCurrency(paymentData.bundled_program_fee)], ['TOTAL', formatCurrency(paymentData.total_amount)], ['Payment', formatCurrency(paymentData.payment_amount)],
-        ['Discount', formatCurrency(paymentData.discount)], ['REMAINING AMOUNT', formatCurrency(paymentData.remaining_amount)], ['TERM PAYMENT', formatCurrency(paymentData.term_payment)],
-    ];
+
+    // --- CALCULATION LOGIC: TOTAL TERM PAYMENTS ---
+    // 1. Determine which list of payments to use
+    let paymentsToSum = [];
     
+    if (termPayments && termPayments.length > 0) {
+        // Priority: Use prop passed explicitly (e.g. from TermPaymentModal with live data)
+        paymentsToSum = termPayments;
+    } else if (paymentData.term_payments && Array.isArray(paymentData.term_payments)) {
+        // Fallback: Use paymentData's internal list (e.g. from StudentDetailsModal)
+        // Filter to ensure we only sum payments for the current Student's term
+        paymentsToSum = paymentData.term_payments.filter(p => 
+            p.year == student.year && 
+            p.semester == student.semester &&
+            p.school_year == student.school_year
+        );
+    }
+
+    // 2. Sum them up
+    const totalActualPayment = paymentsToSum.reduce((sum, payment) => {
+        return sum + (parseFloat(payment.amount) || 0);
+    }, 0);
+
+    // 3. Calculate remaining based on this sum
+    const totalAmount = parseFloat(paymentData.total_amount) || 0;
+    const discountDeduction = parseFloat(paymentData.discount_deduction) || 0;
+    const calculatedRemaining = Math.max(0, totalAmount - discountDeduction - totalActualPayment);
+
+    const paymentBody = [
+        ['Previous Account', formatCurrency(paymentData.previous_account)], 
+        ['Registration Fee', formatCurrency(paymentData.registration_fee)], 
+        ['Tuition Fee', formatCurrency(paymentData.tuition_fee)],
+        ['Laboratory Fee', formatCurrency(paymentData.laboratory_fee)], 
+        ['Miscellaneous Fee', formatCurrency(paymentData.miscellaneous_fee)], 
+        ['Other Fees', formatCurrency(paymentData.other_fees)],
+        ['Bundled Program Fee', formatCurrency(paymentData.bundled_program_fee)], 
+        ['TOTAL', formatCurrency(paymentData.total_amount)], 
+        
+        // 👇 CHANGED: Display sum of term payments (from table) NOT paymentData.payment_amount
+        ['Payment', formatCurrency(totalActualPayment)], 
+        
+        ['Discount', formatCurrency(paymentData.discount)], 
+        ['REMAINING AMOUNT', formatCurrency(calculatedRemaining)], 
+        ['TERM PAYMENT', formatCurrency(paymentData.term_payment)],
+    ];
     
     const tableStartY = yPos2 + 5;
     let paymentTableFinalY = tableStartY;
@@ -365,35 +386,29 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData }) => {
     // 3. Set the final Y based on the MAX of the two tables
     let finalY2 = Math.max(subjectTableFinalY, paymentTableFinalY);
     
-    // Safety check for signatures if tables ran too long (Page 1 limit)
     const maxPrintableY = 270;
     if (finalY2 > maxPrintableY) {
-        // If the tables overflowed the page, the signature must start on the next page
         doc.addPage();
-        finalY2 = margin; // Reset Y position to top margin of the new page
+        finalY2 = margin; 
     }
 
     const signatureStartOffset = 5; 
     const signatureLineY = finalY2 + signatureStartOffset + 10;
     
-    // --- Student's Signature (Left Side - Below Subject Table) ---
-    doc.line(margin, signatureLineY, margin + 70, signatureLineY); // Longer line for Student Name
+    // Student Signature
+    doc.line(margin, signatureLineY, margin + 70, signatureLineY); 
     doc.setFontSize(7).text('Student\'s Signature over Printed Name', margin, signatureLineY + 4);
 
-    // --- Released By (Right Side - Below Account Box) ---
+    // Released By
     const releaseName = 'MIKAELLA JANE REMOTO'; 
     const releaseTitle = 'Finance Officer';
+    const releaseX = pageWidth - margin; 
     
-    const releaseX = pageWidth - margin; // Right margin position
-    
-    // Right alignment for the Release By block
     doc.setFontSize(8).text('RELEASED BY:', releaseX, finalY2 + signatureStartOffset + 5, { align: 'right' }); 
     doc.line(releaseX - 40, signatureLineY, releaseX, signatureLineY); 
-    
     doc.setFontSize(9).setFont('helvetica', 'bold').text(releaseName, releaseX, signatureLineY - 0.5, { align: 'right' }); 
     doc.setFontSize(8).setFont('helvetica', 'normal').text(releaseTitle, releaseX, signatureLineY + 3.5, { align: 'right' }); 
 
-    // Call the updated function to draw the second page (Personal Data)
     drawStudentPersonalDetails();
 
     doc.save(`COR_${student.last_name}_${student.school_year}.pdf`);

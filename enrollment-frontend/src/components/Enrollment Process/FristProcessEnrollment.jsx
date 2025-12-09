@@ -125,7 +125,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
   ];
 
   // Step 2 dropdown options
-  const schoolYears = ['2024-2025', '2025-2026'];
+  const schoolYears = ['2024-2025', '2025-2026', '2026-2027'];
   const semesters = ['1st Semester', '2nd Semester', 'Summer'];
   const genders = ['Male', 'Female'];
   const [formErrors, setFormErrors] = useState({});
@@ -142,7 +142,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
         return ['1st Year', '2nd Year', '3rd Year', '4th Year'];
       case 'Diploma':
       default:
-        return ['1st Year', '2nd Year', '1st Year Summer', '2nd Year Summer'];
+        return ['1st Year', '2nd Year', '3rd Year', '1st Year Summer', '2nd Year Summer'];
     }
   };
 
