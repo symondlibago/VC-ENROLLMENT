@@ -38,7 +38,7 @@ class EnrollmentController extends Controller
             'religion' => 'nullable|string|max:255',
             'address' => 'required|string|max:255',
             'contact_number' => 'required|string|max:255',
-            'email_address' => 'required|email|max:255',
+            'email_address' => 'required|email|max:255|unique:pre_enrolled_students,email_address',
             'father_name' => 'nullable|string|max:255',
             'father_occupation' => 'nullable|string|max:255',
             'father_contact_number' => 'nullable|string|max:255',
@@ -124,6 +124,42 @@ class EnrollmentController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Check if an email address is already taken.
+     */
+    public function checkEmailAvailability(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => 'Invalid email format'], 422);
+        }
+
+        $email = $request->input('email');
+
+        // Check in PreEnrolledStudent table
+        $existsInPreEnrolled = PreEnrolledStudent::where('email_address', $email)->exists();
+        
+        // Optional: You might also want to check the Users table to be safe
+        $existsInUsers = User::where('email', $email)->exists();
+
+        if ($existsInPreEnrolled || $existsInUsers) {
+            return response()->json([
+                'success' => true,
+                'available' => false,
+                'message' => 'This email address is already registered.'
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'available' => true,
+            'message' => 'Email address is available.'
+        ]);
     }
 
     /**
@@ -239,6 +275,56 @@ public function getPreEnrolledStudents()
         return response()->json(['success' => true, 'data' => $preEnrolledStudents]);
     } catch (\Exception $e) {
         return response()->json(['success' => false, 'message' => 'Failed to fetch pre-enrolled students', 'error' => $e->getMessage()], 500);
+    }
+}
+
+public function getPendingEnrollmentCount()
+{
+    try {
+        $user = Auth::user();
+        $query = PreEnrolledStudent::query();
+
+        // Base condition: We usually only want to count pending students, 
+        // not those who are already fully enrolled or rejected.
+        $query->where('enrollment_status', '!=', 'enrolled')
+              ->where('enrollment_status', '!=', 'rejected');
+
+        switch ($user->role) {
+            case 'Program Head':
+                // Count students waiting for Program Head approval
+                $query->whereDoesntHave('enrollmentApprovals', function ($q) {
+                    $q->where('role', 'Program Head')->where('status', 'approved');
+                });
+                break;
+
+            case 'Registrar':
+                // Count students Approved by PH but waiting for Registrar
+                $query->whereHas('enrollmentApprovals', function ($q) {
+                    $q->where('role', 'Program Head')->where('status', 'approved');
+                })->whereDoesntHave('enrollmentApprovals', function ($q) {
+                    $q->where('role', 'Registrar')->where('status', 'approved');
+                });
+                break;
+
+            case 'Cashier':
+                $query->whereHas('enrollmentApprovals', function ($q) {
+                    $q->where('role', 'Program Head')->where('status', 'approved');
+                })->whereHas('enrollmentApprovals', function ($q) {
+                    $q->where('role', 'Registrar')->where('status', 'approved');
+                })->whereDoesntHave('enrollmentApprovals', function ($q) {
+                    $q->where('role', 'Cashier')->where('status', 'approved');
+                });
+                break;
+            
+            case 'Admin':
+                break;
+        }
+
+        $count = $query->count();
+
+        return response()->json(['success' => true, 'count' => $count]);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'count' => 0]);
     }
 }
 

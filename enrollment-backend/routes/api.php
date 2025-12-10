@@ -75,6 +75,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Enrollment routes
     Route::get('enrollments', [EnrollmentController::class, 'getPreEnrolledStudents']);
+    Route::get('enrollments/pending-count', [EnrollmentController::class, 'getPendingEnrollmentCount']);
     Route::put('enrollments/{id}/details', [EnrollmentController::class, 'updateStudentDetails']);
     Route::get('/students/{student}/grades', [EnrollmentController::class, 'getStudentGrades']);
     Route::get('/id-releasing/students', [EnrollmentController::class, 'getStudentsForIdReleasing']);
@@ -150,6 +151,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('enrollments/code/{code}', [EnrollmentController::class, 'checkEnrollmentStatus']);
     Route::get('enrollments/{id}/details', [EnrollmentController::class, 'getPreEnrolledStudentDetails']);
     Route::get('enrollments/{id}', [EnrollmentController::class, 'getPreEnrolledStudentDetails']);
+    Route::post('/enrollments/check-email', [EnrollmentController::class, 'checkEmailAvailability']);
 
     // Upload Receipts
     Route::post('upload-receipts', [UploadReceiptController::class, 'store']);

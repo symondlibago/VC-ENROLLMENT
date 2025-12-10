@@ -387,94 +387,114 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
     setCurrentStep(2);
   };
 
-  const handleContinueToSubjectSetup = () => {
-    // Validate form fields
-    const errors = {};
-    const errorRefs = {};
+  // 1. ADD 'async' here
+const handleContinueToSubjectSetup = async () => {
+  // Validate form fields
+  const errors = {};
+  const errorRefs = {};
+  
+  // Required fields validation
+  const requiredFields = [
+    { key: 'firstName', label: 'First Name' },
+    { key: 'lastName', label: 'Last Name' },
+    { key: 'gender', label: 'Gender' },
+    { key: 'birthDate', label: 'Birth Date' },
+    { key: 'birthPlace', label: 'Birth Place' },
+    { key: 'nationality', label: 'Nationality' },
+    { key: 'civilStatus', label: 'Civil Status' },
+    { key: 'address', label: 'Address' },
+    { key: 'contactNumber', label: 'Contact Number' },
+    { key: 'emailAddress', label: 'Email Address' },
+    { key: 'semester', label: 'Semester' },
+    { key: 'schoolYear', label: 'School Year' },
+    { key: 'emergencyContactName', label: 'Emergency Contact Name' },
+    { key: 'emergencyContactNumber', label: 'Emergency Contact Number' },
+    { key: 'emergencyContactAddress', label: 'Emergency Contact Address' },
+    { key: 'elementary', label: 'Elementary' },
+    { key: 'juniorHighSchool', label: 'Junior High School Date Completed' },
+  ];
+  
+  // Check required fields
+  requiredFields.forEach(field => {
+    if (!formData[field.key] || (typeof formData[field.key] === 'string' && formData[field.key].trim() === '')) {
+      errors[field.key] = `${field.label} is required`;
+      errorRefs[field.key] = React.createRef();
+    }
+  });
+  
+  // Email regex validation
+  if (formData.emailAddress && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.emailAddress)) {
+    errors.emailAddress = 'Please enter a valid email address';
+    errorRefs.emailAddress = React.createRef();
+  }
+
+  // Contact number validation
+  if (formData.contactNumber && !/^[0-9+\-\s()]{7,15}$/.test(formData.contactNumber)) {
+    errors.contactNumber = 'Please enter a valid contact number';
+    errorRefs.contactNumber = React.createRef();
+  }
+  
+  // 2. CHECK CLIENT-SIDE ERRORS FIRST
+  // If there are basic errors (missing fields, bad format), STOP here. 
+  // Do not call the API yet.
+  if (Object.keys(errors).length > 0) {
+    setFormErrors(errors);
     
-    // Required fields validation
-    const requiredFields = [
-      { key: 'firstName', label: 'First Name' },
-      { key: 'lastName', label: 'Last Name' },
-      { key: 'middleName', label: 'Middle Name' },
-      { key: 'gender', label: 'Gender' },
-      { key: 'birthDate', label: 'Birth Date' },
-      { key: 'birthPlace', label: 'Birth Place' },
-      { key: 'nationality', label: 'Nationality' },
-      { key: 'civilStatus', label: 'Civil Status' },
-      { key: 'address', label: 'Address' },
-      { key: 'contactNumber', label: 'Contact Number' },
-      { key: 'emailAddress', label: 'Email Address' },
-      { key: 'semester', label: 'Semester' },
-      { key: 'schoolYear', label: 'School Year' },
-      { key: 'emergencyContactName', label: 'Emergency Contact Name' },
-      { key: 'emergencyContactNumber', label: 'Emergency Contact Number' },
-      { key: 'emergencyContactAddress', label: 'Emergency Contact Address' },
-      { key: 'elementary', label: 'Elementary' },
-      { key: 'juniorHighSchool', label: 'Junior High School Date Completed' },
-    ];
+    const firstErrorKey = Object.keys(errors)[0];
+    const errorElement = document.querySelector(`[name="${firstErrorKey}"]`) || 
+                         document.querySelector(`#${firstErrorKey}`) ||
+                         document.querySelector(`[data-field="${firstErrorKey}"]`);
     
-    // Check required fields
-    requiredFields.forEach(field => {
-      if (!formData[field.key] || formData[field.key].trim() === '') {
-        errors[field.key] = `${field.label} is required`;
-        errorRefs[field.key] = React.createRef();
+    if (errorElement) {
+      errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => {
+        errorElement.focus();
+      }, 500);
+    } else {
+      const formSection = document.querySelector('.enrollment-form-section');
+      if (formSection) {
+        formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-    });
-    
-    // Email validation
-    if (formData.emailAddress && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.emailAddress)) {
-      errors.emailAddress = 'Please enter a valid email address';
-      errorRefs.emailAddress = React.createRef();
     }
     
-    // Contact number validation (simple check for now)
-    if (formData.contactNumber && !/^[0-9+\-\s()]{7,15}$/.test(formData.contactNumber)) {
-      errors.contactNumber = 'Please enter a valid contact number';
-      errorRefs.contactNumber = React.createRef();
-    }
+    setValidationErrorMessage('Please correct the errors in the form before proceeding.');
+    setShowValidationErrorModal(true);
+    return; 
+  }
+
+  // 3. SERVER-SIDE CHECK (Only runs if client-side passed)
+  try {
+    // Optional: You can set a loading state here if you want (e.g., setIsLoading(true))
     
-    // If there are errors, display them and scroll to the first error
-    if (Object.keys(errors).length > 0) {
-      // Set form errors
-      setFormErrors(errors);
+    const response = await enrollmentAPI.checkEmail(formData.emailAddress);
+    
+    if (!response.available) {
+      // If email is taken, set error and stop
+      const emailError = { emailAddress: 'This email address is already registered.' };
+      setFormErrors(prev => ({ ...prev, ...emailError }));
       
-      // Get the first error field key
-      const firstErrorKey = Object.keys(errors)[0];
-      
-      // Find the input element for the first error
-      const errorElement = document.querySelector(`[name="${firstErrorKey}"]`) || 
-                           document.querySelector(`#${firstErrorKey}`) ||
-                           document.querySelector(`[data-field="${firstErrorKey}"]`);
-      
-      // If element found, scroll to it smoothly
-      if (errorElement) {
-        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Focus on the element after scrolling
-        setTimeout(() => {
-          errorElement.focus();
-        }, 500);
-      } else {
-        // If specific element not found, scroll to the form section
-        const formSection = document.querySelector('.enrollment-form-section');
-        if (formSection) {
-          formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+      // Scroll to email field
+      const emailElement = document.querySelector(`[name="emailAddress"]`);
+      if (emailElement) {
+        emailElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        emailElement.focus();
       }
-      
-      // Show validation error modal instead of alert
-      setValidationErrorMessage('Please correct the errors in the form before proceeding.');
+
+      setValidationErrorMessage('The email address you entered is already associated with an existing account.');
       setShowValidationErrorModal(true);
-      
-      return;
+      return; // STOP here
     }
-    
-    // Clear any previous errors
-    setFormErrors({});
-    
-    // If validation passes, proceed to next step
-    setCurrentStep(3);
-  };
+  } catch (error) {
+    console.error('Email check failed:', error);
+    // Optional: Handle API failure (e.g., allow them to proceed or show a "Network Error")
+  } finally {
+      // setIsLoading(false);
+  }
+  
+  // 4. CLEAR ERRORS AND PROCEED
+  setFormErrors({});
+  setCurrentStep(3);
+};
   
   const handleContinueToReview = () => {
     setCurrentStep(4);

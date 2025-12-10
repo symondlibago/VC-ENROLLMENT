@@ -456,6 +456,15 @@ export const enrollmentAPI = {
     }
   },
 
+  checkEmail: async (email) => {
+    try {
+      const response = await api.post('/enrollments/check-email', { email });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to check email' };
+    }
+  },
+
   submitApproval: async (studentId, { status, remarks, roleName }) => {
     const response = await api.post(`/enrollments/${studentId}/approval`, {
         status,
@@ -480,6 +489,16 @@ export const enrollmentAPI = {
       return response.data;
     } catch (error) {
       throw error.response?.data || { success: false, message: 'Failed to fetch pre-enrolled students' };
+    }
+  },
+
+  getPendingCount: async () => {
+    try {
+      const response = await api.get('/enrollments/pending-count');
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch enrollment count', error);
+      return { count: 0 };
     }
   },
 
