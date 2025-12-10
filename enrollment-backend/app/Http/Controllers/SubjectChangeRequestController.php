@@ -4,38 +4,45 @@ namespace App\Http\Controllers;
 use App\Models\PreEnrolledStudent;
 use App\Models\Subject;
 use App\Models\SubjectChangeRequest;
+use App\Models\SubjectChangeRequestItem; // Added for completeness if needed by store()
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class SubjectChangeRequestController extends Controller {
-    // 1. Search for students (for the search bar)
+    
+    // 1. Search for students (Updated to include Pending/Evaluating students)
     public function searchStudents(Request $request) {
-        $query = PreEnrolledStudent::with('course')
-            ->where('enrollment_status', 'enrolled');
+        // REMOVED: ->where('enrollment_status', 'enrolled')
+        // This allows searching for any student record regardless of status
+        $query = PreEnrolledStudent::with('course');
 
         if ($request->has('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('student_id_number', 'like', "%{$search}%")
                   ->orWhere('first_name', 'like', "%{$search}%")
-                  ->orWhere('last_name', 'like', "%{$search}%");
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  // Added concatenation search for better full name matching
+                  ->orWhere(DB::raw("CONCAT(first_name, ' ', last_name)"), 'like', "%{$search}%")
+                  ->orWhere(DB::raw("CONCAT(last_name, ', ', first_name)"), 'like', "%{$search}%");
             });
         }
+        
         $students = $query->take(10)->get();
         return response()->json(['success' => true, 'data' => $students]);
     }
 
     // 2. Get details for a selected student (enrolled & available subjects)
-    public function getStudentSubjectDetails($studentId) // Remove Request $request
+    public function getStudentSubjectDetails($studentId) 
     {
         $student = PreEnrolledStudent::findOrFail($studentId);
         
-        // This remains the same, gets all enrolled subjects
+        // This gets subjects currently attached to the student (works for Pending students too)
         $enrolledSubjects = $student->subjects()->get();
         $enrolledSubjectIds = $enrolledSubjects->pluck('id');
 
-        // This part changes: remove the query filters to get ALL available subjects
+        // Get all available subjects for the course that aren't already taken
         $availableSubjects = Subject::where('course_id', $student->course_id)
                                           ->whereNotIn('id', $enrolledSubjectIds)
                                           ->orderBy('year')
@@ -63,8 +70,10 @@ class SubjectChangeRequestController extends Controller {
         
         try {
             DB::beginTransaction();
+            // Default status is 'pending_program_head'
             $requestModel = SubjectChangeRequest::create([
-                'pre_enrolled_student_id' => $validated['student_id']
+                'pre_enrolled_student_id' => $validated['student_id'],
+                'status' => 'pending_program_head' 
             ]);
 
             foreach ($validated['subjects_to_add'] ?? [] as $subjectId) {
@@ -100,21 +109,23 @@ class SubjectChangeRequestController extends Controller {
             'remarks' => 'nullable|string|max:1000',
         ]);
 
-        // Eager load the student relationship to perform the shiftee check efficiently
         $changeRequest = SubjectChangeRequest::with('student')->findOrFail($id);
         $user = Auth::user();
         $newStatus = null;
 
         // Approval Logic
         if ($validated['status'] === 'approved') {
-            if ($user->role === 'Program Head' && $changeRequest->status === 'pending_program_head') {
+            // Admin override to approve immediately
+            if ($user->role === 'Admin') {
+                $newStatus = 'approved';
+            }
+            elseif ($user->role === 'Program Head' && $changeRequest->status === 'pending_program_head') {
                 $changeRequest->processed_by_program_head = $user->id;
 
-                // Check if the student is a shiftee. If so, approve directly.
                 if ($changeRequest->student->isShiftee()) {
-                    $newStatus = 'approved'; // Shiftee request is auto-approved after Program Head
+                    $newStatus = 'approved'; 
                 } else {
-                    $newStatus = 'pending_cashier'; // Non-shiftee goes to Cashier for next step
+                    $newStatus = 'pending_cashier'; 
                 }
 
             } elseif ($user->role === 'Cashier' && $changeRequest->status === 'pending_cashier') {
@@ -130,7 +141,6 @@ class SubjectChangeRequestController extends Controller {
             $changeRequest->status = $newStatus;
             $changeRequest->save();
 
-            // If finally approved, apply the changes to the student_subject table
             if ($newStatus === 'approved') {
                 $this->applySubjectChanges($changeRequest);
             }
@@ -141,19 +151,19 @@ class SubjectChangeRequestController extends Controller {
     }
 
     private function applySubjectChanges(SubjectChangeRequest $changeRequest)
-{
-    $student = $changeRequest->student;
-    $items = $changeRequest->items;
+    {
+        $student = $changeRequest->student;
+        $items = $changeRequest->items;
 
-    $subjectsToAdd = $items->where('action', 'add')->pluck('subject_id');
-    $subjectsToDrop = $items->where('action', 'drop')->pluck('subject_id');
+        $subjectsToAdd = $items->where('action', 'add')->pluck('subject_id');
+        $subjectsToDrop = $items->where('action', 'drop')->pluck('subject_id');
 
-    $student->subjects()->attach($subjectsToAdd);
-    $student->subjects()->detach($subjectsToDrop);
+        $student->subjects()->attach($subjectsToAdd);
+        $student->subjects()->detach($subjectsToDrop);
 
-    if ($subjectsToDrop->isNotEmpty()) {
-        $student->academic_status = 'Irregular';
-        $student->save();
+        if ($subjectsToDrop->isNotEmpty()) {
+            $student->academic_status = 'Irregular';
+            $student->save();
+        }
     }
-}
 }
