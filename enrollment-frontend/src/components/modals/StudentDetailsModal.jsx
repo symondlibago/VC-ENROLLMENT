@@ -639,9 +639,9 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                         <tr>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
                           <th className="w-2/5 px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descriptive Title</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Units</th>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lec Hrs</th>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lab Hrs</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Units</th>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Schedule (Day / Time / Room)</th>
                           {canCreditSubjects && (
                             <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Credit</th>
@@ -656,9 +656,9 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                             <tr key={subject.id}>
                               <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.subject_code}</td>
                               <td className="px-4 py-2 whitespace-normal wrap-break-word text-sm">{subject.descriptive_title}</td>
-                              <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.total_units}</td>
                               <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lec_hrs || 0}</td>
                               <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lab_hrs || 0}</td>
+                              <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.total_units}</td>
                               <td className="px-4 py-2 whitespace-pre-wrap text-xs">
                                 {subject.schedules && subject.schedules.length > 0
                                   ? subject.schedules.map(s => `${s.day || 'TBA'} / ${s.time || 'TBA'} / ${s.room_no || 'TBA'}`).join('\n')
@@ -684,9 +684,9 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                       <tfoot className="bg-gray-50 border-t-2 border-gray-300">
                         <tr>
                           <td colSpan="2" className="px-4 py-3 text-right text-sm font-bold text-gray-700 uppercase">Totals:</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">{subjectTotals.units.toFixed(2)}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">{subjectTotals.lec.toFixed(2)}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">{subjectTotals.lab.toFixed(2)}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">{subjectTotals.units.toFixed(2)}</td>
                           <td className="px-4 py-3"></td>
                           {canCreditSubjects && (<td className="px-4 py-3"></td>)}
                         </tr>
