@@ -31,6 +31,8 @@ class PreEnrolledStudent extends Model
         'address', 
         'contact_number', 
         'email_address', 
+        'fb_acc',
+        'fb_description',
         'father_name', 
         'father_occupation',
         'father_contact_number', 

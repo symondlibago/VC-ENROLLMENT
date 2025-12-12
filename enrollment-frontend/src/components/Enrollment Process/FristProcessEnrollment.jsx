@@ -80,6 +80,8 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
     address: '',
     contactNumber: '',
     emailAddress: '',
+    fbAcc: '',
+    fbDescription: '',
     
     // Parent Information
     fatherName: '',
@@ -249,6 +251,8 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
       formDataObj.append('address', formData.address);
       formDataObj.append('contact_number', formData.contactNumber);
       formDataObj.append('email_address', formData.emailAddress);
+      formDataObj.append('fb_acc', formData.fbAcc || '');
+      formDataObj.append('fb_description', formData.fbDescription || '');
       formDataObj.append('father_name', formData.fatherName || '');
       formDataObj.append('father_occupation', formData.fatherOccupation || '');
       formDataObj.append('father_contact_number', formData.fatherContactNumber || '');
@@ -1261,6 +1265,44 @@ const handleContinueToSubjectSetup = async () => {
                   </div>
                 </div>
 
+                {/* Social Media Information */}
+<div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl p-4 border border-blue-200 mb-4">
+  <h3 className="text-lg font-bold heading-bold text-gray-900 mb-4">Social Media Reference</h3>
+  
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
+        Facebook Account (Link or Name)
+      </label>
+      <input
+        type="text"
+        placeholder="e.g., https://facebook.com/juan.delacruz"
+        value={formData.fbAcc}
+        onChange={(e) => handleFormDataChange('fbAcc', e.target.value)}
+        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+        name="fbAcc"
+      />
+    </div>
+    
+    <div>
+      <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
+        Facebook Description
+      </label>
+      <input
+        type="text"
+        placeholder="e.g., White dress, sideview, sea background"
+        value={formData.fbDescription}
+        onChange={(e) => handleFormDataChange('fbDescription', e.target.value)}
+        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+        name="fbDescription"
+      />
+      <p className="text-xs text-gray-500 mt-1 ml-1">
+        Please describe your profile picture to help us verify your account.
+      </p>
+    </div>
+  </div>
+</div>
+
                 {/* Parent Information */}
                 <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-2xl p-4 border border-purple-200">
                   <h3 className="text-lg font-bold heading-bold text-gray-900 mb-4">Parent Information</h3>
@@ -2061,6 +2103,14 @@ const handleContinueToSubjectSetup = async () => {
                       <label className="text-xs font-bold text-gray-600">Email Address</label>
                       <p className="text-base font-semibold text-gray-900">{formData.emailAddress || 'Not provided'}</p>
                     </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                    <label className="text-xs font-bold text-gray-600">Facebook Account</label>
+                    <p className="text-base font-semibold text-gray-900">{formData.fbAcc || 'Not provided'}</p>
+                  </div>
+                  <div className="bg-white rounded-xl p-3 shadow-sm col-span-full">
+                    <label className="text-xs font-bold text-gray-600">FB Description</label>
+                    <p className="text-base font-semibold text-gray-900">{formData.fbDescription || 'Not provided'}</p>
+                  </div>
                   </div>
                 </div>
 

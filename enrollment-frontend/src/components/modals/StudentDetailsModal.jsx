@@ -602,6 +602,20 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                   <div><p className="text-sm text-gray-500">Civil Status</p><p className="font-medium">{student.civil_status}</p></div>
                   <div><p className="text-sm text-gray-500">Religion</p><p className="font-medium">{student.religion || 'Not specified'}</p></div>
                   <div><p className="text-sm text-gray-500">Address</p><p className="font-medium">{student.address}</p></div>
+                  <div>
+                  <p className="text-sm text-gray-500">Facebook Account</p>
+                  <p className="font-medium text-blue-600">
+                    {student.fb_acc ? (
+                      <a href={student.fb_acc.startsWith('http') ? student.fb_acc : `https://facebook.com/search/top?q=${encodeURIComponent(student.fb_acc)}`} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                        {student.fb_acc}
+                      </a>
+                    ) : 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">FB Profile Description</p>
+                  <p className="font-medium italic text-gray-700">{student.fb_description || 'N/A'}</p>
+                </div>
                 </div>
               </div>
 

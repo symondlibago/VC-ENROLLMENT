@@ -39,6 +39,8 @@ class EnrollmentController extends Controller
             'address' => 'required|string|max:255',
             'contact_number' => 'required|string|max:255',
             'email_address' => 'required|email|max:255|unique:pre_enrolled_students,email_address',
+            'fb_acc' => 'nullable|string|max:255',
+            'fb_description' => 'nullable|string|max:1000',
             'father_name' => 'nullable|string|max:255',
             'father_occupation' => 'nullable|string|max:255',
             'father_contact_number' => 'nullable|string|max:255',
@@ -621,6 +623,8 @@ public function updateStudentDetails(Request $request, $id)
             'address' => 'required|string|max:255',
             'contact_number' => 'required|string|max:255',
             'email_address' => 'required|email|max:255|unique:pre_enrolled_students,email_address,' . $student->id,
+            'fb_acc' => 'nullable|string|max:255',
+            'fb_description' => 'nullable|string|max:1000',
             
             // Parent Info
             'father_name' => 'nullable|string|max:255',
