@@ -67,6 +67,7 @@ class EnrollmentController extends Controller
             'school_year' => 'required|string|max:255',
             'year' => 'required|string|max:255',
             'enrollment_type' => 'required|string|max:255',
+            'scholarship' => 'nullable|string|max:255',
             'selected_subjects' => 'required|array',
             'selected_subjects.*' => 'exists:subjects,id',
         ]);
@@ -625,6 +626,7 @@ public function updateStudentDetails(Request $request, $id)
             'email_address' => 'required|email|max:255|unique:pre_enrolled_students,email_address,' . $student->id,
             'fb_acc' => 'nullable|string|max:255',
             'fb_description' => 'nullable|string|max:1000',
+            'scholarship' => 'nullable|string|max:255',
             
             // Parent Info
             'father_name' => 'nullable|string|max:255',

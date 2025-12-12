@@ -59,6 +59,7 @@ class PreEnrolledStudent extends Model
         'school_year', 
         'year', 
         'enrollment_type', 
+        'scholarship',
         'enrollment_status',
         'id_status', 
         'id_printed_at',

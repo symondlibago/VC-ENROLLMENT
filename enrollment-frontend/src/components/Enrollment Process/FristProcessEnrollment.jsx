@@ -65,6 +65,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
     // Basic Information
     course: '',
     courseProgram: '',
+    scholarship: '',
     year: '',
     semester: '',
     schoolYear: '',
@@ -277,6 +278,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
       formDataObj.append('school_year', formData.schoolYear);
       formDataObj.append('year', formData.year);
       formDataObj.append('enrollment_type', enrollmentType);
+      formDataObj.append('scholarship', formData.scholarship || '');
       
       // Add the selected subjects as an array
       // Use the correct format for arrays in FormData
@@ -877,7 +879,7 @@ const handleContinueToSubjectSetup = async () => {
                 <div className="bg-[#FFFAFA] rounded-2xl p-4 border border-black-200 shadow-md">
                   <h3 className="text-lg font-bold heading-bold text-gray-900 mb-4">Academic Information</h3>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
                         Semester
@@ -1012,6 +1014,19 @@ const handleContinueToSubjectSetup = async () => {
                         </AnimatePresence>
                       </div>
                     </div>
+                    <div>
+                  <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
+                    Scholarship (If Applicable)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g., CHED, UniFAST"
+                    value={formData.scholarship}
+                    onChange={(e) => handleFormDataChange('scholarship', e.target.value)}
+                    className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm font-semibold"
+                    name="scholarship"
+                  />
+                </div>
                   </div>
                 </div>
 
@@ -2047,6 +2062,12 @@ const handleContinueToSubjectSetup = async () => {
                       <label className="text-xs font-bold text-gray-600">Enrollment Type</label>
                       <p className="text-base font-semibold text-gray-900">{enrollmentType || 'NEW'}</p>
                     </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                    <label className="text-xs font-bold text-gray-600">Scholarship</label>
+                    <p className="text-base font-semibold text-blue-600">
+                      {formData.scholarship || 'None'}
+                    </p>
+                  </div>
                     <div className="bg-white rounded-xl p-3 shadow-sm">
                       <label className="text-xs font-bold text-gray-600">School Year</label>
                       <p className="text-base font-semibold text-gray-900">{formData.schoolYear || 'Not selected'}</p>

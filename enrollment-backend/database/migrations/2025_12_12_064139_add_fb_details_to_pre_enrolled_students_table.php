@@ -12,6 +12,7 @@ return new class extends Migration
             // Adding fields after email_address for logical grouping
             $table->string('fb_acc')->nullable()->after('email_address'); 
             $table->text('fb_description')->nullable()->after('fb_acc');
+            $table->string('scholarship')->nullable()->after('enrollment_type');
         });
     }
 
