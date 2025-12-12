@@ -16,6 +16,7 @@ import {
   Hash,
   Settings2,
   ContactRound,
+  Calendar // Added Calendar Icon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -55,7 +56,7 @@ const getStatusBadgeVariant = (status) => {
     return 'bg-yellow-100 text-yellow-800 border-yellow-200'; // For pending/others
 };
 
-// Custom Framer Motion Dropdown Component (No changes)
+// Custom Framer Motion Dropdown Component
 const MotionDropdown = ({ value, onChange, options, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOption, setSelectedOption] = useState(
@@ -72,7 +73,6 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
     setIsOpen(false);
   };
 
-
   return (
     <div className="relative">
       <motion.button
@@ -82,12 +82,12 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
       >
-        <span className="text-gray-900">{selectedOption.label}</span>
+        <span className="text-gray-900 truncate pr-4">{selectedOption.label}</span>
         <motion.div
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ duration: 0.2 }}
         >
-          <ChevronDown className="w-4 h-4 text-gray-500" />
+          <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />
         </motion.div>
       </motion.button>
       <AnimatePresence>
@@ -97,7 +97,7 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-            className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden"
+            className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden max-h-60 overflow-y-auto"
           >
             {options.map((option, index) => (
               <motion.button
@@ -120,7 +120,6 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
 const Students = () => {
   const [activeView, setActiveView] = useState('sections');
   const [loading, setLoading] = useState(true);
-
 
   // Data states
   const [sections, setSections] = useState([]);
@@ -149,8 +148,11 @@ const Students = () => {
   // Filter & Search states
   const [searchTerm, setSearchTerm] = useState('');
   const [sectionCourseFilter, setSectionCourseFilter] = useState('all');
+  
+  // --- Student Specific Filters ---
   const [studentCourseFilter, setStudentCourseFilter] = useState('all');
   const [studentSectionFilter, setStudentSectionFilter] = useState('all');
+  const [studentYearFilter, setStudentYearFilter] = useState('all'); // ✅ Added Year Filter State
 
   const currentUser = authAPI.getUserData();
 
@@ -309,7 +311,6 @@ const Students = () => {
     setIsEditModalOpen(true);
   };
   
-  // NEW: Handler for viewing student details
   const handleViewStudentDetails = (studentId) => {
     setSelectedStudentId(studentId);
     setIsViewDetailsModalOpen(true);
@@ -319,18 +320,7 @@ const Students = () => {
     fetchData(); 
   };
   
-  // Memoized data for performance (no changes here)
-  const stats = useMemo(() => [
-    { title: 'Total Sections', value: sections.length.toString(), icon: BookOpen, color: 'text-blue-600', bgColor: 'bg-blue-50' },
-    { title: 'Enrolled Students', value: enrolledStudents.length.toString(), icon: Users, color: 'text-green-600', bgColor: 'bg-green-50' },
-    { title: 'Total Courses', value: courses.length.toString(), icon: GraduationCap, color: 'text-[var(--dominant-red)]', bgColor: 'bg-red-50' },
-    { title: 'Empty Sections', value: sections.filter(s => s.students_count === 0).length.toString(), icon: UserPlus, color: 'text-purple-600', bgColor: 'bg-purple-50' }
-  ], [sections, enrolledStudents, courses]);
-  
-  const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
-  const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
-  const pageVariants = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -20 } };
-
+  // Filter Logic for Sections
   const filteredSections = useMemo(() => sections.filter(section => {
     const courseName = section.course?.course_name || '';
     const matchesSearch = section.name.toLowerCase().includes(searchTerm.toLowerCase()) || courseName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -338,17 +328,60 @@ const Students = () => {
     return matchesSearch && matchesFilter;
   }), [sections, searchTerm, sectionCourseFilter]);
   
+  // ✅ UPDATED: Filter Logic for Students (Now includes Year Level)
   const filteredStudents = useMemo(() => enrolledStudents.filter(student => {
     const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     student.academic_status.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (student.student_id_number && student.student_id_number.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const courseMatch = studentCourseFilter === 'all' || student.courseId?.toString() === studentCourseFilter;
+    
     const sectionMatch = studentSectionFilter === 'all' || 
                               (studentSectionFilter === 'unassigned' && !student.sectionId) || 
                               (student.sectionId?.toString() === studentSectionFilter);
-    return matchesSearch && courseMatch && sectionMatch;
-  }), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter]);
+
+    const yearMatch = studentYearFilter === 'all' || student.year === studentYearFilter;
+
+    return matchesSearch && courseMatch && sectionMatch && yearMatch;
+  }), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter, studentYearFilter]);
+
+  // ✅ UPDATED: Stats (Dynamic based on active view and filters)
+  const stats = useMemo(() => [
+    { 
+        title: 'Total Sections', 
+        value: sections.length.toString(), 
+        icon: BookOpen, 
+        color: 'text-blue-600', 
+        bgColor: 'bg-blue-50' 
+    },
+    { 
+        title: 'Enrolled Students', 
+        // ✅ Logic Change: If in Student view, show filtered count. Else show total.
+        value: activeView === 'students' ? filteredStudents.length.toString() : enrolledStudents.length.toString(), 
+        icon: Users, 
+        color: 'text-green-600', 
+        bgColor: 'bg-green-50' 
+    },
+    { 
+        title: 'Total Courses', 
+        value: courses.length.toString(), 
+        icon: GraduationCap, 
+        color: 'text-[var(--dominant-red)]', 
+        bgColor: 'bg-red-50' 
+    },
+    { 
+        title: 'Empty Sections', 
+        value: sections.filter(s => s.students_count === 0).length.toString(), 
+        icon: UserPlus, 
+        color: 'text-purple-600', 
+        bgColor: 'bg-purple-50' 
+    }
+  ], [sections, enrolledStudents, courses, filteredStudents, activeView]);
+  
+  const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
+  const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
+  const pageVariants = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -20 } };
+
 
   if (loading) {
     return <div className="flex justify-center items-center h-full"><LoadingSpinner size="lg" color="red" /></div>;
@@ -396,11 +429,20 @@ const Students = () => {
                 onAddSectionClick={handleAddSectionClick} onEditClick={handleEditSectionClick} onDeleteClick={handleDeleteSectionClick}
               />
             : <StudentPage 
-                students={filteredStudents} sections={sections} courses={courses} searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm} courseFilter={studentCourseFilter} setCourseFilter={setStudentCourseFilter}
-                sectionFilter={studentSectionFilter} setSectionFilter={setStudentSectionFilter}
+                students={filteredStudents} 
+                sections={sections} 
+                courses={courses} 
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm} 
+                courseFilter={studentCourseFilter} 
+                setCourseFilter={setStudentCourseFilter}
+                sectionFilter={studentSectionFilter} 
+                setSectionFilter={setStudentSectionFilter}
+                // ✅ Pass new Year Filter Props
+                yearFilter={studentYearFilter}
+                setYearFilter={setStudentYearFilter}
                 onEditStudent={handleEditStudent}
-                onViewStudentDetails={handleViewStudentDetails} // Pass the new handler
+                onViewStudentDetails={handleViewStudentDetails}
                 currentUser={currentUser} 
               />
           }
@@ -428,7 +470,6 @@ const Students = () => {
           studentId={selectedStudentId} onUpdateSuccess={handleUpdateSuccess}
         />
       )}
-      {/* NEW: Render the new modal */}
       {isViewDetailsModalOpen && (
         <ViewStudentFullDetailsModal
             isOpen={isViewDetailsModalOpen}
@@ -447,7 +488,6 @@ const Students = () => {
 
 // Sub-component for Sections View (No changes)
 const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, onSectionClick, onAddSectionClick, onEditClick, onDeleteClick }) => {
-    // ... (no changes in this component)
     const courseOptions = useMemo(() => [
       { label: 'Filter by All Courses', value: 'all' },
       ...courses.map(course => ({ label: course.course_code, value: course.id.toString() }))
@@ -523,18 +563,45 @@ const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilte
 };
 
 // Sub-component for Students View
-const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter, onEditStudent, onViewStudentDetails, currentUser }) => {
-    // ... (no changes in this section)
+// ✅ UPDATED: Received new props for Year filtering
+const StudentPage = ({ 
+    students, 
+    sections, 
+    courses, 
+    searchTerm, 
+    setSearchTerm, 
+    courseFilter, 
+    setCourseFilter, 
+    sectionFilter, 
+    setSectionFilter, 
+    yearFilter,         // New Prop
+    setYearFilter,      // New Prop
+    onEditStudent, 
+    onViewStudentDetails, 
+    currentUser 
+}) => {
+    
     const courseOptions = useMemo(() => [
-      { label: 'Filter by All Courses', value: 'all' },
+      { label: 'All Courses', value: 'all' },
       ...courses.map(course => ({ label: course.course_code, value: course.id.toString() }))
     ], [courses]);
   
     const sectionOptions = useMemo(() => [
-      { label: 'Filter by All Sections', value: 'all' },
-      { label: 'Filter by Unassigned', value: 'unassigned' },
+      { label: 'All Sections', value: 'all' },
+      { label: 'Unassigned', value: 'unassigned' },
       ...sections.map(section => ({ label: section.name, value: section.id.toString() }))
     ], [sections]);
+
+    // ✅ New Options for Year Level
+    const yearOptions = [
+        { label: 'All Year Levels', value: 'all' },
+        { label: '1st Year', value: '1st Year' },
+        { label: '2nd Year', value: '2nd Year' },
+        { label: '3rd Year', value: '3rd Year' },
+        { label: '4th Year', value: '4th Year' },
+        { label: '1st Year Summer', value: '1st Year Summer' },
+        { label: '2nd Year Summer', value: '2nd Year Summer' },
+    ];
     
     const canEdit = currentUser.role === 'Admin' || currentUser.role === 'Registrar';
   
@@ -542,19 +609,25 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
       <div className="space-y-6">
         <Card>
           <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-              <div className="flex-1 w-full">
+            <div className="flex flex-col gap-4">
+              {/* Search Bar */}
+              <div className="w-full">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input placeholder="Search students by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border border-gray-300 focus:border-red-800 focus:ring-1 focus:ring-red-800 rounded-lg"/>
                 </div>
               </div>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative w-full sm:w-auto">
-                  <MotionDropdown value={courseFilter} onChange={setCourseFilter} options={courseOptions} placeholder="Filter by All Courses"/>
+
+              {/* Filters Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="relative">
+                  <MotionDropdown value={courseFilter} onChange={setCourseFilter} options={courseOptions} placeholder="Filter by Course"/>
                 </div>
-                <div className="relative w-full sm:w-auto">
-                  <MotionDropdown value={sectionFilter} onChange={setSectionFilter} options={sectionOptions} placeholder="Filter by All Sections"/>
+                <div className="relative">
+                   <MotionDropdown value={yearFilter} onChange={setYearFilter} options={yearOptions} placeholder="Filter by Year Level"/>
+                </div>
+                <div className="relative">
+                  <MotionDropdown value={sectionFilter} onChange={setSectionFilter} options={sectionOptions} placeholder="Filter by Section"/>
                 </div>
               </div>
             </div>
@@ -567,9 +640,9 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
     <TableHead><div className="flex items-center gap-2"><Hash size={16} />Student ID</div></TableHead>
     <TableHead><div className="flex items-center gap-2"><User size={16} />Name</div></TableHead>
     <TableHead><div className="flex items-center gap-2"><GraduationCap size={16} />Course</div></TableHead>
-    <TableHead><div className="flex items-center gap-2"><FileText size={16} />Status</div></TableHead>
+    <TableHead><div className="flex items-center gap-2"><Calendar size={16} />Year</div></TableHead>
     <TableHead><div className="flex items-center gap-2"><Users size={16} />Section</div></TableHead>
-    <TableHead><div className="flex items-center gap-2"><BookOpen size={16} />Academic Status</div></TableHead>
+    <TableHead><div className="flex items-center gap-2"><BookOpen size={16} />Status</div></TableHead>
     <TableHead className="text-right"><div className="flex items-center justify-end gap-2"><Settings2 size={16} />Action</div></TableHead>
       </TableRow>
         </TableHeader>
@@ -577,7 +650,6 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
     {students.length > 0 ? students.map(student => (
       <TableRow key={student.id}>
         <TableCell className="font-medium">
-          {/* ✅ 2. STANDARDIZED cell layout for alignment */}
           <div className="flex items-center gap-2">
             <Hash size={14} className="text-gray-500" />
             <p className="font-mono text-gray-900">{student.student_id_number}</p>
@@ -595,13 +667,11 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
             <p className="text-gray-900">{student.courseName}</p>
           </div>
         </TableCell>
+        {/* Added Year Column to see the effect of filtering */}
         <TableCell>
-           <Badge className={`${getStatusBadgeVariant(student.enrollment_status)} hover:bg-opacity-80`}>
-              {student.enrollment_status || 'Pending'}
-           </Badge>
+             <Badge variant="outline" className="bg-gray-50">{student.year}</Badge>
         </TableCell>
         <TableCell>
-           {/* ✅ 3. ADDED icon to Section cell to match the header */}
           <div className="flex items-center gap-2">
             <Users size={14} className="text-gray-500" />
             <Badge variant={student.sectionName === 'Unassigned' ? "destructive" : "secondary"}>
@@ -610,7 +680,6 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
           </div>
         </TableCell>
         <TableCell>
-        {/* ✅ --- UPDATED BADGE STYLING --- */}
         <Badge 
           variant={
             student.academic_status === 'Irregular' ? "destructive" :
@@ -648,7 +717,7 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
           </DropdownMenu>
         </TableCell>
       </TableRow>
-    )) : <TableRow><TableCell colSpan="5" className="text-center h-24">No students found.</TableCell></TableRow>}
+    )) : <TableRow><TableCell colSpan="7" className="text-center h-24">No students found matching filters.</TableCell></TableRow>}
   </TableBody>
 </Table>
         </Card>
