@@ -400,4 +400,65 @@ public function bulkUpdateGrades(Request $request)
         $instructor->delete();
         return response()->json(['success' => true, 'message' => 'Instructor deleted successfully']);
     }
+
+    /**
+     * ADMIN ONLY: Get the roster for a specific instructor.
+     */
+    public function getInstructorRoster($instructorId)
+    {
+        // Find the instructor
+        $instructor = Instructor::findOrFail($instructorId);
+
+        // Reuse the logic from getRoster, but strictly filter by this instructor ID
+        $schedules = Schedule::with('subject.students')
+                             ->where('instructor_id', $instructor->id)
+                             ->get();
+
+        $rosterBySubject = [];
+        foreach ($schedules as $schedule) {
+            if ($schedule->subject) {
+                $subjectId = $schedule->subject->id;
+
+                if (!isset($rosterBySubject[$subjectId])) {
+                    $rosterBySubject[$subjectId] = [
+                        'subject_code' => $schedule->subject->subject_code,
+                        'descriptive_title' => $schedule->subject->descriptive_title,
+                        'schedule_time' => $schedule->day . ' ' . $schedule->time,
+                        'room' => $schedule->room_no,
+                        'students' => []
+                    ];
+                }
+
+                // Get students enrolled in this specific subject
+                $enrolledStudents = $schedule->subject->students()
+                    ->where('enrollment_status', 'enrolled')
+                    ->where('academic_status', '!=', 'Withdraw')
+                    ->get();
+
+                foreach ($enrolledStudents as $student) {
+                    // Prevent duplicate students if multiple sections exist (though rare for same subject/instructor)
+                    if (!isset($rosterBySubject[$subjectId]['students'][$student->id])) {
+                        $rosterBySubject[$subjectId]['students'][$student->id] = [
+                            'student_id' => $student->student_id_number,
+                            'name' => $student->getFullNameAttribute(),
+                            'course' => $student->course->course_code ?? 'N/A',
+                            'year' => $student->year,
+                            'gender' => $student->gender
+                        ];
+                    }
+                }
+            }
+        }
+
+        // Clean up array keys for JSON
+        $data = array_values(array_map(function($subject) {
+            $subject['students'] = array_values($subject['students']);
+            return $subject;
+        }, $rosterBySubject));
+
+        return response()->json(['success' => true, 'data' => $data]);
+    }
 }
+
+
+

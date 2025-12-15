@@ -61,6 +61,10 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData, termPayments
       doc.text('Course & Year:', margin, y);
       const courseText = `[${student.course?.course_code || 'N/A'}] ${student.course?.course_name || 'N/A'} - ${student.year || 'N/A'} (${student.enrollment_type || ''})`;
       doc.text(courseText, margin + 30, y);
+      y += 3.5; 
+      doc.text('Scholarship:', margin, y);
+      const scholarText = (student.scholarship || 'N/A');
+      doc.text(scholarText, margin + 30, y);
       return y;
     };
 

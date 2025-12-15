@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Users, UserPlus, MoreVertical, Edit, Trash2, Star, ShieldCheck } from 'lucide-react';
+// Add FileText to imports
+import { Users, UserPlus, MoreVertical, Edit, Trash2, Star, ShieldCheck, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { instructorAPI, userAPI } from '@/services/api';
+// Import jsPDF (make sure to install: npm install jspdf jspdf-autotable)
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 import AddInstructorModal from '@/components/modals/AddInstructorModal';
 import AddStaffModal from '@/components/modals/AddStaffModal';
@@ -24,6 +28,7 @@ const FacultyAdminStaff = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false); // Add exporting state
 
   const [alertState, setAlertState] = useState({ isVisible: false, message: '', type: 'success' });
 
@@ -70,7 +75,6 @@ const FacultyAdminStaff = () => {
     }
   };
   
-  // UPDATED to handle both create and edit
   const handleSaveStaff = async (formData, staffId) => {
     try {
       if (staffId) {
@@ -108,6 +112,81 @@ const FacultyAdminStaff = () => {
     }
   };
 
+  // --- NEW EXPORT FUNCTION ---
+  const handleExportRoster = async (instructor) => {
+    setIsExporting(true);
+    try {
+      // 1. Fetch data
+      const response = await instructorAPI.getSpecificRoster(instructor.id);
+      
+      if (!response.success || response.data.length === 0) {
+        showAlert('No classes or students found for this instructor.', 'error');
+        setIsExporting(false);
+        return;
+      }
+
+      const rosterData = response.data;
+      const doc = new jsPDF();
+
+      // 2. Loop through subjects and create pages
+      rosterData.forEach((subject, index) => {
+        if (index > 0) {
+          doc.addPage(); // New page for each subject
+        }
+
+        // Header
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.setFontSize(16);
+        doc.setTextColor(0);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Instructor: ${instructor.name}`, 14, 25);
+        
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Subject: ${subject.subject_code} - ${subject.descriptive_title}`, 14, 33);
+        doc.text(`Schedule: ${subject.schedule_time || 'TBA'} | Room: ${subject.room || 'TBA'}`, 14, 39);
+
+        // Table Data
+        const tableRows = subject.students.map((student, i) => [
+          i + 1,
+          student.student_id,
+          student.name,
+          student.course,
+          student.year,
+          student.gender
+        ]);
+
+        // Generate Table
+        autoTable(doc, {
+          startY: 45,
+          head: [['#', 'Student ID', 'Name', 'Course', 'Year', 'Gender']],
+          body: tableRows,
+          theme: 'grid',
+          headStyles: { fillColor: [185, 28, 28] }, // Red color to match theme
+          styles: { fontSize: 10 },
+          alternateRowStyles: { fillColor: [249, 250, 251] }
+        });
+
+        // Footer
+        const pageCount = doc.internal.getNumberOfPages();
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(`Page ${index + 1} - Generated on ${new Date().toLocaleDateString()}`, 14, doc.internal.pageSize.height - 10);
+      });
+
+      // 3. Save PDF
+      doc.save(`${instructor.name.replace(/\s+/g, '_')}_Class_Roster.pdf`);
+      showAlert('Class roster exported successfully!');
+
+    } catch (error) {
+      console.error(error);
+      showAlert('Failed to export roster.', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
   const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
   
@@ -122,7 +201,6 @@ const FacultyAdminStaff = () => {
     <>
       <SuccessAlert {...alertState} onClose={() => setAlertState({ ...alertState, isVisible: false })} />
       <AddInstructorModal isOpen={isInstructorModalOpen} onClose={() => setIsInstructorModalOpen(false)} onSave={handleSaveInstructor} instructor={selectedItem} />
-      {/* Pass selectedItem to the staff modal as the 'staff' prop */}
       <AddStaffModal isOpen={isStaffModalOpen} onClose={() => setIsStaffModalOpen(false)} onSave={handleSaveStaff} staff={selectedItem}/>
       <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleDeleteConfirm}
         title={`Delete ${activeTab === 'instructors' ? 'Faculty' : 'Staff'}`}
@@ -170,7 +248,6 @@ const FacultyAdminStaff = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
               {currentData.map((item) => (
-                /* --- FIX: Removed variants={itemVariants} from this line --- */
                 <motion.div key={item.id} whileHover={{ scale: 1.02, y: -4 }} className="liquid-hover">
                   <Card className="card-hover border-0 shadow-sm text-center">
                     <CardContent className="p-6">
@@ -179,7 +256,19 @@ const FacultyAdminStaff = () => {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="liquid-button h-8 w-8 p-0 cursor-pointer"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {/* ADDED Edit button logic */}
+                            
+                            {/* --- NEW EXPORT OPTION (Only for Instructors) --- */}
+                            {activeTab === 'instructors' && (
+                                <DropdownMenuItem 
+                                    onSelect={() => handleExportRoster(item)} 
+                                    disabled={isExporting}
+                                    className="cursor-pointer"
+                                >
+                                    <FileText className="mr-2 h-4 w-4 hover:text-white" />
+                                    {isExporting ? 'Exporting...' : 'Export Class Roster'}
+                                </DropdownMenuItem>
+                            )}
+
                             <DropdownMenuItem onSelect={() => { setSelectedItem(item); activeTab === 'instructors' ? setIsInstructorModalOpen(true) : setIsStaffModalOpen(true); }} className="cursor-pointer">
                                 <Edit className="mr-2 h-4 w-4 hover:text-white" />Edit
                             </DropdownMenuItem>

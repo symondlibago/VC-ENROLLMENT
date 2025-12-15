@@ -419,6 +419,25 @@ const handleContinueToSubjectSetup = async () => {
     { key: 'elementary', label: 'Elementary' },
     { key: 'juniorHighSchool', label: 'Junior High School Date Completed' },
   ];
+
+  if (enrollmentType === 'New') {
+    requiredFields.push(
+      { key: 'fbAcc', label: 'Facebook Account' },
+      { key: 'fbDescription', label: 'Facebook Description' }
+    );
+
+    const invalidPattern = /^(n\/?a\.?|not\s?available|none)$/i;
+
+    if (formData.fbAcc && invalidPattern.test(formData.fbAcc.trim())) {
+      errors.fbAcc = 'Please provide a valid Facebook account (N/A is not accepted).';
+      errorRefs.fbAcc = React.createRef();
+    }
+
+    if (formData.fbDescription && invalidPattern.test(formData.fbDescription.trim())) {
+      errors.fbDescription = 'Please provide a valid description (N/A is not accepted).';
+      errorRefs.fbDescription = React.createRef();
+    }
+  }
   
   // Check required fields
   requiredFields.forEach(field => {

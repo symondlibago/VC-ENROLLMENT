@@ -254,12 +254,18 @@ const ClassRoster = () => {
       </motion.div>
       
       <motion.div 
+        // Add the key prop here. When selectedSubjectId or searchTerm changes, 
+        // this component remounts, forcing the animation to play immediately.
+        key={`${selectedSubjectId}-${searchTerm}`}
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
         variants={containerVariants}
+        initial="hidden" // Ensure it starts hidden
+        animate="visible" // Ensure it triggers the visible state immediately
       >
         {filteredStudents.map((student) => (
           <motion.div key={student.id} variants={itemVariants} whileHover={{ y: -5, scale: 1.02 }}>
-            <Card className="card-hover border-0 shadow-sm h-full">
+             {/* Card content remains the same */}
+             <Card className="card-hover border-0 shadow-sm h-full">
               <CardContent className="p-6 flex flex-col items-center text-center">
                 <Avatar className="w-20 h-20 mx-auto mb-4 border-4 border-white shadow-lg">
                   <AvatarFallback className="text-xl bg-red-800 text-white font-bold">

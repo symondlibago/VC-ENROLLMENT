@@ -1035,6 +1035,15 @@ export const instructorAPI = {
       throw error.response?.data || { success: false, message: 'Failed to delete instructor' };
     }
   },
+
+  getSpecificRoster: async (instructorId) => {
+    try {
+      const response = await api.get(`/instructors/${instructorId}/roster`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch instructor roster' };
+    }
+  },
 };
 
 export const gradeAPI = {
