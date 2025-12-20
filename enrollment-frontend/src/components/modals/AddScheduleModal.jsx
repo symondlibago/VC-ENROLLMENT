@@ -4,7 +4,7 @@ import { X, Calendar, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { scheduleAPI, instructorAPI } from '@/services/api'; // Make sure instructorAPI is imported
+import { scheduleAPI, instructorAPI, sectionAPI } from '@/services/api';
 import {
   Select,
   SelectContent,
@@ -19,94 +19,95 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
     day: '',
     time: '',
     room_no: '',
-    instructor_id: '', // Changed to instructor_id for the database relationship
+    instructor_id: '', 
+    section_id: '',
     subject_id: subject?.id || ''
   });
   
   const [instructors, setInstructors] = useState([]);
+  const [sections, setSections] = useState([]);
   const [loadingInstructors, setLoadingInstructors] = useState(false);
   const [loading, setLoading] = useState(false);
   
+  // 1. Fetch Data (Instructors & Sections)
   useEffect(() => {
     if (isOpen) {
-      const fetchInstructors = async () => {
+      const fetchData = async () => {
         setLoadingInstructors(true);
         try {
-          const response = await instructorAPI.getAll();
-          if (response.success) {
-            setInstructors(response.data);
+          const [instRes, sectRes] = await Promise.all([
+            instructorAPI.getAll(),
+            sectionAPI.getAll()
+          ]);
+
+          if (instRes.success) {
+            setInstructors(instRes.data);
+          }
+
+          if (sectRes.success) {
+            if (subject && subject.course_id) {
+                const relevantSections = sectRes.data.filter(s => s.course_id === subject.course_id);
+                setSections(relevantSections);
+            } else {
+                setSections(sectRes.data);
+            }
           }
         } catch (error) {
-          toast.error("Failed to fetch instructors list.");
+          toast.error("Failed to fetch form data.");
           console.error(error);
         } finally {
           setLoadingInstructors(false);
         }
       };
-      fetchInstructors();
+      fetchData();
     }
-  }, [isOpen]);
+  }, [isOpen, subject]);
 
+  // 2. Populate Form Data for Edit Mode
   useEffect(() => {
-    if (schedule) {
-      console.log('Editing schedule:', schedule);
-      console.log('Schedule day value:', schedule.day);
-      
-      setTimeout(() => {
-        const dayValue = schedule.day || '';
-        console.log('Setting day value to:', dayValue);
-        
+    if (isOpen) {
+      if (schedule) {
+        // Safe extraction of IDs
+        const instructorId = schedule.instructor_id 
+          ? schedule.instructor_id.toString() 
+          : (schedule.instructor?.id ? schedule.instructor.id.toString() : '');
+
+        const sectionId = schedule.section_id 
+          ? schedule.section_id.toString() 
+          : (schedule.section?.id ? schedule.section.id.toString() : '');
+
         setFormData({
-          day: dayValue,
+          day: schedule.day || '',
           time: schedule.time || '',
           room_no: schedule.room_no || '',
-          instructor_id: schedule.instructor_id?.toString() || '',
+          instructor_id: instructorId,
+          section_id: sectionId,
           subject_id: schedule.subject_id || subject?.id || ''
         });
-        
-        console.log('Form data after setting:', {
-          day: dayValue,
-          time: schedule.time || '',
-          room_no: schedule.room_no || '',
-          instructor_id: schedule.instructor_id?.toString() || '',
-          subject_id: schedule.subject_id || subject?.id || ''
+      } else {
+        // Reset for Add Mode
+        setFormData({
+          day: '',
+          time: '',
+          room_no: '',
+          instructor_id: '',
+          section_id: '',
+          subject_id: subject?.id || ''
         });
-      }, 100);
-    } else if (isOpen) {
-      setFormData({
-        day: '',
-        time: '',
-        room_no: '',
-        instructor_id: '',
-        subject_id: subject?.id || ''
-      });
+      }
     }
-  }, [schedule, subject, isOpen]);
+  }, [isOpen, schedule, subject]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // *** FIXED FUNCTION ***
-  // Handles the special 'none' value to prevent the crash
   const handleSelectChange = (name, value) => {
-    console.log(`handleSelectChange called with name=${name}, value=${value}`);
-    console.log('Previous formData:', formData);
-    
-    setFormData(prev => {
-      const newData = {
-        ...prev,
-        // If the user selects our special "none" value, set state to an empty string.
-        // Otherwise, use the selected value.
-        [name]: value === 'none-value' ? '' : value
-      };
-      console.log('New formData:', newData);
-      return newData;
-    });
+    setFormData(prev => ({
+      ...prev,
+      [name]: value === 'none-value' ? '' : value
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -116,19 +117,23 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
       toast.error('Please select a day');
       return;
     }
-
-    if (!formData.subject_id) {
-      toast.error('Subject ID is required');
-      return;
+    if (!formData.instructor_id) {
+        toast.error('Please select an instructor');
+        return;
     }
 
     setLoading(true);
     try {
+      const payload = {
+        ...formData,
+        section_id: formData.section_id === '' || formData.section_id === 'none-value' ? null : formData.section_id
+      };
+
       if (schedule) {
-        await scheduleAPI.update(schedule.id, formData);
+        await scheduleAPI.update(schedule.id, payload);
         toast.success('Schedule updated successfully');
       } else {
-        await scheduleAPI.create(formData);
+        await scheduleAPI.create(payload);
         toast.success('Schedule added successfully');
       }
       onScheduleAdded();
@@ -142,43 +147,15 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
   };
 
   const modalVariants = {
-    hidden: { 
-      opacity: 0,
-      scale: 0.95,
-      y: 20
-    },
-    visible: { 
-      opacity: 1,
-      scale: 1,
-      y: 0,
-      transition: {
-        type: "spring",
-        stiffness: 300,
-        damping: 30,
-        mass: 0.8
-      }
-    },
-    exit: { 
-      opacity: 0,
-      scale: 0.95,
-      y: 20,
-      transition: {
-        duration: 0.2,
-        ease: "easeInOut"
-      }
-    }
+    hidden: { opacity: 0, scale: 0.95, y: 20 },
+    visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 30 } },
+    exit: { opacity: 0, scale: 0.95, y: 20 }
   };
 
   const overlayVariants = {
     hidden: { opacity: 0 },
-    visible: { 
-      opacity: 1,
-      transition: { duration: 0.3 }
-    },
-    exit: { 
-      opacity: 0,
-      transition: { duration: 0.2 }
-    }
+    visible: { opacity: 1 },
+    exit: { opacity: 0 }
   };
   
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -229,16 +206,11 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
                 <form onSubmit={handleSubmit}>
                   <div className="space-y-4">
-                    {/* Day Select */}
                     <div className="space-y-2">
                       <Label htmlFor="day">Day <span className="text-red-500">*</span></Label>
                       <Select 
-                        onValueChange={(value) => {
-                          console.log('Day selected:', value);
-                          handleSelectChange('day', value);
-                        }}
-                        value={formData.day || undefined}
-                        defaultValue={formData.day || undefined}
+                        onValueChange={(value) => handleSelectChange('day', value)}
+                        value={formData.day} // Ensure this uses 'value' not defaultValue
                       >
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select day" />                          
@@ -251,22 +223,45 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
                       </Select>
                     </div>
 
-                    {/* Time Input */}
                     <div className="space-y-2">
                       <Label htmlFor="time">Time</Label>
                       <Input id="time" name="time" placeholder="e.g., 9:00 AM - 10:30 AM" value={formData.time} onChange={handleChange} />
                     </div>
 
-                    {/* Room Number Input */}
                     <div className="space-y-2">
                       <Label htmlFor="room_no">Room Number</Label>
                       <Input id="room_no" name="room_no" placeholder="e.g., Room 101" value={formData.room_no} onChange={handleChange} />
                     </div>
 
-                    {/* Instructor Dropdown */}
+                    <div className="space-y-2">
+                      <Label htmlFor="section_id">Section (Optional)</Label>
+                      <Select
+                        // FIX: Key prop forces re-render when data loads
+                        key={`section-select-${sections.length}`}
+                        onValueChange={(value) => handleSelectChange('section_id', value)}
+                        value={formData.section_id}
+                        disabled={loadingInstructors}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={loadingInstructors ? "Loading..." : "Select a section (or All)"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                           <SelectItem value="none-value">All Sections</SelectItem>
+                          {sections.map((sec) => (
+                            <SelectItem key={sec.id} value={sec.id.toString()}>
+                              {sec.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-gray-500">Leave as "All Sections" if this schedule applies to the entire class.</p>
+                    </div>
+
                     <div className="space-y-2">
                       <Label htmlFor="instructor_id">Instructor</Label>
                       <Select
+                        // FIX: Key prop forces re-render when data loads
+                        key={`instructor-select-${instructors.length}`}
                         onValueChange={(value) => handleSelectChange('instructor_id', value)}
                         value={formData.instructor_id}
                         disabled={loadingInstructors}
@@ -275,9 +270,6 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
                           <SelectValue placeholder={loadingInstructors ? "Loading..." : "Select an instructor"} />
                         </SelectTrigger>
                         <SelectContent>
-                           {/* *** FIXED ITEM *** */}
-                           {/* Use a non-empty string for the 'None' option value */}
-                           <SelectItem value="none-value">None</SelectItem>
                           {instructors.map((inst) => (
                             <SelectItem key={inst.id} value={inst.id.toString()}>
                               {inst.name}
@@ -288,7 +280,6 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
                     </div>
                   </div>
 
-                  {/* Submit Button */}
                   <div className="mt-6 flex justify-end">
                     <Button type="button" variant="outline" onClick={onClose} className="mr-2 cursor-pointer" disabled={loading}>
                       Cancel

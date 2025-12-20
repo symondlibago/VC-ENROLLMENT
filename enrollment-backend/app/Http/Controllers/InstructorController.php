@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Schedule;
 use App\Models\Grade;
 use App\Models\PreEnrolledStudent;
+use App\Models\Section;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Http\Request;
@@ -406,57 +407,60 @@ public function bulkUpdateGrades(Request $request)
      */
     public function getInstructorRoster($instructorId)
     {
-        // Find the instructor
         $instructor = Instructor::findOrFail($instructorId);
 
-        // Reuse the logic from getRoster, but strictly filter by this instructor ID
-        $schedules = Schedule::with('subject.students')
+        // Fetch schedules with subject and specific section info
+        $schedules = Schedule::with(['subject', 'section'])
                              ->where('instructor_id', $instructor->id)
                              ->get();
 
-        $rosterBySubject = [];
+        $rosterData = [];
+
         foreach ($schedules as $schedule) {
             if ($schedule->subject) {
-                $subjectId = $schedule->subject->id;
-
-                if (!isset($rosterBySubject[$subjectId])) {
-                    $rosterBySubject[$subjectId] = [
-                        'subject_code' => $schedule->subject->subject_code,
-                        'descriptive_title' => $schedule->subject->descriptive_title,
-                        'schedule_time' => $schedule->day . ' ' . $schedule->time,
-                        'room' => $schedule->room_no,
-                        'students' => []
-                    ];
-                }
-
-                // Get students enrolled in this specific subject
-                $enrolledStudents = $schedule->subject->students()
+                
+                // 1. Base Query: Students enrolled in the subject
+                $query = $schedule->subject->students()
+                    ->with('sections') // Eager load sections to display them
                     ->where('enrollment_status', 'enrolled')
-                    ->where('academic_status', '!=', 'Withdraw')
-                    ->get();
+                    ->where('academic_status', '!=', 'Withdraw');
 
-                foreach ($enrolledStudents as $student) {
-                    // Prevent duplicate students if multiple sections exist (though rare for same subject/instructor)
-                    if (!isset($rosterBySubject[$subjectId]['students'][$student->id])) {
-                        $rosterBySubject[$subjectId]['students'][$student->id] = [
-                            'student_id' => $student->student_id_number,
-                            'name' => $student->getFullNameAttribute(),
-                            'course' => $student->course->course_code ?? 'N/A',
-                            'year' => $student->year,
-                            'gender' => $student->gender
-                        ];
-                    }
+                // 2. FILTER BY SECTION if the schedule has one assigned
+                if ($schedule->section_id) {
+                    $query->whereHas('sections', function($q) use ($schedule) {
+                        $q->where('sections.id', $schedule->section_id);
+                    });
                 }
+
+                $enrolledStudents = $query->get();
+
+                // 3. Format Students
+                $formattedStudents = $enrolledStudents->map(function($student) {
+                    $sectionName = $student->sections->isNotEmpty() ? $student->sections->first()->name : 'Unassigned';
+                    return [
+                        'student_id' => $student->student_id_number,
+                        'name' => $student->getFullNameAttribute(),
+                        'course' => $student->course->course_code ?? 'N/A',
+                        'year' => $student->year,
+                        'gender' => $student->gender,
+                        'section' => $sectionName
+                    ];
+                });
+
+                // 4. Create Roster Entry for this specific Schedule
+                // We assume one schedule = one "Class" on the roster PDF
+                $rosterData[] = [
+                    'subject_code' => $schedule->subject->subject_code,
+                    'descriptive_title' => $schedule->subject->descriptive_title,
+                    'schedule_time' => $schedule->day . ' ' . $schedule->time,
+                    'room' => $schedule->room_no,
+                    'section_name' => $schedule->section ? $schedule->section->name : 'All Sections', // For the PDF Header
+                    'students' => $formattedStudents
+                ];
             }
         }
 
-        // Clean up array keys for JSON
-        $data = array_values(array_map(function($subject) {
-            $subject['students'] = array_values($subject['students']);
-            return $subject;
-        }, $rosterBySubject));
-
-        return response()->json(['success' => true, 'data' => $data]);
+        return response()->json(['success' => true, 'data' => $rosterData]);
     }
 }
 

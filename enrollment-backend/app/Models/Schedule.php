@@ -9,33 +9,22 @@ class Schedule extends Model
 {
     use HasFactory;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
         'day',
         'time',
         'room_no',
         'instructor_id',
         'subject_id',
+        'section_id',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
     protected $casts = [
         'subject_id' => 'integer',
+        'section_id' => 'integer', 
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
 
-    /**
-     * Get the subject that owns the schedule.
-     */
     public function subject()
     {
         return $this->belongsTo(Subject::class);
@@ -44,5 +33,11 @@ class Schedule extends Model
     public function instructor()
     {
         return $this->belongsTo(Instructor::class);
+    }
+
+    // NEW RELATIONSHIP
+    public function section()
+    {
+        return $this->belongsTo(Section::class);
     }
 }

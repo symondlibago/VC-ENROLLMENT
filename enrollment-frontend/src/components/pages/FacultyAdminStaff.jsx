@@ -116,7 +116,6 @@ const FacultyAdminStaff = () => {
   const handleExportRoster = async (instructor) => {
     setIsExporting(true);
     try {
-      // 1. Fetch data
       const response = await instructorAPI.getSpecificRoster(instructor.id);
       
       if (!response.success || response.data.length === 0) {
@@ -125,18 +124,19 @@ const FacultyAdminStaff = () => {
         return;
       }
 
-      const rosterData = response.data;
+      const rosterData = response.data; // This is now an array of Schedules
       const doc = new jsPDF();
 
-      // 2. Loop through subjects and create pages
-      rosterData.forEach((subject, index) => {
+      rosterData.forEach((classSchedule, index) => {
         if (index > 0) {
-          doc.addPage(); // New page for each subject
+          doc.addPage();
         }
 
         // Header
         doc.setFontSize(10);
         doc.setTextColor(100);
+        doc.text('Matria Marine Services Academy - Official Class Roster', 14, 15);
+        
         doc.setFontSize(16);
         doc.setTextColor(0);
         doc.setFont('helvetica', 'bold');
@@ -144,11 +144,14 @@ const FacultyAdminStaff = () => {
         
         doc.setFontSize(12);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Subject: ${subject.subject_code} - ${subject.descriptive_title}`, 14, 33);
-        doc.text(`Schedule: ${subject.schedule_time || 'TBA'} | Room: ${subject.room || 'TBA'}`, 14, 39);
+        doc.text(`Subject: ${classSchedule.subject_code} - ${classSchedule.descriptive_title}`, 14, 33);
+        
+        // Display Section Name in Header
+        doc.text(`Section: ${classSchedule.section_name}`, 14, 39);
+        doc.text(`Schedule: ${classSchedule.schedule_time} | Room: ${classSchedule.room}`, 14, 45);
 
         // Table Data
-        const tableRows = subject.students.map((student, i) => [
+        const tableRows = classSchedule.students.map((student, i) => [
           i + 1,
           student.student_id,
           student.name,
@@ -159,23 +162,21 @@ const FacultyAdminStaff = () => {
 
         // Generate Table
         autoTable(doc, {
-          startY: 45,
+          startY: 50,
           head: [['#', 'Student ID', 'Name', 'Course', 'Year', 'Gender']],
           body: tableRows,
           theme: 'grid',
-          headStyles: { fillColor: [185, 28, 28] }, // Red color to match theme
+          headStyles: { fillColor: [185, 28, 28] },
           styles: { fontSize: 10 },
           alternateRowStyles: { fillColor: [249, 250, 251] }
         });
 
         // Footer
-        const pageCount = doc.internal.getNumberOfPages();
         doc.setFontSize(8);
         doc.setTextColor(150);
         doc.text(`Page ${index + 1} - Generated on ${new Date().toLocaleDateString()}`, 14, doc.internal.pageSize.height - 10);
       });
 
-      // 3. Save PDF
       doc.save(`${instructor.name.replace(/\s+/g, '_')}_Class_Roster.pdf`);
       showAlert('Class roster exported successfully!');
 

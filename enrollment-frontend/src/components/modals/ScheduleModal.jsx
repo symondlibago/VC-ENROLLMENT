@@ -210,6 +210,7 @@ const ScheduleModal = ({ isOpen, onClose, subject = null }) => {
                           <TableHead>Time</TableHead>
                           <TableHead>Room</TableHead>
                           <TableHead>Instructor</TableHead>
+                          <TableHead>Section</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -221,6 +222,7 @@ const ScheduleModal = ({ isOpen, onClose, subject = null }) => {
                             <TableCell>{schedule.room_no}</TableCell>
                             {/* MODIFIED: Display instructor name from object */}
                             <TableCell>{schedule.instructor?.name || 'Unassigned'}</TableCell>
+                            <TableCell>{schedule.section?.name || 'Unassigned'}</TableCell>
                             <TableCell className="text-right">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>

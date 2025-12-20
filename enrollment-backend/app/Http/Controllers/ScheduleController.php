@@ -19,8 +19,7 @@ class ScheduleController extends Controller
     {
         try {
             $subject = Subject::findOrFail($subjectId);
-            // Eager load the instructor relationship
-            $schedules = $subject->schedules()->with('instructor')->get();
+            $schedules = $subject->schedules()->with(['instructor', 'section'])->get();
             
             return response()->json([
                 'status' => 'success',
@@ -67,11 +66,12 @@ class ScheduleController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'day' => 'nullable|string',
-                'time' => 'nullable|string',
-                'room_no' => 'nullable|string',
-                'instructor_id' => 'nullable|exists:instructors,id', 
+                'day' => 'required|string|max:255',
+                'time' => 'required|string|max:255',
+                'room_no' => 'required|string|max:255',
+                'instructor_id' => 'required|exists:instructors,id',
                 'subject_id' => 'required|exists:subjects,id',
+                'section_id' => 'nullable|exists:sections,id',
             ]);
 
             if ($validator->fails()) {
@@ -83,8 +83,8 @@ class ScheduleController extends Controller
             }
 
             $schedule = Schedule::create($validator->validated());
-            $schedule->load('instructor');
-            
+            $schedule->load(['instructor', 'section']); // ✅ LOAD SECTION
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Schedule created successfully',
@@ -109,13 +109,14 @@ class ScheduleController extends Controller
     {
         try {
             $schedule = Schedule::findOrFail($id);
-            
+
             $validator = Validator::make($request->all(), [
-                'day' => 'nullable|string',
-                'time' => 'nullable|string',
-                'room_no' => 'nullable|string',
-                'instructor_id' => 'nullable|exists:instructors,id', 
-                'subject_id' => 'exists:subjects,id',
+                'day' => 'required|string|max:255',
+                'time' => 'required|string|max:255',
+                'room_no' => 'required|string|max:255',
+                'instructor_id' => 'required|exists:instructors,id',
+                'subject_id' => 'required|exists:subjects,id',
+                'section_id' => 'nullable|exists:sections,id', // ✅ ADDED VALIDATION
             ]);
 
             if ($validator->fails()) {
@@ -127,7 +128,7 @@ class ScheduleController extends Controller
             }
 
             $schedule->update($validator->validated());
-            $schedule->load('instructor'); 
+            $schedule->load(['instructor', 'section']); // ✅ LOAD SECTION
             
             return response()->json([
                 'status' => 'success',
