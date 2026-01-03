@@ -107,9 +107,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/students/{studentId}/subject-details', [SubjectChangeRequestController::class, 'getStudentSubjectDetails']);
     
     Route::get('/subject-change-requests', [SubjectChangeRequestController::class, 'index']);
+    Route::get('/subjects/{id}/students', [SubjectController::class, 'getEnrolledStudents']); // Get enrolled students for a subject
     Route::post('/subject-change-requests', [SubjectChangeRequestController::class, 'store']);
     Route::get('/subject-change-requests/{id}', [SubjectChangeRequestController::class, 'show']);
     Route::post('/subject-change-requests/{id}/process', [SubjectChangeRequestController::class, 'processRequest']);
+    
 
     // Shiftee Management Routes
     Route::get('/shifting/data', [ShifteeRequestController::class, 'getShiftingData']);

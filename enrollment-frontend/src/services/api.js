@@ -375,6 +375,11 @@ export const subjectAPI = {
     }
   },
 
+  getEnrolledStudents: async (id) => {
+    const response = await api.get(`/subjects/${id}/students`);
+    return response.data;
+  },
+
   // Get all subjects
   getAll: async () => {
     try {

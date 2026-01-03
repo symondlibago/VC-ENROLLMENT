@@ -135,7 +135,7 @@ const FacultyAdminStaff = () => {
         // Header
         doc.setFontSize(10);
         doc.setTextColor(100);
-        doc.text('Matria Marine Services Academy - Official Class Roster', 14, 15);
+        doc.text('VINEYARD INTERNATIONAL POLYTECHNIC COLLEGE', 14, 15);
         
         doc.setFontSize(16);
         doc.setTextColor(0);
@@ -154,7 +154,7 @@ const FacultyAdminStaff = () => {
         const tableRows = classSchedule.students.map((student, i) => [
           i + 1,
           student.student_id,
-          student.name,
+          student.name.toUpperCase(),
           student.course,
           student.year,
           student.gender

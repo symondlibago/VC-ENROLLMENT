@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, BookMarked, Plus, ChevronDown, Edit, Trash2, Calendar } from 'lucide-react';
+import { X, BookMarked, Plus, ChevronDown, Edit, Trash2, Calendar, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { subjectAPI } from '@/services/api';
 import ScheduleModal from './ScheduleModal';
+import ViewStudentsModal from './ViewStudentsModal';
 import {
   Table,
   TableBody,
@@ -36,7 +37,7 @@ const SubjectDetailsModal = ({
   const [isSemesterDropdownOpen, setIsSemesterDropdownOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState(null);
-  
+  const [isViewStudentsOpen, setIsViewStudentsOpen] = useState(false);
   // Get year and semester options based on program type
   const getYearOptions = () => {
     switch (programType) {
@@ -397,6 +398,13 @@ const SubjectDetailsModal = ({
                                     <Trash2 className="mr-2 h-4 w-4 group-hover:text-white" />
                                     Delete
                                   </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => {
+                                    setSelectedSubject(subject);
+                                    setIsViewStudentsOpen(true); // Direct call to open
+                                }}>
+                                    <Users className="mr-2 h-4 w-4 group-hover:text-white" />
+                                    View All Students
+                                </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </TableCell>
@@ -441,6 +449,11 @@ const SubjectDetailsModal = ({
             onClose={() => setIsScheduleModalOpen(false)}
             subject={selectedSubject}
           />
+           <ViewStudentsModal 
+            isOpen={isViewStudentsOpen} 
+            onClose={() => setIsViewStudentsOpen(false)} 
+            subject={selectedSubject} 
+            />
         </>
       )}
     </AnimatePresence>

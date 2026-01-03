@@ -4,7 +4,9 @@ import {
   X,
   UserPlus,
   Search,
-  Loader2, // Import loader icon
+  Loader2,
+  ChevronDown,
+  Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,12 +16,34 @@ import { Input } from '@/components/ui/input';
 const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enrolledStudentIds, onAddStudents }) => {
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false); // State to handle loading effect
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [yearFilter, setYearFilter] = useState('All');
+
+  // Academic year options based on the model's structure
+  const yearLevels = [
+    'All',
+    'Grade 11',
+    'Grade 12',
+    '1st Year',
+    '2nd Year',
+    '3rd Year',
+    '4th Year',
+    '1st Year Summer',
+    '2nd Year Summer'
+  ];
+
+  const dropdownVariants = {
+    hidden: { opacity: 0, scale: 0.95, y: -10, pointerEvents: 'none' },
+    visible: { opacity: 1, scale: 1, y: 0, pointerEvents: 'auto', transition: { duration: 0.2 } },
+    exit: { opacity: 0, scale: 0.95, y: -10, transition: { duration: 0.15 } }
+  };
 
   useEffect(() => {
     if (isOpen) {
       setSelectedStudentIds([]);
       setSearchTerm('');
+      setYearFilter('All');
     }
   }, [isOpen]);
   
@@ -33,13 +57,20 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
 
   const filteredStudents = useMemo(() => {
     const term = searchTerm.toLowerCase();
-    if (!term) return availableStudents;
-    return availableStudents.filter(student =>
-      student.name.toLowerCase().includes(term) ||
-      student.email.toLowerCase().includes(term) ||
-      (student.student_id_number && student.student_id_number.toLowerCase().includes(term))
-    );
-  }, [availableStudents, searchTerm]);
+    
+    return availableStudents.filter(student => {
+      // Search matching logic
+      const matchesSearch = !term || 
+        student.name.toLowerCase().includes(term) ||
+        student.email.toLowerCase().includes(term) ||
+        (student.student_id_number && student.student_id_number.toLowerCase().includes(term));
+
+      // Year matching logic (student.year property from the PreEnrolledStudent model)
+      const matchesYear = yearFilter === 'All' || student.year === yearFilter;
+
+      return matchesSearch && matchesYear;
+    });
+  }, [availableStudents, searchTerm, yearFilter]);
 
   if (!section || !allStudents) return null;
 
@@ -61,17 +92,13 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
 
   const handleSubmit = async () => {
     if (selectedStudentIds.length === 0) return;
-
-    setIsSubmitting(true); // Start loading
+    setIsSubmitting(true);
     try {
-      // onAddStudents is an async function from the parent. Await it.
       await onAddStudents(selectedStudentIds);
-      // The success toast and modal closing are handled by the parent component.
     } catch (error) {
-      // The parent component will show an error toast.
       console.error("Failed to add students:", error);
     } finally {
-      setIsSubmitting(false); // Stop loading
+      setIsSubmitting(false);
     }
   };
 
@@ -137,6 +164,55 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
                     className="pl-10"
                   />
                 </div>
+
+                {/* Smooth Year Filter Dropdown */}
+                <div className="relative min-w-[180px]">
+  {/* Trigger Button */}
+  <button
+    onClick={() => setIsDropdownOpen(!isDropdownOpen)} // You'll need: const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    className="flex items-center justify-between w-full bg-white border border-gray-200 rounded-md py-2 px-3 text-sm hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-[var(--dominant-red)] transition-all"
+  >
+    <span className="truncate">{yearFilter}</span>
+    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+  </button>
+
+  {/* Motion Dropdown Menu */}
+  <AnimatePresence>
+    {isDropdownOpen && (
+      <>
+        {/* Invisible backdrop to close dropdown when clicking outside */}
+        <div 
+          className="fixed inset-0 z-10" 
+          onClick={() => setIsDropdownOpen(false)} 
+        />
+        <motion.div
+          variants={dropdownVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          className="absolute z-20 mt-1 w-full bg-white border border-gray-100 rounded-lg shadow-xl py-1 overflow-hidden"
+        >
+          {yearLevels.map((year) => (
+            <button
+              key={year}
+              className="flex items-center justify-between w-full px-4 py-2 text-sm text-left hover:bg-gray-50 transition-colors"
+              onClick={() => {
+                setYearFilter(year);
+                setIsDropdownOpen(false);
+              }}
+            >
+              <span className={yearFilter === year ? "font-semibold text-[var(--dominant-red)]" : "text-gray-700"}>
+                {year}
+              </span>
+              {yearFilter === year && <Check className="w-4 h-4 text-[var(--dominant-red)]" />}
+            </button>
+          ))}
+        </motion.div>
+      </>
+    )}
+  </AnimatePresence>
+</div>
+
                 <Button
                   variant="outline"
                   onClick={handleSelectAll}
@@ -157,7 +233,7 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
                     <p className="text-gray-500">
                       {availableStudents.length === 0 
                         ? 'All students for this course are already in a section.'
-                        : 'Try adjusting your search criteria.'
+                        : 'Try adjusting your search or year filter.'
                       }
                     </p>
                   </div>
@@ -222,9 +298,12 @@ const AddStudentsToSectionModal = ({ isOpen, onClose, section, allStudents, enro
                               </div>
                             </td>
                             <td className="py-4 px-4">
-                              <Badge variant="outline" className="font-mono">
-                                {student.courseName}
-                              </Badge>
+                              <div className="flex flex-col space-y-1">
+                                <Badge variant="outline" className="font-mono w-fit">
+                                  {student.courseName}
+                                </Badge>
+                                <span className="text-xs text-gray-400 pl-1">{student.year}</span>
+                              </div>
                             </td>
                           </motion.tr>
                         ))}

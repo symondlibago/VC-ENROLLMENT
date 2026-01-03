@@ -35,6 +35,24 @@ class SubjectController extends Controller
         return response()->json(['data' => $subjects]);
     }
 
+    public function getEnrolledStudents($id) {
+        // Load the subject with students and their associated course
+        $subject = Subject::with(['students.course'])->findOrFail($id); 
+        
+        return response()->json([
+            'success' => true,
+            'data' => $subject->students->map(function($student) {
+                return [
+                    'id'         => $student->id,
+                    'student_id' => $student->student_id_number, // Matches frontend student.student_id
+                    'name'       => $student->full_name,        // Uses the accessor from PreEnrolledStudent.php
+                    'course'     => $student->course->course_code ?? 'N/A',
+                    'year'       => $student->year
+                ];
+            })
+        ]);
+    }
+
     /**
      * Display a listing of the subjects.
      */
