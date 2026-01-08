@@ -643,72 +643,87 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                 </div>
               </div>
 
-              {/* Selected Subjects Table */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium mb-3 text-black">SELECTED SUBJECTS & SCHEDULE</h3>
-                {subjectsWithSchedules.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 table-fixed">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-                          <th className="w-2/5 px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descriptive Title</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lec Hrs</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lab Hrs</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Units</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Schedule (Day / Time / Room)</th>
-                          {canCreditSubjects && (
-                            <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Credit</th>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {subjectsWithSchedules.map((subject) => {
-                          const grade = student.grades?.find(g => g.subject_id === subject.id);
-                          const isCredited = grade && grade.status === 'Credited';
-                          return (
-                            <tr key={subject.id}>
-                              <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.subject_code}</td>
-                              <td className="px-4 py-2 whitespace-normal wrap-break-word text-sm">{subject.descriptive_title}</td>
-                              <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lec_hrs || 0}</td>
-                              <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lab_hrs || 0}</td>
-                              <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.total_units}</td>
-                              <td className="px-4 py-2 whitespace-pre-wrap text-xs">
-                                {subject.schedules && subject.schedules.length > 0
-                                  ? subject.schedules.map(s => `${s.day || 'TBA'} / ${s.time || 'TBA'} / ${s.room_no || 'TBA'}`).join('\n')
-                                  : 'TBA'}
-                              </td>
-                              {canCreditSubjects && (
-                                <td className="px-4 py-2 text-center">
-                                  {isCredited ? (
-                                    <Badge className="bg-blue-100 text-blue-800 cursor-default">
-                                      <Check className="w-3 h-3 mr-1" />Credited
-                                    </Badge>
-                                  ) : (
-                                    <Button size="sm" variant="outline" className="text-xs h-7 px-2" onClick={() => handleCreditSubject(subject.id)} disabled={creditingSubjectId === subject.id}>
-                                      {creditingSubjectId === subject.id ? (<Loader2 className="w-3 h-3 animate-spin" />) : ("Credit")}
-                                    </Button>
-                                  )}
-                                </td>
-                              )}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                      <tfoot className="bg-gray-50 border-t-2 border-gray-300">
-                        <tr>
-                          <td colSpan="2" className="px-4 py-3 text-right text-sm font-bold text-gray-700 uppercase">Totals:</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">{subjectTotals.lec.toFixed(2)}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">{subjectTotals.lab.toFixed(2)}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">{subjectTotals.units.toFixed(2)}</td>
-                          <td className="px-4 py-3"></td>
-                          {canCreditSubjects && (<td className="px-4 py-3"></td>)}
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                ) : <p className="text-gray-500">No subjects selected</p>}
-              </div>
+             {/* Selected Subjects Table */}
+<div className="bg-gray-50 p-4 rounded-lg">
+  <h3 className="text-lg font-medium mb-3 text-black">SELECTED SUBJECTS & SCHEDULE</h3>
+  {subjectsWithSchedules.length > 0 ? (
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200 table-fixed">
+        <thead className="bg-gray-100">
+          <tr>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+            <th className="w-2/5 px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descriptive Title</th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lec Hrs</th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lab Hrs</th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Units</th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Schedule (Day / Time / Room)</th>
+            {canCreditSubjects && (
+              <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Credit</th>
+            )}
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {subjectsWithSchedules.map((subject) => {
+            const grade = student.grades?.find(g => g.subject_id === subject.id);
+            const isCredited = grade && grade.status === 'Credited';
+            
+            // FILTER LOGIC START: Get the student's section ID and filter the subject's schedules
+            const studentSectionId = student.sections?.[0]?.id;
+            const filteredSchedules = subject.schedules && subject.schedules.length > 0
+              ? subject.schedules.filter(s => s.section_id === studentSectionId)
+              : [];
+            // FILTER LOGIC END
+
+            return (
+              <tr key={subject.id}>
+                <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.subject_code}</td>
+                <td className="px-4 py-2 whitespace-normal wrap-break-word text-sm">{subject.descriptive_title}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lec_hrs || 0}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lab_hrs || 0}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.total_units}</td>
+                <td className="px-4 py-2 whitespace-pre-wrap text-xs">
+                  {/* UPDATED: Display only filtered schedules or TBA */}
+                  {filteredSchedules.length > 0
+                    ? filteredSchedules.map(s => `${s.day || 'TBA'} / ${s.time || 'TBA'} / ${s.room_no || 'TBA'}`).join('\n')
+                    : 'TBA'}
+                </td>
+                {canCreditSubjects && (
+                  <td className="px-4 py-2 text-center">
+                    {isCredited ? (
+                      <Badge className="bg-blue-100 text-blue-800 cursor-default">
+                        <Check className="w-3 h-3 mr-1" />Credited
+                      </Badge>
+                    ) : (
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-xs h-7 px-2" 
+                        onClick={() => handleCreditSubject(subject.id)} 
+                        disabled={creditingSubjectId === subject.id}
+                      >
+                        {creditingSubjectId === subject.id ? (<Loader2 className="w-3 h-3 animate-spin" />) : ("Credit")}
+                      </Button>
+                    )}
+                  </td>
+                )}
+              </tr>
+            );
+          })}
+        </tbody>
+        <tfoot className="bg-gray-50 border-t-2 border-gray-300">
+          <tr>
+            <td colSpan="2" className="px-4 py-3 text-right text-sm font-bold text-gray-700 uppercase">Totals:</td>
+            <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">{subjectTotals.lec.toFixed(2)}</td>
+            <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">{subjectTotals.lab.toFixed(2)}</td>
+            <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">{subjectTotals.units.toFixed(2)}</td>
+            <td className="px-4 py-3"></td>
+            {canCreditSubjects && (<td className="px-4 py-3"></td>)}
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  ) : <p className="text-gray-500">No subjects selected</p>}
+</div>
 
               {/* Approval Actions Section */}
               <div className="bg-gray-50 p-4 rounded-lg">

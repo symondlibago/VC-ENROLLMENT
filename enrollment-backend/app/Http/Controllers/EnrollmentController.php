@@ -340,7 +340,9 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
                 'enrollmentApprovals', 
                 'subjects.schedules',
                 'grades',
-                'subjectChangeRequests.items.subject'
+                'subjectChangeRequests.items.subject',
+                'sections',
+                'subjects.schedules'
             ])->findOrFail($id);
 
             $student->id_photo_url = $student->id_photo ? Storage::disk('s3')->url($student->id_photo) : null;
