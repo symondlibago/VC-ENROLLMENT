@@ -138,6 +138,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Management routes
     Route::get('/management/grading-periods', [ManagementController::class, 'getGradingPeriods']);
 
+    Route::get('sections', [SectionController::class, 'index']);
+
     // Program routes
     Route::apiResource('programs', ProgramController::class);
     

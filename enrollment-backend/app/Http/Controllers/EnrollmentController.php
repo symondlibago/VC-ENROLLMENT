@@ -27,6 +27,7 @@ class EnrollmentController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'course_id' => 'required|exists:courses,id',
+            'section_id' => 'required|exists:sections,id',
             'last_name' => 'required|string|max:255',
             'first_name' => 'required|string|max:255',
             'middle_name' => 'nullable|string|max:255',
@@ -100,6 +101,10 @@ class EnrollmentController extends Controller
 
             if ($request->has('selected_subjects')) {
                 $preEnrolledStudent->subjects()->attach($request->input('selected_subjects'));
+            }
+
+            if ($request->has('section_id')) {
+                $preEnrolledStudent->sections()->attach($request->input('section_id'));
             }
 
             $enrollmentCode = new EnrollmentCode([

@@ -633,6 +633,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div><p className="text-sm text-gray-500">Course</p><p className="font-medium">[{student.course ? student.course.course_code : 'N/A'}] {student.course ? student.course.course_name : 'N/A'}</p></div>
+                  <div><p className="text-sm text-gray-500">Section</p><p className="font-medium text-red-700">{student.sections && student.sections.length > 0 ? student.sections[0].name : 'No Section Assigned'}</p></div>
                   <div><p className="text-sm text-gray-500">Year Level</p><p className="font-medium">{student.year}</p></div>
                   <div><p className="text-sm text-gray-500">Enrollment Type</p><p className="font-medium">{student.enrollment_type}</p></div>
                   <div><p className="text-sm text-gray-500">Semester</p><p className="font-medium">{student.semester}</p></div>
@@ -647,7 +648,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
 <div className="bg-gray-50 p-4 rounded-lg">
   <h3 className="text-lg font-medium mb-3 text-black">SELECTED SUBJECTS & SCHEDULE</h3>
   {subjectsWithSchedules.length > 0 ? (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto"> 
       <table className="min-w-full divide-y divide-gray-200 table-fixed">
         <thead className="bg-gray-100">
           <tr>

@@ -140,16 +140,19 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
         newRemainingAmount = 0;
     }
 
-    // ADDED: Auto-calculation for Term Payment (Remaining / 4)
-    const newTermPayment = newRemainingAmount > 0 ? (newRemainingAmount / 4).toFixed(2) : "0.00";
+    setPaymentData(prev => {
+      const shouldUpdateTerm = currentTermPayments.length === 0 || isEditing;
     
-    setPaymentData(prev => ({
+      return {
         ...prev,
         total_amount: calculatedTotalAmount.toFixed(2),
         remaining_amount: newRemainingAmount.toFixed(2),
         advance_payment: calculatedNewAdvance.toFixed(2),
-        term_payment: newTermPayment, // Updates automatically
-    }));
+        term_payment: shouldUpdateTerm 
+            ? (newRemainingAmount > 0 ? (newRemainingAmount / 4).toFixed(2) : "0.00")
+            : prev.term_payment 
+    };
+});
 
   }, [
     loading, 
@@ -513,7 +516,7 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
               </Button>
                 <DownloadExamPermit student={student} />
                 <DownloadCOR 
-                  student={student} 
+                  student={student} // Ensure student.section_label is present here
                   subjectsWithSchedules={student?.subjects || []} 
                   paymentData={paymentData} 
                 />

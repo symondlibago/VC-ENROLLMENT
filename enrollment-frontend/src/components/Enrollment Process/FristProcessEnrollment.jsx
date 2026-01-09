@@ -23,7 +23,7 @@ import CustomCalendar from '../layout/CustomCalendar';
 import CourseChoicesModal from '../modals/CourseChoicesModal';
 import EnrollmentConfirmationModal from '../modals/EnrollmentConfirmationModal';
 import ValidationErrorModal from '../modals/ValidationErrorModal';
-import { subjectAPI, enrollmentAPI } from '@/services/api';
+import { subjectAPI, enrollmentAPI, sectionAPI } from '@/services/api';
 import VipcLogo from '/circlelogo.png';
 
 const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
@@ -39,6 +39,8 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
   const [isCourseOpen, setIsCourseOpen] = useState(false);
   const [isGenderOpen, setIsGenderOpen] = useState(false);
   const [isYearOpen, setIsYearOpen] = useState(false);
+  const [sections, setSections] = useState([]);
+  const [isSectionOpen, setIsSectionOpen] = useState(false);
 
   // Step 3 subject selection states
   const [selectedSubjects, setSelectedSubjects] = useState([]);
@@ -155,6 +157,24 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
       fetchSubjectsByCourse(formData.courseId, formData.year, formData.semester);
     }
   }, [currentStep, formData.courseId, formData.year, formData.semester]);
+
+  useEffect(() => {
+    const fetchSections = async () => {
+        if (formData.courseId) {
+            try {
+              const response = await sectionAPI.getAll();
+                // Filter sections that belong to the selected course
+                const filtered = response.data.filter(
+                    sec => sec.course_id === parseInt(formData.courseId)
+                );
+                setSections(filtered);
+            } catch (error) {
+                console.error("Error fetching sections:", error);
+            }
+        }
+    };
+    fetchSections();
+}, [formData.courseId]);
 
   
   const fetchSubjectsByCourse = async (courseId, year, semester) => { 
@@ -279,8 +299,8 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
       formDataObj.append('year', formData.year);
       formDataObj.append('enrollment_type', enrollmentType);
       formDataObj.append('scholarship', formData.scholarship || '');
-      
-      // Add the selected subjects as an array
+      formDataObj.append('section_id', formData.section_id);
+
       // Use the correct format for arrays in FormData
       const subjectIds = selectedSubjects.map(subject => subject.id);
       
@@ -898,7 +918,7 @@ const handleContinueToSubjectSetup = async () => {
                 <div className="bg-[#FFFAFA] rounded-2xl p-4 border border-black-200 shadow-md">
                   <h3 className="text-lg font-bold heading-bold text-gray-900 mb-4">Academic Information</h3>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                     <div>
                       <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
                         Semester
@@ -1032,6 +1052,60 @@ const handleContinueToSubjectSetup = async () => {
                           )}
                         </AnimatePresence>
                       </div>
+                    </div>
+
+                    {/* Section Dropdown */}
+                    <div className="relative">
+                      <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">Section</label>
+                      <button
+                        type="button"
+                        onClick={() => setIsSectionOpen(!isSectionOpen)}
+                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-left text-gray-800 flex justify-between items-center focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg text-sm"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">
+                            {formData.section_id 
+                              ? sections.find(s => s.id === formData.section_id)?.name 
+                              : "Select Section"}
+                          </span>
+                        </div>
+                        <ChevronDown size={18} className={`text-gray-400 transition-transform ${isSectionOpen ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      <AnimatePresence>
+                        {isSectionOpen && (
+                          <>
+                            <div className="fixed inset-0 z-10" onClick={() => setIsSectionOpen(false)} />
+                            <motion.div
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              className="absolute z-20 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl max-h-60 overflow-y-auto"
+                            >
+                              {sections.length > 0 ? (
+                                sections.map((sec) => (
+                                  <button
+                                    key={sec.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setFormData({ ...formData, section_id: sec.id });
+                                      setIsSectionOpen(false);
+                                    }}
+                                    className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors flex items-center gap-2"
+                                  >
+                                    <div className={`w-2 h-2 rounded-full ${formData.section_id === sec.id ? 'bg-red-800' : 'bg-gray-300'}`} />
+                                    <span className="text-gray-700 font-medium">{sec.name}</span>
+                                  </button>
+                                ))
+                              ) : (
+                                <div className="p-4 text-center text-gray-400 text-sm italic">
+                                  Select a course first to see sections
+                                </div>
+                              )}
+                            </motion.div>
+                          </>
+                        )}
+                      </AnimatePresence>
                     </div>
                     <div>
                   <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
@@ -1300,42 +1374,42 @@ const handleContinueToSubjectSetup = async () => {
                 </div>
 
                 {/* Social Media Information */}
-<div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl p-4 border border-blue-200 mb-4">
-  <h3 className="text-lg font-bold heading-bold text-gray-900 mb-4">Social Media Reference</h3>
-  
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <div>
-      <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
-        Facebook Account (Link or Name)
-      </label>
-      <input
-        type="text"
-        placeholder="e.g., https://facebook.com/juan.delacruz"
-        value={formData.fbAcc}
-        onChange={(e) => handleFormDataChange('fbAcc', e.target.value)}
-        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
-        name="fbAcc"
-      />
-    </div>
-    
-    <div>
-      <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
-        Facebook Description
-      </label>
-      <input
-        type="text"
-        placeholder="e.g., White dress, sideview, sea background"
-        value={formData.fbDescription}
-        onChange={(e) => handleFormDataChange('fbDescription', e.target.value)}
-        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
-        name="fbDescription"
-      />
-      <p className="text-xs text-gray-500 mt-1 ml-1">
-        Please describe your profile picture to help us verify your account.
-      </p>
-    </div>
-  </div>
-</div>
+                  <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl p-4 border border-blue-200 mb-4">
+                    <h3 className="text-lg font-bold heading-bold text-gray-900 mb-4">Social Media Reference</h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
+                          Facebook Account (Link or Name)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g., https://facebook.com/juan.delacruz"
+                          value={formData.fbAcc}
+                          onChange={(e) => handleFormDataChange('fbAcc', e.target.value)}
+                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                          name="fbAcc"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
+                          Facebook Description
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g., White dress, sideview, sea background"
+                          value={formData.fbDescription}
+                          onChange={(e) => handleFormDataChange('fbDescription', e.target.value)}
+                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                          name="fbDescription"
+                        />
+                        <p className="text-xs text-gray-500 mt-1 ml-1">
+                          Please describe your profile picture to help us verify your account.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
                 {/* Parent Information */}
                 <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-2xl p-4 border border-purple-200">
@@ -2095,6 +2169,14 @@ const handleContinueToSubjectSetup = async () => {
                       <label className="text-xs font-bold text-gray-600">Semester</label>
                       <p className="text-base font-semibold text-gray-900">{formData.semester || 'Not selected'}</p>
                     </div>
+                    <div className="bg-white rounded-xl p-3 shadow-sm">
+                    <label className="text-xs font-bold text-gray-600">Section:</label>
+                    <p className="text-base font-semibold text-gray-900">
+                      {formData.section_id 
+                        ? sections.find(s => s.id === formData.section_id)?.name 
+                        : "Not Selected"}
+                    </p>
+                  </div>
                   </div>
                 </div>
 
