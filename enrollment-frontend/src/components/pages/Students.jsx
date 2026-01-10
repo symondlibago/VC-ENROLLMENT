@@ -16,7 +16,7 @@ import {
   Hash,
   Settings2,
   ContactRound,
-  Calendar // Added Calendar Icon
+  Calendar
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -53,10 +53,9 @@ const getStatusBadgeVariant = (status) => {
     const s = status?.toLowerCase();
     if (s === 'enrolled') return 'bg-green-100 text-green-800 border-green-200';
     if (s === 'rejected') return 'bg-red-100 text-red-800 border-red-200';
-    return 'bg-yellow-100 text-yellow-800 border-yellow-200'; // For pending/others
+    return 'bg-yellow-100 text-yellow-800 border-yellow-200'; 
 };
 
-// Custom Framer Motion Dropdown Component
 const MotionDropdown = ({ value, onChange, options, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOption, setSelectedOption] = useState(
@@ -83,10 +82,7 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
         whileTap={{ scale: 0.98 }}
       >
         <span className="text-gray-900 truncate pr-4">{selectedOption.label}</span>
-        <motion.div
-          animate={{ rotate: isOpen ? 180 : 0 }}
-          transition={{ duration: 0.2 }}
-        >
+        <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
           <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />
         </motion.div>
       </motion.button>
@@ -116,20 +112,16 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
   );
 };
 
-// Main Component
 const Students = () => {
   const [activeView, setActiveView] = useState('sections');
   const [loading, setLoading] = useState(true);
 
-  // Data states
   const [sections, setSections] = useState([]);
   const [courses, setCourses] = useState([]);
   const [enrolledStudents, setEnrolledStudents] = useState([]);
   
-  // Alert State
   const [alert, setAlert] = useState({ isVisible: false, message: '', type: 'success' });
 
-  // Modal states
   const [selectedSection, setSelectedSection] = useState(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false);
@@ -139,22 +131,27 @@ const Students = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewDetailsModalOpen, setIsViewDetailsModalOpen] = useState(false);
 
-  // States for Edit and Delete functionality
   const [editingSection, setEditingSection] = useState(null);
   const [deletingSection, setDeletingSection] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Filter & Search states
   const [searchTerm, setSearchTerm] = useState('');
   const [sectionCourseFilter, setSectionCourseFilter] = useState('all');
   
-  // --- Student Specific Filters ---
   const [studentCourseFilter, setStudentCourseFilter] = useState('all');
   const [studentSectionFilter, setStudentSectionFilter] = useState('all');
-  const [studentYearFilter, setStudentYearFilter] = useState('all'); // ✅ Added Year Filter State
-
+  const [studentYearFilter, setStudentYearFilter] = useState('all');
   const currentUser = authAPI.getUserData();
+
+  // Added States for Assigning Single Student
+  const [isAssignSectionModalOpen, setIsAssignSectionModalOpen] = useState(false);
+  const [studentToAssign, setStudentToAssign] = useState(null);
+
+  const handleAssignSectionClick = (student) => {
+    setStudentToAssign(student);
+    setIsAssignSectionModalOpen(true);
+  };
 
   const showAlert = (message, type = 'success') => {
     setAlert({ isVisible: true, message, type });
@@ -174,7 +171,6 @@ const Students = () => {
       setEnrolledStudents(studentsRes.data || []);
     } catch (error) {
       showAlert('Failed to load data. Please try again.', 'error');
-      console.error("Data fetching error:", error);
     } finally {
       setLoading(false);
     }
@@ -184,7 +180,6 @@ const Students = () => {
     fetchData();
   }, [fetchData]);
 
-  // Unified handler for creating and updating sections
   const handleSectionSubmit = async (sectionData) => {
     setIsSubmitting(true);
     try {
@@ -281,8 +276,14 @@ const Students = () => {
         const updatedSection = response.data;
         setSections(prev => prev.map(s => s.id === sectionId ? updatedSection : s));
         setSelectedSection(updatedSection);
-        showAlert('Students added successfully!');
+        
+        // Refresh student list to update UI badges
+        const studentsRes = await enrollmentAPI.getEnrolledStudents();
+        setEnrolledStudents(studentsRes.data || []);
+        
+        showAlert('Student assigned successfully!');
         setIsAddStudentsModalOpen(false); 
+        setIsAssignSectionModalOpen(false);
       } else {
         showAlert(response.message || 'Failed to add students.', 'error');
       }
@@ -299,7 +300,6 @@ const Students = () => {
       const response = await sectionAPI.getById(section.id);
       setSelectedSection(response.data.success ? response.data.data : section);
     } catch (error) {
-      showAlert('An error occurred while fetching details.', 'error');
       setIsDetailsModalOpen(false);
     } finally {
       setIsSectionLoading(false);
@@ -320,7 +320,6 @@ const Students = () => {
     fetchData(); 
   };
   
-  // Filter Logic for Sections
   const filteredSections = useMemo(() => sections.filter(section => {
     const courseName = section.course?.course_name || '';
     const matchesSearch = section.name.toLowerCase().includes(searchTerm.toLowerCase()) || courseName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -328,64 +327,30 @@ const Students = () => {
     return matchesSearch && matchesFilter;
   }), [sections, searchTerm, sectionCourseFilter]);
   
-  // ✅ UPDATED: Filter Logic for Students (Now includes Year Level)
   const filteredStudents = useMemo(() => enrolledStudents.filter(student => {
     const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     student.academic_status.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (student.student_id_number && student.student_id_number.toLowerCase().includes(searchTerm.toLowerCase()));
-
     const courseMatch = studentCourseFilter === 'all' || student.courseId?.toString() === studentCourseFilter;
-    
     const sectionMatch = studentSectionFilter === 'all' || 
                               (studentSectionFilter === 'unassigned' && !student.sectionId) || 
                               (student.sectionId?.toString() === studentSectionFilter);
-
     const yearMatch = studentYearFilter === 'all' || student.year === studentYearFilter;
-
     return matchesSearch && courseMatch && sectionMatch && yearMatch;
   }), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter, studentYearFilter]);
 
-  // ✅ UPDATED: Stats (Dynamic based on active view and filters)
   const stats = useMemo(() => [
-    { 
-        title: 'Total Sections', 
-        value: sections.length.toString(), 
-        icon: BookOpen, 
-        color: 'text-blue-600', 
-        bgColor: 'bg-blue-50' 
-    },
-    { 
-        title: 'Enrolled Students', 
-        // ✅ Logic Change: If in Student view, show filtered count. Else show total.
-        value: activeView === 'students' ? filteredStudents.length.toString() : enrolledStudents.length.toString(), 
-        icon: Users, 
-        color: 'text-green-600', 
-        bgColor: 'bg-green-50' 
-    },
-    { 
-        title: 'Total Courses', 
-        value: courses.length.toString(), 
-        icon: GraduationCap, 
-        color: 'text-[var(--dominant-red)]', 
-        bgColor: 'bg-red-50' 
-    },
-    { 
-        title: 'Empty Sections', 
-        value: sections.filter(s => s.students_count === 0).length.toString(), 
-        icon: UserPlus, 
-        color: 'text-purple-600', 
-        bgColor: 'bg-purple-50' 
-    }
+    { title: 'Total Sections', value: sections.length.toString(), icon: BookOpen, color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    { title: 'Enrolled Students', value: activeView === 'students' ? filteredStudents.length.toString() : enrolledStudents.length.toString(), icon: Users, color: 'text-green-600', bgColor: 'bg-green-50' },
+    { title: 'Total Courses', value: courses.length.toString(), icon: GraduationCap, color: 'text-[var(--dominant-red)]', bgColor: 'bg-red-50' },
+    { title: 'Empty Sections', value: sections.filter(s => s.students_count === 0).length.toString(), icon: UserPlus, color: 'text-purple-600', bgColor: 'bg-purple-50' }
   ], [sections, enrolledStudents, courses, filteredStudents, activeView]);
   
   const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
   const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
   const pageVariants = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -20 } };
 
-
-  if (loading) {
-    return <div className="flex justify-center items-center h-full"><LoadingSpinner size="lg" color="red" /></div>;
-  }
+  if (loading) return <div className="flex justify-center items-center h-full"><LoadingSpinner size="lg" color="red" /></div>;
 
   return (
     <motion.div className="p-6 space-y-6 max-w-7xl mx-auto" variants={containerVariants} initial="hidden" animate="visible">
@@ -400,28 +365,25 @@ const Students = () => {
             </div>
             <div className="flex items-center space-x-2">
               <div className="relative bg-gray-100 rounded-2xl p-1 inline-flex">
-                  <motion.div
-                    className="absolute top-1 bottom-1 bg-white rounded-xl shadow-md"
-                    initial={false}
-                    animate={{ left: activeView === 'sections' ? '4px' : '50%', right: activeView === 'sections' ? '50%' : '4px' }}
-                    transition={{ type: "spring", stiffness: 300, damping: 30, mass: 0.8 }}
-                  />
-                  <motion.button onClick={() => setActiveView('sections')} className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${activeView === 'sections' ? 'text-(--dominant-red)' : 'text-gray-600 hover:text-gray-800'}`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} title="Sections"> <ContactRound className="w-5 h-5" /> </motion.button>
-                  <motion.button onClick={() => setActiveView('students')} className={`relative z-10 p-3 rounded-xl transition-colors duration-300 ${activeView === 'students' ? 'text-(--dominant-red)' : 'text-gray-600 hover:text-gray-800'}`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} title="Students"> <Users className="w-5 h-5" /> </motion.button>
+                  <motion.div className="absolute top-1 bottom-1 bg-white rounded-xl shadow-md" initial={false} animate={{ left: activeView === 'sections' ? '4px' : '50%', right: activeView === 'sections' ? '50%' : '4px' }} />
+                  <button onClick={() => setActiveView('sections')} className={`relative z-10 p-3 rounded-xl ${activeView === 'sections' ? 'text-(--dominant-red)' : 'text-gray-600'}`}> <ContactRound className="w-5 h-5" /> </button>
+                  <button onClick={() => setActiveView('students')} className={`relative z-10 p-3 rounded-xl ${activeView === 'students' ? 'text-(--dominant-red)' : 'text-gray-600'}`}> <Users className="w-5 h-5" /> </button>
               </div>
               <Button className="gradient-primary text-white" onClick={handleAddSectionClick}><Plus className="w-4 h-4 mr-2" />Add Section</Button>
             </div>
           </div>
         </div>
       </motion.div>
+
       <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map(stat => {
           const Icon = stat.icon;
           return <Card key={stat.title}><CardContent className="p-6 flex items-center justify-between"><div className="space-y-1"><p className="text-sm font-medium text-gray-600">{stat.title}</p><p className="text-2xl font-bold heading-bold text-gray-900">{stat.value}</p></div><div className={`p-3 rounded-xl ${stat.bgColor}`}><Icon className={`w-6 h-6 ${stat.color}`} /></div></CardContent></Card>;
         })}
       </motion.div>
+
       <AnimatePresence mode="wait">
-        <motion.div key={activeView} variants={pageVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.3 }}>
+        <motion.div key={activeView} variants={pageVariants} initial="initial" animate="animate" exit="exit">
           {activeView === 'sections' 
             ? <SectionPage 
                 sections={filteredSections} courses={courses} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
@@ -429,64 +391,31 @@ const Students = () => {
                 onAddSectionClick={handleAddSectionClick} onEditClick={handleEditSectionClick} onDeleteClick={handleDeleteSectionClick}
               />
             : <StudentPage 
-                students={filteredStudents} 
-                sections={sections} 
-                courses={courses} 
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm} 
-                courseFilter={studentCourseFilter} 
-                setCourseFilter={setStudentCourseFilter}
-                sectionFilter={studentSectionFilter} 
-                setSectionFilter={setStudentSectionFilter}
-                // ✅ Pass new Year Filter Props
-                yearFilter={studentYearFilter}
-                setYearFilter={setStudentYearFilter}
+                students={filteredStudents} sections={sections} courses={courses} 
+                searchTerm={searchTerm} setSearchTerm={setSearchTerm} 
+                courseFilter={studentCourseFilter} setCourseFilter={setStudentCourseFilter}
+                sectionFilter={studentSectionFilter} setSectionFilter={setStudentSectionFilter}
+                yearFilter={studentYearFilter} setYearFilter={setStudentYearFilter}
                 onEditStudent={handleEditStudent}
                 onViewStudentDetails={handleViewStudentDetails}
+                onAssignSection={handleAddStudentsToSection}
                 currentUser={currentUser} 
               />
           }
         </motion.div>
       </AnimatePresence>
 
-      {/* Modals */}
-      <SectionDetailsModal 
-        isOpen={isDetailsModalOpen} onClose={() => setIsDetailsModalOpen(false)} section={selectedSection} 
-        isLoading={isSectionLoading} onOpenAddStudents={() => setIsAddStudentsModalOpen(true)}
-        onStudentRemoved={handleRemoveStudentFromSection}
-      />
-      <AddSectionModal 
-        isOpen={isAddSectionModalOpen} onClose={() => { setIsAddSectionModalOpen(false); setEditingSection(null); }} 
-        onSubmit={handleSectionSubmit} courses={courses} sectionToEdit={editingSection}
-      />
-      <AddStudentsToSectionModal
-        isOpen={isAddStudentsModalOpen} onClose={() => setIsAddStudentsModalOpen(false)} section={selectedSection}
-        allStudents={enrolledStudents} enrolledStudentIds={selectedSection?.students?.map(s => s.id) || []}
-        onAddStudents={(studentIds) => handleAddStudentsToSection(selectedSection.id, studentIds)}
-      />
-      {isEditModalOpen && (
-        <EditStudentModal
-          isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)}
-          studentId={selectedStudentId} onUpdateSuccess={handleUpdateSuccess}
-        />
-      )}
-      {isViewDetailsModalOpen && (
-        <ViewStudentFullDetailsModal
-            isOpen={isViewDetailsModalOpen}
-            onClose={() => setIsViewDetailsModalOpen(false)}
-            studentId={selectedStudentId}
-        />
-      )}
-      <DeleteConfirmationModal
-        isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleConfirmDeleteSection}
-        title="Delete Section" message="Are you sure you want to delete this section? All student assignments will be removed. This action cannot be undone."
-        itemName={deletingSection?.name} isLoading={isSubmitting}
-      />
+      <SectionDetailsModal isOpen={isDetailsModalOpen} onClose={() => setIsDetailsModalOpen(false)} section={selectedSection} isLoading={isSectionLoading} onOpenAddStudents={() => setIsAddStudentsModalOpen(true)} onStudentRemoved={handleRemoveStudentFromSection} />
+      <AddSectionModal isOpen={isAddSectionModalOpen} onClose={() => { setIsAddSectionModalOpen(false); setEditingSection(null); }} onSubmit={handleSectionSubmit} courses={courses} sectionToEdit={editingSection} />
+      <AddStudentsToSectionModal isOpen={isAddStudentsModalOpen} onClose={() => setIsAddStudentsModalOpen(false)} section={selectedSection} allStudents={enrolledStudents} enrolledStudentIds={selectedSection?.students?.map(s => s.id) || []} onAddStudents={(studentIds) => handleAddStudentsToSection(selectedSection.id, studentIds)} />
+      
+      {isEditModalOpen && <EditStudentModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} studentId={selectedStudentId} onUpdateSuccess={handleUpdateSuccess} />}
+      {isViewDetailsModalOpen && <ViewStudentFullDetailsModal isOpen={isViewDetailsModalOpen} onClose={() => setIsViewDetailsModalOpen(false)} studentId={selectedStudentId} />}
+      <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleConfirmDeleteSection} title="Delete Section" message="Are you sure you want to delete this section?" itemName={deletingSection?.name} isLoading={isSubmitting} />
     </motion.div>
   );
 };
 
-// Sub-component for Sections View (No changes)
 const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, onSectionClick, onAddSectionClick, onEditClick, onDeleteClick }) => {
     const courseOptions = useMemo(() => [
       { label: 'Filter by All Courses', value: 'all' },
@@ -495,232 +424,112 @@ const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilte
   
     return (
       <div className="space-y-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-              <div className="flex-1 w-full">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input placeholder="Search sections by name or course..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border border-gray-200 focus:ring-red-800 focus:border-red-800"/>
-                </div>
-              </div>
-              <div className="relative w-full md:w-auto">
-                <MotionDropdown value={courseFilter} onChange={setCourseFilter} options={courseOptions} placeholder="Filter by All Courses"/>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <Card><CardContent className="p-6"><div className="flex flex-col md:flex-row gap-4 items-center justify-between"><div className="flex-1 w-full"><div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" /><Input placeholder="Search sections..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10"/></div></div><div className="relative w-full md:w-auto"><MotionDropdown value={courseFilter} onChange={setCourseFilter} options={courseOptions} placeholder="Filter Courses"/></div></div></CardContent></Card>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sections.map((section, index) => (
-            <motion.div 
-              key={section.id} 
-              initial={{ opacity: 0, y: 20 }} 
-              animate={{ opacity: 1, y: 0, transition: { duration: 0.5, delay: index * 0.05 }}} 
-              whileHover={{ y: -5 }} 
-              className="relative"
-            >
+            <motion.div key={section.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -5 }} className="relative">
               <div onClick={() => onSectionClick(section)} className="cursor-pointer h-full">
-                <Card className="h-full flex flex-col">
-                    <CardContent className="p-6 grow flex flex-col justify-between">
-                        <div>
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="flex items-center space-x-3">
-                                    <div className="w-12 h-12 bg-(--dominant-red) rounded-xl flex items-center justify-center shrink-0"><BookOpen className="w-6 h-6 text-white" /></div>
-                                    <div>
-                                        <h3 className="font-bold text-gray-900 text-lg">{section.name}</h3>
-                                        <Badge className={`text-xs mt-1 ${section.students.length > 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{section.students.length} student{section.students.length !== 1 ? 's' : ''}</Badge>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <div className="flex items-center text-sm text-gray-600"><GraduationCap className="w-4 h-4 mr-2 text-gray-400" /><span className="truncate">{section.course?.course_name || 'N/A'}</span></div>
-                                <div className="flex items-center text-sm text-gray-600"><Users className="w-4 h-4 mr-2 text-gray-400" /><span>{section.course?.program?.program_code || 'No Program'}</span></div>
-                            </div>
-                        </div>
-                        <div className="mt-4 pt-4 border-t"><div className="flex items-center justify-between"><span className="text-sm text-gray-500">Click to view students</span></div></div>
-                    </CardContent>
-                </Card>
+                <Card className="h-full flex flex-col"><CardContent className="p-6 grow flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-start justify-between mb-4"><div className="flex items-center space-x-3"><div className="w-12 h-12 bg-(--dominant-red) rounded-xl flex items-center justify-center shrink-0"><BookOpen className="w-6 h-6 text-white" /></div><div><h3 className="font-bold text-gray-900 text-lg">{section.name}</h3><Badge className="bg-green-100 text-green-800 mt-1">{section.students?.length || 0} students</Badge></div></div></div>
+                    <div className="space-y-2"><div className="flex items-center text-sm text-gray-600"><GraduationCap className="w-4 h-4 mr-2" />{section.course?.course_name}</div></div>
+                  </div>
+                </CardContent></Card>
               </div>
-              <div className="absolute top-4 right-4">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
-                      <span className="sr-only">Open menu</span><MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenuItem className="cursor-pointer" onClick={() => onEditClick(section)}><Edit className="w-4 h-4 mr-2 hover:text-white" /><span>Edit</span></DropdownMenuItem>
-                    <DropdownMenuItem className="cursor-pointer text-red-600" onClick={() => onDeleteClick(section)}><Trash2 className="w-4 h-4 mr-2 hover:text-white" /><span>Delete</span></DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              <div className="absolute top-4 right-4"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => onEditClick(section)}><Edit className="w-4 h-4 mr-2" />Edit</DropdownMenuItem><DropdownMenuItem className="text-red-600" onClick={() => onDeleteClick(section)}><Trash2 className="w-4 h-4 mr-2" />Delete</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>
             </motion.div>
           ))}
         </div>
-        {sections.length === 0 && <div className="text-center py-12"><ContactRound className="w-16 h-16 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-900 mb-2">No sections found</h3><p className="text-gray-500 mb-4">Try adjusting your search or filter criteria.</p><Button className="gradient-primary text-white" onClick={onAddSectionClick}><Plus className="w-4 h-4 mr-2" />Add First Section</Button></div>}
       </div>
     );
 };
 
-// Sub-component for Students View
-// ✅ UPDATED: Received new props for Year filtering
-const StudentPage = ({ 
-    students, 
-    sections, 
-    courses, 
-    searchTerm, 
-    setSearchTerm, 
-    courseFilter, 
-    setCourseFilter, 
-    sectionFilter, 
-    setSectionFilter, 
-    yearFilter,         // New Prop
-    setYearFilter,      // New Prop
-    onEditStudent, 
-    onViewStudentDetails, 
-    currentUser 
-}) => {
-    
-    const courseOptions = useMemo(() => [
-      { label: 'All Courses', value: 'all' },
-      ...courses.map(course => ({ label: course.course_code, value: course.id.toString() }))
-    ], [courses]);
-  
-    const sectionOptions = useMemo(() => [
-      { label: 'All Sections', value: 'all' },
-      { label: 'Unassigned', value: 'unassigned' },
-      ...sections.map(section => ({ label: section.name, value: section.id.toString() }))
-    ], [sections]);
-
-    // ✅ New Options for Year Level
-    const yearOptions = [
-        { label: 'All Year Levels', value: 'all' },
-        { label: '1st Year', value: '1st Year' },
-        { label: '2nd Year', value: '2nd Year' },
-        { label: '3rd Year', value: '3rd Year' },
-        { label: '4th Year', value: '4th Year' },
-        { label: '1st Year Summer', value: '1st Year Summer' },
-        { label: '2nd Year Summer', value: '2nd Year Summer' },
-    ];
-    
+const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter, yearFilter, setYearFilter, onEditStudent, onViewStudentDetails, onAssignSection, currentUser }) => {
+    const courseOptions = useMemo(() => [{ label: 'All Courses', value: 'all' }, ...courses.map(c => ({ label: c.course_code, value: c.id.toString() }))], [courses]);
+    const sectionOptions = useMemo(() => [{ label: 'All Sections', value: 'all' }, { label: 'Unassigned', value: 'unassigned' }, ...sections.map(s => ({ label: s.name, value: s.id.toString() }))], [sections]);
+    const yearOptions = [{ label: 'All Year Levels', value: 'all' }, { label: '1st Year', value: '1st Year' }, { label: '2nd Year', value: '2nd Year' }, { label: '3rd Year', value: '3rd Year' }, { label: '4th Year', value: '4th Year' }];
     const canEdit = currentUser.role === 'Admin' || currentUser.role === 'Registrar';
   
     return (
       <div className="space-y-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex flex-col gap-4">
-              {/* Search Bar */}
-              <div className="w-full">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input placeholder="Search students by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border border-gray-300 focus:border-red-800 focus:ring-1 focus:ring-red-800 rounded-lg"/>
-                </div>
-              </div>
-
-              {/* Filters Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="relative">
-                  <MotionDropdown value={courseFilter} onChange={setCourseFilter} options={courseOptions} placeholder="Filter by Course"/>
-                </div>
-                <div className="relative">
-                   <MotionDropdown value={yearFilter} onChange={setYearFilter} options={yearOptions} placeholder="Filter by Year Level"/>
-                </div>
-                <div className="relative">
-                  <MotionDropdown value={sectionFilter} onChange={setSectionFilter} options={sectionOptions} placeholder="Filter by Section"/>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-        <Table>
-        <TableHeader>
-      <TableRow>
-    <TableHead><div className="flex items-center gap-2"><Hash size={16} />Student ID</div></TableHead>
-    <TableHead><div className="flex items-center gap-2"><User size={16} />Name</div></TableHead>
-    <TableHead><div className="flex items-center gap-2"><GraduationCap size={16} />Course</div></TableHead>
-    <TableHead><div className="flex items-center gap-2"><Calendar size={16} />Year</div></TableHead>
-    <TableHead><div className="flex items-center gap-2"><Users size={16} />Section</div></TableHead>
-    <TableHead><div className="flex items-center gap-2"><BookOpen size={16} />Status</div></TableHead>
-    <TableHead className="text-right"><div className="flex items-center justify-end gap-2"><Settings2 size={16} />Action</div></TableHead>
-      </TableRow>
-        </TableHeader>
-  <TableBody>
-    {students.length > 0 ? students.map(student => (
-      <TableRow key={student.id}>
-        <TableCell className="font-medium">
-          <div className="flex items-center gap-2">
-            <Hash size={14} className="text-gray-500" />
-            <p className="font-mono text-gray-900">{student.student_id_number}</p>
+        <Card><CardContent className="p-6"><div className="flex flex-col gap-4">
+          <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" /><Input placeholder="Search students by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border border-gray-300 focus:border-red-800 focus:ring-1 focus:ring-red-800 rounded-lg"/></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <MotionDropdown value={courseFilter} onChange={setCourseFilter} options={courseOptions} placeholder="Filter Course"/>
+            <MotionDropdown value={yearFilter} onChange={setYearFilter} options={yearOptions} placeholder="Filter Year"/>
+            <MotionDropdown value={sectionFilter} onChange={setSectionFilter} options={sectionOptions} placeholder="Filter Section"/>
           </div>
-        </TableCell>
-        <TableCell>
-          <div className="flex items-center gap-2">
-            <User size={14} className="text-gray-500" />
-            <p className="font-bold text-gray-900 uppercase">{student.name}</p>
-          </div>
-        </TableCell>
-        <TableCell>
-          <div className="flex items-center gap-2">
-            <GraduationCap size={14} className="text-gray-500" />
-            <p className="text-gray-900">{student.courseName}</p>
-          </div>
-        </TableCell>
-        {/* Added Year Column to see the effect of filtering */}
-        <TableCell>
-             <Badge variant="outline" className="bg-gray-50">{student.year}</Badge>
-        </TableCell>
-        <TableCell>
-          <div className="flex items-center gap-2">
-            <Users size={14} className="text-gray-500" />
-            <Badge variant={student.sectionName === 'Unassigned' ? "destructive" : "secondary"}>
-              {student.sectionName}
-            </Badge>
-          </div>
-        </TableCell>
-        <TableCell>
-        <Badge 
-          variant={
-            student.academic_status === 'Irregular' ? "destructive" :
-            student.academic_status === 'Withdraw' ? "secondary" :
-            "default" 
-          } 
-          className={
-            student.academic_status === 'Regular' ? 'bg-blue-100 text-blue-800' : 
-            student.academic_status === 'Withdraw' ? 'bg-yellow-100 text-yellow-800' : 
-            ''
-          }
-        >
-          {student.academic_status}
-        </Badge>
-        </TableCell>
-        <TableCell className="text-right">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0 cursor-pointer">
-                <span className="sr-only">Open menu</span><MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem className="cursor-pointer" onClick={() => onViewStudentDetails(student.id)}>
-                <FileText className="w-4 h-4 mr-2 hover:text-white" />
-                View Details
-              </DropdownMenuItem>
-              {canEdit && (
-                <DropdownMenuItem className="cursor-pointer" onClick={() => onEditStudent(student.id)}>
-                  <Edit className="w-4 h-4 mr-2 hover:text-white" />
-                  Edit Student
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </TableCell>
-      </TableRow>
-    )) : <TableRow><TableCell colSpan="7" className="text-center h-24">No students found matching filters.</TableCell></TableRow>}
-  </TableBody>
-</Table>
-        </Card>
+        </div></CardContent></Card>
+        <Card><Table>
+          <TableHeader><TableRow>
+            <TableHead><Hash size={16} className="inline mr-2"/>ID</TableHead>
+            <TableHead><User size={16} className="inline mr-2"/>Name</TableHead>
+            <TableHead><GraduationCap size={16} className="inline mr-2"/>Course</TableHead>
+            <TableHead><Calendar size={16} className="inline mr-2"/>Year</TableHead>
+            <TableHead><Users size={16} className="inline mr-2"/>Section</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow></TableHeader>
+          <TableBody>
+            {students.length > 0 ? students.map(student => (
+              <TableRow key={student.id}>
+                <TableCell className="font-mono text-xs">{student.student_id_number}</TableCell>
+                <TableCell className="font-bold uppercase">{student.name}</TableCell>
+                <TableCell>{student.courseName}</TableCell>
+                <TableCell><Badge variant="outline">{student.year}</Badge></TableCell>
+                <TableCell>
+                  {!student.sectionName || student.sectionName === 'Unassigned' ? (
+                    <div className="flex items-center gap-2">
+                      <Badge variant="destructive">Unassigned</Badge>
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="sm" variant="outline" className="h-7 px-2 border-dashed border-red-300 text-red-600 hover:bg-red-800 cursor-pointer">
+                            <Plus className="w-3 h-3 mr-1" /> Assign
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-48">
+                          <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 uppercase">
+                            Available {student.courseName} Sections
+                          </div>
+                          {sections
+                            .filter(sec => sec.course_id === student.courseId)
+                            .map(sec => (
+                              <DropdownMenuItem 
+                                key={sec.id} 
+                                onClick={() => onAssignSection(sec.id, [student.id])}
+                                className="cursor-pointer"
+                              >
+                                {sec.name}
+                              </DropdownMenuItem>
+                            ))
+                          }
+                          {sections.filter(sec => sec.course_id === student.courseId).length === 0 && (
+                            <div className="px-2 py-3 text-xs text-center text-gray-400">
+                              No sections found for this course
+                            </div>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  ) : (
+                    <Badge variant="secondary">{student.sectionName}</Badge>
+                  )}
+                </TableCell>
+                <TableCell><Badge className={student.academic_status === 'Regular' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}>{student.academic_status}</Badge></TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onViewStudentDetails(student.id)}><FileText className="w-4 h-4 mr-2" />View Details</DropdownMenuItem>
+                      {canEdit && <DropdownMenuItem onClick={() => onEditStudent(student.id)}><Edit className="w-4 h-4 mr-2" />Edit</DropdownMenuItem>}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            )) : <TableRow><TableCell colSpan="7" className="text-center h-24">No students found.</TableCell></TableRow>}
+          </TableBody>
+        </Table></Card>
       </div>
     );
 }

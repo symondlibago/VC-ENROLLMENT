@@ -47,7 +47,8 @@ class SubjectController extends Controller
                     'student_id' => $student->student_id_number, // Matches frontend student.student_id
                     'name'       => $student->full_name,        // Uses the accessor from PreEnrolledStudent.php
                     'course'     => $student->course->course_code ?? 'N/A',
-                    'year'       => $student->year
+                    'year'       => $student->year,
+                    'section'    => $student->sections->pluck('name')->implode(', ') ?: 'Unassigned'
                 ];
             })
         ]);
