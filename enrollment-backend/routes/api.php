@@ -157,6 +157,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('enrollments/{id}/details', [EnrollmentController::class, 'getPreEnrolledStudentDetails']);
     Route::get('enrollments/{id}', [EnrollmentController::class, 'getPreEnrolledStudentDetails']);
     Route::post('/enrollments/check-email', [EnrollmentController::class, 'checkEmailAvailability']);
+    Route::post('/enrollments/check-existence', [EnrollmentController::class, 'checkStudentExistence']);
 
     // Upload Receipts
     Route::post('upload-receipts', [UploadReceiptController::class, 'store']);

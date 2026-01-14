@@ -146,8 +146,8 @@ const StudentGrades = () => {
           return;
         }
 
-        if (numericValue > 5) {
-            numericValue = 5;
+        if (numericValue > 100) {
+            numericValue = 100; 
         }
     }
     setRosterData(currentRoster => 
@@ -168,7 +168,69 @@ const StudentGrades = () => {
       })
     );
   };
+
+  const getEquivalentGrade = (finalGrade) => {
+    if (finalGrade === null || finalGrade === undefined) return '--';
+    
+    // Round to the nearest whole number for mapping
+    const grade = Math.round(finalGrade);
   
+    if (grade >= 100) return '1.0';
+    if (grade === 99) return '1.1';
+    if (grade === 98) return '1.2';
+    if (grade === 97) return '1.25';
+    if (grade === 96) return '1.3';
+    if (grade === 95) return '1.4';
+    if (grade === 94) return '1.5';
+    if (grade === 93) return '1.6';
+    if (grade === 92) return '1.7';
+    if (grade === 91) return '1.75';
+    if (grade === 90) return '1.8';
+    if (grade === 89) return '1.9';
+    if (grade === 88) return '2.0';
+    if (grade === 87) return '2.1';
+    if (grade === 86) return '2.2';
+    if (grade === 85) return '2.25';
+    if (grade === 84) return '2.3';
+    if (grade === 83) return '2.4';
+    if (grade === 82) return '2.5';
+    if (grade === 81) return '2.6';
+    if (grade === 80) return '2.7';
+    if (grade === 79) return '2.75';
+    if (grade === 78) return '2.8';
+    if (grade === 77) return '2.9';
+    if (grade === 76 || grade === 75) return '3.0';
+    if (grade === 74) return '3.1';
+    if (grade === 73) return '3.2';
+    if (grade === 72) return '3.25';
+    if (grade === 71) return '3.3';
+    if (grade === 70) return '3.4';
+    
+    return '5.0'; // 69% and below
+  };
+
+const calculateFinalGrade = (student, subjectCode) => {
+  const { prelim_grade: p, midterm_grade: m, semifinal_grade: s, final_grade: f } = student.grades || {};
+  
+  // Check if all grades are present before calculating
+  if ([p, m, s, f].some(grade => grade === null || grade === undefined || grade === '')) return null;
+
+  // FIX: Check if student is in DHT course or is Senior High (Grade 11/12)
+  // We check student.courseName which is provided by the API in getGradeableStudents
+  const isDHT = student.courseName?.includes('Diploma in Hospitality Technology') || 
+                student.courseName?.includes('DHT') ||
+                subjectCode?.includes('DHT');
+                
+  const isSHS = student.year?.includes('Grade 11') || student.year?.includes('Grade 12');
+
+  if (isDHT || isSHS) {
+    // Formula for DHT/SHS: (Prelim + Midterm + Semi + Final) / 4
+    return (p + m + s + f) / 4;
+  } else {
+    // Standard College Formula: 20% Prelim + 20% Midterm + 20% Semi + 40% Final
+    return (p * 0.20) + (m * 0.20) + (s * 0.20) + (f * 0.40);
+  }
+};
   const handleSubmitGrades = async () => {
     if (!selectedSubjectId) {
         setValidationError({ isOpen: true, message: 'Please select a specific subject before submitting grades.' });
@@ -253,69 +315,60 @@ const StudentGrades = () => {
         <Card>
             <table className="w-full text-sm text-left text-gray-500">
               <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3">Student ID</th>
-                  <th scope="col" className="px-6 py-3">Name</th>
-                  <th scope="col" className="px-6 py-3">Prelim</th>
-                  <th scope="col" className="px-6 py-3">Midterm</th>
-                  <th scope="col" className="px-6 py-3">Semi-Final</th>
-                  <th scope="col" className="px-6 py-3">Final</th>
-                  <th scope="col" className="px-6 py-3">Status</th>
-                </tr>
+              <tr>
+              <th className="px-6 py-3">Student ID</th>
+              <th className="px-6 py-3">Name</th>
+              <th className="px-6 py-3">Prelim</th>
+              <th className="px-6 py-3">Midterm</th>
+              <th className="px-6 py-3">Semi-Final</th>
+              <th className="px-6 py-3">Final</th>
+              <th className="px-6 py-3 text-red-600">Final Grade</th>
+              <th className="px-6 py-3">Equivalent</th>
+              <th className="px-6 py-3">Status</th>
+            </tr>
               </thead>
               <tbody>
                 {filteredStudents.map(student => {
-                  const finalGrade = student.grades?.final_grade;
-                  let statusBadge;
+                  // Get the current subject code for formula selection
+                  const subject = rosterData.find(s => s.subject_id.toString() === selectedSubjectId);
+                  const computedFinal = calculateFinalGrade(student, subject?.subject_code);
+                  const equivalent = getEquivalentGrade(computedFinal);
 
-                  // --- CORRECTED LOGIC FOR COLLEGE GRADES ---
-                  if (finalGrade !== null && finalGrade !== undefined) {
-                      // Passed if 3.0 or lower. Failed if higher than 3.0.
-                      statusBadge = finalGrade <= 3.0
+                  let statusBadge;
+                  if (computedFinal !== null) {
+                      statusBadge = computedFinal >= 75
                           ? <Badge className="bg-green-100 text-green-800">Passed</Badge> 
                           : <Badge variant="destructive">Failed</Badge>;
                   } else {
                       statusBadge = <Badge variant="outline">In Progress</Badge>;
                   }
-                  
+
                   return (
                     <tr key={student.id} className="bg-white border-b hover:bg-gray-50">
                       <td className="px-6 py-4 font-mono">{student.studentId}</td>
-                      <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{student.name}</td>
+                      <td className="px-6 py-4">{student.name}</td>
                       
-                      {/* --- CORRECTED INPUTS FOR COLLEGE GRADES --- */}
-                      <td className="px-2 py-2">
-                        <Input type="number" min="1" max="5" step="0.01" 
-                          value={student.grades?.prelim_grade ?? ''} 
-                          onChange={(e) => handleGradeChange(student.id, 'prelim_grade', e.target.value)} 
-                          className="w-20 border border-gray-300 rounded-md text-black" 
-                          disabled={!isPeriodOpen('prelim')}
-                        />
+                      {/* Grade Inputs (Updated max to 100) */}
+                      {['prelim_grade', 'midterm_grade', 'semifinal_grade', 'final_grade'].map((field) => (
+                        <td key={field} className="px-2 py-2">
+                          <Input 
+                            type="number" min="0" max="100" 
+                            value={student.grades?.[field] ?? ''} 
+                            onChange={(e) => handleGradeChange(student.id, field, e.target.value)}
+                            className="w-16 border-gray-300 font-mono"
+                            disabled={!isPeriodOpen(field.split('_')[0])}
+                          />
+                        </td>
+                      ))}
+
+                      {/* Computed Final Grade Column */}
+                      <td className="px-6 py-4 font-bold text-gray-900 font-mono">
+                        {computedFinal !== null ? computedFinal.toFixed(2) : '--'}
                       </td>
-                      <td className="px-2 py-2">
-                        <Input type="number" min="1" max="5" step="0.01"
-                          value={student.grades?.midterm_grade ?? ''} 
-                          onChange={(e) => handleGradeChange(student.id, 'midterm_grade', e.target.value)} 
-                          className="w-20 border border-gray-300 rounded-md text-black" 
-                          disabled={!isPeriodOpen('midterm')}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <Input type="number" min="1" max="5" step="0.01"
-                          value={student.grades?.semifinal_grade ?? ''} 
-                          onChange={(e) => handleGradeChange(student.id, 'semifinal_grade', e.target.value)} 
-                          className="w-20 border border-gray-300 rounded-md text-black" 
-                          disabled={!isPeriodOpen('semifinal')}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <Input type="number" min="1" max="5" step="0.01"
-                          value={student.grades?.final_grade ?? ''} 
-                          onChange={(e) => handleGradeChange(student.id, 'final_grade', e.target.value)} 
-                          className="w-20 border border-gray-300 rounded-md text-black" 
-                          disabled={!isPeriodOpen('final')}
-                        />
-                      </td>
+
+                      {/* Equivalent Column (Blank as requested) */}
+                      <td className="px-6 py-4 font-mono text-gray-900 font-bold">{equivalent}</td>
+
                       <td className="px-6 py-4">{statusBadge}</td>
                     </tr>
                   );

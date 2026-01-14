@@ -37,11 +37,13 @@ const StudentPayments = () => {
     const [paymentData, setPaymentData] = useState(defaultPaymentState);
     const [historicalPayments, setHistoricalPayments] = useState([]); 
     const [error, setError] = useState(null);
+    const [isNotFound, setIsNotFound] = useState(false); // New state to explicitly track 404s
 
     useEffect(() => {
         const fetchPaymentData = async () => {
             setLoading(true);
             setError(null);
+            setIsNotFound(false);
             try {
                 // This calls the new protected route: /api/student/payment-history
                 const response = await paymentAPI.getPaymentForAuthenticatedStudent(); 
@@ -56,24 +58,33 @@ const StudentPayments = () => {
                     }));
                     setStudentInfo(student);
 
-                    // Separate term payments from all payments (no need to filter for current term for read-only view)
+                    // Separate term payments from all payments
                     setHistoricalPayments(payment.term_payments || []);
                     
                 } else {
-                    // Handle the expected "No payment record found" (404) error gracefully
-                    setError(response.message || 'No payment record found for this enrollment.');
+                    // Fallback if success is false but no error was thrown
+                    setIsNotFound(true);
                     setPaymentData(defaultPaymentState);
                     setHistoricalPayments([]);
                 }
             } catch (err) {
-                // Handle network or unexpected errors
-                setError(err.message || 'An error occurred while loading payment data.');
+                // --- FIX: Robust 404 Check ---
+                // We check if the status is 404 OR if the message matches known "Not Found" messages from the controller
+                if (
+                    err.status === 404 || 
+                    err.message === 'No payment record found for this student.' ||
+                    err.message === 'No enrolled student record found for this user.'
+                ) {
+                    setIsNotFound(true);
+                } else {
+                    // Genuine error (Server error, network issue, etc.)
+                    setError(err.message || 'An error occurred while loading payment data.');
+                }
             } finally {
                 setLoading(false);
             }
         };
 
-        // Note: You must ensure 'getPaymentForAuthenticatedStudent' is defined in your api.js
         if (paymentAPI.getPaymentForAuthenticatedStudent) {
              fetchPaymentData();
         } else {
@@ -98,7 +109,7 @@ const StudentPayments = () => {
     }
     
     // Custom error display for a friendlier look
-    if (error && error !== 'No payment record found for this enrollment.') {
+    if (error) {
          return (
             <div className="p-6 h-[70vh] flex flex-col items-center justify-center text-center">
                 <XCircle className="w-12 h-12 text-red-500 mb-4" />
@@ -120,14 +131,21 @@ const StudentPayments = () => {
                 <CreditCard className="w-7 h-7 mr-3 text-red-600" /> My Financial Statement
             </h1>
             
-            {error === 'No payment record found for this enrollment.' ? (
-                <Card className="shadow-lg border-2 border-red-300">
+            {/* --- FIX: Use the new isNotFound state --- */}
+            {isNotFound ? (
+                <Card className="shadow-lg border-2 border-red-300 bg-red-50">
                     <CardHeader>
-                        <CardTitle className="text-xl text-red-600">No Payment Data Available</CardTitle>
+                        <CardTitle className="text-xl text-red-600 flex items-center gap-2">
+                            <DollarSign className="w-6 h-6" />
+                            No Payment Record Found
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-gray-700">The Cashier has not yet created your enrollment payment record for the current term.</p>
-                        <p className="text-gray-500 mt-2">Please check back later or coordinate with the Cashier's office.</p>
+                        <p className="text-gray-700 font-medium">Your account does not have a payment record for the current active enrollment.</p>
+                        <p className="text-gray-600 mt-2 text-sm">
+                            This usually means the <strong>Cashier has not yet processed your assessment</strong> or you are not fully enrolled for this semester.
+                        </p>
+                        <p className="text-gray-500 mt-4 text-sm italic">Please check back later or visit the Cashier's office for assistance.</p>
                     </CardContent>
                 </Card>
             ) : (

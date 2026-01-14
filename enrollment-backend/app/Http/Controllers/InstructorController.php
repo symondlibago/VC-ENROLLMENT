@@ -199,7 +199,7 @@ class InstructorController extends Controller
 
                 $enrolledStudents = $schedule->subject->students()
                     ->where('enrollment_status', 'enrolled')
-                    ->where('academic_status', '!=', 'Withdraw') // ✅ **ADDED THIS FILTER**
+                    ->where('academic_status', '!=', 'Withdraw')
                     ->get();
 
                 foreach ($enrolledStudents as $student) {
@@ -209,6 +209,8 @@ class InstructorController extends Controller
                         'id' => $student->id,
                         'name' => $student->getFullNameAttribute(),
                         'studentId' => $student->student_id_number,
+                        'year' => $student->year, // Needed for SHS check
+                        'courseName' => $student->course->course_name ?? 'N/A',
                         'grades' => [
                             'prelim_grade' => $grade->prelim_grade ?? null,
                             'midterm_grade' => $grade->midterm_grade ?? null,
@@ -249,10 +251,10 @@ public function bulkUpdateGrades(Request $request)
         'grades' => 'required|array',
         'grades.*.student_id' => 'required|exists:pre_enrolled_students,id',
         'grades.*.subject_id' => 'required|exists:subjects,id',
-        'grades.*.prelim_grade' => 'nullable|numeric|min:1|max:5',
-        'grades.*.midterm_grade' => 'nullable|numeric|min:1|max:5',
-        'grades.*.semifinal_grade' => 'nullable|numeric|min:1|max:5',
-        'grades.*.final_grade' => 'nullable|numeric|min:1|max:5',
+        'grades.*.prelim_grade' => 'nullable|numeric|min:0|max:100',
+        'grades.*.midterm_grade' => 'nullable|numeric|min:0|max:100',
+        'grades.*.semifinal_grade' => 'nullable|numeric|min:0|max:100',
+        'grades.*.final_grade' => 'nullable|numeric|min:0|max:100',
     ]);
 
     if ($validator->fails()) {
@@ -311,7 +313,7 @@ public function bulkUpdateGrades(Request $request)
 
                 // Update status logic for college grades
                 if ($grade->final_grade !== null) {
-                    $grade->status = $grade->final_grade <= 3.0 ? 'Passed' : 'Failed';
+                    $grade->status = $grade->final_grade >= 75 ? 'Passed' : 'Failed';
                 } else {
                     $grade->status = 'In Progress';
                 }

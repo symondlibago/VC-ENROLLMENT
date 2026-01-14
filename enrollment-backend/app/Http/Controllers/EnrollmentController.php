@@ -134,6 +134,59 @@ class EnrollmentController extends Controller
         }
     }
 
+            /**
+         * Check if a student with same name and birthdate already exists.
+         */
+        public function checkStudentExistence(Request $request): JsonResponse
+{
+    \Log::info('Checking student existence', $request->all());
+    
+    $validator = Validator::make($request->all(), [
+        'first_name' => 'required|string',
+        'last_name' => 'required|string',
+        'birth_date' => 'required|date',
+    ]);
+
+    if ($validator->fails()) {
+        \Log::error('Validation failed', $validator->errors()->toArray());
+        return response()->json([
+            'success' => false, 
+            'message' => 'Invalid data provided',
+            'errors' => $validator->errors()
+        ], 422);
+    }
+
+    // Normalize the date format
+    $birthDate = \Carbon\Carbon::parse($request->birth_date)->format('Y-m-d');
+    
+    \Log::info('Searching for student', [
+        'first_name' => $request->first_name,
+        'last_name' => $request->last_name,
+        'birth_date' => $birthDate
+    ]);
+
+    // Check with case-insensitive comparison
+    $exists = PreEnrolledStudent::whereRaw('LOWER(first_name) = ?', [strtolower($request->first_name)])
+        ->whereRaw('LOWER(last_name) = ?', [strtolower($request->last_name)])
+        ->whereDate('birth_date', $birthDate)
+        ->exists();
+
+    \Log::info('Existence check result', ['exists' => $exists]);
+
+    if ($exists) {
+        return response()->json([
+            'success' => true,
+            'exists' => true,
+            'message' => 'A student with this name and birth date is already registered.'
+        ], 200);
+    }
+
+    return response()->json([
+        'success' => true,
+        'exists' => false,
+        'message' => 'Student details are available.'
+    ], 200);
+}
     /**
      * Check if an email address is already taken.
      */
@@ -965,7 +1018,7 @@ public function getStudentsForIdReleasing()
         $validator = Validator::make($request->all(), [
             'grades' => 'required|array',
             'grades.*.id' => 'required|exists:grades,id',
-            'grades.*.final_grade' => 'nullable|numeric|min:1|max:5',
+            'grades.*.final_grade' => 'nullable|numeric|min:0|max:100',
             'grades.*.status' => ['required', 'string', Rule::in(['Passed', 'Failed', 'In Progress', 'INC', 'NFE', 'NFR', 'DA', 'Credited'])],
         ]);
 
@@ -1091,6 +1144,8 @@ public function getStudentsForIdReleasing()
 
                 return [
                     'id' => $grade->id,
+                    'year' => $grade->subject->year,
+                    'course' => $grade->subject->course->course_code,
                     'subject_code' => $grade->subject->subject_code,
                     'descriptive_title' => $grade->subject->descriptive_title,
                     'units' => $grade->subject->total_units,

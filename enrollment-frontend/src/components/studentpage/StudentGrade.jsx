@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { studentAPI } from '@/services/api';
-import { FileText, ChevronDown, AlertCircle, Inbox, Book, User, Star } from 'lucide-react';
+import { FileText, ChevronDown, AlertCircle, Inbox, Book, User, Calculator, Equal } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -13,9 +13,84 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import LoadingSpinner from '@/components/layout/LoadingSpinner';
-import { useIsMobile } from "@/hooks/use-mobile"; // Step 1: Import the hook
+import { useIsMobile } from "@/hooks/use-mobile";
 
-// (The MotionDropdown component remains the same as before)
+// --- HELPER FUNCTIONS ---
+
+// 1. Equivalent Conversion
+const getEquivalent = (numericGrade) => {
+  if (numericGrade === null || numericGrade === undefined || isNaN(numericGrade)) return '--';
+  
+  const g = Math.round(numericGrade); // Round to nearest whole number for mapping
+
+  if (g >= 100) return "1.0";
+  if (g === 99) return "1.1";
+  if (g === 98) return "1.2";
+  if (g === 97) return "1.25";
+  if (g === 96) return "1.3";
+  if (g === 95) return "1.4";
+  if (g === 94) return "1.5";
+  if (g === 93) return "1.6";
+  if (g === 92) return "1.7";
+  if (g === 91) return "1.75";
+  if (g === 90) return "1.8";
+  if (g === 89) return "1.9";
+  if (g === 88) return "2.0";
+  if (g === 87) return "2.1";
+  if (g === 86) return "2.2";
+  if (g === 85) return "2.25";
+  if (g === 84) return "2.3";
+  if (g === 83) return "2.4";
+  if (g === 82) return "2.5";
+  if (g === 81) return "2.6";
+  if (g === 80) return "2.7";
+  if (g === 79) return "2.75";
+  if (g === 78) return "2.8";
+  if (g === 77) return "2.9";
+  if (g >= 75) return "3.0"; // 75-76%
+  if (g === 74) return "3.1";
+  if (g === 73) return "3.2";
+  if (g === 72) return "3.25";
+  if (g === 71) return "3.3";
+  if (g === 70) return "3.4";
+  return "5.0"; // 69% and below
+};
+
+// 2. Final Grade Calculation (Weighted vs Average)
+const calculateFinalGrade = (grade) => {
+  const { prelim_grade: p, midterm_grade: m, semifinal_grade: s, final_grade: f } = grade;
+  
+  // Return null if any grade component is missing
+  if ([p, m, s, f].some(v => v === null || v === undefined || v === '')) return null;
+
+  const P = parseFloat(p);
+  const M = parseFloat(m);
+  const S = parseFloat(s);
+  const F = parseFloat(f);
+
+  // --- FIX IS HERE ---
+  // The backend sends 'course', not 'course_name'
+  const courseCode = grade.course || '';
+  const subjectCode = grade.subject_code || '';
+  const yearLevel = grade.year || '';
+
+  // Check for DHT (Diploma in Hospitality Technology)
+  const isDHT = courseCode.includes('DHT') || subjectCode.includes('DHT');
+                
+  // Check for Senior High School (SHS)
+  const isSHS = yearLevel.includes('Grade 11') || yearLevel.includes('Grade 12');
+
+  if (isDHT || isSHS) {
+    // DHT/SHS Formula: Simple Average
+    return (P + M + S + F) / 4; 
+  } else {
+    // Standard College Formula: Weighted Average
+    return (P * 0.20) + (M * 0.20) + (S * 0.20) + (F * 0.40); 
+  }
+};
+
+// --- COMPONENTS ---
+
 const MotionDropdown = ({ value, onChange, options, placeholder }) => {
     const [isOpen, setIsOpen] = useState(false);
     const selectedLabel = options.find(opt => opt.value === value)?.label || placeholder;
@@ -60,43 +135,76 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
     );
   };
 
-// --- Step 2: Create a new component for the mobile card view ---
 const GradeCard = ({ grade }) => {
+    const computedFinal = calculateFinalGrade(grade);
+    const equivalent = getEquivalent(computedFinal);
+
     const getStatusBadgeClass = (status) => {
         switch (status) {
           case 'Passed': return 'bg-green-100 text-green-800';
           case 'Failed': return 'bg-red-100 text-red-800';
           case 'In Progress': return 'bg-blue-100 text-blue-800';
+          case 'Credited': return 'bg-blue-100 text-blue-800';
+          case 'INC':
+          case 'NFE':
+          case 'NFR':
+          case 'DA': return 'bg-yellow-100 text-yellow-800';
           default: return 'bg-gray-100 text-gray-800';
         }
     };
     
     return (
-        <Card className="w-full shadow-sm">
+        <Card className="w-full shadow-sm hover:shadow-md transition-shadow duration-200">
             <CardContent className="p-4">
                 <div className="flex justify-between items-start mb-3">
                     <div>
-                        <p className="font-mono text-xs text-red-700">{grade.subject_code}</p>
-                        <h3 className="font-bold text-gray-800">{grade.descriptive_title}</h3>
-                        <p className="text-sm text-gray-500 flex items-center mt-1">
+                        <p className="font-mono text-xs text-red-700 font-bold">{grade.subject_code}</p>
+                        <h3 className="font-bold text-gray-900 leading-tight">{grade.descriptive_title}</h3>
+                        <p className="text-xs text-gray-500 flex items-center mt-1">
                             <User className="w-3 h-3 mr-1.5" /> {grade.instructor_name}
                         </p>
                     </div>
                     <Badge className={getStatusBadgeClass(grade.status)}>{grade.status}</Badge>
                 </div>
 
-                <div className="border-t pt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                    <p className="text-gray-500">Prelim:</p>
-                    <p className="font-mono text-right font-medium">{grade.prelim_grade || '–'}</p>
-                    
-                    <p className="text-gray-500">Midterm:</p>
-                    <p className="font-mono text-right font-medium">{grade.midterm_grade || '–'}</p>
-                    
-                    <p className="text-gray-500">Semifinal:</p>
-                    <p className="font-mono text-right font-medium">{grade.semifinal_grade || '–'}</p>
-                    
-                    <p className="text-gray-500">Final:</p>
-                    <p className="font-mono text-right font-medium text-red-700">{grade.final_grade || '–'}</p>
+                {/* Raw Grades Grid */}
+                <div className="border-t border-gray-100 pt-3 grid grid-cols-4 gap-2 text-xs mb-3">
+                    <div className="text-center">
+                        <p className="text-gray-400 mb-1">Prelim</p>
+                        <p className="font-mono font-medium">{grade.prelim_grade || '-'}</p>
+                    </div>
+                    <div className="text-center">
+                        <p className="text-gray-400 mb-1">Midterm</p>
+                        <p className="font-mono font-medium">{grade.midterm_grade || '-'}</p>
+                    </div>
+                    <div className="text-center">
+                        <p className="text-gray-400 mb-1">Semi</p>
+                        <p className="font-mono font-medium">{grade.semifinal_grade || '-'}</p>
+                    </div>
+                    <div className="text-center">
+                        <p className="text-gray-400 mb-1">Final</p>
+                        <p className="font-mono font-medium">{grade.final_grade || '-'}</p>
+                    </div>
+                </div>
+
+                {/* Computed Result Section */}
+                <div className="bg-gray-50 rounded-lg p-3 flex justify-between items-center border border-gray-100">
+                    <div className="flex flex-col items-center w-1/2 border-r border-gray-200">
+                        <p className="text-xs text-gray-500 flex items-center gap-1 mb-1">
+                            <Calculator size={12} /> Computed
+                        </p>
+                        <span className="text-lg font-bold text-gray-900 font-mono">
+                           {computedFinal ? computedFinal.toFixed(2) : '--'}
+                        </span>
+                    </div>
+                    <div className="flex flex-col items-center w-1/2">
+                         <p className="text-xs text-gray-500 flex items-center gap-1 mb-1">
+                            <Equal size={12} /> Equivalent
+                        </p>
+                        <span className="text-lg font-bold text-red-700 font-mono">
+                            {equivalent}
+                        </span>
+                    </div>
                 </div>
             </CardContent>
         </Card>
@@ -110,7 +218,7 @@ const StudentGrade = () => {
   const [error, setError] = useState(null);
   const [selectedYear, setSelectedYear] = useState('all');
   const [selectedSemester, setSelectedSemester] = useState('all');
-  const isMobile = useIsMobile(); // Use the hook to check screen size
+  const isMobile = useIsMobile(); 
 
   useEffect(() => {
     const fetchGrades = async () => {
@@ -153,6 +261,11 @@ const StudentGrade = () => {
       case 'Passed': return 'bg-green-100 text-green-800';
       case 'Failed': return 'bg-red-100 text-red-800';
       case 'In Progress': return 'bg-blue-100 text-blue-800';
+      case 'Credited': return 'bg-blue-100 text-blue-800';
+      case 'INC':
+      case 'NFE':
+      case 'NFR':
+      case 'DA': return 'bg-yellow-100 text-yellow-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -167,7 +280,6 @@ const StudentGrade = () => {
     visible: { y: 0, opacity: 1 },
   };
 
-  // --- Step 3: Create the main content renderer ---
   const renderContent = () => {
     if (loading) {
       return (
@@ -197,45 +309,61 @@ const StudentGrade = () => {
         );
     }
     
-    // --- CONDITIONAL RENDERING LOGIC ---
     return isMobile ? (
-        // Mobile View: A list of cards
         <div className="space-y-4">
             {grades.map((grade) => (
                 <GradeCard key={grade.id} grade={grade} />
             ))}
         </div>
     ) : (
-        // Desktop View: The original table
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-lg overflow-hidden bg-white shadow-sm">
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-gray-50">
                 <TableRow>
-                  <TableHead>Subject Code</TableHead>
-                  <TableHead>Descriptive Title</TableHead>
-                  <TableHead>Instructor</TableHead>
-                  <TableHead className="text-center">Prelim</TableHead>
-                  <TableHead className="text-center">Midterm</TableHead>
-                  <TableHead className="text-center">Semifinal</TableHead>
-                  <TableHead className="text-center">Final</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="w-[120px]">Subject Code</TableHead>
+                  <TableHead className="min-w-[200px]">Descriptive Title</TableHead>
+                  <TableHead className="min-w-[150px]">Instructor</TableHead>
+                  <TableHead className="text-center w-[80px]">Prelim</TableHead>
+                  <TableHead className="text-center w-[80px]">Midterm</TableHead>
+                  <TableHead className="text-center w-[80px]">Semi</TableHead>
+                  <TableHead className="text-center w-[80px]">Final</TableHead>
+                  
+                  {/* NEW COLUMNS */}
+                  <TableHead className="text-center w-[100px] text-red-700 font-bold bg-red-50/50">Computed</TableHead>
+                  <TableHead className="text-center w-[100px] font-bold">Equivalent</TableHead>
+                  
+                  <TableHead className="text-center w-[100px]">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {grades.map((grade) => (
-                  <TableRow key={grade.id}>
-                    <TableCell className="font-mono">{grade.subject_code}</TableCell>
-                    <TableCell className="font-medium">{grade.descriptive_title}</TableCell>
-                    <TableCell>{grade.instructor_name}</TableCell>
-                    <TableCell className="text-center font-mono">{grade.prelim_grade || '–'}</TableCell>
-                    <TableCell className="text-center font-mono">{grade.midterm_grade || '–'}</TableCell>
-                    <TableCell className="text-center font-mono">{grade.semifinal_grade || '–'}</TableCell>
-                    <TableCell className="text-center font-mono">{grade.final_grade || '–'}</TableCell>
-                    <TableCell className="text-center">
-                      <Badge className={getStatusBadgeClass(grade.status)}>{grade.status}</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {grades.map((grade) => {
+                  const computedFinal = calculateFinalGrade(grade);
+                  const equivalent = getEquivalent(computedFinal);
+
+                  return (
+                    <TableRow key={grade.id} className="hover:bg-gray-50">
+                      <TableCell className="font-mono text-xs font-semibold">{grade.subject_code}</TableCell>
+                      <TableCell className="font-medium text-sm">{grade.descriptive_title}</TableCell>
+                      <TableCell className="text-sm text-gray-600">{grade.instructor_name}</TableCell>
+                      <TableCell className="text-center font-mono text-sm">{grade.prelim_grade || '–'}</TableCell>
+                      <TableCell className="text-center font-mono text-sm">{grade.midterm_grade || '–'}</TableCell>
+                      <TableCell className="text-center font-mono text-sm">{grade.semifinal_grade || '–'}</TableCell>
+                      <TableCell className="text-center font-mono text-sm">{grade.final_grade || '–'}</TableCell>
+                      
+                      {/* COMPUTED DATA CELLS */}
+                      <TableCell className="text-center font-mono font-bold text-gray-900 bg-red-50/30">
+                        {computedFinal ? computedFinal.toFixed(2) : '--'}
+                      </TableCell>
+                      <TableCell className="text-center font-mono font-bold text-red-700">
+                        {equivalent}
+                      </TableCell>
+
+                      <TableCell className="text-center">
+                        <Badge className={`${getStatusBadgeClass(grade.status)} whitespace-nowrap`}>{grade.status}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
         </div>

@@ -58,7 +58,7 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
 };
 
 
-const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
+const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseName, year }) => {
   const [grades, setGrades] = useState([]);
   const [editedGrades, setEditedGrades] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -134,6 +134,71 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
       return grade;
     }));
   };
+
+  // Helper for Grade Computation (DHT/SHS vs others)
+  const calculateFinalGrade = (grade) => {
+    const { prelim_grade: p, midterm_grade: m, semifinal_grade: s, final_grade: f } = grade;
+    
+    if ([p, m, s, f].some(v => v === null || v === undefined || v === '')) return null;
+  
+    const P = parseFloat(p);
+    const M = parseFloat(m);
+    const S = parseFloat(s);
+    const F = parseFloat(f);
+  
+    // Use the props passed from Grades.jsx
+    const isDHT = courseName?.includes('DHT') || 
+                  courseName?.includes('Diploma in Hospitality Technology')
+                  
+    const isSHS = year?.includes('Grade 11') || 
+                  year?.includes('Grade 12') ||
+                  grade.year?.includes('Grade 11') || 
+                  grade.year?.includes('Grade 12');
+  
+    if (isDHT || isSHS) {
+      return (P + M + S + F) / 4; // DHT/SHS Formula
+    } else {
+      return (P * 0.20) + (M * 0.20) + (S * 0.20) + (F * 0.40); // Standard Formula
+    }
+  };
+// Helper for Equivalent Conversion based on your provided table
+const getEquivalent = (numericGrade) => {
+  if (numericGrade === null) return '--';
+  
+  const g = Math.round(numericGrade); // Round to nearest whole number for mapping
+
+  if (g >= 100) return "1.0";
+  if (g === 99) return "1.1";
+  if (g === 98) return "1.2";
+  if (g === 97) return "1.25";
+  if (g === 96) return "1.3";
+  if (g === 95) return "1.4";
+  if (g === 94) return "1.5";
+  if (g === 93) return "1.6";
+  if (g === 92) return "1.7";
+  if (g === 91) return "1.75";
+  if (g === 90) return "1.8";
+  if (g === 89) return "1.9";
+  if (g === 88) return "2.0";
+  if (g === 87) return "2.1";
+  if (g === 86) return "2.2";
+  if (g === 85) return "2.25";
+  if (g === 84) return "2.3";
+  if (g === 83) return "2.4";
+  if (g === 82) return "2.5";
+  if (g === 81) return "2.6";
+  if (g === 80) return "2.7";
+  if (g === 79) return "2.75";
+  if (g === 78) return "2.8";
+  if (g === 77) return "2.9";
+  if (g >= 75) return "3.0"; // 75-76%
+  if (g === 74) return "3.1";
+  if (g === 73) return "3.2";
+  if (g === 72) return "3.25";
+  if (g === 71) return "3.3";
+  if (g === 70) return "3.4";
+  return "5.0"; // 69% and below
+};
   
   const handleSaveChanges = async () => {
     setIsSaving(true);
@@ -224,7 +289,7 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
               </Button>
             </div>
             
-            <div className="p-6 flex-grow overflow-y-auto">
+            <div className="p-6 grow overflow-y-auto">
               {/* Filters and Edit Button (no changes) */}
               <div className="flex justify-between items-center mb-4">
                 <div className="flex gap-4">
@@ -252,49 +317,58 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName }) => {
                         <th className="px-2 py-3 text-center">Prelim</th>
                         <th className="px-2 py-3 text-center">Midterm</th>
                         <th className="px-2 py-3 text-center">Semi-Final</th>
-                        <th className="px-6 py-3 text-center">Final Grade</th>
+                        <th className="px-6 py-3 text-center">Final</th>
+                        <th className="px-4 py-3 text-center text-red-700">Final Grade</th>
+                        <th className="px-4 py-3 text-center">Equivalent</th>
                         <th className="px-6 py-3 text-center">Status</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {editedGrades.length > 0 ? (
-                        editedGrades.map((grade) => (
+                      {editedGrades.map((grade) => {
+                        const computedFinal = calculateFinalGrade(grade);
+                        const equivalent = getEquivalent(computedFinal);
+
+                        return (
                           <tr key={grade.id} className="bg-white border-b hover:bg-gray-50">
                             <td className="px-6 py-2 font-mono">{grade.subject_code}</td>
-                            <td className="px-6 py-2 font-medium text-gray-900">{grade.descriptive_title}</td>
+                            <td className="px-6 py-2 font-medium">{grade.descriptive_title}</td>
                             <td className="px-6 py-2">{grade.instructor_name}</td>
-                            <td className="px-2 py-2 text-center">{grade.prelim_grade ?? '-'}</td>
-                            <td className="px-2 py-2 text-center">{grade.midterm_grade ?? '-'}</td>
-                            <td className="px-2 py-2 text-center">{grade.semifinal_grade ?? '-'}</td>
-                            <td className="px-2 py-2 text-center">
-                               {isEditing ? (
+                            <td className="px-2 py-2 text-center font-mono">{grade.prelim_grade ?? '-'}</td>
+                            <td className="px-2 py-2 text-center font-mono">{grade.midterm_grade ?? '-'}</td>
+                            <td className="px-2 py-2 text-center font-mono">{grade.semifinal_grade ?? '-'}</td>
+                            <td className="px-2 py-2 text-center font-mono">
+                              {isEditing ? (
                                 <Input 
                                   type="number" 
-                                  min="1"
-                                  max="5"
-                                  step="0.01"
-                                  className="w-20 mx-auto text-center"
-                                  // --- MODIFICATION: Disable input if status is 'Credited' ---
-                                  disabled={grade.status === 'Credited'}
+                                  className="w-16 mx-auto text-center font-mono"
                                   value={grade.final_grade ?? ''}
                                   onChange={(e) => handleGradeDataChange(grade.id, 'final_grade', e.target.value === '' ? null : parseFloat(e.target.value))}
-                              />
-                               ) : (grade.final_grade ?? '-')}
+                                />
+                              ) : (grade.final_grade ?? '-')}
                             </td>
+
+                            {/* Computed Final Grade (The % Result) */}
+                            <td className="px-4 py-2 text-center font-bold text-gray-900 font-mono">
+                              {computedFinal ? computedFinal.toFixed(2) : '--'}
+                            </td>
+
+                            {/* Equivalent Grade (1.0 - 5.0) */}
+                            <td className="px-4 py-2 text-center font-bold text-gray-900 font-mono">
+                              {equivalent}
+                            </td>
+
                             <td className="px-6 py-2 text-center">
-                               {isEditing ? (
-                                    <MotionDropdown 
-                                        options={statusOptions}
-                                        value={grade.status}
-                                        onChange={(value) => handleGradeDataChange(grade.id, 'status', value)}
-                                    />
-                               ) : getStatusBadge(grade.status)}
+                              {isEditing ? (
+                                <MotionDropdown 
+                                    options={statusOptions}
+                                    value={grade.status}
+                                    onChange={(value) => handleGradeDataChange(grade.id, 'status', value)}
+                                />
+                              ) : getStatusBadge(grade.status)}
                             </td>
                           </tr>
-                        ))
-                      ) : (
-                        <tr><td colSpan="8" className="text-center py-10 text-gray-500">No grades found.</td></tr>
-                      )}
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}

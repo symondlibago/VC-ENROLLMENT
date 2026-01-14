@@ -414,132 +414,192 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
   };
 
   // 1. ADD 'async' here
-const handleContinueToSubjectSetup = async () => {
-  // Validate form fields
-  const errors = {};
-  const errorRefs = {};
-  
-  // Required fields validation
-  const requiredFields = [
-    { key: 'firstName', label: 'First Name' },
-    { key: 'lastName', label: 'Last Name' },
-    { key: 'gender', label: 'Gender' },
-    { key: 'birthDate', label: 'Birth Date' },
-    { key: 'birthPlace', label: 'Birth Place' },
-    { key: 'nationality', label: 'Nationality' },
-    { key: 'civilStatus', label: 'Civil Status' },
-    { key: 'address', label: 'Address' },
-    { key: 'contactNumber', label: 'Contact Number' },
-    { key: 'emailAddress', label: 'Email Address' },
-    { key: 'semester', label: 'Semester' },
-    { key: 'schoolYear', label: 'School Year' },
-    { key: 'emergencyContactName', label: 'Emergency Contact Name' },
-    { key: 'emergencyContactNumber', label: 'Emergency Contact Number' },
-    { key: 'emergencyContactAddress', label: 'Emergency Contact Address' },
-    { key: 'elementary', label: 'Elementary' },
-    { key: 'juniorHighSchool', label: 'Junior High School Date Completed' },
-  ];
-
-  if (enrollmentType === 'New') {
-    requiredFields.push(
-      { key: 'fbAcc', label: 'Facebook Account' },
-      { key: 'fbDescription', label: 'Facebook Description' }
-    );
-
-    const invalidPattern = /^(n\/?a\.?|not\s?available|none)$/i;
-
-    if (formData.fbAcc && invalidPattern.test(formData.fbAcc.trim())) {
-      errors.fbAcc = 'Please provide a valid Facebook account (N/A is not accepted).';
-      errorRefs.fbAcc = React.createRef();
-    }
-
-    if (formData.fbDescription && invalidPattern.test(formData.fbDescription.trim())) {
-      errors.fbDescription = 'Please provide a valid description (N/A is not accepted).';
-      errorRefs.fbDescription = React.createRef();
-    }
-  }
-  
-  // Check required fields
-  requiredFields.forEach(field => {
-    if (!formData[field.key] || (typeof formData[field.key] === 'string' && formData[field.key].trim() === '')) {
-      errors[field.key] = `${field.label} is required`;
-      errorRefs[field.key] = React.createRef();
-    }
-  });
-  
-  // Email regex validation
-  if (formData.emailAddress && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.emailAddress)) {
-    errors.emailAddress = 'Please enter a valid email address';
-    errorRefs.emailAddress = React.createRef();
-  }
-
-  // Contact number validation
-  if (formData.contactNumber && !/^[0-9+\-\s()]{7,15}$/.test(formData.contactNumber)) {
-    errors.contactNumber = 'Please enter a valid contact number';
-    errorRefs.contactNumber = React.createRef();
-  }
-  
-  // 2. CHECK CLIENT-SIDE ERRORS FIRST
-  // If there are basic errors (missing fields, bad format), STOP here. 
-  // Do not call the API yet.
-  if (Object.keys(errors).length > 0) {
-    setFormErrors(errors);
+  const handleContinueToSubjectSetup = async () => {
+    console.log('=== Starting form validation ===');
     
-    const firstErrorKey = Object.keys(errors)[0];
-    const errorElement = document.querySelector(`[name="${firstErrorKey}"]`) || 
-                         document.querySelector(`#${firstErrorKey}`) ||
-                         document.querySelector(`[data-field="${firstErrorKey}"]`);
+    // Validate form fields
+    const errors = {};
     
-    if (errorElement) {
-      errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setTimeout(() => {
-        errorElement.focus();
-      }, 500);
-    } else {
-      const formSection = document.querySelector('.enrollment-form-section');
-      if (formSection) {
-        formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Required fields validation
+    const requiredFields = [
+      { key: 'firstName', label: 'First Name' },
+      { key: 'lastName', label: 'Last Name' },
+      { key: 'gender', label: 'Gender' },
+      { key: 'birthDate', label: 'Birth Date' },
+      { key: 'birthPlace', label: 'Birth Place' },
+      { key: 'nationality', label: 'Nationality' },
+      { key: 'civilStatus', label: 'Civil Status' },
+      { key: 'address', label: 'Address' },
+      { key: 'contactNumber', label: 'Contact Number' },
+      { key: 'emailAddress', label: 'Email Address' },
+      { key: 'semester', label: 'Semester' },
+      { key: 'schoolYear', label: 'School Year' },
+      { key: 'emergencyContactName', label: 'Emergency Contact Name' },
+      { key: 'emergencyContactNumber', label: 'Emergency Contact Number' },
+      { key: 'emergencyContactAddress', label: 'Emergency Contact Address' },
+      { key: 'elementary', label: 'Elementary' },
+      { key: 'juniorHighSchool', label: 'Junior High School' },
+    ];
+  
+    if (enrollmentType === 'New') {
+      requiredFields.push(
+        { key: 'fbAcc', label: 'Facebook Account' },
+        { key: 'fbDescription', label: 'Facebook Description' }
+      );
+  
+      const invalidPattern = /^(n\/?a\.?|not\s?available|none)$/i;
+  
+      if (formData.fbAcc && invalidPattern.test(formData.fbAcc.trim())) {
+        errors.fbAcc = 'Please provide a valid Facebook account (N/A is not accepted).';
+      }
+  
+      if (formData.fbDescription && invalidPattern.test(formData.fbDescription.trim())) {
+        errors.fbDescription = 'Please provide a valid description (N/A is not accepted).';
       }
     }
     
-    setValidationErrorMessage('Please correct the errors in the form before proceeding.');
-    setShowValidationErrorModal(true);
-    return; 
-  }
-
-  // 3. SERVER-SIDE CHECK (Only runs if client-side passed)
-  try {
-    // Optional: You can set a loading state here if you want (e.g., setIsLoading(true))
+    // Check required fields
+    requiredFields.forEach(field => {
+      if (!formData[field.key] || (typeof formData[field.key] === 'string' && formData[field.key].trim() === '')) {
+        errors[field.key] = `${field.label} is required`;
+      }
+    });
     
-    const response = await enrollmentAPI.checkEmail(formData.emailAddress);
+    // Email regex validation
+    if (formData.emailAddress && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.emailAddress)) {
+      errors.emailAddress = 'Please enter a valid email address';
+    }
+  
+    // Contact number validation
+    if (formData.contactNumber && !/^[0-9+\-\s()]{7,15}$/.test(formData.contactNumber)) {
+      errors.contactNumber = 'Please enter a valid contact number';
+    }
     
-    if (!response.available) {
-      // If email is taken, set error and stop
-      const emailError = { emailAddress: 'This email address is already registered.' };
-      setFormErrors(prev => ({ ...prev, ...emailError }));
+    // If there are basic client-side errors, stop here
+    if (Object.keys(errors).length > 0) {
+      console.log('Client-side validation errors found:', errors);
+      setFormErrors(errors);
       
-      // Scroll to email field
-      const emailElement = document.querySelector(`[name="emailAddress"]`);
-      if (emailElement) {
-        emailElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        emailElement.focus();
+      const firstErrorKey = Object.keys(errors)[0];
+      const errorElement = document.querySelector(`[name="${firstErrorKey}"]`) || 
+                           document.querySelector(`#${firstErrorKey}`) ||
+                           document.querySelector(`[data-field="${firstErrorKey}"]`);
+      
+      if (errorElement) {
+        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => {
+          errorElement.focus();
+        }, 500);
       }
-
-      setValidationErrorMessage('The email address you entered is already associated with an existing account.');
+      
+      setValidationErrorMessage('Please correct the errors in the form before proceeding.');
       setShowValidationErrorModal(true);
-      return; // STOP here
+      return;
     }
-  } catch (error) {
-    console.error('Email check failed:', error);
-    // Optional: Handle API failure (e.g., allow them to proceed or show a "Network Error")
-  } finally {
-      // setIsLoading(false);
-  }
   
-  // 4. CLEAR ERRORS AND PROCEED
-  setFormErrors({});
-  setCurrentStep(3);
-};
+    // SERVER-SIDE CHECKS
+    console.log('=== Starting server-side validation ===');
+    
+    try {
+      // CHECK 1: Student existence (name + birthdate)
+      console.log('Checking student existence...');
+      console.log('Data being sent:', {
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        birth_date: formData.birthDate
+      });
+      
+      const existenceResponse = await enrollmentAPI.checkExistence({
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        birth_date: formData.birthDate
+      });
+      
+      console.log('Existence response:', existenceResponse);
+      
+      // Check if duplicate exists
+      if (existenceResponse.success && existenceResponse.exists === true) {
+        console.log('DUPLICATE FOUND - Stopping progression');
+        
+        const duplicateError = {
+          firstName: 'This student is already registered.',
+          lastName: 'This student is already registered.',
+          birthDate: 'This student is already registered.'
+        };
+        
+        setFormErrors(duplicateError);
+        
+        // Scroll to first name field
+        const firstNameElement = document.querySelector(`[name="firstName"]`);
+        if (firstNameElement) {
+          firstNameElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(() => {
+            firstNameElement.focus();
+          }, 500);
+        }
+        
+        setValidationErrorMessage('A student with this exact name and birth date already exists in our system. If this is you, please contact the registrar.');
+        setShowValidationErrorModal(true);
+        
+        // CRITICAL: Return here to stop execution
+        console.log('Returning early - duplicate found');
+        return;
+      }
+      
+      console.log('No duplicate found, proceeding to email check...');
+      
+      // CHECK 2: Email availability (only if no duplicate found)
+      console.log('Checking email availability...');
+      const emailResponse = await enrollmentAPI.checkEmail(formData.emailAddress);
+      
+      console.log('Email response:', emailResponse);
+      
+      if (!emailResponse.available) {
+        console.log('EMAIL TAKEN - Stopping progression');
+        
+        const emailError = { 
+          emailAddress: 'This email address is already registered.' 
+        };
+        
+        setFormErrors(emailError);
+        
+        // Scroll to email field
+        const emailElement = document.querySelector(`[name="emailAddress"]`);
+        if (emailElement) {
+          emailElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(() => {
+            emailElement.focus();
+          }, 500);
+        }
+  
+        setValidationErrorMessage('The email address you entered is already associated with an existing account.');
+        setShowValidationErrorModal(true);
+        
+        // CRITICAL: Return here to stop execution
+        console.log('Returning early - email taken');
+        return;
+      }
+      
+      console.log('All validations passed!');
+      
+    } catch (error) {
+      console.error('Server validation error:', error);
+      
+      // Show error to user
+      setValidationErrorMessage(
+        error.message || 'Unable to verify your information. Please check your connection and try again.'
+      );
+      setShowValidationErrorModal(true);
+      
+      // Stop execution on error
+      return;
+    }
+    
+    // ALL CHECKS PASSED - Clear errors and proceed
+    console.log('=== Proceeding to Step 3 ===');
+    setFormErrors({});
+    setCurrentStep(3);
+  };
   
   const handleContinueToReview = () => {
     setCurrentStep(4);

@@ -4,7 +4,7 @@ import { Calendar, Clock, Book, MapPin, CalendarOff } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { instructorAPI } from '@/services/api';
 import { toast } from 'sonner';
-import LoadingSpinner from '@/components/layout/LoadingSpinner'; // Make sure this path is correct
+import LoadingSpinner from '@/components/layout/LoadingSpinner';
 
 const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -38,7 +38,7 @@ const InstructorSchedule = () => {
   const groupedSchedule = daysOrder.map(day => ({
     day,
     schedules: scheduleData.filter(s => s.day === day),
-  })).filter(group => group.schedules.length > 0); // Only keep days with schedules
+  })).filter(group => group.schedules.length > 0);
 
   const renderContent = () => {
     if (loading) {
@@ -51,7 +51,12 @@ const InstructorSchedule = () => {
     
     if (groupedSchedule.length === 0) {
       return (
-        <motion.div variants={itemVariants} className="text-center py-12">
+        <motion.div 
+            variants={itemVariants} 
+            initial="hidden" 
+            animate="visible" 
+            className="text-center py-12"
+        >
            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <CalendarOff className="w-8 h-8 text-gray-400" />
             </div>
@@ -62,7 +67,15 @@ const InstructorSchedule = () => {
     }
     
     return (
-      <motion.div className="space-y-8" variants={containerVariants}>
+      <motion.div 
+        className="space-y-8" 
+        variants={containerVariants}
+        // --- FIX: Explicitly set initial and animate here ---
+        // This ensures the list animates in even if the parent container 
+        // has already finished its animation while data was loading.
+        initial="hidden"
+        animate="visible"
+      >
         {groupedSchedule.map(({ day, schedules }) => (
           <motion.div key={day} variants={itemVariants}>
             <h2 className="text-2xl font-bold text-gray-800 mb-4">{day}</h2>

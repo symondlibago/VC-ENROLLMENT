@@ -470,6 +470,18 @@ export const enrollmentAPI = {
     }
   },
 
+  checkExistence: async (studentData) => {
+    try {
+      console.log('Checking existence with data:', studentData); // Debug log
+      const response = await api.post('/enrollments/check-existence', studentData);
+      console.log('Existence check response:', response.data); // Debug log
+      return response.data;
+    } catch (error) {
+      console.error('Check existence error:', error);
+      throw error.response?.data || { success: false, message: 'Check failed' };
+    }
+  },
+
   submitApproval: async (studentId, { status, remarks, roleName }) => {
     const response = await api.post(`/enrollments/${studentId}/approval`, {
         status,

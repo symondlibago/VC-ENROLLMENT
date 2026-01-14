@@ -55,7 +55,7 @@ const StudentGradebookView = ({ loading, filteredStudents, searchTerm, onSearchT
                     <td className="px-6 py-4"><div className="flex items-center gap-2"><GraduationCap size={14} className="text-gray-500" /><span>{student.courseName}</span></div></td>
                     <td className="px-6 py-4"><div className="flex items-center gap-2"><CalendarDays size={14} className="text-gray-500" /><span>{student.year}</span></div></td>
                     <td className="px-6 py-4">
-                      <Button variant="outline" size="sm" onClick={() => onViewGrades(student.id, student.name)} className="gradient-primary text-white liquid-button cursor-pointer">
+                      <Button variant="outline" size="sm" onClick={() => onViewGrades(student.id, student.name, student.courseName, student.year)} className="gradient-primary text-white liquid-button cursor-pointer">
                         <Eye className="w-4 h-4 mr-2" /> View Grades
                       </Button>
                     </td>
@@ -234,6 +234,8 @@ const Grades = () => {
     isOpen: false,
     studentId: null,
     studentName: '',
+    courseName: '',
+    year: '',
   });
 
   useEffect(() => {
@@ -255,12 +257,12 @@ const Grades = () => {
     }
   }, [activeTab]);
 
-  const handleViewGrades = (studentId, studentName) => {
-    setModalState({ isOpen: true, studentId, studentName });
+  const handleViewGrades = (studentId, studentName, courseName, year) => {
+    setModalState({ isOpen: true, studentId, studentName, courseName, year });
   };
 
   const closeModal = () => {
-    setModalState({ isOpen: false, studentId: null, studentName: '' });
+    setModalState({ isOpen: false, studentId: null, studentName: '', courseName: '', year: '' });
   };
 
   const filteredStudents = useMemo(() => {
@@ -281,6 +283,8 @@ const Grades = () => {
         onClose={closeModal}
         studentId={modalState.studentId}
         studentName={modalState.studentName}
+        courseName={modalState.courseName}
+        year={modalState.year}
       />
       <motion.div
         className="p-6 space-y-6 max-w-7xl mx-auto"
