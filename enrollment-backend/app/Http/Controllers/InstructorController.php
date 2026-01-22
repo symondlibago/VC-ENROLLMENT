@@ -170,73 +170,79 @@ class InstructorController extends Controller
     }
 
     public function getGradeableStudents(Request $request)
-    {
-        $user = $request->user();
-        $instructor = Instructor::where('user_id', $user->id)->first();
+{
+    $user = $request->user();
+    $instructor = Instructor::where('user_id', $user->id)->first();
 
-        if (!$instructor) {
-            return response()->json(['success' => false, 'message' => 'Instructor profile not found.'], 404);
-        }
-
-        // Using the same roster logic to find the subjects and students
-        $schedules = Schedule::with('subject.students.grades') // Eager load grades for students
-                             ->where('instructor_id', $instructor->id)
-                             ->get();
-
-        $rosterBySubject = [];
-        foreach ($schedules as $schedule) {
-            if ($schedule->subject) {
-                $subjectId = $schedule->subject->id;
-
-                if (!isset($rosterBySubject[$subjectId])) {
-                    $rosterBySubject[$subjectId] = [
-                        'subject_id' => $schedule->subject->id,
-                        'subject_code' => $schedule->subject->subject_code,
-                        'descriptive_title' => $schedule->subject->descriptive_title,
-                        'students' => []
-                    ];
-                }
-
-                $enrolledStudents = $schedule->subject->students()
-                    ->where('enrollment_status', 'enrolled')
-                    ->where('academic_status', '!=', 'Withdraw')
-                    ->get();
-
-                foreach ($enrolledStudents as $student) {
-                    $grade = $student->grades->where('subject_id', $subjectId)->first();
-
-                    $rosterBySubject[$subjectId]['students'][$student->id] = [
-                        'id' => $student->id,
-                        'name' => $student->getFullNameAttribute(),
-                        'studentId' => $student->student_id_number,
-                        'year' => $student->year, // Needed for SHS check
-                        'courseName' => $student->course->course_name ?? 'N/A',
-                        'grades' => [
-                            'prelim_grade' => $grade->prelim_grade ?? null,
-                            'midterm_grade' => $grade->midterm_grade ?? null,
-                            'semifinal_grade' => $grade->semifinal_grade ?? null,
-                            'final_grade' => $grade->final_grade ?? null,
-                            'status' => $grade->status ?? 'In Progress',
-                        ]
-                    ];
-                }
-            }
-        }
-        
-        $formattedRoster = array_map(function ($subjectData) {
-            $subjectData['students'] = array_values($subjectData['students']);
-            return $subjectData;
-        }, array_values($rosterBySubject));
-
-        // Fetch grading periods
-        $gradingPeriods = \App\Models\GradingPeriod::all()->keyBy('name');
-
-        return response()->json(['success' => true, 'data' => $formattedRoster, 'grading_periods' => $gradingPeriods]);
+    if (!$instructor) {
+        return response()->json(['success' => false, 'message' => 'Instructor profile not found.'], 404);
     }
 
-    // In InstructorController.php
+    $schedules = Schedule::with('subject.students.grades')
+                         ->where('instructor_id', $instructor->id)
+                         ->get();
 
-    // app/Http/Controllers/InstructorController.php
+    $rosterBySubject = [];
+    foreach ($schedules as $schedule) {
+        if ($schedule->subject) {
+            $subjectId = $schedule->subject->id;
+
+            if (!isset($rosterBySubject[$subjectId])) {
+                $rosterBySubject[$subjectId] = [
+                    'subject_id' => $schedule->subject->id,
+                    'subject_code' => $schedule->subject->subject_code,
+                    'descriptive_title' => $schedule->subject->descriptive_title,
+                    'schedule_info' => "{$schedule->day} {$schedule->time}", 
+                    'room' => $schedule->room_no,
+                    'school_year' => 'N/A', 
+                    'semester' => $schedule->subject->semester,
+                    'students' => []
+                ];
+            }
+
+            $enrolledStudents = $schedule->subject->students()
+                ->with('sections')
+                ->where('enrollment_status', 'enrolled')
+                ->where('academic_status', '!=', 'Withdraw')
+                ->get();
+
+            foreach ($enrolledStudents as $student) {
+                // ✅ ADDED: Capture School Year from the first student found
+                if ($rosterBySubject[$subjectId]['school_year'] === 'N/A') {
+                    $rosterBySubject[$subjectId]['school_year'] = $student->school_year;
+                }
+
+                $grade = $student->grades->where('subject_id', $subjectId)->first();
+                $sectionName = $student->sections->isNotEmpty() ? $student->sections->first()->name : 'Unassigned';
+
+                $rosterBySubject[$subjectId]['students'][$student->id] = [
+                    'id' => $student->id,
+                    'name' => $student->getFullNameAttribute(),
+                    'studentId' => $student->student_id_number,
+                    'year' => $student->year,
+                    'courseName' => $student->course->course_name ?? 'N/A',
+                    'section' => $sectionName,
+                    'grades' => [
+                        'prelim_grade' => $grade->prelim_grade ?? null,
+                        'midterm_grade' => $grade->midterm_grade ?? null,
+                        'semifinal_grade' => $grade->semifinal_grade ?? null,
+                        'final_grade' => $grade->final_grade ?? null,
+                        'status' => $grade->status ?? 'In Progress',
+                    ]
+                ];
+            }
+        }
+    }
+    
+    $formattedRoster = array_map(function ($subjectData) {
+        $subjectData['students'] = array_values($subjectData['students']);
+        return $subjectData;
+    }, array_values($rosterBySubject));
+
+    $gradingPeriods = \App\Models\GradingPeriod::all()->keyBy('name');
+
+    return response()->json(['success' => true, 'data' => $formattedRoster, 'grading_periods' => $gradingPeriods]);
+}
 
 public function bulkUpdateGrades(Request $request)
 {

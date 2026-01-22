@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, Search, ChevronDown, BookCopy, Users, CheckCircle, Save, Loader2 } from 'lucide-react';
+import { FileText, Search, ChevronDown, BookCopy, Users, CheckCircle, Save, Loader2, Filter } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { instructorAPI } from '@/services/api';
 import LoadingSpinner from '@/components/layout/LoadingSpinner';
 import SuccessAlert from '../modals/SuccessAlert'; 
 import ValidationErrorModal from '../modals/ValidationErrorModal'; 
+import DownloadGradingSheet from '@/components/layout/DownloadGradingSheet';
 
 const MotionDropdown = ({ value, onChange, options, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -31,7 +32,7 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
       >
-        <span className="text-gray-900">{selectedLabel}</span>
+        <span className="text-gray-900 truncate">{selectedLabel}</span>
         <motion.div
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ duration: 0.2 }}
@@ -46,7 +47,7 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-            className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden"
+            className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden max-h-60 overflow-y-auto"
           >
             {options.map((option, index) => (
               <motion.button
@@ -65,10 +66,15 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
   );
 };
 
-
 const StudentGrades = () => {
   const [rosterData, setRosterData] = useState([]);
   const [selectedSubjectId, setSelectedSubjectId] = useState('');
+  
+  // State for selected section
+  const [selectedSection, setSelectedSection] = useState('All'); 
+  // ✅ State for instructor name
+  const [instructorName, setInstructorName] = useState('');
+
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -77,6 +83,17 @@ const StudentGrades = () => {
   const [validationError, setValidationError] = useState({ isOpen: false, message: '' });
 
   useEffect(() => {
+    // ✅ 1. Get instructor name from localStorage
+    const userDataStr = localStorage.getItem('user_data');
+    if (userDataStr) {
+        try {
+            const user = JSON.parse(userDataStr);
+            setInstructorName(user.name);
+        } catch (e) {
+            console.error("Error parsing user data", e);
+        }
+    }
+
     const fetchGradeableStudents = async () => {
       try {
         setLoading(true);
@@ -99,6 +116,11 @@ const StudentGrades = () => {
     fetchGradeableStudents();
   }, []);
 
+  // Reset section filter when subject changes
+  useEffect(() => {
+    setSelectedSection('All');
+  }, [selectedSubjectId]);
+
   const isPeriodOpen = (periodName) => {
     const period = gradingPeriods[periodName];
     if (!period || !period.start_date || !period.end_date) return false;
@@ -116,6 +138,21 @@ const StudentGrades = () => {
     }))
   , [rosterData]);
 
+  // Dynamic Section Options based on the selected subject's students
+  const sectionOptions = useMemo(() => {
+    const subject = rosterData.find(s => s.subject_id.toString() === selectedSubjectId);
+    if (!subject || !subject.students) return [{ label: 'All Sections', value: 'All' }];
+
+    // Extract unique sections
+    const uniqueSections = [...new Set(subject.students.map(s => s.section || 'Unassigned'))].sort();
+    
+    const options = [
+      { label: 'All Sections', value: 'All' },
+      ...uniqueSections.map(sec => ({ label: sec, value: sec }))
+    ];
+    return options;
+  }, [rosterData, selectedSubjectId]);
+
   const { filteredStudents, totalStudentsInSubject, gradedStudentsCount } = useMemo(() => {
     if (!selectedSubjectId) {
         return { filteredStudents: [], totalStudentsInSubject: 0, gradedStudentsCount: 0 };
@@ -125,30 +162,42 @@ const StudentGrades = () => {
         return { filteredStudents: [], totalStudentsInSubject: 0, gradedStudentsCount: 0 };
     }
     const studentsToDisplay = subject.students || [];
-    const total = studentsToDisplay.length;
-    const graded = studentsToDisplay.filter(student => student.grades?.status === 'Passed' || student.grades?.status === 'Failed').length;
-    
-    const filtered = studentsToDisplay.filter(student =>
+
+    // Apply Section Filtering
+    let processedStudents = studentsToDisplay;
+
+    if (selectedSection !== 'All') {
+      processedStudents = processedStudents.filter(student => (student.section || 'Unassigned') === selectedSection);
+    }
+
+    // Apply Name Search
+    processedStudents = processedStudents.filter(student =>
       student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (student.studentId && student.studentId.toLowerCase().includes(searchTerm.toLowerCase()))
     );
+
+    // Sort by Section then Name
+    processedStudents.sort((a, b) => {
+       const secA = a.section || "Unassigned";
+       const secB = b.section || "Unassigned";
+       if (secA !== secB) return secA.localeCompare(secB);
+       return a.name.localeCompare(b.name);
+    });
     
-    return { filteredStudents: filtered, totalStudentsInSubject: total, gradedStudentsCount: graded };
-  }, [rosterData, selectedSubjectId, searchTerm]);
+    // Stats are based on the unfiltered subject list, but filtering changes the view
+    const total = processedStudents.length;
+    const graded = processedStudents.filter(student => student.grades?.status === 'Passed' || student.grades?.status === 'Failed').length;
+    
+    return { filteredStudents: processedStudents, totalStudentsInSubject: total, gradedStudentsCount: graded };
+  }, [rosterData, selectedSubjectId, searchTerm, selectedSection]); 
 
   const handleGradeChange = (studentId, field, value) => {
     let numericValue = null;
 
     if (value !== '') {
         numericValue = parseFloat(value);
-        
-        if (isNaN(numericValue)) {
-          return;
-        }
-
-        if (numericValue > 100) {
-            numericValue = 100; 
-        }
+        if (isNaN(numericValue)) return;
+        if (numericValue > 100) numericValue = 100; 
     }
     setRosterData(currentRoster => 
       currentRoster.map(subject => {
@@ -209,28 +258,23 @@ const StudentGrades = () => {
     return '5.0'; // 69% and below
   };
 
-const calculateFinalGrade = (student, subjectCode) => {
-  const { prelim_grade: p, midterm_grade: m, semifinal_grade: s, final_grade: f } = student.grades || {};
-  
-  // Check if all grades are present before calculating
-  if ([p, m, s, f].some(grade => grade === null || grade === undefined || grade === '')) return null;
+  const calculateFinalGrade = (student, subjectCode) => {
+    const { prelim_grade: p, midterm_grade: m, semifinal_grade: s, final_grade: f } = student.grades || {};
+    if ([p, m, s, f].some(grade => grade === null || grade === undefined || grade === '')) return null;
 
-  // FIX: Check if student is in DHT course or is Senior High (Grade 11/12)
-  // We check student.courseName which is provided by the API in getGradeableStudents
-  const isDHT = student.courseName?.includes('Diploma in Hospitality Technology') || 
-                student.courseName?.includes('DHT') ||
-                subjectCode?.includes('DHT');
-                
-  const isSHS = student.year?.includes('Grade 11') || student.year?.includes('Grade 12');
+    const isDHT = student.courseName?.includes('Diploma in Hospitality Technology') || 
+                  student.courseName?.includes('DHT') ||
+                  subjectCode?.includes('DHT');
+                  
+    const isSHS = student.year?.includes('Grade 11') || student.year?.includes('Grade 12');
 
-  if (isDHT || isSHS) {
-    // Formula for DHT/SHS: (Prelim + Midterm + Semi + Final) / 4
-    return (p + m + s + f) / 4;
-  } else {
-    // Standard College Formula: 20% Prelim + 20% Midterm + 20% Semi + 40% Final
-    return (p * 0.20) + (m * 0.20) + (s * 0.20) + (f * 0.40);
-  }
-};
+    if (isDHT || isSHS) {
+      return (p + m + s + f) / 4;
+    } else {
+      return (p * 0.20) + (m * 0.20) + (s * 0.20) + (f * 0.40);
+    }
+  };
+
   const handleSubmitGrades = async () => {
     if (!selectedSubjectId) {
         setValidationError({ isOpen: true, message: 'Please select a specific subject before submitting grades.' });
@@ -263,6 +307,9 @@ const calculateFinalGrade = (student, subjectCode) => {
   const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.05 } } };
   const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
 
+  // ✅ Get current subject data object for the export button
+  const currentSubject = rosterData.find(s => s.subject_id.toString() === selectedSubjectId);
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-[60vh]"><LoadingSpinner size="lg" color="red" /></div>;
   }
@@ -293,19 +340,33 @@ const calculateFinalGrade = (student, subjectCode) => {
       
       <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-6" variants={itemVariants}>
         <Card className="shadow-sm"><CardContent className="p-6 flex items-center justify-between"><div><p className="text-sm font-medium text-gray-500">Total Subjects</p><p className="text-3xl font-bold heading-bold text-gray-900">{subjectOptions.length}</p></div><div className="bg-red-100 p-4 rounded-full"><BookCopy className="w-7 h-7 text-red-600" /></div></CardContent></Card>
-        <Card className="shadow-sm"><CardContent className="p-6 flex items-center justify-between"><div><p className="text-sm font-medium text-gray-500">Students in Subject</p><p className="text-3xl font-bold heading-bold text-gray-900">{totalStudentsInSubject}</p></div><div className="bg-blue-100 p-4 rounded-full"><Users className="w-7 h-7 text-blue-600" /></div></CardContent></Card>
+        <Card className="shadow-sm"><CardContent className="p-6 flex items-center justify-between"><div><p className="text-sm font-medium text-gray-500">Students in View</p><p className="text-3xl font-bold heading-bold text-gray-900">{totalStudentsInSubject}</p></div><div className="bg-blue-100 p-4 rounded-full"><Users className="w-7 h-7 text-blue-600" /></div></CardContent></Card>
         <Card className="shadow-sm"><CardContent className="p-6 flex items-center justify-between"><div><p className="text-sm font-medium text-gray-500">Grades Finalized</p><p className="text-3xl font-bold heading-bold text-gray-900">{gradedStudentsCount}</p></div><div className="bg-green-100 p-4 rounded-full"><CheckCircle className="w-7 h-7 text-green-600" /></div></CardContent></Card>
       </motion.div>
       
       <motion.div variants={itemVariants}>
         <Card>
-          <CardContent className="p-6 flex flex-col md:flex-row gap-4 items-center justify-between">
+          <CardContent className="p-6 flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between">
             <div className="flex-1 w-full relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input placeholder="Search students by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border border-gray-300 focus:border-red-800 focus:ring-1 focus:ring-red-800 rounded-lg"/>
             </div>
-            <div className="w-full md:w-auto min-w-[250px]">
-              <MotionDropdown value={selectedSubjectId} onChange={setSelectedSubjectId} options={subjectOptions} placeholder="Select a subject..." />
+            
+            <div className="flex flex-col md:flex-row w-full xl:w-auto gap-4">
+                {/* Subject Dropdown */}
+                <div className="w-full md:w-auto min-w-[250px]">
+                <MotionDropdown value={selectedSubjectId} onChange={setSelectedSubjectId} options={subjectOptions} placeholder="Select a subject..." />
+                </div>
+
+                {/* Section Dropdown */}
+                <div className="w-full md:w-auto min-w-[180px]">
+                    <MotionDropdown 
+                        value={selectedSection} 
+                        onChange={setSelectedSection} 
+                        options={sectionOptions} 
+                        placeholder="Filter by Section" 
+                    />
+                </div>
             </div>
           </CardContent>
         </Card>
@@ -318,6 +379,7 @@ const calculateFinalGrade = (student, subjectCode) => {
               <tr>
               <th className="px-6 py-3">Student ID</th>
               <th className="px-6 py-3">Name</th>
+              <th className="px-6 py-3">Section</th>
               <th className="px-6 py-3">Prelim</th>
               <th className="px-6 py-3">Midterm</th>
               <th className="px-6 py-3">Semi-Final</th>
@@ -329,7 +391,6 @@ const calculateFinalGrade = (student, subjectCode) => {
               </thead>
               <tbody>
                 {filteredStudents.map(student => {
-                  // Get the current subject code for formula selection
                   const subject = rosterData.find(s => s.subject_id.toString() === selectedSubjectId);
                   const computedFinal = calculateFinalGrade(student, subject?.subject_code);
                   const equivalent = getEquivalentGrade(computedFinal);
@@ -346,9 +407,15 @@ const calculateFinalGrade = (student, subjectCode) => {
                   return (
                     <tr key={student.id} className="bg-white border-b hover:bg-gray-50">
                       <td className="px-6 py-4 font-mono">{student.studentId}</td>
-                      <td className="px-6 py-4">{student.name}</td>
-                      
-                      {/* Grade Inputs (Updated max to 100) */}
+                      <td className="px-6 py-4">{student.name.toUpperCase()}</td>
+                      {/* Display Section */}
+                      <td className="px-6 py-4">
+                          <Badge variant="secondary" className="bg-blue-50 text-blue-700">
+                             {student.section || 'Unassigned'}
+                          </Badge>
+                      </td>
+
+                      {/* Grade Inputs */}
                       {['prelim_grade', 'midterm_grade', 'semifinal_grade', 'final_grade'].map((field) => (
                         <td key={field} className="px-2 py-2">
                           <Input 
@@ -361,14 +428,10 @@ const calculateFinalGrade = (student, subjectCode) => {
                         </td>
                       ))}
 
-                      {/* Computed Final Grade Column */}
                       <td className="px-6 py-4 font-bold text-gray-900 font-mono">
                         {computedFinal !== null ? computedFinal.toFixed(2) : '--'}
                       </td>
-
-                      {/* Equivalent Column (Blank as requested) */}
                       <td className="px-6 py-4 font-mono text-gray-900 font-bold">{equivalent}</td>
-
                       <td className="px-6 py-4">{statusBadge}</td>
                     </tr>
                   );
@@ -377,16 +440,30 @@ const calculateFinalGrade = (student, subjectCode) => {
             </table>
              {filteredStudents.length === 0 && (
                 <div className="text-center py-10 text-gray-500">
-                    <p>{!selectedSubjectId ? 'Please select a subject to begin grading.' : 'No students found for this subject or search.'}</p>
+                    <p>{!selectedSubjectId ? 'Please select a subject to begin grading.' : 'No students found for this subject/section.'}</p>
                 </div>
              )}
         </Card>
       </motion.div>
-      <motion.div className="flex justify-end" variants={itemVariants}>
-        <Button onClick={handleSubmitGrades} disabled={isSubmitting || !selectedSubjectId} className="min-w-[150px]">
+      
+      {/* ✅ Footer Actions: Export and Submit Buttons */}
+      <motion.div className="flex justify-between items-center mt-6" variants={itemVariants}>
+         {/* Export Button */}
+         <div>
+            {currentSubject && (
+                <DownloadGradingSheet 
+                    subject={currentSubject}
+                    students={filteredStudents} // Passes currently filtered students (specific section or all)
+                    instructorName={instructorName}
+                />
+            )}
+         </div>
+
+         {/* Submit Button */}
+         <Button onClick={handleSubmitGrades} disabled={isSubmitting || !selectedSubjectId} className="min-w-[150px]">
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             {isSubmitting ? 'Submitting...' : 'Submit Grades'}
-        </Button>
+         </Button>
       </motion.div>
     </motion.div>
   );
