@@ -36,6 +36,7 @@ import SubjectDetailsModal from '../modals/SubjectDetailsModal';
 import SubjectModal from '../modals/SubjectModal';
 import DeleteConfirmationModal from '../modals/DeleteConfirmationModal';
 import SuccessAlert from '../modals/SuccessAlert';
+import DownloadStudents from '../layout/DownloadStudents'; // Adjust path based on where you saved it
 
 const Courses = () => {
   // UI State
@@ -553,6 +554,7 @@ const Courses = () => {
                   <GraduationCap className="w-5 h-5" />
                 </motion.button>
               </div>
+              <DownloadStudents />
               <Button 
                 className="gradient-primary text-white liquid-button"
                 onClick={() => {

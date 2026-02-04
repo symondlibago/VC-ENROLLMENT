@@ -91,6 +91,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/enrollments/continuing/{student}/eligibility', [EnrollmentController::class, 'checkEnrollmentEligibility']);
 
     // --- NEW: STUDENT-SPECIFIC ROUTE ---
+    Route::get('/export-bachelor-students', [EnrollmentController::class, 'getBachelorStudentsForExport']);
     Route::get('/student/enrolled-subjects', [EnrollmentController::class, 'getStudentEnrolledSubjects']);
     Route::get('/student/grades', [EnrollmentController::class, 'getAuthenticatedStudentGrades']);
     Route::get('/student/curriculum', [EnrollmentController::class, 'getStudentCurriculum']);

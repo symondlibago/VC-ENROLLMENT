@@ -1106,6 +1106,58 @@ public function getStudentsForIdReleasing()
     }
 }
 
+/**
+     * Get students enrolled in Bachelor programs for Export
+     */
+    public function getBachelorStudentsForExport(): JsonResponse
+    {
+        try {
+            // Fetch students where status is enrolled AND program is Bachelor
+            $students = PreEnrolledStudent::where('enrollment_status', 'enrolled')
+                ->whereHas('course.program', function ($query) {
+                    $query->where('program_code', 'Bachelor');
+                })
+                ->with([
+                    'course', // <--- Load course details
+                    'subjects' => function($q) {
+                        $q->select('subjects.id', 'subject_code', 'descriptive_title', 'total_units');
+                    }
+                ])
+                ->get();
+
+            // Format data specifically for the Excel structure
+            $exportData = $students->map(function ($student) {
+                return [
+                    // --- NEW FIELDS ---
+                    'program_name' => $student->course->course_name ?? '',
+                    'program_major' => $student->course->course_specialization ?? '',
+                    'course_code' => $student->course->course_code ?? '', 
+                    'student_id_number' => $student->student_id_number,
+                    'year_level' => $student->year,
+                    // ------------------
+                    'last_name' => $student->last_name,
+                    'first_name' => $student->first_name,
+                    'middle_name' => $student->middle_name,
+                    'gender' => $student->gender,
+                    'nationality' => $student->nationality,
+                    'subjects' => $student->subjects
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $exportData
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch export data',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
  /**
      * NEW: Get grades for the currently authenticated student user.
      */

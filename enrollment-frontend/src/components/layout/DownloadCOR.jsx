@@ -385,7 +385,7 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData, termPayments
     doc.line(margin, signatureLineY, margin + 70, signatureLineY); 
     doc.setFontSize(7).text('Student\'s Signature over Printed Name', margin, signatureLineY + 4);
 
-    const releaseName = 'MIKAELLA JANE REMOTO'; 
+    const releaseName = 'ESTEPHANIE TRIGUEROS'; 
     const releaseTitle = 'Finance Officer';
     const releaseX = pageWidth - margin; 
     
