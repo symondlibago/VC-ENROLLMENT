@@ -27,24 +27,17 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
 
       const sectionStudents = studentsBySection[sectionName];
       
-      // --- HEADER CONFIGURATION ---
       const logoWidth = 150; 
-      const logoHeight = logoWidth * 0.6; // Keep aspect ratio
+      const logoHeight = logoWidth * 0.6; 
       const logoX = (pageWidth - logoWidth) / 2;
-      
-      // 1. LOGO Y: Keep this negative to crop the TOP whitespace
       const logoY = -5; 
 
-      // Draw Logo
       try {
         doc.addImage('/vipc.png', 'PNG', logoX, logoY, logoWidth, logoHeight);
       } catch (e) {
         console.warn("Logo not found");
       }
 
-      // 2. TEXT Y: Adjusted to 55 to clear the logo but stay close.
-      // (Previous was 35 which overlapped; Original was ~100 which was too far)
-      // IF THIS IS STILL OFF: Tweak this number up/down by 5.
       const headerTextY = 55; 
 
       doc.setFont('helvetica', 'bold');
@@ -52,7 +45,6 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
       doc.setTextColor(0);
       doc.text('GRADING SHEET', pageWidth / 2, headerTextY, { align: 'center' });
 
-      // 3. START REST OF CONTENT: Positioned relative to the title
       const startY = headerTextY + 8;
       
       doc.setFontSize(9);
@@ -64,17 +56,21 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
         doc.setFont('helvetica', 'normal');
         doc.text(label, x, y);
         doc.setFont('helvetica', 'bold');
-        doc.text(value || '', x + doc.getTextWidth(label) + 2, y);
+        doc.text(String(value || ''), x + doc.getTextWidth(label) + 2, y);
       };
 
-      // Left Column
+      // --- Left Column ---
       drawField('Course Code:', subject.subject_code, leftX, startY);
       drawField('Course Name:', subject.descriptive_title, leftX, startY + lineHeight);
       drawField('Class Schedule:', subject.schedule_info || 'TBA', leftX, startY + (lineHeight * 2));
+      // Added Lec, Lab, and Total Units below Class Schedule
+      drawField('Lec:', subject.lec_hrs || '0', leftX, startY + (lineHeight * 3));
+      drawField('Lab:', subject.lab_hrs || '0', leftX, startY + (lineHeight * 4));
+      drawField('Total Units:', subject.total_units || '0', leftX, startY + (lineHeight * 5));
       
-      // Right Column
+      // --- Right Column ---
       const sampleStudent = sectionStudents[0];
-      const courseYear = `${sampleStudent.courseName || ''} - ${sampleStudent.year || ''}`;
+      const courseYear = `${sampleStudent.courseCode || ''} - ${sampleStudent.year || ''}`;
       
       drawField('Course & Year:', courseYear, rightX, startY);
       drawField('Sem. & A.Y.:', `${subject.semester || ''}, ${subject.school_year || ''}`, rightX, startY + lineHeight);
@@ -158,8 +154,9 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
         ];
       });
 
+      // Increased startY to account for the extra Lec/Lab/Units rows
       autoTable(doc, {
-        startY: startY + 20,
+        startY: startY + 35, 
         head: [tableHeaders],
         body: tableBody,
         theme: 'grid',
@@ -199,22 +196,18 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
          { g: 'INC', r: 'INCOMPLETE' }, { g: 'DA', r: 'DROP DUE TO ABSENCES' },
        ];
  
-       // --- NEW DYNAMIC 7-PER-COLUMN LOGIC ---
        const rowsPerCol = 7;
-       const numColumns = Math.ceil(rawLegendData.length / rowsPerCol); // Approx 5 columns
+       const numColumns = Math.ceil(rawLegendData.length / rowsPerCol); 
        
-       // 1. Build Header: Repeat "Grade | Equivalent" for N columns
        const dynamicHeaderRow = [];
        const dynamicColStyles = {};
        
        for (let c = 0; c < numColumns; c++) {
          dynamicHeaderRow.push('Grade', 'Equivalent');
-         // Set styling for each column pair to be compact
-         dynamicColStyles[c * 2] = { fontStyle: 'bold', cellWidth: 8 }; // Grade Col
-         dynamicColStyles[(c * 2) + 1] = { cellWidth: 28 }; // Equiv Col
+         dynamicColStyles[c * 2] = { fontStyle: 'bold', cellWidth: 8 }; 
+         dynamicColStyles[(c * 2) + 1] = { cellWidth: 28 }; 
        }
  
-       // 2. Build Body: Iterate 0 to 6 (7 rows)
        const legendTableBody = [];
        for (let r = 0; r < rowsPerCol; r++) {
          const rowData = [];

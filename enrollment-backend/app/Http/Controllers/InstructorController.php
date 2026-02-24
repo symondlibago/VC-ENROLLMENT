@@ -192,6 +192,9 @@ class InstructorController extends Controller
                     'subject_id' => $schedule->subject->id,
                     'subject_code' => $schedule->subject->subject_code,
                     'descriptive_title' => $schedule->subject->descriptive_title,
+                    'lec_hrs' => $schedule->subject->lec_hrs,
+                    'lab_hrs' => $schedule->subject->lab_hrs,
+                    'total_units' => $schedule->subject->total_units,
                     'schedule_info' => "{$schedule->day} {$schedule->time}", 
                     'room' => $schedule->room_no,
                     'school_year' => 'N/A', 
@@ -220,6 +223,7 @@ class InstructorController extends Controller
                     'name' => $student->getFullNameAttribute(),
                     'studentId' => $student->student_id_number,
                     'year' => $student->year,
+                    'courseCode' => $student->course->course_code ?? 'N/A',
                     'courseName' => $student->course->course_name ?? 'N/A',
                     'section' => $sectionName,
                     'grades' => [
