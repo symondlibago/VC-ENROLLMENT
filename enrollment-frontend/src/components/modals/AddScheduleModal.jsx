@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Calendar, Check, Loader2 } from 'lucide-react';
+import { X, Calendar, Check, Loader2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,7 +29,10 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
   const [loadingInstructors, setLoadingInstructors] = useState(false);
   const [loading, setLoading] = useState(false);
   
-  // 1. Fetch Data (Instructors & Sections)
+  // State for internal instructor search
+  const [instructorSearch, setInstructorSearch] = useState('');
+  
+  // Fetch Data (Instructors & Sections)
   useEffect(() => {
     if (isOpen) {
       const fetchData = async () => {
@@ -63,11 +66,11 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
     }
   }, [isOpen, subject]);
 
-  // 2. Populate Form Data for Edit Mode
+  // Populate Form Data for Edit Mode
   useEffect(() => {
     if (isOpen) {
+      setInstructorSearch(''); // Reset search when opening modal
       if (schedule) {
-        // Safe extraction of IDs
         const instructorId = schedule.instructor_id 
           ? schedule.instructor_id.toString() 
           : (schedule.instructor?.id ? schedule.instructor.id.toString() : '');
@@ -85,7 +88,6 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
           subject_id: schedule.subject_id || subject?.id || ''
         });
       } else {
-        // Reset for Add Mode
         setFormData({
           day: '',
           time: '',
@@ -97,6 +99,14 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
       }
     }
   }, [isOpen, schedule, subject]);
+
+  // Filtered instructors based on search input
+  const filteredInstructors = useMemo(() => {
+    if (!instructorSearch) return instructors;
+    return instructors.filter(inst => 
+      inst.name.toLowerCase().includes(instructorSearch.toLowerCase())
+    );
+  }, [instructors, instructorSearch]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -113,10 +123,6 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.day) {
-      toast.error('Please select a day');
-      return;
-    }
     if (!formData.instructor_id) {
         toast.error('Please select an instructor');
         return;
@@ -188,20 +194,20 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
               onClick={(e) => e.stopPropagation()}
             >
 
-          <div className="flex items-center justify-between p-5 border-b bg-red-800 rounded-t-2xl">
-            <h2 className="text-xl font-bold text-white flex items-center">
-            <Calendar className="w-5 h-5 text-white mr-2" />
+              <div className="flex items-center justify-between p-5 border-b bg-red-800 rounded-t-2xl">
+                <h2 className="text-xl font-bold text-white flex items-center">
+                  <Calendar className="w-5 h-5 text-white mr-2" />
                   {schedule ? 'Edit Schedule' : 'Add Schedule'}
-            </h2>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={onClose} 
-              className="text-white hover:text-red-800 hover:bg-white cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </Button>
-          </div>
+                </h2>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={onClose} 
+                  className="text-white hover:text-red-800 hover:bg-white cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
 
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
                 <form onSubmit={handleSubmit}>
@@ -210,7 +216,7 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
                       <Label htmlFor="day">Day <span className="text-red-500">*</span></Label>
                       <Select 
                         onValueChange={(value) => handleSelectChange('day', value)}
-                        value={formData.day} // Ensure this uses 'value' not defaultValue
+                        value={formData.day}
                       >
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select day" />                          
@@ -236,7 +242,6 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
                     <div className="space-y-2">
                       <Label htmlFor="section_id">Section (Optional)</Label>
                       <Select
-                        // FIX: Key prop forces re-render when data loads
                         key={`section-select-${sections.length}`}
                         onValueChange={(value) => handleSelectChange('section_id', value)}
                         value={formData.section_id}
@@ -254,13 +259,12 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
                           ))}
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-gray-500">Leave as "All Sections" if this schedule applies to the entire class.</p>
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="instructor_id">Instructor</Label>
                       <Select
-                        // FIX: Key prop forces re-render when data loads
+                        // Note: Using search in the key helps force refresh the view when results change
                         key={`instructor-select-${instructors.length}`}
                         onValueChange={(value) => handleSelectChange('instructor_id', value)}
                         value={formData.instructor_id}
@@ -269,12 +273,35 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
                         <SelectTrigger>
                           <SelectValue placeholder={loadingInstructors ? "Loading..." : "Select an instructor"} />
                         </SelectTrigger>
-                        <SelectContent>
-                          {instructors.map((inst) => (
-                            <SelectItem key={inst.id} value={inst.id.toString()}>
-                              {inst.name}
-                            </SelectItem>
-                          ))}
+                        
+                        <SelectContent className="max-h-[300px]">
+                          {/* Search bar inside the select content */}
+                          <div className="sticky top-0 z-10 bg-white p-2 border-b">
+                            <div className="relative">
+                              <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                              <Input
+                                placeholder="Search..."
+                                className="pl-7 h-8 text-sm focus-visible:ring-red-800"
+                                value={instructorSearch}
+                                onChange={(e) => setInstructorSearch(e.target.value)}
+                                onKeyDown={(e) => e.stopPropagation()} // Prevents select closing on spacebar
+                              />
+                            </div>
+                          </div>
+
+                          <div className="pt-1">
+                            {filteredInstructors.length > 0 ? (
+                              filteredInstructors.map((inst) => (
+                                <SelectItem key={inst.id} value={inst.id.toString()}>
+                                  {inst.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <div className="p-4 text-xs text-center text-muted-foreground">
+                                No instructors found.
+                              </div>
+                            )}
+                          </div>
                         </SelectContent>
                       </Select>
                     </div>
