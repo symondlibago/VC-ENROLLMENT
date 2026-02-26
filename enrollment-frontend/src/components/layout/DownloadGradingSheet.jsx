@@ -59,14 +59,28 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
         doc.text(String(value || ''), x + doc.getTextWidth(label) + 2, y);
       };
 
-      // --- Left Column ---
+      // --- Left Column with Wrap Protection ---
+      const maxNameWidth = (pageWidth / 2) - margin - 30; // Prevents overlapping the right column
+      
       drawField('Course Code:', subject.subject_code, leftX, startY);
-      drawField('Course Name:', subject.descriptive_title, leftX, startY + lineHeight);
-      drawField('Class Schedule:', subject.schedule_info || 'TBA', leftX, startY + (lineHeight * 2));
-      // Added Lec, Lab, and Total Units below Class Schedule
-      drawField('Lec:', subject.lec_hrs || '0', leftX, startY + (lineHeight * 3));
-      drawField('Lab:', subject.lab_hrs || '0', leftX, startY + (lineHeight * 4));
-      drawField('Total Units:', subject.total_units || '0', leftX, startY + (lineHeight * 5));
+      
+      // Course Name Handling
+      const courseLabel = 'Course Name:';
+      doc.setFont('helvetica', 'normal');
+      doc.text(courseLabel, leftX, startY + lineHeight);
+      doc.setFont('helvetica', 'bold');
+      
+      const courseTitle = subject.descriptive_title || '';
+      const wrappedTitle = doc.splitTextToSize(courseTitle, maxNameWidth);
+      doc.text(wrappedTitle, leftX + doc.getTextWidth(courseLabel) + 2, startY + lineHeight);
+      
+      // Calculate how many extra lines the title took to shift the next rows
+      const verticalOffset = (wrappedTitle.length - 1) * lineHeight;
+
+      drawField('Class Schedule:', subject.schedule_info || 'TBA', leftX, startY + (lineHeight * 2) + verticalOffset);
+      drawField('Lec:', subject.lec_hrs || '0', leftX, startY + (lineHeight * 3) + verticalOffset);
+      drawField('Lab:', subject.lab_hrs || '0', leftX, startY + (lineHeight * 4) + verticalOffset);
+      drawField('Total Units:', subject.total_units || '0', leftX, startY + (lineHeight * 5) + verticalOffset);
       
       // --- Right Column ---
       const sampleStudent = sectionStudents[0];
@@ -154,9 +168,9 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
         ];
       });
 
-      // Increased startY to account for the extra Lec/Lab/Units rows
+      // Added verticalOffset to the startY of the table
       autoTable(doc, {
-        startY: startY + 35, 
+        startY: startY + 35 + verticalOffset, 
         head: [tableHeaders],
         body: tableBody,
         theme: 'grid',
