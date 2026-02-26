@@ -1059,14 +1059,26 @@ public function getStudentsForIdReleasing()
 
         $student = PreEnrolledStudent::where('user_id', $user->id)
             ->where('enrollment_status', 'enrolled')
+            ->with('sections')
             ->first();
 
         if (!$student) {
             return response()->json(['success' => true, 'data' => []]);
         }
 
-        // --- MODIFIED --- We only need to eager load the instructor, not the user.
-        $enrolledSubjects = $student->subjects()->with(['schedules.instructor'])->get();
+        // Get the student's section IDs
+        $studentSectionIds = $student->sections->pluck('id');
+
+        // Eager load schedules filtered by section (student's section or no section)
+        $enrolledSubjects = $student->subjects()->with([
+            'schedules' => function ($query) use ($studentSectionIds) {
+                $query->with('instructor')
+                      ->where(function ($q) use ($studentSectionIds) {
+                          $q->whereNull('section_id')
+                            ->orWhereIn('section_id', $studentSectionIds);
+                      });
+            }
+        ])->get();
 
         $formattedSubjects = $enrolledSubjects->map(function ($subject) use ($student) {
             
@@ -1077,7 +1089,7 @@ public function getStudentsForIdReleasing()
                 ];
             })->all();
 
-            // --- MODIFIED --- Get the name directly from the instructor object.
+            // Get instructor and room from the section-filtered schedules
             $instructorName = $subject->schedules->first()?->instructor?->name ?? 'TBA';
             $room = $subject->schedules->first()?->room_no ?? 'TBA';
 
@@ -1280,6 +1292,7 @@ public function getStudentsForIdReleasing()
             $user = Auth::user();
             $student = PreEnrolledStudent::where('user_id', $user->id)
                 ->where('enrollment_status', 'enrolled')
+                ->with('sections')
                 ->first();
 
             if (!$student) {
@@ -1289,9 +1302,17 @@ public function getStudentsForIdReleasing()
             // Get the IDs of all subjects the student is enrolled in
             $subjectIds = $student->subjects()->pluck('subjects.id');
 
-            // Find all schedules linked to those subjects
+            // Get the student's section IDs
+            $studentSectionIds = $student->sections->pluck('id');
+
+            // Find schedules for the student's subjects, filtered by their section(s)
+            // Include schedules with no section (section_id IS NULL) as "general" schedules
             $schedules = \App\Models\Schedule::with(['subject', 'instructor'])
                 ->whereIn('subject_id', $subjectIds)
+                ->where(function ($query) use ($studentSectionIds) {
+                    $query->whereNull('section_id')
+                          ->orWhereIn('section_id', $studentSectionIds);
+                })
                 ->get();
             
             // Format the data for a clean response
