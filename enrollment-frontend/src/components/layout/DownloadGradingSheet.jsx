@@ -60,11 +60,10 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
       };
 
       // --- Left Column with Wrap Protection ---
-      const maxNameWidth = (pageWidth / 2) - margin - 30; // Prevents overlapping the right column
+      const maxNameWidth = (pageWidth / 2) - margin - 30;
       
       drawField('Course Code:', subject.subject_code, leftX, startY);
       
-      // Course Name Handling
       const courseLabel = 'Course Name:';
       doc.setFont('helvetica', 'normal');
       doc.text(courseLabel, leftX, startY + lineHeight);
@@ -74,7 +73,6 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
       const wrappedTitle = doc.splitTextToSize(courseTitle, maxNameWidth);
       doc.text(wrappedTitle, leftX + doc.getTextWidth(courseLabel) + 2, startY + lineHeight);
       
-      // Calculate how many extra lines the title took to shift the next rows
       const verticalOffset = (wrappedTitle.length - 1) * lineHeight;
 
       drawField('Class Schedule:', subject.schedule_info || 'TBA', leftX, startY + (lineHeight * 2) + verticalOffset);
@@ -149,12 +147,32 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
         return (p + m + sm + f) / 4;
       };
 
+      // Helper: get RGB color based on grade value (< 75 = red, >= 75 = green, empty = black)
+      const getGradeColor = (value) => {
+        if (value === null || value === undefined || value === '') return [0, 0, 0]; // black
+        const num = parseFloat(value);
+        if (isNaN(num)) return [0, 0, 0];
+        return num < 75 ? [220, 38, 38] : [22, 163, 74]; // red-600 / green-600
+      };
+
+      // Build table body and store per-row grade values for coloring
+      const gradeValues = []; // stores { prelim, midterm, semi, final, finalGrade } per row
+
       const tableBody = sectionStudents.map(s => {
         const final = calculateFinal(s);
         const equiv = final ? getEquiv(final) : '';
         let remarks = s.grades?.status || '';
-        if (final) remarks = final >= 75 ? 'PASSED' : 'FAILED';
-        const fmt = (v) => (v ? parseFloat(v).toFixed(2) : '');
+        if (final !== null) remarks = final >= 75 ? 'PASSED' : 'FAILED';
+        const fmt = (v) => (v != null && v !== '' ? parseFloat(v).toFixed(2) : '');
+
+        gradeValues.push({
+          prelim: s.grades?.prelim_grade,
+          midterm: s.grades?.midterm_grade,
+          semi: s.grades?.semifinal_grade,
+          final: s.grades?.final_grade,
+          finalGrade: final,
+          remarks,
+        });
 
         return [
           s.name.toUpperCase(),
@@ -168,21 +186,69 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
         ];
       });
 
-      // Added verticalOffset to the startY of the table
       autoTable(doc, {
         startY: startY + 35 + verticalOffset, 
         head: [tableHeaders],
         body: tableBody,
         theme: 'grid',
-        headStyles: { fillColor: [255, 255, 255], textColor: 0, lineWidth: 0.1, lineColor: 0, fontSize: 8, halign: 'center' },
-        styles: { fontSize: 8, lineColor: 0, lineWidth: 0.1, cellPadding: 1.5, valign: 'middle' },
+        headStyles: {
+          fillColor: [255, 255, 255],
+          textColor: 0,
+          lineWidth: 0.1,
+          lineColor: 0,
+          fontSize: 8,
+          halign: 'center'
+        },
+        styles: {
+          fontSize: 8,
+          lineColor: 0,
+          lineWidth: 0.1,
+          cellPadding: 1.5,
+          valign: 'middle'
+        },
         columnStyles: {
           0: { cellWidth: 50 },
-          1: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'center' }, 4: { halign: 'center' },
+          1: { halign: 'center' },
+          2: { halign: 'center' },
+          3: { halign: 'center' },
+          4: { halign: 'center' },
           5: { halign: 'center', fontStyle: 'bold' },
           6: { halign: 'center', fontStyle: 'bold' },
           7: { halign: 'center', fontSize: 7 }
-        }
+        },
+        // Apply red/green text color to grade columns
+        didParseCell: (data) => {
+          if (data.section !== 'body') return;
+
+          const rowIndex = data.row.index;
+          const colIndex = data.column.index;
+          const gv = gradeValues[rowIndex];
+          if (!gv) return;
+
+          // Columns: 1=Prelim, 2=Midterm, 3=Semi, 4=Final, 5=FinalGrade, 6=Equiv, 7=Remarks
+          if (colIndex === 1) {
+            data.cell.styles.textColor = getGradeColor(gv.prelim);
+          } else if (colIndex === 2) {
+            data.cell.styles.textColor = getGradeColor(gv.midterm);
+          } else if (colIndex === 3) {
+            data.cell.styles.textColor = getGradeColor(gv.semi);
+          } else if (colIndex === 4) {
+            data.cell.styles.textColor = getGradeColor(gv.final);
+          } else if (colIndex === 5) {
+            // Final computed grade
+            data.cell.styles.textColor = getGradeColor(gv.finalGrade);
+          } else if (colIndex === 6) {
+            // Equivalent — color based on final grade
+            data.cell.styles.textColor = getGradeColor(gv.finalGrade);
+          } else if (colIndex === 7) {
+            // Remarks: PASSED = green, FAILED = red
+            if (gv.remarks === 'PASSED') {
+              data.cell.styles.textColor = [22, 163, 74];
+            } else if (gv.remarks === 'FAILED') {
+              data.cell.styles.textColor = [220, 38, 38];
+            }
+          }
+        },
       });
 
        // --- FOOTER & GRADING SYSTEM ---

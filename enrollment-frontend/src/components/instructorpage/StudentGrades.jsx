@@ -23,6 +23,11 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
     setIsOpen(false);
   };
 
+  const getGradeColorClass = (grade) => {
+    if (grade === null || grade === undefined || grade === '') return 'text-gray-900';
+    return parseFloat(grade) < 75 ? 'text-red-600' : 'text-green-600';
+  };
+
   return (
     <div className="relative">
       <motion.button
@@ -115,6 +120,16 @@ const StudentGrades = () => {
     };
     fetchGradeableStudents();
   }, []);
+
+  const getGradeColorClass = (grade) => {
+    if (grade === null || grade === undefined || grade === '') {
+      return 'text-gray-900';
+    }
+  
+    return parseFloat(grade) < 75
+      ? 'text-red-600'
+      : 'text-green-600';
+  };
 
   // Reset section filter when subject changes
   useEffect(() => {
@@ -422,15 +437,17 @@ const StudentGrades = () => {
                             type="number" min="0" max="100" 
                             value={student.grades?.[field] ?? ''} 
                             onChange={(e) => handleGradeChange(student.id, field, e.target.value)}
-                            className="w-16 border-gray-300 font-mono"
+                            className={`w-16 border-gray-300 font-mono font-bold ${getGradeColorClass(student.grades?.[field])}`}
                             disabled={!isPeriodOpen(field.split('_')[0])}
                           />
                         </td>
                       ))}
 
-                      <td className="px-6 py-4 font-bold text-gray-900 font-mono">
-                        {computedFinal !== null ? computedFinal.toFixed(2) : '--'}
-                      </td>
+                      <td
+                          className={`px-6 py-4 font-bold font-mono ${getGradeColorClass(computedFinal)}`}
+                        >
+                          {computedFinal !== null ? computedFinal.toFixed(2) : '--'}
+                        </td>
                       <td className="px-6 py-4 font-mono text-gray-900 font-bold">{equivalent}</td>
                       <td className="px-6 py-4">{statusBadge}</td>
                     </tr>

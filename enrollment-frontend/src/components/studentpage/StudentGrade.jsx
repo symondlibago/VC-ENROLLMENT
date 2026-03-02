@@ -89,7 +89,15 @@ const calculateFinalGrade = (grade) => {
   }
 };
 
-// --- COMPONENTS ---
+const getGradeColorClass = (grade) => {
+  if (grade === null || grade === undefined || grade === '' || isNaN(grade)) {
+    return 'text-gray-900';
+  }
+
+  return parseFloat(grade) < 75
+    ? 'text-red-600'
+    : 'text-green-600';
+};
 
 const MotionDropdown = ({ value, onChange, options, placeholder }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -345,13 +353,24 @@ const StudentGrade = () => {
                       <TableCell className="font-mono text-xs font-semibold">{grade.subject_code}</TableCell>
                       <TableCell className="font-medium text-sm">{grade.descriptive_title}</TableCell>
                       <TableCell className="text-sm text-gray-600">{grade.instructor_name}</TableCell>
-                      <TableCell className="text-center font-mono text-sm">{grade.prelim_grade || '–'}</TableCell>
-                      <TableCell className="text-center font-mono text-sm">{grade.midterm_grade || '–'}</TableCell>
-                      <TableCell className="text-center font-mono text-sm">{grade.semifinal_grade || '–'}</TableCell>
-                      <TableCell className="text-center font-mono text-sm">{grade.final_grade || '–'}</TableCell>
+                      <TableCell className={`text-center font-mono text-sm font-semibold ${getGradeColorClass(grade.prelim_grade)}`}>
+                        {grade.prelim_grade ?? '–'}
+                      </TableCell>
+
+                      <TableCell className={`text-center font-mono text-sm font-semibold ${getGradeColorClass(grade.midterm_grade)}`}>
+                        {grade.midterm_grade ?? '–'}
+                      </TableCell>
+
+                      <TableCell className={`text-center font-mono text-sm font-semibold ${getGradeColorClass(grade.semifinal_grade)}`}>
+                        {grade.semifinal_grade ?? '–'}
+                      </TableCell>
+
+                      <TableCell className={`text-center font-mono text-sm font-semibold ${getGradeColorClass(grade.final_grade)}`}>
+                        {grade.final_grade ?? '–'}
+                      </TableCell>
                       
                       {/* COMPUTED DATA CELLS */}
-                      <TableCell className="text-center font-mono font-bold text-gray-900 bg-red-50/30">
+                      <TableCell className={`text-center font-mono font-bold text-gray-900 bg-red-50/30 ${getGradeColorClass(computedFinal)}`}>
                         {computedFinal ? computedFinal.toFixed(2) : '--'}
                       </TableCell>
                       <TableCell className="text-center font-mono font-bold text-red-700">

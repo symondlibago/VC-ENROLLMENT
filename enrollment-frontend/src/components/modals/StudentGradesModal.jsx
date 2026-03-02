@@ -199,6 +199,11 @@ const getEquivalent = (numericGrade) => {
   if (g === 70) return "3.4";
   return "5.0"; // 69% and below
 };
+
+const getGradeColorClass = (grade) => {
+  if (grade === null || grade === undefined || grade === '') return 'text-gray-900';
+  return parseFloat(grade) < 75 ? 'text-red-600' : 'text-green-600';
+};
   
   const handleSaveChanges = async () => {
     setIsSaving(true);
@@ -333,22 +338,32 @@ const getEquivalent = (numericGrade) => {
                             <td className="px-6 py-2 font-mono">{grade.subject_code}</td>
                             <td className="px-6 py-2 font-medium">{grade.descriptive_title}</td>
                             <td className="px-6 py-2">{grade.instructor_name}</td>
-                            <td className="px-2 py-2 text-center font-mono">{grade.prelim_grade ?? '-'}</td>
-                            <td className="px-2 py-2 text-center font-mono">{grade.midterm_grade ?? '-'}</td>
-                            <td className="px-2 py-2 text-center font-mono">{grade.semifinal_grade ?? '-'}</td>
-                            <td className="px-2 py-2 text-center font-mono">
+                            <td className={`px-2 py-2 text-center font-mono ${getGradeColorClass(grade.prelim_grade)}`}>{grade.prelim_grade ?? '-'}</td>
+                            <td className={`px-2 py-2 text-center font-mono ${getGradeColorClass(grade.midterm_grade)}`}>{grade.midterm_grade ?? '-'}</td>
+                            <td className={`px-2 py-2 text-center font-mono ${getGradeColorClass(grade.semifinal_grade)}`}>{grade.semifinal_grade ?? '-'}</td>
+                            <td
+                              className={`px-2 py-2 text-center font-mono ${getGradeColorClass(grade.final_grade)}`}
+                            >
                               {isEditing ? (
                                 <Input 
                                   type="number" 
                                   className="w-16 mx-auto text-center font-mono"
                                   value={grade.final_grade ?? ''}
-                                  onChange={(e) => handleGradeDataChange(grade.id, 'final_grade', e.target.value === '' ? null : parseFloat(e.target.value))}
+                                  onChange={(e) =>
+                                    handleGradeDataChange(
+                                      grade.id,
+                                      'final_grade',
+                                      e.target.value === '' ? null : parseFloat(e.target.value)
+                                    )
+                                  }
                                 />
-                              ) : (grade.final_grade ?? '-')}
+                              ) : (
+                                grade.final_grade ?? '-'
+                              )}
                             </td>
 
                             {/* Computed Final Grade (The % Result) */}
-                            <td className="px-4 py-2 text-center font-bold text-gray-900 font-mono">
+                            <td className={`px-4 py-2 text-center font-bold text-gray-900 font-mono ${getGradeColorClass(computedFinal)}`}>
                               {computedFinal ? computedFinal.toFixed(2) : '--'}
                             </td>
 
