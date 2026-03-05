@@ -142,6 +142,8 @@ const Students = () => {
   const [studentCourseFilter, setStudentCourseFilter] = useState('all');
   const [studentSectionFilter, setStudentSectionFilter] = useState('all');
   const [studentYearFilter, setStudentYearFilter] = useState('all');
+  const [studentSchoolYearFilter, setStudentSchoolYearFilter] = useState('all');
+  const [studentSemesterFilter, setStudentSemesterFilter] = useState('all');
   const currentUser = authAPI.getUserData();
 
   // Added States for Assigning Single Student
@@ -327,6 +329,18 @@ const Students = () => {
     return matchesSearch && matchesFilter;
   }), [sections, searchTerm, sectionCourseFilter]);
   
+  const schoolYearOptions = useMemo(() => {
+    const years = [...new Set(enrolledStudents.map(s => s.school_year).filter(Boolean))].sort().reverse();
+    return [{ label: 'All School Years', value: 'all' }, ...years.map(y => ({ label: y, value: y }))];
+  }, [enrolledStudents]);
+
+  const semesterOptions = [
+    { label: 'All Semesters', value: 'all' },
+    { label: '1st Semester', value: '1st Semester' },
+    { label: '2nd Semester', value: '2nd Semester' },
+    { label: 'Summer', value: 'Summer' },
+  ];
+
   const filteredStudents = useMemo(() => enrolledStudents.filter(student => {
     const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     student.academic_status.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -336,8 +350,10 @@ const Students = () => {
                               (studentSectionFilter === 'unassigned' && !student.sectionId) || 
                               (student.sectionId?.toString() === studentSectionFilter);
     const yearMatch = studentYearFilter === 'all' || student.year === studentYearFilter;
-    return matchesSearch && courseMatch && sectionMatch && yearMatch;
-  }), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter, studentYearFilter]);
+    const schoolYearMatch = studentSchoolYearFilter === 'all' || student.school_year === studentSchoolYearFilter;
+    const semesterMatch = studentSemesterFilter === 'all' || student.semester === studentSemesterFilter;
+    return matchesSearch && courseMatch && sectionMatch && yearMatch && schoolYearMatch && semesterMatch;
+  }), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter, studentYearFilter, studentSchoolYearFilter, studentSemesterFilter]);
 
   const stats = useMemo(() => [
     { title: 'Total Sections', value: sections.length.toString(), icon: BookOpen, color: 'text-blue-600', bgColor: 'bg-blue-50' },
@@ -396,6 +412,10 @@ const Students = () => {
                 courseFilter={studentCourseFilter} setCourseFilter={setStudentCourseFilter}
                 sectionFilter={studentSectionFilter} setSectionFilter={setStudentSectionFilter}
                 yearFilter={studentYearFilter} setYearFilter={setStudentYearFilter}
+                schoolYearFilter={studentSchoolYearFilter} setSchoolYearFilter={setStudentSchoolYearFilter}
+                semesterFilter={studentSemesterFilter} setSemesterFilter={setStudentSemesterFilter}
+                schoolYearOptions={schoolYearOptions}
+                semesterOptions={semesterOptions}
                 onEditStudent={handleEditStudent}
                 onViewStudentDetails={handleViewStudentDetails}
                 onAssignSection={handleAddStudentsToSection}
@@ -444,7 +464,7 @@ const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilte
     );
 };
 
-const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter, yearFilter, setYearFilter, onEditStudent, onViewStudentDetails, onAssignSection, currentUser }) => {
+const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter, yearFilter, setYearFilter, schoolYearFilter, setSchoolYearFilter, semesterFilter, setSemesterFilter, schoolYearOptions, semesterOptions, onEditStudent, onViewStudentDetails, onAssignSection, currentUser }) => {
     const courseOptions = useMemo(() => [{ label: 'All Courses', value: 'all' }, ...courses.map(c => ({ label: c.course_code, value: c.id.toString() }))], [courses]);
     const sectionOptions = useMemo(() => [{ label: 'All Sections', value: 'all' }, { label: 'Unassigned', value: 'unassigned' }, ...sections.map(s => ({ label: s.name, value: s.id.toString() }))], [sections]);
     const yearOptions = [{ label: 'All Year Levels', value: 'all' }, { label: '1st Year', value: '1st Year' }, { label: '2nd Year', value: '2nd Year' }, { label: '3rd Year', value: '3rd Year' }, { label: '4th Year', value: '4th Year' }];
@@ -458,6 +478,8 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
             <MotionDropdown value={courseFilter} onChange={setCourseFilter} options={courseOptions} placeholder="Filter Course"/>
             <MotionDropdown value={yearFilter} onChange={setYearFilter} options={yearOptions} placeholder="Filter Year"/>
             <MotionDropdown value={sectionFilter} onChange={setSectionFilter} options={sectionOptions} placeholder="Filter Section"/>
+            <MotionDropdown value={schoolYearFilter} onChange={setSchoolYearFilter} options={schoolYearOptions} placeholder="Filter School Year"/>
+            <MotionDropdown value={semesterFilter} onChange={setSemesterFilter} options={semesterOptions} placeholder="Filter Semester"/>
           </div>
         </div></CardContent></Card>
         <Card><Table>

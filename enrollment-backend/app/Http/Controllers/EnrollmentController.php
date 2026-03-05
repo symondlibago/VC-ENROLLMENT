@@ -144,7 +144,6 @@ class EnrollmentController extends Controller
     $validator = Validator::make($request->all(), [
         'first_name' => 'required|string',
         'last_name' => 'required|string',
-        'birth_date' => 'required|date',
     ]);
 
     if ($validator->fails()) {
@@ -162,13 +161,11 @@ class EnrollmentController extends Controller
     \Log::info('Searching for student', [
         'first_name' => $request->first_name,
         'last_name' => $request->last_name,
-        'birth_date' => $birthDate
     ]);
 
     // Check with case-insensitive comparison
     $exists = PreEnrolledStudent::whereRaw('LOWER(first_name) = ?', [strtolower($request->first_name)])
         ->whereRaw('LOWER(last_name) = ?', [strtolower($request->last_name)])
-        ->whereDate('birth_date', $birthDate)
         ->exists();
 
     \Log::info('Existence check result', ['exists' => $exists]);
@@ -177,7 +174,7 @@ class EnrollmentController extends Controller
         return response()->json([
             'success' => true,
             'exists' => true,
-            'message' => 'A student with this name and birth date is already registered.'
+            'message' => 'A student with this name is already registered.'
         ], 200);
     }
 
@@ -627,6 +624,8 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
                 'name' => $student->getFullNameAttribute(),
                 'email' => $student->email_address,
                 'year' => $student->year,
+                'school_year' => $student->school_year,
+                'semester' => $student->semester,
                 'courseId' => $student->course->id ?? null,
                 'courseName' => $student->course ? $student->course->course_name : 'N/A',
                 'sectionId' => $student->sections->first()->id ?? null,

@@ -178,7 +178,7 @@ class InstructorController extends Controller
         return response()->json(['success' => false, 'message' => 'Instructor profile not found.'], 404);
     }
 
-    $schedules = Schedule::with('subject.students.grades')
+    $schedules = Schedule::with('subject', 'section')
                          ->where('instructor_id', $instructor->id)
                          ->get();
 
@@ -195,28 +195,45 @@ class InstructorController extends Controller
                     'lec_hrs' => $schedule->subject->lec_hrs,
                     'lab_hrs' => $schedule->subject->lab_hrs,
                     'total_units' => $schedule->subject->total_units,
-                    'schedule_info' => "{$schedule->day} {$schedule->time}", 
+                    'schedule_info' => "{$schedule->day} {$schedule->time}",
                     'room' => $schedule->room_no,
-                    'school_year' => 'N/A', 
+                    'school_year' => 'N/A',
                     'semester' => $schedule->subject->semester,
                     'students' => []
                 ];
             }
 
-            $enrolledStudents = $schedule->subject->students()
-                ->with('sections')
+            // FIX: Only fetch students belonging to this schedule's specific section.
+            // If the schedule has no section_id (general schedule), fetch all enrolled students.
+            $studentsQuery = $schedule->subject->students()
+                ->with(['sections', 'grades' => fn($q) => $q->where('subject_id', $subjectId), 'course'])
                 ->where('enrollment_status', 'enrolled')
-                ->where('academic_status', '!=', 'Withdraw')
-                ->get();
+                ->where('academic_status', '!=', 'Withdraw');
+
+            if ($schedule->section_id) {
+                // Scope to only students who belong to this schedule's section
+                $studentsQuery->whereHas('sections', fn($q) => $q->where('sections.id', $schedule->section_id));
+            }
+
+            $enrolledStudents = $studentsQuery->get();
 
             foreach ($enrolledStudents as $student) {
-                // ✅ ADDED: Capture School Year from the first student found
+                // Skip if this student was already added by another schedule for this subject
+                // (guards against duplicate entries when a student appears in multiple schedules)
+                if (isset($rosterBySubject[$subjectId]['students'][$student->id])) {
+                    continue;
+                }
+
                 if ($rosterBySubject[$subjectId]['school_year'] === 'N/A') {
                     $rosterBySubject[$subjectId]['school_year'] = $student->school_year;
                 }
 
-                $grade = $student->grades->where('subject_id', $subjectId)->first();
-                $sectionName = $student->sections->isNotEmpty() ? $student->sections->first()->name : 'Unassigned';
+                // Use the schedule's assigned section name, not the student's first section.
+                // This ensures the section shown matches the instructor's schedule context.
+                $sectionName = $schedule->section ? $schedule->section->name
+                    : ($student->sections->isNotEmpty() ? $student->sections->first()->name : 'Unassigned');
+
+                $grade = $student->grades->first();
 
                 $rosterBySubject[$subjectId]['students'][$student->id] = [
                     'id' => $student->id,
@@ -226,6 +243,7 @@ class InstructorController extends Controller
                     'courseCode' => $student->course->course_code ?? 'N/A',
                     'courseName' => $student->course->course_name ?? 'N/A',
                     'section' => $sectionName,
+                    'section_id' => $schedule->section_id,
                     'grades' => [
                         'prelim_grade' => $grade->prelim_grade ?? null,
                         'midterm_grade' => $grade->midterm_grade ?? null,
@@ -475,6 +493,3 @@ public function bulkUpdateGrades(Request $request)
         return response()->json(['success' => true, 'data' => $rosterData]);
     }
 }
-
-
-

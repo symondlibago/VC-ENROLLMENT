@@ -130,7 +130,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
   ];
 
   // Step 2 dropdown options
-  const schoolYears = ['2024-2025', '2025-2026', '2026-2027'];
+  const schoolYears = ['2026-2027','2027-2028' ];
   const semesters = ['1st Semester', '2nd Semester', 'Summer'];
   const genders = ['Male', 'Female'];
   const [formErrors, setFormErrors] = useState({});
@@ -506,13 +506,11 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
       console.log('Data being sent:', {
         first_name: formData.firstName,
         last_name: formData.lastName,
-        birth_date: formData.birthDate
       });
       
       const existenceResponse = await enrollmentAPI.checkExistence({
         first_name: formData.firstName,
         last_name: formData.lastName,
-        birth_date: formData.birthDate
       });
       
       console.log('Existence response:', existenceResponse);
@@ -524,7 +522,6 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
         const duplicateError = {
           firstName: 'This student is already registered.',
           lastName: 'This student is already registered.',
-          birthDate: 'This student is already registered.'
         };
         
         setFormErrors(duplicateError);
@@ -538,7 +535,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
           }, 500);
         }
         
-        setValidationErrorMessage('A student with this exact name and birth date already exists in our system. If this is you, please contact the registrar.');
+        setValidationErrorMessage('A student with this exact name already exists in our system. If this is you, please contact the registrar.');
         setShowValidationErrorModal(true);
         
         // CRITICAL: Return here to stop execution
@@ -1823,149 +1820,6 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
                         placeholder="Select Completion Date"
                         position="above"
                       />
-                    </div>
-                  </div>
-                  
-                  {/* ID Photo and Signature Upload */}
-                  <div className="mt-6 mb-4">
-                    <h4 className="text-base font-semibold text-gray-800 mb-3">Identification Documents</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* ID Photo Upload */}
-                      <div className="border-2 border-dashed border-gray-300 rounded-2xl p-4 hover:border-[var(--dominant-red)] transition-all duration-300 flex flex-col">
-                        <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
-                          ID Photo
-                        </label>
-
-                        {/* --- Instructions Added Here --- */}
-                        <div className="text-xs text-gray-700 mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                          <p className="font-semibold mb-2">Please ensure your photo meets the following criteria:</p>
-                          <ul className="list-disc list-inside space-y-1">
-                            <li>Must have a <strong>plain white background</strong>.</li>
-                            <li>Wear <strong>formal or business attire</strong> (e.g., collared shirt, blouse).</li>
-                            <li>Photo must be recent, clear, and front-facing.</li>
-                            <li>Face should be fully visible; no hats or sunglasses.</li>
-                          </ul>
-                        </div>
-                        {/* --- End of Instructions --- */}
-
-                        <div className="flex-grow flex flex-col items-center justify-center py-4">
-                          {formData.idPhoto ? (
-                            <div className="relative w-full">
-                              <img 
-                                src={URL.createObjectURL(formData.idPhoto)} 
-                                alt="ID Preview" 
-                                className="w-32 h-32 object-cover mx-auto rounded-lg shadow-md" 
-                              />
-                              <button 
-                                onClick={() => handleFormDataChange('idPhoto', null)}
-                                className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 transform translate-x-1/2 -translate-y-1/2 hover:bg-red-600 transition-colors"
-                                style={{ right: 'calc(50% - 64px)' }} // Adjust position to be relative to the image
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              <Upload className="w-12 h-12 text-gray-400 mb-2" />
-                              <p className="text-sm text-gray-600 text-center mb-2">Click or drag to upload</p>
-                            </>
-                          )}
-                          <input 
-                            type="file" 
-                            id="idPhoto"
-                            accept="image/png"
-                            className="hidden" 
-                            onChange={(e) => {
-                              const file = e.target.files[0];
-                              if (file) {
-                                if (file.type !== 'image/png') {
-                                  setValidationErrorMessage('Only PNG images are allowed for ID Photo');
-                                  setShowValidationErrorModal(true);
-                                  return;
-                                }
-                                if (file.size > 5 * 1024 * 1024) { // 5MB in bytes
-                                  setValidationErrorMessage('ID Photo file size must be less than 5MB');
-                                  setShowValidationErrorModal(true);
-                                  return;
-                                }
-                                handleFormDataChange('idPhoto', file);
-                              }
-                            }}
-                          />
-                          <label 
-                            htmlFor="idPhoto"
-                            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-blue-600 transition-colors"
-                          >
-                            {formData.idPhoto ? 'Replace Photo' : 'Select Photo'}
-                          </label>
-                        </div>
-                        <p className="text-xs text-red-500 mt-2 text-center">
-                          <AlertCircle className="w-3 h-3 inline mr-1" />
-                          Only PNG format, maximum 5MB file size
-                        </p>
-                      </div>
-                      
-                      {/* Signature Upload */}
-                      <div className="border-2 border-dashed border-gray-300 rounded-2xl p-4 hover:border-[var(--dominant-red)] transition-all duration-300 flex flex-col">
-                        <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
-                          Signature
-                        </label>
-                        <div className="flex-grow flex flex-col items-center justify-center py-4">
-                          {formData.signature ? (
-                            <div className="relative w-full">
-                              <img 
-                                src={URL.createObjectURL(formData.signature)} 
-                                alt="Signature Preview" 
-                                className="w-40 h-32 object-contain mx-auto rounded-lg bg-white p-2 shadow-md" 
-                              />
-                              <button 
-                                onClick={() => handleFormDataChange('signature', null)}
-                                className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 transform translate-x-1/2 -translate-y-1/2 hover:bg-red-600 transition-colors"
-                                style={{ right: 'calc(50% - 80px)' }} // Adjust position to be relative to the image
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              <FileSignature className="w-12 h-12 text-gray-400 mb-2" />
-                              <p className="text-sm text-gray-600 text-center mb-2">(Optional) Click or drag to upload your signature</p>
-                            </>
-                          )}
-                          <input 
-                            type="file" 
-                            id="signature"
-                            accept="image/png"
-                            className="hidden" 
-                            onChange={(e) => {
-                              const file = e.target.files[0];
-                              if (file) {
-                                if (file.type !== 'image/png') {
-                                  setValidationErrorMessage('Only PNG images are allowed for Signature');
-                                  setShowValidationErrorModal(true);
-                                  return;
-                                }
-                                if (file.size > 5 * 1024 * 1024) { // 5MB in bytes
-                                  setValidationErrorMessage('Signature file size must be less than 5MB');
-                                  setShowValidationErrorModal(true);
-                                  return;
-                                }
-                                handleFormDataChange('signature', file);
-                              }
-                            }}
-                          />
-                          <label 
-                            htmlFor="signature"
-                            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-blue-600 transition-colors"
-                          >
-                            {formData.signature ? 'Replace Signature' : 'Select Signature'}
-                          </label>
-                        </div>
-                        <p className="text-xs text-red-500 mt-2 text-center">
-                          <AlertCircle className="w-3 h-3 inline mr-1" />
-                          Only PNG format, maximum 5MB file size
-                        </p>
-                      </div>
                     </div>
                   </div>
                 </div>

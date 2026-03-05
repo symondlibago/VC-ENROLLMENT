@@ -153,19 +153,18 @@ const StudentGrades = () => {
     }))
   , [rosterData]);
 
-  // Dynamic Section Options based on the selected subject's students
+  // Section options are now safe: the backend already scoped students to only
+  // the sections this instructor is assigned to for each subject.
   const sectionOptions = useMemo(() => {
     const subject = rosterData.find(s => s.subject_id.toString() === selectedSubjectId);
     if (!subject || !subject.students) return [{ label: 'All Sections', value: 'All' }];
 
-    // Extract unique sections
     const uniqueSections = [...new Set(subject.students.map(s => s.section || 'Unassigned'))].sort();
-    
-    const options = [
+
+    return [
       { label: 'All Sections', value: 'All' },
       ...uniqueSections.map(sec => ({ label: sec, value: sec }))
     ];
-    return options;
   }, [rosterData, selectedSubjectId]);
 
   const { filteredStudents, totalStudentsInSubject, gradedStudentsCount } = useMemo(() => {
@@ -176,6 +175,8 @@ const StudentGrades = () => {
     if (!subject) {
         return { filteredStudents: [], totalStudentsInSubject: 0, gradedStudentsCount: 0 };
     }
+
+    // Backend already filtered to only this instructor's section(s) for this subject
     const studentsToDisplay = subject.students || [];
 
     // Apply Section Filtering
