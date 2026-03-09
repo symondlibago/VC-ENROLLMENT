@@ -128,7 +128,7 @@ const StudentGrades = () => {
   
     return parseFloat(grade) < 75
       ? 'text-red-600'
-      : 'text-green-600';
+      : 'text-gray-900';
   };
 
   // Reset section filter when subject changes

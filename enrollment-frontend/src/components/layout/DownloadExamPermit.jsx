@@ -160,7 +160,7 @@ const DownloadExamPermit = ({ student }) => {
     // --- 4. FOOTER ---
     y = doc.lastAutoTable.finalY + 8;
 
-    const cashierName = 'MIKAELLA JANE REMOTO';
+    const cashierName = 'ESTEPHANIE TRUIGEROS';
     const cashierTitle = 'CASHIER';
 
     const lineLength = 50; 

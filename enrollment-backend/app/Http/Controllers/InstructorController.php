@@ -150,8 +150,8 @@ class InstructorController extends Controller
             return response()->json(['success' => false, 'message' => 'Instructor profile not found.'], 404);
         }
 
-        // Eager load the subject for each schedule
-        $schedules = Schedule::with('subject')
+        // Eager load the subject and section for each schedule
+        $schedules = Schedule::with(['subject', 'section'])
                              ->where('instructor_id', $instructor->id)
                              ->get();
 
@@ -163,6 +163,7 @@ class InstructorController extends Controller
                 'subject' => $schedule->subject->descriptive_title ?? 'Unassigned Subject',
                 'code' => $schedule->subject->subject_code ?? 'N/A',
                 'room' => $schedule->room_no,
+                'section' => $schedule->section->name ?? null,
             ];
         });
 
@@ -195,6 +196,7 @@ class InstructorController extends Controller
                     'lec_hrs' => $schedule->subject->lec_hrs,
                     'lab_hrs' => $schedule->subject->lab_hrs,
                     'total_units' => $schedule->subject->total_units,
+                    'number_of_hours' => $schedule->subject->number_of_hours,
                     'schedule_info' => "{$schedule->day} {$schedule->time}",
                     'room' => $schedule->room_no,
                     'school_year' => 'N/A',

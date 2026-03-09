@@ -54,6 +54,7 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
 
       const drawField = (label, value, x, y) => {
         doc.setFont('helvetica', 'normal');
+        doc.setTextColor(0);
         doc.text(label, x, y);
         doc.setFont('helvetica', 'bold');
         doc.text(String(value || ''), x + doc.getTextWidth(label) + 2, y);
@@ -66,6 +67,7 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
       
       const courseLabel = 'Course Name:';
       doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0);
       doc.text(courseLabel, leftX, startY + lineHeight);
       doc.setFont('helvetica', 'bold');
       
@@ -76,9 +78,14 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
       const verticalOffset = (wrappedTitle.length - 1) * lineHeight;
 
       drawField('Class Schedule:', subject.schedule_info || 'TBA', leftX, startY + (lineHeight * 2) + verticalOffset);
-      drawField('Lec:', subject.lec_hrs || '0', leftX, startY + (lineHeight * 3) + verticalOffset);
-      drawField('Lab:', subject.lab_hrs || '0', leftX, startY + (lineHeight * 4) + verticalOffset);
-      drawField('Total Units:', subject.total_units || '0', leftX, startY + (lineHeight * 5) + verticalOffset);
+      drawField('Lec:',           subject.lec_hrs || '0',          leftX, startY + (lineHeight * 3) + verticalOffset);
+      // --- ADDED: Number of Hours below Lec ---
+      drawField('No. of Hours:',  subject.number_of_hours || '0',  leftX, startY + (lineHeight * 4) + verticalOffset);
+      drawField('Lab:',           subject.lab_hrs || '0',          leftX, startY + (lineHeight * 5) + verticalOffset);
+      drawField('Total Units:',   subject.total_units || '0',      leftX, startY + (lineHeight * 6) + verticalOffset);
+
+      // Extra offset for the added row so the table doesn't overlap the header fields
+      const extraOffset = lineHeight;
       
       // --- Right Column ---
       const sampleStudent = sectionStudents[0];
@@ -147,16 +154,15 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
         return (p + m + sm + f) / 4;
       };
 
-      // Helper: get RGB color based on grade value (< 75 = red, >= 75 = green, empty = black)
+      // RED only if failed (< 75), BLACK for passed or empty
       const getGradeColor = (value) => {
-        if (value === null || value === undefined || value === '') return [0, 0, 0]; // black
+        if (value === null || value === undefined || value === '') return [0, 0, 0];
         const num = parseFloat(value);
         if (isNaN(num)) return [0, 0, 0];
-        return num < 75 ? [220, 38, 38] : [22, 163, 74]; // red-600 / green-600
+        return num < 75 ? [220, 38, 38] : [0, 0, 0];
       };
 
-      // Build table body and store per-row grade values for coloring
-      const gradeValues = []; // stores { prelim, midterm, semi, final, finalGrade } per row
+      const gradeValues = [];
 
       const tableBody = sectionStudents.map(s => {
         const final = calculateFinal(s);
@@ -187,7 +193,7 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
       });
 
       autoTable(doc, {
-        startY: startY + 35 + verticalOffset, 
+        startY: startY + 35 + verticalOffset + extraOffset,
         head: [tableHeaders],
         body: tableBody,
         theme: 'grid',
@@ -216,7 +222,6 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
           6: { halign: 'center', fontStyle: 'bold' },
           7: { halign: 'center', fontSize: 7 }
         },
-        // Apply red/green text color to grade columns
         didParseCell: (data) => {
           if (data.section !== 'body') return;
 
@@ -225,7 +230,6 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
           const gv = gradeValues[rowIndex];
           if (!gv) return;
 
-          // Columns: 1=Prelim, 2=Midterm, 3=Semi, 4=Final, 5=FinalGrade, 6=Equiv, 7=Remarks
           if (colIndex === 1) {
             data.cell.styles.textColor = getGradeColor(gv.prelim);
           } else if (colIndex === 2) {
@@ -235,18 +239,12 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
           } else if (colIndex === 4) {
             data.cell.styles.textColor = getGradeColor(gv.final);
           } else if (colIndex === 5) {
-            // Final computed grade
             data.cell.styles.textColor = getGradeColor(gv.finalGrade);
           } else if (colIndex === 6) {
-            // Equivalent — color based on final grade
             data.cell.styles.textColor = getGradeColor(gv.finalGrade);
           } else if (colIndex === 7) {
-            // Remarks: PASSED = green, FAILED = red
-            if (gv.remarks === 'PASSED') {
-              data.cell.styles.textColor = [22, 163, 74];
-            } else if (gv.remarks === 'FAILED') {
-              data.cell.styles.textColor = [220, 38, 38];
-            }
+            // FAILED = red, PASSED = black
+            data.cell.styles.textColor = gv.remarks === 'FAILED' ? [220, 38, 38] : [0, 0, 0];
           }
         },
       });
@@ -261,6 +259,7 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
  
        doc.setFontSize(8);
        doc.setFont('helvetica', 'bold');
+       doc.setTextColor(0);
        doc.text('GRADING SYSTEM:', margin, finalY);
        
        const rawLegendData = [
@@ -320,6 +319,7 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
        const drawSigBlock = (label, name, title, xPos) => {
          doc.setFontSize(8);
          doc.setFont('helvetica', 'normal');
+         doc.setTextColor(0);
          doc.text(label, xPos, sigStartY);
          
          doc.setFontSize(9);

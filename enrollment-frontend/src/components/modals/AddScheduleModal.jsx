@@ -213,7 +213,7 @@ const AddScheduleModal = ({ isOpen, onClose, onScheduleAdded, subject = null, sc
                 <form onSubmit={handleSubmit}>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="day">Day <span className="text-red-500">*</span></Label>
+                      <Label htmlFor="day">Day <span className="text-red-500"></span></Label>
                       <Select 
                         onValueChange={(value) => handleSelectChange('day', value)}
                         value={formData.day}

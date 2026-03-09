@@ -166,7 +166,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
 
   return (
     <motion.div
-      className="h-screen bg-[var(--dominant-red)] text-white flex flex-col relative z-50"
+      className="h-screen bg-(--dominant-red) text-white flex flex-col relative z-50"
       variants={sidebarVariants}
       animate={isCollapsed ? 'collapsed' : 'expanded'}
       initial={false}
@@ -232,7 +232,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
               onClick={() => handleNavigation(item)}
               className={`w-full flex items-center cursor-pointer space-x-3 px-3 py-3 rounded-xl transition-all duration-300 liquid-morph group relative ${
                 isActive 
-                  ? 'bg-white text-[var(--dominant-red)] shadow-lg' 
+                  ? 'bg-white text-(--dominant-red) shadow-lg' 
                   : 'text-white hover:bg-white/10'
               }`}
               variants={navigationVariants}
@@ -247,7 +247,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
             >
               {isActive && (
                 <motion.div
-                  className="absolute left-0 top-0 bottom-0 w-1 bg-[var(--dominant-red)] rounded-r-full"
+                  className="absolute left-0 top-0 bottom-0 w-1 bg-(--dominant-red) rounded-r-full"
                   layoutId="activeIndicator"
                   transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
                 />
@@ -257,7 +257,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
                 animate={{ scale: isActive ? 1.1 : 1, rotate: isActive ? 5 : 0 }}
                 transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
               >
-                <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-[var(--dominant-red)]' : 'text-white'}`} />
+                <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-(--dominant-red)' : 'text-white'}`} />
               </motion.div>
               
               <AnimatePresence mode="wait">
@@ -269,15 +269,15 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
                     exit="collapsed"
                     className="flex items-center justify-between flex-1"
                   >
-                    <span className={`text-sm font-medium ${isActive ? 'text-[var(--dominant-red)]' : 'text-white'}`}>
+                    <span className={`text-sm font-medium ${isActive ? 'text-(--dominant-red)' : 'text-white'}`}>
                       {item.label}
                     </span>
                     {item.badge && (
                       <motion.span 
                         className={`px-2 py-1 text-xs font-bold rounded-full ${
                           isActive 
-                            ? 'bg-[var(--dominant-red)] text-white' 
-                            : 'bg-white text-[var(--dominant-red)]'
+                            ? 'bg-(--dominant-red) text-white' 
+                            : 'bg-white text-(--dominant-red)'
                         }`}
                         // Initial Scale
                         initial={{ scale: 0 }}
@@ -305,7 +305,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
                   whileHover={{ opacity: 1, x: 0 }}
                 >
                   {item.label}
-                  {item.badge && (<span className="ml-2 px-1.5 py-0.5 bg-[var(--dominant-red)] rounded text-xs">{item.badge}</span>)}
+                  {item.badge && (<span className="ml-2 px-1.5 py-0.5 bg-(--dominant-red) rounded text-xs">{item.badge}</span>)}
                 </motion.div>
               )}
             </motion.button>

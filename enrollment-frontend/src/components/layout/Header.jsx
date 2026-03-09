@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Search, 
   Bell, 
@@ -29,6 +29,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
   const [searchFocused, setSearchFocused] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const pageTitles = {
     '/dashboard': { title: 'Dashboard', subtitle: `Welcome back, ${user?.name || 'Admin'}` },
@@ -80,7 +81,7 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
           variant="ghost"
           size="sm"
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="lg:hidden text-gray-600 hover:text-[var(--dominant-red)] liquid-button"
+          className="lg:hidden text-gray-600 hover:text-(--dominant-red) liquid-button"
         >
           <Menu className="w-5 h-5" />
         </Button>
@@ -107,7 +108,7 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
           <Input
             placeholder={`Search ${currentPage.title.toLowerCase()}...`}
-            className="pl-10 pr-4 py-2 w-full border-gray-200 focus:border-[var(--dominant-red)] focus:ring-[var(--dominant-red)] liquid-morph"
+            className="pl-10 pr-4 py-2 w-full border-gray-200 focus:border-(--dominant-red) focus:ring-(--dominant-red) liquid-morph"
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
           />
@@ -121,7 +122,7 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
               <Button variant="ghost" className="flex items-center space-x-2 liquid-button hover:bg-gray-100 hover:text-gray-900">
                 <Avatar className="w-8 h-8">
                   <AvatarImage src="/api/placeholder/32/32" alt="Admin" />
-                  <AvatarFallback className="bg-[var(--dominant-red)] text-white text-sm">
+                  <AvatarFallback className="bg-(--dominant-red) text-white text-sm">
                     {user?.name?.charAt(0) || 'AD'}
                   </AvatarFallback>
                 </Avatar>
@@ -138,11 +139,11 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer transition-colors hover:bg-red-1800 focus:bg-red-800 hover:text-white">
+            <DropdownMenuItem className="cursor-pointer transition-colors hover:bg-red-1800 focus:bg-red-800 hover:text-white" onClick={() => navigate('/settings')}>
               <User className="mr-2 h-4 w-4 hover:text-white" />
               <span>Profile</span>
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer transition-colors hover:bg-red-1800 focus:bg-red-800 hover:text-white">
+            <DropdownMenuItem className="cursor-pointer transition-colors hover:bg-red-1800 focus:bg-red-800 hover:text-white" onClick={() => navigate('/settings')}>
               <Settings className="mr-2 h-4 w-4 hover:text-white" />
               <span>Settings</span>
             </DropdownMenuItem>

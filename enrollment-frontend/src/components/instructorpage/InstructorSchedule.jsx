@@ -70,9 +70,6 @@ const InstructorSchedule = () => {
       <motion.div 
         className="space-y-8" 
         variants={containerVariants}
-        // --- FIX: Explicitly set initial and animate here ---
-        // This ensures the list animates in even if the parent container 
-        // has already finished its animation while data was loading.
         initial="hidden"
         animate="visible"
       >
@@ -86,22 +83,27 @@ const InstructorSchedule = () => {
                     <CardContent className="p-6 flex flex-col justify-between h-full">
                       <div>
                         <div className="flex items-start space-x-3">
-                          <div className="flex-shrink-0 mt-1">
+                          <div className="shrink-0 mt-1">
                              <Book className="w-5 h-5 text-red-800" />
                           </div>
                           <div>
                             <p className="font-bold text-lg text-gray-900 leading-tight">{schedule.subject}</p>
                             <p className="text-sm text-gray-500 font-mono">{schedule.code}</p>
+                            {schedule.section && (
+                              <span className="inline-block mt-1 px-2 py-0.5 bg-red-50 text-red-700 text-xs font-semibold rounded-full border border-red-200">
+                                {schedule.section}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
                       <div className="mt-4 pt-4 border-t border-gray-100 space-y-2 text-sm text-gray-700">
                         <div className="flex items-center space-x-2">
-                          <Clock className="w-4 h-4 text-[var(--dominant-red)]" />
+                          <Clock className="w-4 h-4 text-(--dominant-red)" />
                           <span>{schedule.time || 'Not specified'}</span>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <MapPin className="w-4 h-4 text-[var(--dominant-red)]" />
+                          <MapPin className="w-4 h-4 text-(--dominant-red)" />
                           <span>{schedule.room || 'Not specified'}</span>
                         </div>
                       </div>
@@ -126,7 +128,7 @@ const InstructorSchedule = () => {
       <motion.div variants={itemVariants}>
         <div className="gradient-soft rounded-2xl p-8 border border-gray-100">
           <h1 className="text-3xl font-bold heading-bold text-gray-900 mb-2 flex items-center">
-            <Calendar className="w-8 h-8 text-[var(--dominant-red)] mr-3" />
+            <Calendar className="w-8 h-8 text-(--dominant-red) mr-3" />
             My Weekly Schedule
           </h1>
           <p className="text-gray-600 text-lg">Your teaching and consultation hours for the week.</p>

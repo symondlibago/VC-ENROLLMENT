@@ -331,10 +331,10 @@ const StudentGrade = () => {
                   <TableHead className="w-[120px]">Subject Code</TableHead>
                   <TableHead className="min-w-[200px]">Descriptive Title</TableHead>
                   <TableHead className="min-w-[150px]">Instructor</TableHead>
-                  <TableHead className="text-center w-[80px]">Prelim</TableHead>
-                  <TableHead className="text-center w-[80px]">Midterm</TableHead>
-                  <TableHead className="text-center w-[80px]">Semi</TableHead>
-                  <TableHead className="text-center w-[80px]">Final</TableHead>
+                  <TableHead className="text-center w-20">Prelim</TableHead>
+                  <TableHead className="text-center w-20">Midterm</TableHead>
+                  <TableHead className="text-center w-20">Semi</TableHead>
+                  <TableHead className="text-center w-20">Final</TableHead>
                   
                   {/* NEW COLUMNS */}
                   <TableHead className="text-center w-[100px] text-red-700 font-bold bg-red-50/50">Computed</TableHead>
