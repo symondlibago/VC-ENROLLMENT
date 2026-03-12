@@ -60,6 +60,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
     { id: 'class-roster', icon: BookUser, label: 'Class Roster', badge: null, path: '/class-roster' },
     { id: 'schedule', icon: Calendar, label: 'Schedule', badge: null, path: '/schedule' },
     { id: 'student-grades', icon: BarChart3, label: 'Student Grades', badge: null, path: '/student-grades' },
+    { id: 'class-record-builder', icon: ClipboardList, label: 'Class Record', badge: null, path: '/class-record-builder' },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
   ];
 

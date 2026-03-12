@@ -43,6 +43,7 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
     '/settings': { title: 'Settings', subtitle: 'Account and system preferences' },
     '/class-roster': { title: 'Class Roster', subtitle: 'View your students for this semester' },
     '/schedule': { title: 'My Schedule', subtitle: 'Your weekly teaching schedule' },
+    '/class-record-builder': { title: 'Class Record Builder', subtitle: 'Build and export student grade records' },
     '/subject-enrolled': { title: 'Enrolled Subjects', subtitle: 'Your class schedule for this semester' },
     '/my-grades': { title: 'My Grades', subtitle: 'Your student grades for this semester' },
     '/evaluation-records': { title: 'Evaluation Records', subtitle: 'Your evaluation records for this semester' },

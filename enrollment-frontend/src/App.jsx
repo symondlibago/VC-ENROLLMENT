@@ -23,6 +23,7 @@ import { authAPI } from './services/api';
 import './App.css';
 import ClassRoster from './components/instructorpage/ClassRoster';
 import InstructorSchedule from './components/instructorpage/InstructorSchedule';
+import ClassRecord from './components/instructorpage/ClassRecord';
 import StudentGrades from './components/instructorpage/StudentGrades';
 import SubjectEnrolled from './components/studentpage/SubjectEnrolled';
 import StudentGrade from './components/studentpage/StudentGrade';
@@ -160,6 +161,7 @@ function App() {
           <Route path="/student-grades" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><StudentGrades /></motion.div>} />
           <Route path="/schedule" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><InstructorSchedule /></motion.div>} />
           <Route path="/settings" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Settings /></motion.div>} />
+          <Route path="/class-record-builder" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><ClassRecord /></motion.div>} />
           <Route path="*" element={<Navigate to="/class-roster" replace />} />
         </>
       );
