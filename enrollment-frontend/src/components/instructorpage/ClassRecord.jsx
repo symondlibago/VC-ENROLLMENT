@@ -1,13 +1,32 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, AlertTriangle, Trash2, X } from "lucide-react";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import { instructorAPI } from "@/services/api";
+import ValidationErrorModal from "../components/../modals/ValidationErrorModal";
 import circleLogoUrl from "../../assets/circlelogo.jpg";
 
-// ─── Utility ──────────────────────────────────────────────────────────────────
 const uid = () => Math.random().toString(36).slice(2, 9);
+
+const SS_KEY = "classrecord_terms_v1";
+function ssLoad() {
+  try {
+    const raw = sessionStorage.getItem(SS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+function ssSave(terms) {
+  try {
+    // Save only categories + term name (NOT students — they reload from API)
+    const slim = terms.map(t => ({ id: t.id, name: t.name, categories: t.categories }));
+    sessionStorage.setItem(SS_KEY, JSON.stringify(slim));
+  } catch {}
+}
+function ssClear() {
+  try { sessionStorage.removeItem(SS_KEY); } catch {}
+}
 
 function colLetter(idx) {
   let s = "", n = idx;
@@ -15,7 +34,7 @@ function colLetter(idx) {
   return s;
 }
 
-// ─── ExcelJS style helpers ────────────────────────────────────────────────────
+// ─── ExcelJS style helpers 
 const argb   = (hex) => "FF" + hex.replace("#", "").toUpperCase();
 const fillSolid = (hex) => ({ type: "pattern", pattern: "solid", fgColor: { argb: argb(hex) } });
 const fontStyle = (hex, bold = false, size = 11) => ({ color: { argb: argb(hex) }, bold, size, name: "Calibri" });
@@ -42,7 +61,7 @@ function wf(sheet, addr, formula, style) {
   styleCell(cell, style);
 }
 
-// ─── Palette ─────────────────────────────────────────────────────────────────
+// ─── Palette 
 const P = {
   red: "#9C262C", redDark: "#6b1a1e", redFade: "#fdf2f2",
   gold: "#ffd740",
@@ -82,7 +101,7 @@ const SCHOOL = {
   logo:    circleLogoUrl,
 };
 
-// ─── Fetch logo as ArrayBuffer for ExcelJS ────────────────────────────────────
+
 async function fetchLogoBuffer(url) {
   try {
     const res = await fetch(url);
@@ -93,9 +112,7 @@ async function fetchLogoBuffer(url) {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-//  Build one term worksheet using ExcelJS
-// ═══════════════════════════════════════════════════════════════════════════════
+
 function buildSheet(ws, term, subjectLabel, sectionLabel, logoImageId) {
   const { name: termName, categories, students } = term;
 
@@ -116,12 +133,12 @@ function buildSheet(ws, term, subjectLabel, sectionLabel, logoImageId) {
   const roundedCol    = cursor + 1;
   const totalCols     = cursor + 2;
 
-  // ── Column widths ─────────────────────────────────────────────────────────
+  // ── Column widths 
   ws.getColumn(1).width = 6;
   ws.getColumn(2).width = 30;
   for (let c = 3; c <= totalCols; c++) ws.getColumn(c).width = 14;
 
-  // ── Row heights ───────────────────────────────────────────────────────────
+  // ── Row heights 
   [20, 18, 18, 10, 30, 18, 20, 28, 36, 16].forEach((h, i) => { ws.getRow(i + 1).height = h; });
 
   // ── Logo image — fixed 60x60px square, offset right so it doesn't cover text ──
@@ -133,7 +150,7 @@ function buildSheet(ws, term, subjectLabel, sectionLabel, logoImageId) {
     });
   }
 
-  // ── School header rows 1–7 ───────────────────────────────────────────────
+  // ── School header rows 
   const lastCol = colLetter(totalCols - 1);
   const baseHdr = {
     fill:      fillSolid("#ffffff"),
@@ -156,11 +173,7 @@ function buildSheet(ws, term, subjectLabel, sectionLabel, logoImageId) {
     wc(ws, `A${row}`, val, { ...baseHdr, font });
   });
 
-  // ── Category header row 8 ─────────────────────────────────────────────────
-  // IMPORTANT: do ALL merges FIRST, then write values into master cells.
-  // ExcelJS can wipe cell values when mergeCells is called after wc().
 
-  // Merge No & Name across rows 8–10 FIRST
   ws.mergeCells(`A${CAT_HDR_ROW}:A${MAX_PTS_ROW}`);
   ws.mergeCells(`B${CAT_HDR_ROW}:B${MAX_PTS_ROW}`);
   // Merge category headers across their columns
@@ -208,7 +221,7 @@ function buildSheet(ws, term, subjectLabel, sectionLabel, logoImageId) {
   wc(ws, `${colLetter(finalGradeCol)}${CAT_HDR_ROW}`, "FINAL GRADE", fgHdr);
   wc(ws, `${colLetter(roundedCol)}${CAT_HDR_ROW}`,    "ROUNDED",     fgHdr);
 
-  // ── Sub-column header row 9 ───────────────────────────────────────────────
+  
   const emptyFixed = { fill: fillSolid("#374151"), border: thinBorder("#4b5563") };
   wc(ws, `A${SUB_HDR_ROW}`, "", emptyFixed);
   wc(ws, `B${SUB_HDR_ROW}`, "", emptyFixed);
@@ -228,7 +241,6 @@ function buildSheet(ws, term, subjectLabel, sectionLabel, logoImageId) {
       wc(ws, `${colLetter(cStart + cat.columns.length)}${SUB_HDR_ROW}`, "Score", subStyle);
   }
 
-  // ── Max pts row 10 ────────────────────────────────────────────────────────
   wc(ws, `A${MAX_PTS_ROW}`, "", emptyFixed);
   wc(ws, `B${MAX_PTS_ROW}`, "", emptyFixed);
 
@@ -251,7 +263,7 @@ function buildSheet(ws, term, subjectLabel, sectionLabel, logoImageId) {
         { fill: fillSolid(pale), border: thinBorder("#e5e7eb") });
   }
 
-  // ── Student data rows ─────────────────────────────────────────────────────
+  // ── Student data rows 
   for (let si = 0; si < students.length; si++) {
     const s = students[si], row = DATA_START + si;
     ws.getRow(row).height = 22;
@@ -317,7 +329,7 @@ function buildSheet(ws, term, subjectLabel, sectionLabel, logoImageId) {
   return { finalGradeCol, roundedCol, DATA_START };
 }
 
-// ─── Build Grading Sheet ──────────────────────────────────────────────────────
+// ─── Build Grading Sheet 
 function buildGradingSheet(gs, terms, termNames, termMeta, subjectLabel, sectionLabel, logoImageId) {
   const COL_HDR = 8, DATA_GS = 9;
   const totalCols = 2 + terms.length + 2;
@@ -405,13 +417,13 @@ function buildGradingSheet(gs, terms, termNames, termMeta, subjectLabel, section
   }
 }
 
-// ─── Export all terms ─────────────────────────────────────────────────────────
+// ─── Export all terms
 async function exportAllTerms(terms, subjectLabel, sectionLabel, subjectCode) {
   const wb = new ExcelJS.Workbook();
   wb.creator = "ClassRecord";
   wb.created = new Date();
 
-  // ── Fetch & register logo once ────────────────────────────────────────────
+  // ── Fetch & register logo once 
   const logoBuffer = await fetchLogoBuffer(SCHOOL.logo);
   let logoImageId  = null;
   if (logoBuffer) {
@@ -419,7 +431,7 @@ async function exportAllTerms(terms, subjectLabel, sectionLabel, subjectCode) {
     logoImageId = wb.addImage({ buffer: logoBuffer, extension: ext });
   }
 
-  // ── Term sheets ───────────────────────────────────────────────────────────
+  // ── Term sheets 
   const termNames = [], termMeta = [];
   for (const term of terms) {
     const sheetName = term.name.replace(/[\\/*?[\]:]/g, "").slice(0, 31);
@@ -429,11 +441,10 @@ async function exportAllTerms(terms, subjectLabel, sectionLabel, subjectCode) {
     termMeta.push(meta);
   }
 
-  // ── Grading sheet ─────────────────────────────────────────────────────────
+  // ── Grading sheet 
   const gs = wb.addWorksheet("GRADING SHEET");
   buildGradingSheet(gs, terms, termNames, termMeta, subjectLabel, sectionLabel, logoImageId);
 
-  // ── Save ──────────────────────────────────────────────────────────────────
   const buf      = await wb.xlsx.writeBuffer();
   const safeCode    = (subjectCode || subjectLabel).replace(/[\/*?[\]:]/g, "").trim();
   const safeSection = sectionLabel ? sectionLabel.replace(/[\/*?[\]:]/g, "").trim() : "";
@@ -444,9 +455,66 @@ async function exportAllTerms(terms, subjectLabel, sectionLabel, subjectCode) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-//  MotionDropdown
-// ═══════════════════════════════════════════════════════════════════════════════
+
+function ConfirmDeleteModal({ open, onClose, onConfirm, title, description }) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4"
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          onClick={onClose}
+        >
+          <motion.div
+            className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden"
+            initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-linear-to-r from-(--dominant-red) to-red-600 p-4 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={22} color="#ffd740" />
+                <h3 className="text-xl font-bold text-white">{title || "Confirm Delete"}</h3>
+              </div>
+              <button onClick={onClose} className="text-white hover:text-gray-200 transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+            {/* Body */}
+            <div className="p-6">
+              <div className="flex items-start">
+                <div className="shrink-0 mr-4">
+                  <Trash2 size={28} className="text-red-500" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-medium text-gray-900 mb-2">Are you sure?</h4>
+                  <p className="text-gray-600">{description || "This action cannot be undone."}</p>
+                </div>
+              </div>
+            </div>
+            {/* Footer */}
+            <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { onConfirm(); onClose(); }}
+                className="px-4 py-2 bg-(--dominant-red) text-white rounded-md hover:bg-red-700 transition-colors font-medium"
+              >
+                Yes, Delete It
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+
 function MotionDropdown({ value, onChange, options, placeholder, minWidth = 280 }) {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef(null);
@@ -532,40 +600,51 @@ function MotionDropdown({ value, onChange, options, placeholder, minWidth = 280 
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-//  TERM RECORD
-// ═══════════════════════════════════════════════════════════════════════════════
 function TermRecord({ term, onUpdate }) {
   const { categories, students } = term;
   const [showCatModal, setShowCatModal] = useState(false);
   const [showColModal, setShowColModal] = useState({ open: false, catId: null });
   const [catForm, setCatForm] = useState({ name: "", pct: "" });
   const [colForm, setColForm] = useState({ label: "", maxPts: "100" });
-  const [toast, setToast] = useState(null);
+  const [toast, setToast]       = useState(null);
+  const [valError, setValError] = useState({ open: false, message: "" });
+  // Confirm-delete state
+  const [confirmCat, setConfirmCat] = useState({ open: false, id: null, name: "" });
+  const [confirmCol, setConfirmCol] = useState({ open: false, catId: null, colId: null, label: "" });
 
-  const showToast = (msg, type = "info") => { setToast({ msg, type }); setTimeout(() => setToast(null), 2500); };
+  const showToast   = (msg, type = "info") => { setToast({ msg, type }); setTimeout(() => setToast(null), 2500); };
+  const showValError = (message) => setValError({ open: true, message });
   const totalPct = categories.reduce((s, c) => s + Number(c.pct), 0);
 
   const addCategory = () => {
     const name = catForm.name.trim(), pct = Number(catForm.pct);
-    if (!name)              return showToast("Category name required", "error");
-    if (!pct || pct <= 0)   return showToast("Enter a valid percentage", "error");
-    if (totalPct + pct > 100) return showToast(`Only ${100 - totalPct}% remaining`, "error");
+    if (!name)              return showValError("Category name is required. Please enter a name before adding.");
+    if (!pct || pct <= 0)   return showValError("Percentage weight must be greater than 0. Please enter a valid number.");
+    if (totalPct + pct > 100) return showValError(`Not enough percentage remaining. You only have ${100 - totalPct}% left to allocate.`);
     onUpdate({ categories: [...categories, { id: uid(), name, pct, columns: [] }] });
     setCatForm({ name: "", pct: "" }); setShowCatModal(false);
     showToast(`"${name}" added at ${pct}%`, "success");
   };
-  const removeCategory = (id) => onUpdate({ categories: categories.filter(c => c.id !== id) });
+  const removeCategory = (id) => {
+    const cat = categories.find(c => c.id === id);
+    setConfirmCat({ open: true, id, name: cat?.name || "this category" });
+  };
+  const doRemoveCategory = (id) => onUpdate({ categories: categories.filter(c => c.id !== id) });
 
   const addColumn = () => {
     const { catId } = showColModal, label = colForm.label.trim(), maxPts = Number(colForm.maxPts);
-    if (!label)               return showToast("Column label required", "error");
-    if (!maxPts || maxPts <= 0) return showToast("Max points must be > 0", "error");
+    if (!label)               return showValError("Column label is required. Please enter a label (e.g. a date or activity name).");
+    if (!maxPts || maxPts <= 0) return showValError("Max points must be greater than 0. Please enter a valid number.");
     onUpdate({ categories: categories.map(c => c.id === catId ? { ...c, columns: [...c.columns, { id: uid(), label, maxPts }] } : c) });
     setColForm({ label: "", maxPts: "100" }); setShowColModal({ open: false, catId: null });
     showToast("Column added", "success");
   };
-  const removeColumn = (catId, colId) =>
+  const removeColumn = (catId, colId) => {
+    const cat = categories.find(c => c.id === catId);
+    const col = cat?.columns.find(col => col.id === colId);
+    setConfirmCol({ open: true, catId, colId, label: col?.label || "this column" });
+  };
+  const doRemoveColumn = (catId, colId) =>
     onUpdate({ categories: categories.map(c => c.id === catId ? { ...c, columns: c.columns.filter(col => col.id !== colId) } : c) });
 
   const setScore = (studId, colId, val) =>
@@ -693,23 +772,53 @@ function TermRecord({ term, onUpdate }) {
         <div style={{ marginTop: 6 }}>{[50, 100].map(v => (<QBtn key={v} onClick={() => setColForm(p => ({ ...p, maxPts: String(v) }))}>{v}pts</QBtn>))}</div>
         <MActions onCancel={() => setShowColModal({ open: false, catId: null })} onOk={addColumn} okLabel="Add Column" />
       </Modal>
+
+      {/* ── Validation Error Modal (form errors) ── */}
+      <ValidationErrorModal
+        isOpen={valError.open}
+        onClose={() => setValError({ open: false, message: "" })}
+        message={valError.message}
+      />
+
+      {/* ── Confirm delete CATEGORY ── */}
+      <ConfirmDeleteModal
+        open={confirmCat.open}
+        onClose={() => setConfirmCat({ open: false, id: null, name: "" })}
+        onConfirm={() => doRemoveCategory(confirmCat.id)}
+        title="Delete Category"
+        description={`Are you sure you want to delete the "${confirmCat.name}" category? All its columns and entered scores will be permanently removed.`}
+      />
+
+      {/* ── Confirm delete COLUMN ── */}
+      <ConfirmDeleteModal
+        open={confirmCol.open}
+        onClose={() => setConfirmCol({ open: false, catId: null, colId: null, label: "" })}
+        onConfirm={() => doRemoveColumn(confirmCol.catId, confirmCol.colId)}
+        title="Delete Column"
+        description={`Are you sure you want to delete the column "${confirmCol.label}"? All scores entered for this column will be lost.`}
+      />
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-//  ROOT COMPONENT
-// ═══════════════════════════════════════════════════════════════════════════════
 export default function ClassRecord() {
   const [rosterData,        setRosterData]       = useState([]);
   const [loadingRoster,     setLoadingRoster]     = useState(true);
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [selectedSection,   setSelectedSection]   = useState("All");
-  const [terms, setTerms] = useState(() => DEFAULT_TERMS.map(name => ({ id: uid(), name, categories: [], students: [] })));
+  const [terms, setTerms] = useState(() => {
+    // Try to restore categories from sessionStorage (persists on refresh, gone on browser close)
+    const saved = ssLoad();
+    if (saved && saved.length > 0) {
+      return saved.map(t => ({ ...t, students: [] })); // students reload from API
+    }
+    return DEFAULT_TERMS.map(name => ({ id: uid(), name, categories: [], students: [] }));
+  });
   const [activeTermId, setActiveTermId] = useState(null);
   const [showAddTerm,  setShowAddTerm]  = useState(false);
   const [newTermName,  setNewTermName]  = useState("");
   const [toast, setToast] = useState(null);
+  const [confirmTerm, setConfirmTerm] = useState({ open: false, id: null, name: "" });
 
   const showToast = (msg, type = "info") => { setToast({ msg, type }); setTimeout(() => setToast(null), 2800); };
   const activeTid  = activeTermId ?? terms[0]?.id;
@@ -763,6 +872,11 @@ export default function ClassRecord() {
     }));
   }, [derivedStudents]);
 
+  // Auto-save categories to sessionStorage on every terms change
+  useEffect(() => {
+    if (terms.some(t => t.categories.length > 0)) ssSave(terms);
+  }, [terms]);
+
   const updateTerm = (id, patch) => setTerms(p => p.map(t => t.id === id ? { ...t, ...patch } : t));
   const addTerm = () => {
     const name = newTermName.trim();
@@ -775,6 +889,10 @@ export default function ClassRecord() {
   };
   const removeTerm = (id) => {
     if (terms.length === 1) return showToast("Cannot remove the only term", "error");
+    const t = terms.find(t => t.id === id);
+    setConfirmTerm({ open: true, id, name: t?.name || "this term" });
+  };
+  const doRemoveTerm = (id) => {
     const rem = terms.filter(t => t.id !== id); setTerms(rem);
     if (activeTid === id) setActiveTermId(rem[0].id);
     showToast("Term removed");
@@ -806,9 +924,23 @@ export default function ClassRecord() {
         <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: 1 }}>📋 Class Record Builder</span>
         <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ fontSize: 12, color: "rgba(255,255,255,0.8)" }}>{terms.length} term{terms.length !== 1 ? "s" : ""} • {activeTerm?.students.length || 0} students</span>
+          {ssLoad() && (
+            <button onClick={() => { ssClear(); setTerms(DEFAULT_TERMS.map(name => ({ id: uid(), name, categories: [], students: derivedStudents.map(s => ({ ...s, scores: {} })) }))); showToast("Saved data cleared", "info"); }}
+              style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.35)", color: "#fff", borderRadius: 7, padding: "5px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+              🗑 Clear Saved
+            </button>
+          )}
           <BtnTool onClick={handleExport} icon="⬇️" label="Export All Terms (.xlsx)" color={P.green} textColor="#fff" />
         </div>
       </div>
+
+      {/* Session restore notice */}
+      {ssLoad() && terms.some(t => t.categories.length > 0) && (
+        <div style={{ background: "#ecfdf5", borderBottom: "1px solid #6ee7b7", padding: "6px 20px", fontSize: 12, color: "#065f46", display: "flex", gap: 6, alignItems: "center" }}>
+          <span>✅</span>
+          <span><strong>Session restored</strong> — your categories and columns were saved from your last visit. They will be cleared when you close this browser tab.</span>
+        </div>
+      )}
 
       <div style={{ background: P.white, borderBottom: `1px solid ${P.gray200}`, padding: "16px 24px", display: "flex", gap: 20, alignItems: "center" }}>
         <img src={SCHOOL.logo} alt="School Logo" onError={e => { e.currentTarget.style.display = "none"; }}
@@ -877,6 +1009,15 @@ export default function ClassRecord() {
         ))}
       </div>
 
+      {/* ── Confirm delete TERM ── */}
+      <ConfirmDeleteModal
+        open={confirmTerm.open}
+        onClose={() => setConfirmTerm({ open: false, id: null, name: "" })}
+        onConfirm={() => doRemoveTerm(confirmTerm.id)}
+        title="Delete Term"
+        description={`Are you sure you want to delete the "${confirmTerm.name}" term? All categories, columns, and scores for this term will be permanently removed.`}
+      />
+
       <Modal open={showAddTerm} onClose={() => setShowAddTerm(false)} title="Add New Term">
         <Label>Term Name</Label>
         <TInput value={newTermName} onChange={setNewTermName} placeholder="e.g. Midterm" />
@@ -894,7 +1035,7 @@ export default function ClassRecord() {
   );
 }
 
-// ─── Term Tab ─────────────────────────────────────────────────────────────────
+
 function TermTab({ term, active, onClick, onRemove, onRename, canRemove }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal]         = useState(term.name);
@@ -916,7 +1057,6 @@ function TermTab({ term, active, onClick, onRemove, onRename, canRemove }) {
   );
 }
 
-// ─── Shared UI primitives ─────────────────────────────────────────────────────
 function Th({ children, style = {}, ...props }) {
   return <th {...props} style={{ padding: "7px", textAlign: "center", fontWeight: 700, fontSize: 12, border: "1px solid rgba(255,255,255,0.15)", whiteSpace: "nowrap", ...style }}>{children}</th>;
 }

@@ -54,16 +54,31 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
             transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
             className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden max-h-60 overflow-y-auto"
           >
-            {options.map((option, index) => (
-              <motion.button
-                key={option.value} type="button" onClick={() => handleSelect(option.value)}
-                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors duration-200 border-b border-gray-100 last:border-b-0"
-                initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }} whileHover={{ backgroundColor: '#f9fafb', x: 4 }}
-              >
-                <span className="text-gray-900">{option.label}</span>
-              </motion.button>
-            ))}
+            {options.map((option, index) => {
+              const isSelected = option.value === value;
+              
+              return (
+                <motion.button
+                  key={option.value} 
+                  type="button" 
+                  onClick={() => handleSelect(option.value)}
+                  className={`w-full px-4 py-3 text-left transition-colors duration-200 cursor-pointer border-b border-gray-100 last:border-b-0 ${
+                    isSelected ? 'bg-red-800' : 'bg-white'
+                  }`}
+                  initial={{ opacity: 0, x: -10 }} 
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }} 
+                  whileHover={{ 
+                    backgroundColor: isSelected ? '#b91c1c' : '#f9fafb', 
+                    x: 4 
+                  }}
+                >
+                  <span className={`${isSelected ? 'text-white font-medium' : 'text-gray-900'}`}>
+                    {option.label}
+                  </span>
+                </motion.button>
+              );
+            })}
           </motion.div>
         )}
       </AnimatePresence>

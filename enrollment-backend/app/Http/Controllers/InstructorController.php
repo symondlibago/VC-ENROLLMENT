@@ -269,118 +269,134 @@ class InstructorController extends Controller
 }
 
 public function bulkUpdateGrades(Request $request)
-{
-    $user = $request->user();
-    $instructor = Instructor::where('user_id', $user->id)->first();
+    {
+        $user = $request->user();
+        $instructor = Instructor::where('user_id', $user->id)->first();
 
-    if (!$instructor) {
-        return response()->json(['success' => false, 'message' => 'Instructor profile not found.'], 404);
-    }
+        if (!$instructor) {
+            return response()->json(['success' => false, 'message' => 'Instructor profile not found.'], 404);
+        }
 
-    $validator = Validator::make($request->all(), [
-        'grades' => 'required|array',
-        'grades.*.student_id' => 'required|exists:pre_enrolled_students,id',
-        'grades.*.subject_id' => 'required|exists:subjects,id',
-        'grades.*.prelim_grade' => 'nullable|numeric|min:0|max:100',
-        'grades.*.midterm_grade' => 'nullable|numeric|min:0|max:100',
-        'grades.*.semifinal_grade' => 'nullable|numeric|min:0|max:100',
-        'grades.*.final_grade' => 'nullable|numeric|min:0|max:100',
-    ]);
+        $validator = Validator::make($request->all(), [
+            'grades' => 'required|array',
+            'grades.*.student_id' => 'required|exists:pre_enrolled_students,id',
+            'grades.*.subject_id' => 'required|exists:subjects,id',
+            'grades.*.prelim_grade' => 'nullable|numeric|min:0|max:100',
+            'grades.*.midterm_grade' => 'nullable|numeric|min:0|max:100',
+            'grades.*.semifinal_grade' => 'nullable|numeric|min:0|max:100',
+            'grades.*.final_grade' => 'nullable|numeric|min:0|max:100',
+        ]);
 
-    if ($validator->fails()) {
-        return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
-    }
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
 
-    $gradesData = $request->input('grades');
-    $gradingPeriods = \App\Models\GradingPeriod::all()->keyBy('name');
+        $gradesData = $request->input('grades');
+        $gradingPeriods = \App\Models\GradingPeriod::all()->keyBy('name');
 
-    try {
-        // Keep track of students whose grades were updated
-        $affectedStudentIds = []; 
+        try {
+            // Keep track of students whose grades were updated
+            $affectedStudentIds = []; 
 
-        // Use a single database transaction for the entire operation
-        DB::transaction(function () use ($gradesData, $instructor, $gradingPeriods, &$affectedStudentIds) {
-            
-            // 1. UPDATE ALL THE GRADES
-            foreach ($gradesData as $gradeInput) {
-                // Authorization check
-                if (!Schedule::where('subject_id', $gradeInput['subject_id'])->where('instructor_id', $instructor->id)->exists()) {
-                    continue;
-                }
-
-                // Find the existing grade record or create a new one
-                $grade = Grade::firstOrNew([
-                    'pre_enrolled_student_id' => $gradeInput['student_id'],
-                    'subject_id' => $gradeInput['subject_id'],
-                ]);
+            // Use a single database transaction for the entire operation
+            DB::transaction(function () use ($gradesData, $instructor, $gradingPeriods, &$affectedStudentIds) {
                 
-                if (!$grade->exists) {
-                    $grade->instructor_id = $instructor->id;
+                // 1. UPDATE ALL THE GRADES
+                foreach ($gradesData as $gradeInput) {
+                    // Authorization check
+                    if (!Schedule::where('subject_id', $gradeInput['subject_id'])->where('instructor_id', $instructor->id)->exists()) {
+                        continue;
+                    }
+
+                    // Find the existing grade record or create a new one
+                    $grade = Grade::firstOrNew([
+                        'pre_enrolled_student_id' => $gradeInput['student_id'],
+                        'subject_id' => $gradeInput['subject_id'],
+                    ]);
+                    
+                    if (!$grade->exists) {
+                        $grade->instructor_id = $instructor->id;
+                    }
+
+                    $now = now();
+                    
+                    // --- FIXED LOGIC: Use startOfDay() and endOfDay() for accurate time checking ---
+                    $prelimPeriod = $gradingPeriods->get('prelim');
+                    if (array_key_exists('prelim_grade', $gradeInput) && $prelimPeriod) {
+                        $start = \Carbon\Carbon::parse($prelimPeriod->start_date)->startOfDay();
+                        $end = \Carbon\Carbon::parse($prelimPeriod->end_date)->endOfDay();
+                        if ($now->between($start, $end)) {
+                            $grade->prelim_grade = $gradeInput['prelim_grade'];
+                        }
+                    }
+
+                    $midtermPeriod = $gradingPeriods->get('midterm');
+                    if (array_key_exists('midterm_grade', $gradeInput) && $midtermPeriod) {
+                        $start = \Carbon\Carbon::parse($midtermPeriod->start_date)->startOfDay();
+                        $end = \Carbon\Carbon::parse($midtermPeriod->end_date)->endOfDay();
+                        if ($now->between($start, $end)) {
+                            $grade->midterm_grade = $gradeInput['midterm_grade'];
+                        }
+                    }
+
+                    $semifinalPeriod = $gradingPeriods->get('semifinal');
+                    if (array_key_exists('semifinal_grade', $gradeInput) && $semifinalPeriod) {
+                        $start = \Carbon\Carbon::parse($semifinalPeriod->start_date)->startOfDay();
+                        $end = \Carbon\Carbon::parse($semifinalPeriod->end_date)->endOfDay();
+                        if ($now->between($start, $end)) {
+                            $grade->semifinal_grade = $gradeInput['semifinal_grade'];
+                        }
+                    }
+
+                    $finalPeriod = $gradingPeriods->get('final');
+                    if (array_key_exists('final_grade', $gradeInput) && $finalPeriod) {
+                        $start = \Carbon\Carbon::parse($finalPeriod->start_date)->startOfDay();
+                        $end = \Carbon\Carbon::parse($finalPeriod->end_date)->endOfDay();
+                        if ($now->between($start, $end)) {
+                            $grade->final_grade = $gradeInput['final_grade'];
+                        }
+                    }
+                    // --- END OF FIXED LOGIC ---
+
+                    // Update status logic for college grades
+                    if ($grade->final_grade !== null) {
+                        $grade->status = $grade->final_grade >= 75 ? 'Passed' : 'Failed';
+                    } else {
+                        $grade->status = 'In Progress';
+                    }
+
+                    $grade->save();
+
+                    // If any grade was changed, add the student's ID to our list for the next step
+                    if ($grade->wasChanged()) {
+                        $affectedStudentIds[] = $grade->pre_enrolled_student_id;
+                    }
                 }
 
-                $now = now();
-                
-                // Granularly update each grade based on grading period
-                $prelimPeriod = $gradingPeriods->get('prelim');
-                if (array_key_exists('prelim_grade', $gradeInput) && $prelimPeriod && $now->between($prelimPeriod->start_date, $prelimPeriod->end_date)) {
-                    $grade->prelim_grade = $gradeInput['prelim_grade'];
+                // --- 2. UPDATE ACADEMIC STATUS FOR AFFECTED STUDENTS ---
+                $uniqueAffectedStudentIds = array_unique($affectedStudentIds);
+        
+                foreach ($uniqueAffectedStudentIds as $studentId) {
+                    // Check if this student has ANY failed subjects
+                    $hasFailedSubjects = Grade::where('pre_enrolled_student_id', $studentId)
+                                              ->where('status', 'Failed')
+                                              ->exists();
+        
+                    // Find the student and update their status
+                    $student = PreEnrolledStudent::find($studentId);
+                    if ($student) {
+                        $student->academic_status = $hasFailedSubjects ? 'Irregular' : 'Regular';
+                        $student->save();
+                    }
                 }
+            });
 
-                $midtermPeriod = $gradingPeriods->get('midterm');
-                if (array_key_exists('midterm_grade', $gradeInput) && $midtermPeriod && $now->between($midtermPeriod->start_date, $midtermPeriod->end_date)) {
-                    $grade->midterm_grade = $gradeInput['midterm_grade'];
-                }
+            return response()->json(['success' => true, 'message' => 'Grades submitted successfully.']);
 
-                $semifinalPeriod = $gradingPeriods->get('semifinal');
-                if (array_key_exists('semifinal_grade', $gradeInput) && $semifinalPeriod && $now->between($semifinalPeriod->start_date, $semifinalPeriod->end_date)) {
-                    $grade->semifinal_grade = $gradeInput['semifinal_grade'];
-                }
-
-                $finalPeriod = $gradingPeriods->get('final');
-                if (array_key_exists('final_grade', $gradeInput) && $finalPeriod && $now->between($finalPeriod->start_date, $finalPeriod->end_date)) {
-                    $grade->final_grade = $gradeInput['final_grade'];
-                }
-
-                // Update status logic for college grades
-                if ($grade->final_grade !== null) {
-                    $grade->status = $grade->final_grade >= 75 ? 'Passed' : 'Failed';
-                } else {
-                    $grade->status = 'In Progress';
-                }
-
-                $grade->save();
-
-                // If any grade was changed, add the student's ID to our list for the next step
-                if ($grade->wasChanged()) {
-                    $affectedStudentIds[] = $grade->pre_enrolled_student_id;
-                }
-            }
-
-            // --- 2. UPDATE ACADEMIC STATUS FOR AFFECTED STUDENTS ---
-            $uniqueAffectedStudentIds = array_unique($affectedStudentIds);
-    
-            foreach ($uniqueAffectedStudentIds as $studentId) {
-                // Check if this student has ANY failed subjects
-                $hasFailedSubjects = Grade::where('pre_enrolled_student_id', $studentId)
-                                          ->where('status', 'Failed')
-                                          ->exists();
-    
-                // Find the student and update their status
-                $student = PreEnrolledStudent::find($studentId);
-                if ($student) {
-                    $student->academic_status = $hasFailedSubjects ? 'Irregular' : 'Regular';
-                    $student->save();
-                }
-            }
-        });
-
-        return response()->json(['success' => true, 'message' => 'Grades submitted successfully.']);
-
-    } catch (\Exception $e) {
-        return response()->json(['success' => false, 'message' => 'An error occurred while submitting grades.', 'error' => $e->getMessage()], 500);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'An error occurred while submitting grades.', 'error' => $e->getMessage()], 500);
+        }
     }
-}
-  
 
     /**
      * Update the specified resource in storage.
