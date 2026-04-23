@@ -92,7 +92,7 @@ const StudentGrades = () => {
   
   // State for selected section
   const [selectedSection, setSelectedSection] = useState('All'); 
-  // ✅ State for instructor name
+  // State for instructor name
   const [instructorName, setInstructorName] = useState('');
 
   const [loading, setLoading] = useState(true);
@@ -103,7 +103,7 @@ const StudentGrades = () => {
   const [validationError, setValidationError] = useState({ isOpen: false, message: '' });
 
   useEffect(() => {
-    // ✅ 1. Get instructor name from localStorage
+    // 1. Get instructor name from localStorage
     const userDataStr = localStorage.getItem('user_data');
     if (userDataStr) {
         try {
@@ -299,11 +299,15 @@ const StudentGrades = () => {
                   
     const isSHS = student.year?.includes('Grade 11') || student.year?.includes('Grade 12');
 
+    let finalResult = 0;
     if (isDHT || isSHS) {
-      return (p + m + s + f) / 4;
+      finalResult = (p + m + s + f) / 4;
     } else {
-      return (p * 0.20) + (m * 0.20) + (s * 0.20) + (f * 0.40);
+      finalResult = (p * 0.20) + (m * 0.20) + (s * 0.20) + (f * 0.40);
     }
+    
+    // Automatically round off the calculated final grade
+    return Math.round(finalResult);
   };
 
   const handleSubmitGrades = async () => {
@@ -338,7 +342,7 @@ const StudentGrades = () => {
   const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.05 } } };
   const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
 
-  // ✅ Get current subject data object for the export button
+  // Get current subject data object for the export button
   const currentSubject = rosterData.find(s => s.subject_id.toString() === selectedSubjectId);
 
   if (loading) {
@@ -459,11 +463,10 @@ const StudentGrades = () => {
                         </td>
                       ))}
 
-                      <td
-                          className={`px-6 py-4 font-bold font-mono ${getGradeColorClass(computedFinal)}`}
-                        >
-                          {computedFinal !== null ? computedFinal.toFixed(2) : '--'}
-                        </td>
+                      {/* Computed Final Grade - Now displays rounded number without .toFixed(2) */}
+                      <td className={`px-6 py-4 font-bold font-mono ${getGradeColorClass(computedFinal)}`}>
+                          {computedFinal !== null ? computedFinal : '--'}
+                      </td>
                       <td className="px-6 py-4 font-mono text-gray-900 font-bold">{equivalent}</td>
                       <td className="px-6 py-4">{statusBadge}</td>
                     </tr>
@@ -479,7 +482,7 @@ const StudentGrades = () => {
         </Card>
       </motion.div>
       
-      {/* ✅ Footer Actions: Export and Submit Buttons */}
+      {/* Footer Actions: Export and Submit Buttons */}
       <motion.div className="flex justify-between items-center mt-6" variants={itemVariants}>
          {/* Export Button */}
          <div>

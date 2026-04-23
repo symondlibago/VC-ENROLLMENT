@@ -543,8 +543,9 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
       acc.units += parseFloat(subject.total_units) || 0;
       acc.lec += parseFloat(subject.lec_hrs) || 0;
       acc.lab += parseFloat(subject.lab_hrs) || 0;
+      acc.total_hrs += parseFloat(subject.number_of_hours) || 0;
       return acc;
-    }, { units: 0, lec: 0, lab: 0 });
+    }, { units: 0, lec: 0, lab: 0, total_hrs: 0 });
   }, [subjectsWithSchedules]);
 
   const canCreditSubjects = (currentUserRole === 'Admin' || currentUserRole === 'Registrar') &&
@@ -656,6 +657,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
             <th className="w-2/5 px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descriptive Title</th>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lec Hrs</th>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lab Hrs</th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Hrs</th>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Units</th>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Schedule (Day / Time / Room)</th>
             {canCreditSubjects && (
@@ -681,6 +683,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                 <td className="px-4 py-2 whitespace-normal wrap-break-word text-sm">{subject.descriptive_title}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lec_hrs || 0}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.lab_hrs || 0}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.number_of_hours || 0}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm">{subject.total_units}</td>
                 <td className="px-4 py-2 whitespace-pre-wrap text-xs">
                   {/* UPDATED: Display only filtered schedules or TBA */}
@@ -716,6 +719,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
             <td colSpan="2" className="px-4 py-3 text-right text-sm font-bold text-gray-700 uppercase">Totals:</td>
             <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">{subjectTotals.lec.toFixed(2)}</td>
             <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">{subjectTotals.lab.toFixed(2)}</td>
+            <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">{subjectTotals.total_hrs.toFixed(2)}</td>
             <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">{subjectTotals.units.toFixed(2)}</td>
             <td className="px-4 py-3"></td>
             {canCreditSubjects && (<td className="px-4 py-3"></td>)}

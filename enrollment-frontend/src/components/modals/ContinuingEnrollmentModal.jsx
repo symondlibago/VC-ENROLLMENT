@@ -14,9 +14,10 @@ import {
   RotateCcw,
   AlertCircle,
   Lock,
-  TriangleAlert, // New Icon
+  TriangleAlert,
+  MapPin, // NEW: icon for section
 } from 'lucide-react';
-import { enrollmentAPI, subjectAPI } from '@/services/api';
+import { enrollmentAPI, subjectAPI, sectionAPI } from '@/services/api'; // ← added sectionAPI
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -81,7 +82,7 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
 
 // #endregion
 
-// ✅ NEW: Inline Warning Modal Component
+// ✅ Inline Warning Modal Component
 const IrregularWarningModal = ({ isOpen, onClose, onConfirm, subjects }) => {
   if (!isOpen) return null;
 
@@ -133,6 +134,7 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
     school_year: '2025-2026',
     semester: '1st Semester',
     year: '1st Year',
+    section_id: '',  // ← NEW
   });
   const [availableSubjects, setAvailableSubjects] = useState({});
   const [selectedSubjects, setSelectedSubjects] = useState([]);
@@ -147,19 +149,25 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
   const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
   const [validationMessage, setValidationMessage] = useState('');
 
-  // ✅ NEW: State for the irregular warning
+  // ✅ State for the irregular warning
   const [showIrregularWarning, setShowIrregularWarning] = useState(false);
   const [untakenSummerSubjects, setUntakenSummerSubjects] = useState([]);
+
+  // ← NEW: Section state
+  const [sections, setSections] = useState([]);
+  const [isLoadingSections, setIsLoadingSections] = useState(false);
 
 
   // ## STATIC OPTIONS ##
   const schoolYearOptions = [
-  { label: '2025-2026', value: '2025-2026' },
-  { label: '2026-2027', value: '2026-2027' }];
+    { label: '2025-2026', value: '2025-2026' },
+    { label: '2026-2027', value: '2026-2027' },
+  ];
 
   const semesterOptions = [
     { label: '1st Semester', value: '1st Semester' },
-    { label: '2nd Semester', value: '2nd Semester' }];
+    { label: '2nd Semester', value: '2nd Semester' },
+  ];
 
   const yearLevelOptions = [
     { label: '1st Year', value: '1st Year' },
@@ -167,9 +175,19 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
     { label: '3rd Year', value: '3rd Year' },
     { label: '4th Year', value: '4th Year' },
     { label: '1st Year Summer', value: '1st Year Summer' },
-    { label: '2nd Year Summer', value: '2nd Year Summer' }];
+    { label: '2nd Year Summer', value: '2nd Year Summer' },
+  ];
+
+  // ← NEW: Derived section options for the MotionDropdown
+  const sectionOptions = useMemo(() => [
+    { label: 'No Section', value: '' },
+    ...sections.map(sec => ({ label: sec.name, value: String(sec.id) })),
+  ], [sections]);
+
 
   // ## DATA FETCHING & SIDE EFFECTS ##
+
+  // Search students
   useEffect(() => {
     if (searchTerm.length < 2) {
       setSearchResults([]);
@@ -190,6 +208,35 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
     }, 500);
     return () => clearTimeout(handler);
   }, [searchTerm, showAlert]);
+
+  // ← NEW: Fetch sections filtered by the selected student's course when we reach Step 2
+  useEffect(() => {
+    const fetchSections = async () => {
+      if (!selectedStudent) return;
+      setIsLoadingSections(true);
+      try {
+        // We need the student's course_id — fetch full details
+        const studentDetails = await enrollmentAPI.getStudentDetails(selectedStudent.id);
+        if (studentDetails.success) {
+          const courseId = studentDetails.data.student.course_id;
+          const res = await sectionAPI.getAll();
+          if (res.success) {
+            const filtered = res.data.filter(sec => sec.course_id === parseInt(courseId));
+            setSections(filtered);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching sections:", error);
+      } finally {
+        setIsLoadingSections(false);
+      }
+    };
+
+    if (currentStep === 2) {
+      fetchSections();
+    }
+  }, [currentStep, selectedStudent]);
+
 
   // ## HANDLER FUNCTIONS ##
   const handleSelectStudent = (student) => {
@@ -229,7 +276,6 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
     }
   };
 
-
   // ✅ MODIFIED: This function now includes the summer subject check
   const handleGoToSubjectSetup = async () => {
     setIsLoadingEligibility(true);
@@ -249,17 +295,15 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
 
         // --- Summer Subject Validation Logic ---
         if (studentProgramCode === 'Diploma') {
-            const allSubjectsRes = await subjectAPI.getByCourse(courseId); // Fetch all subjects
+            const allSubjectsRes = await subjectAPI.getByCourse(courseId);
             if (allSubjectsRes.success) {
                 const missedSubjects = [];
                 const studentYearValue = parseInt(academicInfo.year, 10);
 
-                // Check for 1st Year Summer if enrolling in 2nd year or higher
                 if (studentYearValue >= 2) {
                     const summer1 = allSubjectsRes.data.filter(s => s.year === '1st Year Summer' && !passedIds.has(s.id));
                     missedSubjects.push(...summer1);
                 }
-                // Check for 2nd Year Summer if enrolling in 3rd year or higher
                 if (studentYearValue >= 3) {
                     const summer2 = allSubjectsRes.data.filter(s => s.year === '2nd Year Summer' && !passedIds.has(s.id));
                     missedSubjects.push(...summer2);
@@ -268,12 +312,11 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
                 if (missedSubjects.length > 0) {
                     setUntakenSummerSubjects(missedSubjects);
                     setShowIrregularWarning(true);
-                    return; // Stop and wait for user confirmation
+                    return;
                 }
             }
         }
 
-        // If no warning is needed, proceed directly
         await proceedToSubjectSetup();
 
       } else if (eligibilityRes.success && !eligibilityRes.eligible) {
@@ -332,6 +375,8 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
       const payload = {
         original_student_id: selectedStudent.id,
         ...academicInfo,
+        // ← section_id is already in academicInfo; send null if empty string
+        section_id: academicInfo.section_id || null,
         selected_subjects: selectedSubjects.map(s => s.id),
       };
       const res = await enrollmentAPI.submitContinuingEnrollment(payload);
@@ -358,9 +403,16 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
     setDroppedSubjects([]);
     setFailedSubjects([]);
     setPassedSubjectIds(new Set());
-    // ✅ Reset new state on close
     setShowIrregularWarning(false);
     setUntakenSummerSubjects([]);
+    // ← NEW: reset section state
+    setSections([]);
+    setAcademicInfo({
+      school_year: '2025-2026',
+      semester: '1st Semester',
+      year: '1st Year',
+      section_id: '',
+    });
     onClose();
   };
 
@@ -392,7 +444,7 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
         exit={{ opacity: 0, y: 30, scale: 0.95 }}
         className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[100vh] flex flex-col relative"
       >
-        {/* ✅ Render the new warning modal on top */}
+        {/* Render the warning modal on top */}
         <IrregularWarningModal
             isOpen={showIrregularWarning}
             onClose={() => setShowIrregularWarning(false)}
@@ -462,10 +514,59 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
                   </p>
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-md border space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div><label className="font-bold text-gray-700 text-sm mb-2 flex items-center"><Calendar className="w-4 h-4 mr-2" />School Year</label><MotionDropdown value={academicInfo.school_year} onChange={v => setAcademicInfo(p => ({ ...p, school_year: v }))} options={schoolYearOptions} placeholder="Select School Year" /></div>
-                    <div><label className="font-bold text-gray-700 text-sm mb-2 flex items-center"><GraduationCap className="w-4 h-4 mr-2" />Year Level</label><MotionDropdown value={academicInfo.year} onChange={v => setAcademicInfo(p => ({ ...p, year: v }))} options={yearLevelOptions} placeholder="Select Year Level" /></div>
-                    <div><label className="font-bold text-gray-700 text-sm mb-2 flex items-center"><BookOpen className="w-4 h-4 mr-2" />Semester</label><MotionDropdown value={academicInfo.semester} onChange={v => setAcademicInfo(p => ({ ...p, semester: v }))} options={semesterOptions} placeholder="Select Semester" /></div>
+                  {/* Row 1: School Year | Year Level | Semester | Section — all in one row */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div>
+                      <label className="font-bold text-gray-700 text-sm mb-2 flex items-center">
+                        <Calendar className="w-4 h-4 mr-2" />School Year
+                      </label>
+                      <MotionDropdown
+                        value={academicInfo.school_year}
+                        onChange={v => setAcademicInfo(p => ({ ...p, school_year: v }))}
+                        options={schoolYearOptions}
+                        placeholder="Select School Year"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 text-sm mb-2 flex items-center">
+                        <GraduationCap className="w-4 h-4 mr-2" />Year Level
+                      </label>
+                      <MotionDropdown
+                        value={academicInfo.year}
+                        onChange={v => setAcademicInfo(p => ({ ...p, year: v }))}
+                        options={yearLevelOptions}
+                        placeholder="Select Year Level"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 text-sm mb-2 flex items-center">
+                        <BookOpen className="w-4 h-4 mr-2" />Semester
+                      </label>
+                      <MotionDropdown
+                        value={academicInfo.semester}
+                        onChange={v => setAcademicInfo(p => ({ ...p, semester: v }))}
+                        options={semesterOptions}
+                        placeholder="Select Semester"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 text-sm mb-2 flex items-center">
+                        <MapPin className="w-4 h-4 mr-2" />Section
+                        <span className="ml-1 text-gray-400 font-normal text-xs">(optional)</span>
+                      </label>
+                      {isLoadingSections ? (
+                        <div className="flex items-center px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-500 text-sm">
+                          <Loader2 className="animate-spin w-4 h-4 mr-2" /> Loading...
+                        </div>
+                      ) : (
+                        <MotionDropdown
+                          value={academicInfo.section_id}
+                          onChange={v => setAcademicInfo(p => ({ ...p, section_id: v }))}
+                          options={sectionOptions}
+                          placeholder="Select Section"
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
               </motion.div>

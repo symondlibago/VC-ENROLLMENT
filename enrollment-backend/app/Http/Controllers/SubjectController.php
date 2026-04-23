@@ -124,7 +124,7 @@ class SubjectController extends Controller
                 'total_units' => 'nullable|numeric|min:0',
                 'number_of_hours' => 'nullable|numeric|min:0',
                 'prerequisite_id' => 'nullable|integer|exists:subjects,id',
-                'year' => 'required|string|in:Grade 11,Grade 12,1st Year,2nd Year,3rd Year,4th Year,1st Year Summer,2nd Year Summer',
+                'year' => 'required|string|in:Grade 11,Grade 12,1st Year,2nd Year,3rd Year,4th Year,1st Year Summer,2nd Year Summer,3rd Year Summer,4th Year Summer',
                 'semester' => 'required|string|in:1st Semester,2nd Semester',
                 'course_id' => 'required|integer|exists:courses,id'
             ]);
@@ -188,7 +188,7 @@ class SubjectController extends Controller
                 'total_units' => 'nullable|numeric|min:0',
                 'number_of_hours' => 'nullable|numeric|min:0',
                 'prerequisite_id' => 'nullable|integer|exists:subjects,id',
-                'year' => 'nullable|string|in:1st Year,2nd Year,3rd Year,4th Year,1st Year Summer,2nd Year Summer',
+                'year' => 'nullable|string|in:Grade 11,Grade 12,1st Year,2nd Year,3rd Year,4th Year,1st Year Summer,2nd Year Summer,3rd Year Summer,4th Year Summer',
                 'semester' => 'required|string|in:1st Semester,2nd Semester',
                 'course_id' => 'required|integer|exists:courses,id'
             ]);

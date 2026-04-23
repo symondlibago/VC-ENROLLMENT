@@ -252,16 +252,55 @@ const Enrollment = () => {
 };
 
 const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchTerm, selectedFilter, setSelectedFilter }) => {
-    const filteredEnrollments = useMemo(() => enrollments.filter(enrollment => {
-        const name = enrollment.name || '';
-        const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || (enrollment.email && enrollment.email.toLowerCase().includes(searchTerm.toLowerCase())) || (enrollment.course && enrollment.course.toLowerCase().includes(searchTerm.toLowerCase()));
-        if (selectedFilter === 'all') return matchesSearch;
-        let statusMatch = false;
-        if (selectedFilter === 'pending') statusMatch = (enrollment.status.includes('Review') || enrollment.status.includes('Payment'));
-        else if (selectedFilter === 'enrolled') statusMatch = (enrollment.status === 'Enrolled');
-        else if (selectedFilter === 'rejected') statusMatch = (enrollment.status === 'Rejected');
-        return matchesSearch && statusMatch;
-    }), [enrollments, searchTerm, selectedFilter]);
+    const filteredEnrollments = useMemo(() => {
+        // 1. Filter the enrollments based on search and selected filter
+        const filtered = enrollments.filter(enrollment => {
+            const name = enrollment.name || '';
+            const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                  (enrollment.email && enrollment.email.toLowerCase().includes(searchTerm.toLowerCase())) || 
+                                  (enrollment.course && enrollment.course.toLowerCase().includes(searchTerm.toLowerCase()));
+            
+            if (selectedFilter === 'all') return matchesSearch;
+            
+            let statusMatch = false;
+            if (selectedFilter === 'pending') statusMatch = (enrollment.status.includes('Review') || enrollment.status.includes('Payment'));
+            else if (selectedFilter === 'enrolled') statusMatch = (enrollment.status === 'Enrolled');
+            else if (selectedFilter === 'rejected') statusMatch = (enrollment.status === 'Rejected');
+            
+            return matchesSearch && statusMatch;
+        });
+
+        // 2. Sort the filtered enrollments by Status Priority, then by Date
+        return filtered.sort((a, b) => {
+            // Helper function to assign priority (1 is highest priority/top of list)
+            const getPriority = (status) => {
+                if (!status) return 4;
+                const s = status.toLowerCase();
+                if (s.includes('review') || s.includes('pending')) return 1; // Put Reviews & Pending at the very top
+                if (s.includes('enrolled')) return 2;                        // Enrolled students go next
+                if (s.includes('rejected')) return 3;                        // Rejected go to the bottom
+                return 4;
+            };
+
+            const priorityA = getPriority(a.status);
+            const priorityB = getPriority(b.status);
+
+            // Sort by priority first
+            if (priorityA !== priorityB) {
+                return priorityA - priorityB;
+            }
+
+            // If statuses are the same priority, sort by enrollment date (Newest first)
+            const dateA = new Date(a.enrollment_date).getTime();
+            const dateB = new Date(b.enrollment_date).getTime();
+            if (!isNaN(dateA) && !isNaN(dateB)) {
+                return dateB - dateA;
+            }
+            
+            return 0;
+        });
+
+    }, [enrollments, searchTerm, selectedFilter]);
 
     return (
         <div className="space-y-6">
@@ -292,7 +331,7 @@ const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchT
                                 <TableCell className="font-medium">
                                     <div className="flex items-center gap-3">
                                         <Avatar className="h-10 w-10">
-                                            <AvatarFallback className="bg-red-800 text-white font-bold">{e.name?.charAt(0)}</AvatarFallback>
+                                            <AvatarFallback className="bg-red-800 text-white font-bold uppercase">{e.name?.charAt(0)}</AvatarFallback>
                                         </Avatar>
                                         <div>
                                             <div className="flex items-center">

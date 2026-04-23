@@ -104,16 +104,17 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
     setFilters(prev => ({ ...prev, [name]: value }));
   };
 
-  // --- MODIFICATION: Updated handleGradeDataChange ---
   const handleGradeDataChange = (gradeId, field, value) => {
     setEditedGrades(prev => prev.map(grade => {
       if (grade.id === gradeId) {
         const updatedGrade = { ...grade, [field]: value };
         
-        // Auto-update status based on final grade, unless it's a special status
-        if (field === 'final_grade' && !['INC', 'NFE', 'NFR', 'DA', 'Credited'].includes(updatedGrade.status)) {
-          if (value !== null && value !== '') {
-              updatedGrade.status = parseFloat(value) <= 3.0 ? 'Passed' : 'Failed';
+        // Auto-update status based on any grade field change, unless it's a special status
+        if (['prelim_grade', 'midterm_grade', 'semifinal_grade', 'final_grade'].includes(field) && !['INC', 'NFE', 'NFR', 'DA', 'Credited'].includes(updatedGrade.status)) {
+          const { prelim_grade: p, midterm_grade: m, semifinal_grade: s, final_grade: f } = updatedGrade;
+          const allFilled = [p, m, s, f].every(v => v !== null && v !== undefined && v !== '');
+          if (allFilled) {
+              updatedGrade.status = parseFloat(f) <= 3.0 ? 'Passed' : 'Failed';
           } else {
               updatedGrade.status = 'In Progress';
           }
@@ -155,66 +156,80 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
                   grade.year?.includes('Grade 11') || 
                   grade.year?.includes('Grade 12');
   
+    let finalResult = 0;
     if (isDHT || isSHS) {
-      return (P + M + S + F) / 4; // DHT/SHS Formula
+      finalResult = (P + M + S + F) / 4; // DHT/SHS Formula
     } else {
-      return (P * 0.20) + (M * 0.20) + (S * 0.20) + (F * 0.40); // Standard Formula
+      finalResult = (P * 0.20) + (M * 0.20) + (S * 0.20) + (F * 0.40); // Standard Formula
     }
+
+    // Automatically round off the calculated final grade
+    return Math.round(finalResult); 
   };
-// Helper for Equivalent Conversion based on your provided table
-const getEquivalent = (numericGrade) => {
-  if (numericGrade === null) return '--';
-  
-  const g = Math.round(numericGrade); // Round to nearest whole number for mapping
 
-  if (g >= 100) return "1.0";
-  if (g === 99) return "1.1";
-  if (g === 98) return "1.2";
-  if (g === 97) return "1.25";
-  if (g === 96) return "1.3";
-  if (g === 95) return "1.4";
-  if (g === 94) return "1.5";
-  if (g === 93) return "1.6";
-  if (g === 92) return "1.7";
-  if (g === 91) return "1.75";
-  if (g === 90) return "1.8";
-  if (g === 89) return "1.9";
-  if (g === 88) return "2.0";
-  if (g === 87) return "2.1";
-  if (g === 86) return "2.2";
-  if (g === 85) return "2.25";
-  if (g === 84) return "2.3";
-  if (g === 83) return "2.4";
-  if (g === 82) return "2.5";
-  if (g === 81) return "2.6";
-  if (g === 80) return "2.7";
-  if (g === 79) return "2.75";
-  if (g === 78) return "2.8";
-  if (g === 77) return "2.9";
-  if (g >= 75) return "3.0"; // 75-76%
-  if (g === 74) return "3.1";
-  if (g === 73) return "3.2";
-  if (g === 72) return "3.25";
-  if (g === 71) return "3.3";
-  if (g === 70) return "3.4";
-  return "5.0"; // 69% and below
-};
+  // Helper for Equivalent Conversion based on your provided table
+  const getEquivalent = (numericGrade) => {
+    if (numericGrade === null) return '--';
+    
+    const g = Math.round(numericGrade); // Round to nearest whole number for mapping
 
-const getGradeColorClass = (grade) => {
-  if (grade === null || grade === undefined || grade === '') return 'text-gray-900';
-  return parseFloat(grade) < 75 ? 'text-red-600' : 'text-green-600';
-};
-  
+    if (g >= 100) return "1.0";
+    if (g === 99) return "1.1";
+    if (g === 98) return "1.2";
+    if (g === 97) return "1.25";
+    if (g === 96) return "1.3";
+    if (g === 95) return "1.4";
+    if (g === 94) return "1.5";
+    if (g === 93) return "1.6";
+    if (g === 92) return "1.7";
+    if (g === 91) return "1.75";
+    if (g === 90) return "1.8";
+    if (g === 89) return "1.9";
+    if (g === 88) return "2.0";
+    if (g === 87) return "2.1";
+    if (g === 86) return "2.2";
+    if (g === 85) return "2.25";
+    if (g === 84) return "2.3";
+    if (g === 83) return "2.4";
+    if (g === 82) return "2.5";
+    if (g === 81) return "2.6";
+    if (g === 80) return "2.7";
+    if (g === 79) return "2.75";
+    if (g === 78) return "2.8";
+    if (g === 77) return "2.9";
+    if (g >= 75) return "3.0"; // 75-76%
+    if (g === 74) return "3.1";
+    if (g === 73) return "3.2";
+    if (g === 72) return "3.25";
+    if (g === 71) return "3.3";
+    if (g === 70) return "3.4";
+    return "5.0"; // 69% and below
+  };
+
+  const getGradeColorClass = (grade) => {
+    if (grade === null || grade === undefined || grade === '') return 'text-gray-900';
+    return parseFloat(grade) < 75 ? 'text-red-600' : 'text-green-600';
+  };
+    
   const handleSaveChanges = async () => {
     setIsSaving(true);
     const changedGradesPayload = editedGrades
       .filter(editedGrade => {
         const originalGrade = grades.find(g => g.id === editedGrade.id);
         if (!originalGrade) return false;
-        return originalGrade.final_grade !== editedGrade.final_grade || originalGrade.status !== editedGrade.status;
+        return (
+          originalGrade.prelim_grade !== editedGrade.prelim_grade ||
+          originalGrade.midterm_grade !== editedGrade.midterm_grade ||
+          originalGrade.semifinal_grade !== editedGrade.semifinal_grade ||
+          originalGrade.final_grade !== editedGrade.final_grade ||
+          originalGrade.status !== editedGrade.status
+        );
       })
       .map(g => ({
         id: g.id,
+        prelim_grade: g.prelim_grade,
+        midterm_grade: g.midterm_grade,
+        semifinal_grade: g.semifinal_grade,
         final_grade: g.final_grade,
         status: g.status,
       }));
@@ -245,7 +260,6 @@ const getGradeColorClass = (grade) => {
     setEditedGrades(JSON.parse(JSON.stringify(grades))); // Revert changes
   };
 
-  // --- MODIFICATION: Added 'Credited' badge ---
   const getStatusBadge = (status) => {
     if (status === 'Passed') return <Badge className="bg-green-100 text-green-800">{status}</Badge>;
     if (status === 'Failed') return <Badge variant="destructive">{status}</Badge>;
@@ -257,7 +271,6 @@ const getGradeColorClass = (grade) => {
   const yearOptions = [ { label: 'All Years', value: '' }, { label: 'Grade 11', value: 'Grade 11' }, { label: 'Grade 12', value: 'Grade 12' }, { label: '1st Year', value: '1st Year' }, { label: '2nd Year', value: '2nd Year' }, { label: '3rd Year', value: '3rd Year' }, { label: '4th Year', value: '4th Year' }];
   const semesterOptions = [ { label: 'All Semesters', value: '' }, { label: '1st Semester', value: '1st Semester' }, { label: '2nd Semester', value: '2nd Semester' }];
   
-  // --- MODIFICATION: Added 'Credited' to options ---
   const statusOptions = [
       { label: 'In Progress', value: 'In Progress'},
       { label: 'Passed', value: 'Passed' },
@@ -283,7 +296,7 @@ const getGradeColorClass = (grade) => {
             initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
             className="bg-white rounded-lg shadow-lg w-full max-w-6xl max-h-[90vh] flex flex-col"
           >
-            {/* Header (no changes) */}
+            {/* Header */}
             <div className="sticky top-0 bg-red-800 text-white z-10 flex items-center justify-between p-4 border-b">
               <div>
                 <h2 className="text-xl font-semibold">Grades for {studentName}</h2>
@@ -295,7 +308,7 @@ const getGradeColorClass = (grade) => {
             </div>
             
             <div className="p-6 grow overflow-y-auto">
-              {/* Filters and Edit Button (no changes) */}
+              {/* Filters and Edit Button */}
               <div className="flex justify-between items-center mb-4">
                 <div className="flex gap-4">
                     <MotionDropdown value={filters.year} onChange={(value) => handleFilterChange('year', value)} options={yearOptions} placeholder="Filter by Year..." />
@@ -313,7 +326,7 @@ const getGradeColorClass = (grade) => {
                   <div className="flex justify-center items-center h-48"><LoadingSpinner /></div>
                 ) : (
                   <table className="w-full text-sm text-left">
-                    {/* Header (no changes) */}
+                    {/* Header */}
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
                       <tr>
                         <th className="px-6 py-3">Subject Code</th>
@@ -338,12 +351,61 @@ const getGradeColorClass = (grade) => {
                             <td className="px-6 py-2 font-mono">{grade.subject_code}</td>
                             <td className="px-6 py-2 font-medium">{grade.descriptive_title}</td>
                             <td className="px-6 py-2">{grade.instructor_name}</td>
-                            <td className={`px-2 py-2 text-center font-mono ${getGradeColorClass(grade.prelim_grade)}`}>{grade.prelim_grade ?? '-'}</td>
-                            <td className={`px-2 py-2 text-center font-mono ${getGradeColorClass(grade.midterm_grade)}`}>{grade.midterm_grade ?? '-'}</td>
-                            <td className={`px-2 py-2 text-center font-mono ${getGradeColorClass(grade.semifinal_grade)}`}>{grade.semifinal_grade ?? '-'}</td>
-                            <td
-                              className={`px-2 py-2 text-center font-mono ${getGradeColorClass(grade.final_grade)}`}
-                            >
+                            <td className={`px-2 py-2 text-center font-mono ${getGradeColorClass(grade.prelim_grade)}`}>
+                              {isEditing ? (
+                                <Input
+                                  type="number"
+                                  className="w-16 mx-auto text-center font-mono"
+                                  value={grade.prelim_grade ?? ''}
+                                  onChange={(e) =>
+                                    handleGradeDataChange(
+                                      grade.id,
+                                      'prelim_grade',
+                                      e.target.value === '' ? null : parseFloat(e.target.value)
+                                    )
+                                  }
+                                />
+                              ) : (
+                                grade.prelim_grade ?? '-'
+                              )}
+                            </td>
+                            <td className={`px-2 py-2 text-center font-mono ${getGradeColorClass(grade.midterm_grade)}`}>
+                              {isEditing ? (
+                                <Input
+                                  type="number"
+                                  className="w-16 mx-auto text-center font-mono"
+                                  value={grade.midterm_grade ?? ''}
+                                  onChange={(e) =>
+                                    handleGradeDataChange(
+                                      grade.id,
+                                      'midterm_grade',
+                                      e.target.value === '' ? null : parseFloat(e.target.value)
+                                    )
+                                  }
+                                />
+                              ) : (
+                                grade.midterm_grade ?? '-'
+                              )}
+                            </td>
+                            <td className={`px-2 py-2 text-center font-mono ${getGradeColorClass(grade.semifinal_grade)}`}>
+                              {isEditing ? (
+                                <Input
+                                  type="number"
+                                  className="w-16 mx-auto text-center font-mono"
+                                  value={grade.semifinal_grade ?? ''}
+                                  onChange={(e) =>
+                                    handleGradeDataChange(
+                                      grade.id,
+                                      'semifinal_grade',
+                                      e.target.value === '' ? null : parseFloat(e.target.value)
+                                    )
+                                  }
+                                />
+                              ) : (
+                                grade.semifinal_grade ?? '-'
+                              )}
+                            </td>
+                            <td className={`px-2 py-2 text-center font-mono ${getGradeColorClass(grade.final_grade)}`}>
                               {isEditing ? (
                                 <Input 
                                   type="number" 
@@ -362,9 +424,9 @@ const getGradeColorClass = (grade) => {
                               )}
                             </td>
 
-                            {/* Computed Final Grade (The % Result) */}
+                            {/* Computed Final Grade (The % Result) - Now displays the rounded number without .toFixed(2) */}
                             <td className={`px-4 py-2 text-center font-bold text-gray-900 font-mono ${getGradeColorClass(computedFinal)}`}>
-                              {computedFinal ? computedFinal.toFixed(2) : '--'}
+                              {computedFinal !== null ? computedFinal : '--'}
                             </td>
 
                             {/* Equivalent Grade (1.0 - 5.0) */}
@@ -390,7 +452,7 @@ const getGradeColorClass = (grade) => {
               </div>
             </div>
             
-            {/* Footer (no changes) */}
+            {/* Footer */}
             {isEditing && (
                 <div className="flex justify-end gap-4 p-4 border-t bg-gray-50">
                     <Button className="cursor-pointer" variant="ghost" onClick={handleCancel}>

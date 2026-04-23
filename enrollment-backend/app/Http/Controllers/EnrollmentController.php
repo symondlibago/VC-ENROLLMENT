@@ -1017,6 +1017,9 @@ public function getStudentsForIdReleasing()
         $validator = Validator::make($request->all(), [
             'grades' => 'required|array',
             'grades.*.id' => 'required|exists:grades,id',
+            'grades.*.prelim_grade' => 'nullable|numeric|min:0|max:100',
+            'grades.*.midterm_grade' => 'nullable|numeric|min:0|max:100',
+            'grades.*.semifinal_grade' => 'nullable|numeric|min:0|max:100',
             'grades.*.final_grade' => 'nullable|numeric|min:0|max:100',
             'grades.*.status' => ['required', 'string', Rule::in(['Passed', 'Failed', 'In Progress', 'INC', 'NFE', 'NFR', 'DA', 'Credited'])],
         ]);
@@ -1031,10 +1034,19 @@ public function getStudentsForIdReleasing()
                 foreach ($request->grades as $gradeData) {
                     $grade = Grade::find($gradeData['id']);
                     if ($grade) {
+                        if (array_key_exists('prelim_grade', $gradeData)) {
+                            $grade->prelim_grade = $gradeData['prelim_grade'];
+                        }
+                        if (array_key_exists('midterm_grade', $gradeData)) {
+                            $grade->midterm_grade = $gradeData['midterm_grade'];
+                        }
+                        if (array_key_exists('semifinal_grade', $gradeData)) {
+                            $grade->semifinal_grade = $gradeData['semifinal_grade'];
+                        }
                         if (array_key_exists('final_grade', $gradeData)) {
                             $grade->final_grade = $gradeData['final_grade'];
                         }
-                        
+
                         $grade->status = $gradeData['status'];
                         $grade->save();
                     }

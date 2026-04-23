@@ -44,10 +44,10 @@ const SubjectDetailsModal = ({
       case 'SHS':
         return ['Grade 11', 'Grade 12'];
       case 'Bachelor':
-        return ['1st Year', '2nd Year', '3rd Year', '4th Year'];
+        return ['1st Year', '2nd Year','3rd Year' ,'4th Year', '1st Year Summer', '2nd Year Summer', '3rd Year Summer', '4th Year Summer'];
       case 'Diploma':
       default:
-        return ['1st Year', '2nd Year','3rd Year', '1st Year Summer', '2nd Year Summer'];
+        return ['1st Year', '2nd Year','3rd Year','4th Year', '1st Year Summer', '2nd Year Summer', '3rd Year Summer', '4th Year Summer'];
     }
   };
 

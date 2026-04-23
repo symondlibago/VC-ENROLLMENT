@@ -78,13 +78,11 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
       const verticalOffset = (wrappedTitle.length - 1) * lineHeight;
 
       drawField('Class Schedule:', subject.schedule_info || 'TBA', leftX, startY + (lineHeight * 2) + verticalOffset);
-      drawField('Lec:',           subject.lec_hrs || '0',          leftX, startY + (lineHeight * 3) + verticalOffset);
-      // --- ADDED: Number of Hours below Lec ---
-      drawField('No. of Hours:',  subject.number_of_hours || '0',  leftX, startY + (lineHeight * 4) + verticalOffset);
-      drawField('Lab:',           subject.lab_hrs || '0',          leftX, startY + (lineHeight * 5) + verticalOffset);
-      drawField('Total Units:',   subject.total_units || '0',      leftX, startY + (lineHeight * 6) + verticalOffset);
+      drawField('Lec:',          subject.lec_hrs || '0',         leftX, startY + (lineHeight * 3) + verticalOffset);
+      drawField('No. of Hours:', subject.number_of_hours || '0', leftX, startY + (lineHeight * 4) + verticalOffset);
+      drawField('Lab:',          subject.lab_hrs || '0',         leftX, startY + (lineHeight * 5) + verticalOffset);
+      drawField('Total Units:',  subject.total_units || '0',     leftX, startY + (lineHeight * 6) + verticalOffset);
 
-      // Extra offset for the added row so the table doesn't overlap the header fields
       const extraOffset = lineHeight;
       
       // --- Right Column ---
@@ -154,12 +152,12 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
         return (p + m + sm + f) / 4;
       };
 
-      // RED only if failed (< 75), BLACK for passed or empty
+      // FIXED: Apply Math.round() so 74.5 turns into 75 and stays black instead of red
       const getGradeColor = (value) => {
         if (value === null || value === undefined || value === '') return [0, 0, 0];
         const num = parseFloat(value);
         if (isNaN(num)) return [0, 0, 0];
-        return num < 75 ? [220, 38, 38] : [0, 0, 0];
+        return Math.round(num) < 75 ? [220, 38, 38] : [0, 0, 0];
       };
 
       const gradeValues = [];
@@ -168,7 +166,10 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
         const final = calculateFinal(s);
         const equiv = final ? getEquiv(final) : '';
         let remarks = s.grades?.status || '';
-        if (final !== null) remarks = final >= 75 ? 'PASSED' : 'FAILED';
+        
+        // FIXED: Apply Math.round() so 74.5 becomes 75 and logs as PASSED
+        if (final !== null) remarks = Math.round(final) >= 75 ? 'PASSED' : 'FAILED';
+        
         const fmt = (v) => (v != null && v !== '' ? parseFloat(v).toFixed(2) : '');
 
         gradeValues.push({
@@ -243,7 +244,6 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
           } else if (colIndex === 6) {
             data.cell.styles.textColor = getGradeColor(gv.finalGrade);
           } else if (colIndex === 7) {
-            // FAILED = red, PASSED = black
             data.cell.styles.textColor = gv.remarks === 'FAILED' ? [220, 38, 38] : [0, 0, 0];
           }
         },
