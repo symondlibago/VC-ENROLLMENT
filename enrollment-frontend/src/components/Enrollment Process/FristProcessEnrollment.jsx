@@ -448,6 +448,9 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
       );
   
       const invalidPattern = /^(n\/?a\.?|not\s?available|none)$/i;
+
+      // Catches lazy/vague descriptions like "picture of me", "my photo", "profile pic", etc.
+      const lazyDescriptionPattern = /\b(picture|photo|pic|image|selfie|profile)\s+(of\s+)?(me|mine|myself|ko|akin)\b|\b(my|ako'?s?)\s+(picture|photo|pic|image|selfie|profile)\b/i;
   
       if (formData.fbAcc && invalidPattern.test(formData.fbAcc.trim())) {
         errors.fbAcc = 'Please provide a valid Facebook account (N/A is not accepted).';
@@ -455,6 +458,10 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
   
       if (formData.fbDescription && invalidPattern.test(formData.fbDescription.trim())) {
         errors.fbDescription = 'Please provide a valid description (N/A is not accepted).';
+      }
+
+      if (formData.fbDescription && lazyDescriptionPattern.test(formData.fbDescription.trim())) {
+        errors.fbDescription = 'Invalid description. Admins do not know you personally — they cannot guess your face, have a common sense. Please describe your profile picture properly (e.g., "White shirt, smiling, beach background").';
       }
     }
     
@@ -492,7 +499,11 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
         }, 500);
       }
       
-      setValidationErrorMessage('Please correct the errors in the form before proceeding.');
+      setValidationErrorMessage(
+        errors.fbDescription && lazyDescriptionPattern.test(formData.fbDescription?.trim())
+          ? 'We don\'t know you! Admins here are not "manghuhula" and not your personal friends to recognize your face. Please describe your Facebook profile picture properly — what are you wearing, what\'s the background, are you with other people? Give us something to actually work with!'
+          : 'Please correct the errors in the form before proceeding.'
+      );
       setShowValidationErrorModal(true);
       return;
     }
@@ -1458,12 +1469,17 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
                           placeholder="e.g., White dress, sideview, sea background"
                           value={formData.fbDescription}
                           onChange={(e) => handleFormDataChange('fbDescription', e.target.value)}
-                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                          className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.fbDescription ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
                           name="fbDescription"
+                          data-field="fbDescription"
                         />
-                        <p className="text-xs text-gray-500 mt-1 ml-1">
-                          Please describe your profile picture to help us verify your account.
-                        </p>
+                        {formErrors.fbDescription ? (
+                          <p className="text-red-500 text-xs mt-1 ml-1">{formErrors.fbDescription}</p>
+                        ) : (
+                          <p className="text-xs text-gray-500 mt-1 ml-1">
+                            Describe your profile picture clearly — clothing, background, hairstyle, etc. Have a common sense we dont know you personally so we dont know your face <span className="font-semibold text-gray-600">"Picture of me" is NOT accepted.</span>
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -466,12 +466,22 @@ public function bulkUpdateGrades(Request $request)
 
         foreach ($schedules as $schedule) {
             if ($schedule->subject) {
-                
-                // 1. Base Query: Students enrolled in the subject
-                $query = $schedule->subject->students()
-                    ->with('sections') // Eager load sections to display them
-                    ->where('enrollment_status', 'enrolled')
-                    ->where('academic_status', '!=', 'Withdraw');
+                $subjectId = $schedule->subject->id;
+
+                // 1. Base Query: Fetch students who are EITHER currently enrolled in the subject
+                // OR have a grade record for this subject (meaning they moved to the next sem)
+                $query = PreEnrolledStudent::with(['sections', 'grades' => function($q) use ($subjectId) {
+                    $q->where('subject_id', $subjectId);
+                }])
+                ->where(function($q) use ($subjectId) {
+                    $q->whereHas('subjects', function($subQuery) use ($subjectId) {
+                        $subQuery->where('subjects.id', $subjectId);
+                    })
+                    ->orWhereHas('grades', function($gradeQuery) use ($subjectId) {
+                        $gradeQuery->where('subject_id', $subjectId);
+                    });
+                })
+                ->where('academic_status', '!=', 'Withdraw');
 
                 // 2. FILTER BY SECTION if the schedule has one assigned
                 if ($schedule->section_id) {
@@ -482,27 +492,44 @@ public function bulkUpdateGrades(Request $request)
 
                 $enrolledStudents = $query->get();
 
-                // 3. Format Students
+                // 3. Format Students and explicitly include their grades for the PDF
                 $formattedStudents = $enrolledStudents->map(function($student) {
                     $sectionName = $student->sections->isNotEmpty() ? $student->sections->first()->name : 'Unassigned';
+                    
+                    // Fetch the specific grade for this subject
+                    $grade = $student->grades->first();
+
                     return [
                         'student_id' => $student->student_id_number,
                         'name' => $student->getFullNameAttribute(),
                         'course' => $student->course->course_code ?? 'N/A',
                         'year' => $student->year,
                         'gender' => $student->gender,
-                        'section' => $sectionName
+                        'section' => $sectionName,
+                        'grades' => [
+                            'prelim_grade' => $grade->prelim_grade ?? null,
+                            'midterm_grade' => $grade->midterm_grade ?? null,
+                            'semifinal_grade' => $grade->semifinal_grade ?? null,
+                            'final_grade' => $grade->final_grade ?? null,
+                            'status' => $grade->status ?? 'In Progress',
+                        ]
                     ];
                 });
 
                 // 4. Create Roster Entry for this specific Schedule
-                // We assume one schedule = one "Class" on the roster PDF
+                // We are passing extra subject info here so the PDF header populates properly
                 $rosterData[] = [
                     'subject_code' => $schedule->subject->subject_code,
                     'descriptive_title' => $schedule->subject->descriptive_title,
                     'schedule_time' => $schedule->day . ' ' . $schedule->time,
                     'room' => $schedule->room_no,
-                    'section_name' => $schedule->section ? $schedule->section->name : 'All Sections', // For the PDF Header
+                    'lec_hrs' => $schedule->subject->lec_hrs,
+                    'lab_hrs' => $schedule->subject->lab_hrs,
+                    'total_units' => $schedule->subject->total_units,
+                    'number_of_hours' => $schedule->subject->number_of_hours,
+                    'semester' => $schedule->subject->semester,
+                    'school_year' => $schedule->subject->school_year,
+                    'section_name' => $schedule->section ? $schedule->section->name : 'All Sections', 
                     'students' => $formattedStudents
                 ];
             }
