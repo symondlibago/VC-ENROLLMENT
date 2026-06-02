@@ -16,6 +16,10 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
     const [formData, setFormData] = useState({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+
+    // Linked login-account info (for the Account & Security section)
+    const [hasAccount, setHasAccount] = useState(false);
+    const [hasPin, setHasPin] = useState(false);
     
     // State for your custom alert and modal
     const [alert, setAlert] = useState({ isVisible: false, message: '', type: 'success' });
@@ -28,12 +32,22 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
             const response = await enrollmentAPI.getStudentDetails(studentId);
             if (response.success) {
                 const studentData = response.data.student;
+
+                // Track the linked login account so the admin can manage credentials.
+                setHasAccount(!!studentData.user);
+                setHasPin(!!studentData.user?.has_pin);
+
                 // Initialize form data with ALL editable fields
                 setFormData({
                     student_id_number: studentData.student_id_number || '',
-                    
+
                     // ✅ --- ADDED academic_status ---
                     academic_status: studentData.academic_status || 'Regular',
+
+                    // Enrollment / account
+                    school_year: studentData.school_year || '',
+                    password: '',        // blank = keep current password
+                    secondary_pin: '',   // blank = keep current PIN
 
                     // Basic Info
                     last_name: studentData.last_name || '',
@@ -111,9 +125,25 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
             return;
         }
 
+        // Basic client-side check for the optional credential fields.
+        if (formData.secondary_pin && !/^\d{6}$/.test(formData.secondary_pin)) {
+            setValidationError({ isOpen: true, message: 'The PIN must be exactly 6 digits.' });
+            return;
+        }
+        if (formData.password && formData.password.length < 8) {
+            setValidationError({ isOpen: true, message: 'The password must be at least 8 characters.' });
+            return;
+        }
+
+        // Only send credential fields when the admin actually entered a value;
+        // empty strings mean "leave the current password / PIN unchanged".
+        const payload = { ...formData };
+        if (!payload.password) delete payload.password;
+        if (!payload.secondary_pin) delete payload.secondary_pin;
+
         setSaving(true);
         try {
-            await enrollmentAPI.updateStudentDetails(studentId, formData);
+            await enrollmentAPI.updateStudentDetails(studentId, payload);
             setAlert({ isVisible: true, message: 'Student details updated successfully!', type: 'success' });
             
             // Wait for the alert to be visible before closing
@@ -218,6 +248,7 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
                                                     { value: "Withdraw", label: "Withdraw" },
                                                 ])}
                                             </div>
+                                            {renderInput("school_year", "School Year", { placeholder: "2025-2026" })}
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -242,6 +273,34 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
                                             {renderInput("nationality", "Nationality", { placeholder: "Filipino" })}
                                         </div>
                                         {renderInput("address", "Address", { placeholder: "123 Main St, Brgy, City" })}
+                                    </div>
+
+                                    {/* --- Account & Security (Admin only) --- */}
+                                    <div className="p-4 border rounded-lg space-y-4">
+                                        <div>
+                                            <h3 className="text-base font-semibold text-gray-900">Account &amp; Security</h3>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                {hasAccount
+                                                    ? 'Leave these blank to keep the current password and PIN. Enter a value to change them.'
+                                                    : 'This student does not have a login account yet, so the password and PIN cannot be set here.'}
+                                            </p>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {renderInput("password", "New Password", {
+                                                type: "password",
+                                                placeholder: "Leave blank to keep current",
+                                                autoComplete: "new-password",
+                                                disabled: saving || !hasAccount,
+                                            })}
+                                            {renderInput("secondary_pin", `Secondary PIN${hasPin ? ' (PIN is set)' : ' (no PIN set)'}`, {
+                                                type: "password",
+                                                inputMode: "numeric",
+                                                maxLength: 6,
+                                                placeholder: "6-digit PIN, leave blank to keep current",
+                                                autoComplete: "off",
+                                                disabled: saving || !hasAccount,
+                                            })}
+                                        </div>
                                     </div>
 
                                     {/* --- Parent/Guardian Information --- */}

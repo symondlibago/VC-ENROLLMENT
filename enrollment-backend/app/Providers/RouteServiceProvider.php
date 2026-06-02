@@ -35,6 +35,11 @@ class RouteServiceProvider extends ServiceProvider
 
             Route::middleware('web')
                 ->group(base_path('routes/web.php'));
+
+            // LMS module routes (isolated under /api/lms)
+            Route::middleware('api')
+                ->prefix('api/lms')
+                ->group(base_path('routes/lms.php'));
         });
     }
 }

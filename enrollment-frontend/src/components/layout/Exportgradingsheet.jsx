@@ -465,10 +465,14 @@ const ExportGradingSheet = ({ onClose }) => {
         if (res.success) {
           const subjectMap = {};
           res.data.forEach((entry) => {
-            const key = `${entry.subject_code}`;
+            // Key by the unique subject id so two distinct subjects that share the
+            // same subject_code (e.g. ENTREP in OBM vs. ENTREP in HRS) don't collide
+            // and overwrite each other. Fall back to code+title if id is missing.
+            const key = entry.subject_id ?? `${entry.subject_code}|${entry.descriptive_title}`;
             if (!subjectMap[key]) {
               subjectMap[key] = {
-                id: entry.subject_code, 
+                id: entry.subject_id ?? entry.subject_code,
+                subject_id: entry.subject_id ?? null,
                 subject_code: entry.subject_code,
                 descriptive_title: entry.descriptive_title,
                 schedule_info: entry.schedule_time || 'TBA',
@@ -521,9 +525,21 @@ const ExportGradingSheet = ({ onClose }) => {
 
       if (!res.success) throw new Error('Failed to load roster data.');
 
-      const matchingEntries = res.data.filter(
-        (e) => e.subject_code === selectedSubject.subject_code,
-      );
+      // Pick the roster entries for the EXACT selected subject and section.
+      // Match on the unique subject id when available so we don't merge students
+      // from a different subject that shares the same code (e.g. ENTREP in OBM
+      // vs. ENTREP in HRS). Fall back to code+title when id is missing.
+      const matchingEntries = res.data.filter((e) => {
+        const subjectMatches = selectedSubject.subject_id != null
+          ? e.subject_id === selectedSubject.subject_id
+          : e.subject_code === selectedSubject.subject_code &&
+            e.descriptive_title === selectedSubject.descriptive_title;
+
+        const sectionMatches = String(e.section_name || '').toLowerCase()
+          === String(selectedSection.name || '').toLowerCase();
+
+        return subjectMatches && sectionMatches;
+      });
 
       const studentMap = {};
       matchingEntries.forEach((entry) => {

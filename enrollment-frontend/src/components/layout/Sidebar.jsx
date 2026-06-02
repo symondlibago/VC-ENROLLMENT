@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { 
+import {
   Home, Users, BookOpen, Calendar, Settings, ChevronLeft, ChevronRight,
   GraduationCap, FileText, BarChart3, User, CreditCard, BookUser,
-  BookMarked, ClipboardList, CheckCircle, Receipt,
+  BookMarked, ClipboardList, CheckCircle, Receipt, Inbox, LogOut,
 } from 'lucide-react';
+import { lmsNotificationsAPI } from '../LMS/api/lmsApi';
 import { Button } from '@/components/ui/button';
 import VipcLogo from '/circlelogo.png';
 // Import the API
@@ -74,7 +75,52 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
     { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
   ];
 
+  const lmsMenuItemsBase = [
+    { id: 'lms-home', icon: Home, label: 'LMS Home', badge: null, path: '/lms' },
+    { id: 'lms-subjects', icon: BookOpen, label: 'Subjects', badge: null, path: '/lms/subjects' },
+    { id: 'lms-calendar', icon: Calendar, label: 'Calendar', badge: null, path: '/lms/calendar' },
+    { id: 'lms-gradebook', icon: BarChart3, label: 'Gradebook', badge: null, path: '/lms/gradebook' },
+    { id: 'lms-submissions', icon: Inbox, label: 'Submissions', badge: null, path: '/lms/submissions' },
+    { id: 'exit-lms', icon: LogOut, label: 'Exit LMS', badge: null, path: '/dashboard' },
+  ];
+
+  const isLmsRoute = location.pathname.startsWith('/lms');
+
+  // LMS unread notification badge (shown on LMS Home item)
+  const [lmsUnread, setLmsUnread] = useState(0);
+  useEffect(() => {
+    if (!isLmsRoute) return;
+    let cancelled = false;
+    const tick = () => {
+      lmsNotificationsAPI.unreadCount()
+        .then((res) => { if (!cancelled) setLmsUnread(res?.data?.unread_count ?? 0); })
+        .catch(() => {});
+    };
+    tick();
+    const t = setInterval(tick, 60000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [isLmsRoute, location.pathname]);
+
   const getMenuItems = () => {
+    if (isLmsRoute) {
+      const lmsRole = (user?.lms_role || user?.role || '').toLowerCase();
+      let items = [...lmsMenuItemsBase];
+      if (lmsRole === 'student') {
+        // Students don't grade submissions, but they DO have a gradebook.
+        items = items.filter((i) => i.id !== 'lms-submissions');
+      } else {
+        // Instructors/admins don't need the student gradebook view.
+        items = items.filter((i) => i.id !== 'lms-gradebook');
+      }
+      // Show unread notification count on LMS Home
+      if (lmsUnread > 0) {
+        items = items.map((i) =>
+          i.id === 'lms-home' ? { ...i, badge: String(lmsUnread > 99 ? '99+' : lmsUnread) } : i
+        );
+      }
+      return items;
+    }
+
     const role = user?.role;
     let items = [];
 
@@ -116,18 +162,20 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
 
   useEffect(() => {
     const currentPath = location.pathname;
-    
-    if (user?.role === 'instructor' && (currentPath === '/' || currentPath === '/dashboard')) {
-        navigate('/class-roster', { replace: true });
-    } else if (user?.role === 'Student' && (currentPath === '/' || currentPath === '/dashboard')) {
-        navigate('/subject-enrolled', { replace: true });
+
+    if (!currentPath.startsWith('/lms')) {
+      if (user?.role === 'instructor' && (currentPath === '/' || currentPath === '/dashboard')) {
+          navigate('/class-roster', { replace: true });
+      } else if (user?.role === 'Student' && (currentPath === '/' || currentPath === '/dashboard')) {
+          navigate('/subject-enrolled', { replace: true });
+      }
     }
 
     const currentItem = menuItems.find(item => item.path === currentPath);
     if (currentItem) {
       setActiveItem(currentItem.id);
     }
-  }, [location.pathname, user, navigate]); 
+  }, [location.pathname, user, navigate]);
 
   const handleNavigation = (item) => {
     setActiveItem(item.id);
@@ -154,6 +202,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
   };
 
   const getPortalName = () => {
+      if (isLmsRoute) return 'LMS Portal';
       switch (user?.role) {
           case 'instructor': return 'Instructor Portal';
           case 'Student': return 'Student Portal';

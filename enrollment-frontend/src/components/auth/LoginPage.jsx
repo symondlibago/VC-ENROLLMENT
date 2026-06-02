@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, User, Eye, EyeOff, ArrowRight, GraduationCap, Github, Chrome, ArrowLeft, Check, KeyRound } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, ArrowRight, GraduationCap, Github, Chrome, ArrowLeft, Check, KeyRound, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { authAPI } from '../../services/api';
+import { lmsAuthAPI } from '../LMS/api/lmsApi';
 import { toast } from 'sonner';
 import VipcLogo from '/circlelogo.png';
 
@@ -14,8 +15,9 @@ import SuccessAlert from '../modals/SuccessAlert';
 import ValidationErrorModal from '../modals/ValidationErrorModal';
 import OtpModal from '../modals/OtpModal';
 
-const LoginPage = ({ onLogin, onBack }) => {
+const LoginPage = ({ onLogin, onBack, onLmsLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
+  const [showLmsPassword, setShowLmsPassword] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -23,8 +25,9 @@ const LoginPage = ({ onLogin, onBack }) => {
   const [modalError, setModalError] = useState('');
 
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [lmsLoginForm, setLmsLoginForm] = useState({ email: '', password: '' });
   const [loginOtpState, setLoginOtpState] = useState({ isOpen: false, isLoading: false, error: '', tempToken: null });
-  
+
   const [resetStep, setResetStep] = useState(1);
   const [resetForm, setResetForm] = useState({ email: '', otp: '', password: '', password_confirmation: '' });
 
@@ -67,6 +70,27 @@ const LoginPage = ({ onLogin, onBack }) => {
       handleSuccessfulLogin();
     } catch (error) {
       setLoginOtpState(prev => ({ ...prev, isLoading: false, error: error.message || 'Verification failed.' }));
+    }
+  };
+
+  const handleLmsLogin = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setModalError('');
+    try {
+      const result = await lmsAuthAPI.login(lmsLoginForm);
+      if (result?.success) {
+        setSuccessAlert({ isVisible: true, message: 'LMS login successful! Redirecting...' });
+        setTimeout(() => {
+          if (typeof onLmsLogin === 'function') onLmsLogin();
+        }, 1200);
+      } else {
+        setModalError(result?.message || 'LMS login failed.');
+      }
+    } catch (error) {
+      setModalError(error?.message || 'LMS login failed.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -140,8 +164,9 @@ const LoginPage = ({ onLogin, onBack }) => {
         <Card className="shadow-lg border-0">
           <CardContent className="p-0">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 rounded-t-lg h-12">
+              <TabsList className="grid w-full grid-cols-3 rounded-t-lg h-12">
                 <TabsTrigger value="login">Login</TabsTrigger>
+                <TabsTrigger value="lms">LMS Login</TabsTrigger>
                 <TabsTrigger value="reset">Reset</TabsTrigger>
               </TabsList>
 
@@ -177,6 +202,40 @@ const LoginPage = ({ onLogin, onBack }) => {
                     <Button variant="outline" disabled={isLoading}><Github className="w-4 h-4 mr-2" />GitHub</Button>
                     <Button variant="outline" disabled={isLoading}><Chrome className="w-4 h-4 mr-2" />Google</Button>
                   </div>
+                </motion.form>
+              </TabsContent>
+
+              <TabsContent value="lms" className="p-6">
+                <motion.form key="lms-login" variants={formVariants} initial="hidden" animate="visible" exit="exit" onSubmit={handleLmsLogin} className="space-y-6">
+                  <div className="flex items-center justify-center space-x-2 text-(--dominant-red)">
+                    <BookOpen className="w-5 h-5" />
+                    <p className="text-sm font-medium">Sign in to the Learning Management System</p>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="lms-email">Email Address</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <Input id="lms-email" name="email" type="email" placeholder="Enter your email" value={lmsLoginForm.email} onChange={handleFormChange(setLmsLoginForm, lmsLoginForm)} className="pl-10" required disabled={isLoading} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lms-password">Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <Input id="lms-password" name="password" type={showLmsPassword ? "text" : "password"} placeholder="Enter your password" value={lmsLoginForm.password} onChange={handleFormChange(setLmsLoginForm, lmsLoginForm)} className="pl-10 pr-10" required disabled={isLoading} />
+                        <button type="button" onClick={() => setShowLmsPassword(!showLmsPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" disabled={isLoading}>
+                          {showLmsPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full gradient-primary text-white group cursor-pointer" disabled={isLoading}>
+                    {isLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <>Enter LMS <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" /></>}
+                  </Button>
+                  <p className="text-xs text-center text-gray-500">
+                    Use your VIPC account credentials. Access is granted to admins, instructors, and students.
+                  </p>
                 </motion.form>
               </TabsContent>
 

@@ -1,8 +1,11 @@
 import axios from 'axios';
+export const API_HOST =
+  import.meta.env.VITE_API_URL ||
+  `${window.location.protocol}//${window.location.hostname}:8000`;
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api',
+  baseURL: `${API_HOST}/api`,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -35,11 +38,15 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (
-      error.response?.status === 401 &&
-      url !== '/login' &&
-      url !== '/login/verify-pin'
-    ) {
+    // Endpoints where a 401 is an expected "wrong credentials" answer, NOT an
+    // expired session. For these we must let the error through so the login
+    // page can show the real message instead of force-reloading.
+    const requestUrl = error.config?.url || '';
+    const isAuthEndpoint =
+      requestUrl.includes('/login') ||
+      requestUrl.includes('/login/verify-pin');
+
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_data');
       window.location.reload();

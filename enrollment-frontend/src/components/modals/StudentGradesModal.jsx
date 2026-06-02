@@ -108,18 +108,6 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
     setEditedGrades(prev => prev.map(grade => {
       if (grade.id === gradeId) {
         const updatedGrade = { ...grade, [field]: value };
-        
-        // Auto-update status based on any grade field change, unless it's a special status
-        if (['prelim_grade', 'midterm_grade', 'semifinal_grade', 'final_grade'].includes(field) && !['INC', 'NFE', 'NFR', 'DA', 'Credited'].includes(updatedGrade.status)) {
-          const { prelim_grade: p, midterm_grade: m, semifinal_grade: s, final_grade: f } = updatedGrade;
-          const allFilled = [p, m, s, f].every(v => v !== null && v !== undefined && v !== '');
-          if (allFilled) {
-              updatedGrade.status = parseFloat(f) <= 3.0 ? 'Passed' : 'Failed';
-          } else {
-              updatedGrade.status = 'In Progress';
-          }
-        }
-        
         // If a special status is selected, nullify the grade
         if (field === 'status' && ['INC', 'NFE', 'NFR', 'DA'].includes(value)) {
             updatedGrade.final_grade = null;
@@ -210,7 +198,26 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
     if (grade === null || grade === undefined || grade === '') return 'text-gray-900';
     return parseFloat(grade) < 75 ? 'text-red-600' : 'text-green-600';
   };
-    
+
+  const computeAutoStatus = (grade) => {
+    if (['INC', 'NFE', 'NFR', 'DA', 'Credited'].includes(grade.status)) {
+      return grade.status;
+    }
+    const { prelim_grade: p, midterm_grade: m, semifinal_grade: s, final_grade: f } = grade;
+    const allFilled = [p, m, s, f].every(v => v !== null && v !== undefined && v !== '');
+    if (!allFilled) return 'In Progress';
+    const computedFinal = calculateFinalGrade(grade);
+    return (computedFinal !== null && computedFinal >= 75) ? 'Passed' : 'Failed';
+  };
+
+  // Recompute the auto status only when the user finishes editing a grade cell
+  // (on blur), so it doesn't flip while they are still typing the number.
+  const handleGradeBlur = (gradeId) => {
+    setEditedGrades(prev => prev.map(grade =>
+      grade.id === gradeId ? { ...grade, status: computeAutoStatus(grade) } : grade
+    ));
+  };
+
   const handleSaveChanges = async () => {
     setIsSaving(true);
     const changedGradesPayload = editedGrades
@@ -355,7 +362,7 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
                               {isEditing ? (
                                 <Input
                                   type="number"
-                                  className="w-16 mx-auto text-center font-mono"
+                                  className="w-16 mx-auto text-center font-mono border-2 border-gray-300 bg-white shadow-sm focus:border-red-600 focus:ring-2 focus:ring-red-200"
                                   value={grade.prelim_grade ?? ''}
                                   onChange={(e) =>
                                     handleGradeDataChange(
@@ -364,6 +371,7 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
                                       e.target.value === '' ? null : parseFloat(e.target.value)
                                     )
                                   }
+                                  onBlur={() => handleGradeBlur(grade.id)}
                                 />
                               ) : (
                                 grade.prelim_grade ?? '-'
@@ -373,7 +381,7 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
                               {isEditing ? (
                                 <Input
                                   type="number"
-                                  className="w-16 mx-auto text-center font-mono"
+                                  className="w-16 mx-auto text-center font-mono border-2 border-gray-300 bg-white shadow-sm focus:border-red-600 focus:ring-2 focus:ring-red-200"
                                   value={grade.midterm_grade ?? ''}
                                   onChange={(e) =>
                                     handleGradeDataChange(
@@ -382,6 +390,7 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
                                       e.target.value === '' ? null : parseFloat(e.target.value)
                                     )
                                   }
+                                  onBlur={() => handleGradeBlur(grade.id)}
                                 />
                               ) : (
                                 grade.midterm_grade ?? '-'
@@ -391,7 +400,7 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
                               {isEditing ? (
                                 <Input
                                   type="number"
-                                  className="w-16 mx-auto text-center font-mono"
+                                  className="w-16 mx-auto text-center font-mono border-2 border-gray-300 bg-white shadow-sm focus:border-red-600 focus:ring-2 focus:ring-red-200"
                                   value={grade.semifinal_grade ?? ''}
                                   onChange={(e) =>
                                     handleGradeDataChange(
@@ -400,6 +409,7 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
                                       e.target.value === '' ? null : parseFloat(e.target.value)
                                     )
                                   }
+                                  onBlur={() => handleGradeBlur(grade.id)}
                                 />
                               ) : (
                                 grade.semifinal_grade ?? '-'
@@ -409,7 +419,7 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
                               {isEditing ? (
                                 <Input 
                                   type="number" 
-                                  className="w-16 mx-auto text-center font-mono"
+                                  className="w-16 mx-auto text-center font-mono border-2 border-gray-300 bg-white shadow-sm focus:border-red-600 focus:ring-2 focus:ring-red-200"
                                   value={grade.final_grade ?? ''}
                                   onChange={(e) =>
                                     handleGradeDataChange(
@@ -418,6 +428,7 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
                                       e.target.value === '' ? null : parseFloat(e.target.value)
                                     )
                                   }
+                                  onBlur={() => handleGradeBlur(grade.id)}
                                 />
                               ) : (
                                 grade.final_grade ?? '-'

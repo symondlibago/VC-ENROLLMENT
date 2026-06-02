@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { X, Save, Loader2, Clock, Check } from 'lucide-react';
+import {
+  X, Save, Loader2, Clock, Check, User, GraduationCap, Users, Phone,
+  CreditCard, ClipboardCheck, BookOpen, School,
+} from 'lucide-react';
 import { enrollmentAPI, paymentAPI } from '../../services/api';
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -174,6 +177,35 @@ const defaultManualEdit = {
   payment_amount: false,
   term_payment: false,
 };
+
+// ---------------------------------------------------------------------------
+// Presentational helpers (UI only — no logic)
+// ---------------------------------------------------------------------------
+const SectionCard = ({ title, icon: Icon, right, children, className = '' }) => (
+  <div className={`bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden ${className}`}>
+    <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-red-50/70 to-white">
+      <div className="flex items-center gap-2.5 min-w-0">
+        {Icon && (
+          <span className="w-8 h-8 rounded-lg bg-red-100 text-red-700 flex items-center justify-center shrink-0">
+            <Icon className="w-4 h-4" />
+          </span>
+        )}
+        <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide truncate">{title}</h3>
+      </div>
+      {right}
+    </div>
+    <div className="p-5">{children}</div>
+  </div>
+);
+
+const Field = ({ label, children, className = '', valueClassName = '' }) => (
+  <div className={className}>
+    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">{label}</p>
+    <div className={`text-sm font-semibold text-gray-800 break-words ${valueClassName}`}>
+      {children}
+    </div>
+  </div>
+);
 
 const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) => {
   const [loading, setLoading] = useState(true);
@@ -568,17 +600,29 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
       />
       <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-red-800 text-white z-10 flex items-center justify-between p-4 border-b">
-          <h2 className="text-xl font-semibold">Student Details</h2>
+        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 bg-gradient-to-r from-red-800 to-red-700 text-white shadow-md">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+              <User className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold leading-tight">Student Details</h2>
+              {student && (
+                <p className="text-xs text-white/80 truncate">
+                  {student.last_name}, {student.first_name} · {student.student_id_number}
+                </p>
+              )}
+            </div>
+          </div>
           <Button
             onClick={onClose}
-            className="p-1 hover:text-red-800 hover:bg-white transition-colors bg-transparent cursor-pointer"
+            className="p-1.5 rounded-lg hover:text-red-800 hover:bg-white transition-colors bg-white/10 cursor-pointer"
           >
             <X size={20} />
           </Button>
         </div>
 
-        <div className="p-6">
+        <div className="p-6 bg-gray-50">
           {loading ? (
             <div className="flex justify-center items-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
@@ -589,65 +633,59 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
             <div className="space-y-6">
 
               {/* Basic Information */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-xl font-medium mb-3 text-black">BASIC INFORMATION</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><p className="text-sm text-gray-500">Student ID No.</p><p className="font-medium">{student.student_id_number}</p></div>
-                  <div><p className="text-sm text-gray-500">Full Name</p><p className="font-medium">{student.last_name}, {student.first_name} {student.middle_name || ''}</p></div>
-                  <div><p className="text-sm text-gray-500">Email Address</p><p className="font-medium">{student.email_address}</p></div>
-                  <div><p className="text-sm text-gray-500">Contact Number</p><p className="font-medium">{student.contact_number}</p></div>
-                  <div><p className="text-sm text-gray-500">Gender</p><p className="font-medium">{student.gender}</p></div>
-                  <div><p className="text-sm text-gray-500">Birth Date</p><p className="font-medium">{new Date(student.birth_date).toLocaleDateString()}</p></div>
-                  <div><p className="text-sm text-gray-500">Birth Place</p><p className="font-medium">{student.birth_place}</p></div>
-                  <div><p className="text-sm text-gray-500">Nationality</p><p className="font-medium">{student.nationality}</p></div>
-                  <div><p className="text-sm text-gray-500">Civil Status</p><p className="font-medium">{student.civil_status}</p></div>
-                  <div><p className="text-sm text-gray-500">Religion</p><p className="font-medium">{student.religion || 'Not specified'}</p></div>
-                  <div><p className="text-sm text-gray-500">Address</p><p className="font-medium">{student.address}</p></div>
-                  <div>
-                  <p className="text-sm text-gray-500">Facebook Account</p>
-                  <p className="font-medium text-blue-600">
+              <SectionCard title="Basic Information" icon={User}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                  <Field label="Student ID No.">{student.student_id_number}</Field>
+                  <Field label="Full Name">{student.last_name}, {student.first_name} {student.middle_name || ''}</Field>
+                  <Field label="Email Address">{student.email_address}</Field>
+                  <Field label="Contact Number">{student.contact_number}</Field>
+                  <Field label="Gender">{student.gender}</Field>
+                  <Field label="Birth Date">{new Date(student.birth_date).toLocaleDateString()}</Field>
+                  <Field label="Birth Place">{student.birth_place}</Field>
+                  <Field label="Nationality">{student.nationality}</Field>
+                  <Field label="Civil Status">{student.civil_status}</Field>
+                  <Field label="Religion">{student.religion || 'Not specified'}</Field>
+                  <Field label="Address">{student.address}</Field>
+                  <Field label="Facebook Account" valueClassName="text-blue-600">
                     {student.fb_acc ? (
                       <a href={student.fb_acc.startsWith('http') ? student.fb_acc : `https://facebook.com/search/top?q=${encodeURIComponent(student.fb_acc)}`} target="_blank" rel="noopener noreferrer" className="hover:underline">
                         {student.fb_acc}
                       </a>
                     ) : 'N/A'}
-                  </p>
+                  </Field>
+                  <Field label="FB Profile Description" valueClassName="italic font-medium text-gray-700">
+                    {student.fb_description || 'N/A'}
+                  </Field>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-500">FB Profile Description</p>
-                  <p className="font-medium italic text-gray-700">{student.fb_description || 'N/A'}</p>
-                </div>
-                </div>
-              </div>
+              </SectionCard>
 
               {/* Enrollment Information */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-lg font-medium text-black">ENROLLMENT INFORMATION</h3>
-                  {(currentUserRole === 'Cashier' || currentUserRole === 'Admin') && (
-                    <DownloadCOR
-                      student={student}
-                      subjectsWithSchedules={subjectsWithSchedules}
-                      paymentData={paymentData}
-                    />
-                  )}
+              <SectionCard
+                title="Enrollment Information"
+                icon={GraduationCap}
+                right={(currentUserRole === 'Cashier' || currentUserRole === 'Admin') && (
+                  <DownloadCOR
+                    student={student}
+                    subjectsWithSchedules={subjectsWithSchedules}
+                    paymentData={paymentData}
+                  />
+                )}
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                  <Field label="Course">[{student.course ? student.course.course_code : 'N/A'}] {student.course ? student.course.course_name : 'N/A'}</Field>
+                  <Field label="Section" valueClassName="text-red-700 font-bold">{student.sections && student.sections.length > 0 ? student.sections[0].name : 'No Section Assigned'}</Field>
+                  <Field label="Year Level">{student.year}</Field>
+                  <Field label="Enrollment Type">{student.enrollment_type}</Field>
+                  <Field label="Semester">{student.semester}</Field>
+                  <Field label="School Year">{student.school_year}</Field>
+                  <Field label="Enrollment Date">{new Date(student.created_at).toLocaleDateString()}</Field>
+                  <Field label="Enrollment Code">{student.enrollment_code?.code || 'N/A'}</Field>
+                  <Field label="Program">{student.course?.program?.program_code || 'N/A'} Program</Field>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><p className="text-sm text-gray-500">Course</p><p className="font-medium">[{student.course ? student.course.course_code : 'N/A'}] {student.course ? student.course.course_name : 'N/A'}</p></div>
-                  <div><p className="text-sm text-gray-500">Section</p><p className="font-medium text-red-700">{student.sections && student.sections.length > 0 ? student.sections[0].name : 'No Section Assigned'}</p></div>
-                  <div><p className="text-sm text-gray-500">Year Level</p><p className="font-medium">{student.year}</p></div>
-                  <div><p className="text-sm text-gray-500">Enrollment Type</p><p className="font-medium">{student.enrollment_type}</p></div>
-                  <div><p className="text-sm text-gray-500">Semester</p><p className="font-medium">{student.semester}</p></div>
-                  <div><p className="text-sm text-gray-500">School Year</p><p className="font-medium">{student.school_year}</p></div>
-                  <div><p className="text-sm text-gray-500">Enrollment Date</p><p className="font-medium">{new Date(student.created_at).toLocaleDateString()}</p></div>
-                  <div><p className="text-sm text-gray-500">Enrollment Code</p><p className="font-medium">{student.enrollment_code?.code || 'N/A'}</p></div>
-                  <div><p className="text-sm text-gray-500">Program</p><p className="font-medium">{student.course?.program?.program_code || 'N/A'} Program</p></div>
-                </div>
-              </div>
+              </SectionCard>
 
              {/* Selected Subjects Table */}
-<div className="bg-gray-50 p-4 rounded-lg">
-  <h3 className="text-lg font-medium mb-3 text-black">SELECTED SUBJECTS & SCHEDULE</h3>
+<SectionCard title="Selected Subjects & Schedule" icon={BookOpen}>
   {subjectsWithSchedules.length > 0 ? (
     <div className="overflow-x-auto"> 
       <table className="min-w-full divide-y divide-gray-200 table-fixed">
@@ -728,11 +766,10 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
       </table>
     </div>
   ) : <p className="text-gray-500">No subjects selected</p>}
-</div>
+</SectionCard>
 
               {/* Approval Actions Section */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium mb-3 text-black">APPROVAL ACTIONS</h3>
+              <SectionCard title="Approval Actions" icon={ClipboardCheck}>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <ApprovalAction
                     roleLabel="Program Head"
@@ -763,14 +800,11 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                 </div>
                 {student.enrollment_approvals?.find(a => a.role === 'Program Head')?.status !== 'approved' && currentUserRole === 'Registrar' && <p className="text-xs text-yellow-600 mt-2">Waiting for Program Head approval.</p>}
                 {((student.enrollment_approvals?.find(a => a.role === 'Program Head')?.status !== 'approved' || student.enrollment_approvals?.find(a => a.role === 'Registrar')?.status !== 'approved') && currentUserRole === 'Cashier') && <p className="text-xs text-yellow-600 mt-2">Waiting for Program Head & Registrar approval.</p>}
-              </div>
+              </SectionCard>
 
               {/* Payment Information Section */}
               {currentUserRole === 'Cashier' && (
-                <div className="bg-gray-50 p-4 rounded-lg border-2 border-red-200">
-                  <h3 className="text-lg font-medium mb-4 text-black flex items-center">
-                    PAYMENT INFORMATION
-                  </h3>
+                <SectionCard title="Payment Information" icon={CreditCard} className="border-red-200">
                   <div className="space-y-6">
                     <div>
                       <h4 className="text-md font-medium mb-3 text-gray-700">Fee Structure</h4>
@@ -1039,39 +1073,37 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                       </Button>
                     </div>
                   </div>
-                </div>
+                </SectionCard>
               )}
 
               {/* Parent/Guardian Information */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium mb-3 text-black">PARENT/GUARDIAN INFORMATION</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div><p className="text-sm text-gray-500">Father's Name</p><p className="font-medium">{student.father_name || 'Not specified'}</p></div>
-                  <div><p className="text-sm text-gray-500">Father's Occupation</p><p className="font-medium">{student.father_occupation || 'Not specified'}</p></div>
-                  <div><p className="text-sm text-gray-500">Father's Contact</p><p className="font-medium">{student.father_contact_number || 'Not specified'}</p></div>
-                  <div><p className="text-sm text-gray-500">Mother's Name</p><p className="font-medium">{student.mother_name || 'Not specified'}</p></div>
-                  <div><p className="text-sm text-gray-500">Mother's Occupation</p><p className="font-medium">{student.mother_occupation || 'Not specified'}</p></div>
-                  <div><p className="text-sm text-gray-500">Mother's Contact</p><p className="font-medium">{student.mother_contact_number || 'Not specified'}</p></div>
-                  <div className="col-span-2"><p className="text-sm text-gray-500">Parents' Address</p><p className="font-medium">{student.parents_address || 'Not specified'}</p></div>
+              <SectionCard title="Parent/Guardian Information" icon={Users}>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
+                  <Field label="Father's Name">{student.father_name || 'Not specified'}</Field>
+                  <Field label="Father's Occupation">{student.father_occupation || 'Not specified'}</Field>
+                  <Field label="Father's Contact">{student.father_contact_number || 'Not specified'}</Field>
+                  <Field label="Mother's Name">{student.mother_name || 'Not specified'}</Field>
+                  <Field label="Mother's Occupation">{student.mother_occupation || 'Not specified'}</Field>
+                  <Field label="Mother's Contact">{student.mother_contact_number || 'Not specified'}</Field>
+                  <Field label="Parents' Address" className="md:col-span-2">{student.parents_address || 'Not specified'}</Field>
                 </div>
-              </div>
+              </SectionCard>
 
               {/* Emergency Contact */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium mb-3 text-black">EMERGENCY CONTACT</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><p className="text-sm text-gray-500">Name</p><p className="font-medium">{student.emergency_contact_name}</p></div>
-                  <div><p className="text-sm text-gray-500">Contact Number</p><p className="font-medium">{student.emergency_contact_number}</p></div>
-                  <div className="col-span-2"><p className="text-sm text-gray-500">Address</p><p className="font-medium">{student.emergency_contact_address}</p></div>
+              <SectionCard title="Emergency Contact" icon={Phone}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                  <Field label="Name">{student.emergency_contact_name}</Field>
+                  <Field label="Contact Number">{student.emergency_contact_number}</Field>
+                  <Field label="Address" className="md:col-span-2">{student.emergency_contact_address}</Field>
                 </div>
-              </div>
+              </SectionCard>
 
               {/* Educational Background with Images */}
-              <div className="bg-gray-50 p-4 rounded-lg">
+              <SectionCard title="Educational Background & Identification" icon={School}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Left Side: Educational Background Header + Details */}
                   <div>
-                    <h3 className="text-lg font-semibold mb-3 text-black border-b pb-1">EDUCATIONAL BACKGROUND</h3>
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 border-b border-gray-100 pb-1.5">Schools Attended</h4>
                     <div className="space-y-4">
                       {student.elementary && (<div><p className="text-sm font-medium">Elementary</p><p className="text-sm">{student.elementary}</p><p className="text-xs text-gray-500">Completed: {student.elementary_date_completed || 'Not specified'}</p></div>)}
                       {student.junior_high_school && (<div><p className="text-sm font-medium">Junior High School</p><p className="text-sm">{student.junior_high_school}</p><p className="text-xs text-gray-500">Completed: {student.junior_high_date_completed || 'Not specified'}</p></div>)}
@@ -1083,14 +1115,14 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
 
                   {/* Right Side: Header + ID Photo & Signature Side by Side */}
                   <div>
-                    <h3 className="text-lg font-semibold mb-3 text-black border-b pb-1 text-right">IDENTIFICATION & SIGNATURE</h3>
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 border-b border-gray-100 pb-1.5 text-right">Identification &amp; Signature</h4>
                     <div className="flex justify-end gap-4">
                       {student.id_photo_url && (<div className="w-40 h-40 border rounded-lg overflow-hidden shadow-md"><img src={student.id_photo_url} alt="ID Photo" className="w-full h-full object-cover" /></div>)}
                       {student.signature_url && (<div className="w-40 h-40 border rounded-lg overflow-hidden shadow-md"><img src={student.signature_url} alt="Signature" className="w-full h-full object-contain" /></div>)}
                     </div>
                   </div>
                 </div>
-              </div>
+              </SectionCard>
             </div>
           ) : (<div className="text-center p-4">No student data found</div>)}
         </div>

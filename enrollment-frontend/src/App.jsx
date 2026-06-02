@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import Dashboard from './components/pages/Dashboard';
@@ -31,6 +32,13 @@ import EvaluationRecords from './components/studentpage/EvaluationRecords';
 import StudentSchedule from './components/studentpage/StudentSchedule';
 import StudentEnrollmentEligibility from './components/studentpage/StudentEnrollmentEligibility';
 import StudentPayments from './components/studentpage/StudentPayments';
+import LmsDashboard from './components/LMS/pages/LmsDashboard';
+import LmsSubjects from './components/LMS/pages/LmsSubjects';
+import LmsSubjectDetail from './components/LMS/pages/LmsSubjectDetail';
+import LmsSubmissionsOverview from './components/LMS/pages/LmsSubmissionsOverview';
+import LmsGradebook from './components/LMS/pages/LmsGradebook';
+import LmsCalendar from './components/LMS/pages/LmsCalendar';
+import { lmsAuthAPI } from './components/LMS/api/lmsApi';
 
 
 function App() {
@@ -61,6 +69,14 @@ function App() {
         setUser(userData);
         setIsAuthenticated(true);
         setCurrentView('dashboard');
+      } else if (localStorage.getItem('lms_auth_token')) {
+        // LMS-only session (signed in via LMS Login tab) — enter main shell with LMS user.
+        const lmsUser = lmsAuthAPI.getUser();
+        if (lmsUser) {
+          setUser(lmsUser);
+          setIsAuthenticated(true);
+          setCurrentView('dashboard');
+        }
       }
       setIsLoading(false);
     };
@@ -75,7 +91,21 @@ function App() {
 
   const handleLogin = () => {
     const userData = authAPI.getUserData();
+    // Reset URL so the Sidebar's role-redirect picks the right landing page.
+    // (Prevents stale /lms URL from a prior LMS session from being reused.)
+    window.history.replaceState({}, '', '/');
     setUser(userData);
+    setIsAuthenticated(true);
+    setCurrentView('dashboard');
+  };
+
+  const handleLmsLogin = () => {
+    const lmsUser = lmsAuthAPI.getUser();
+    if (!lmsUser) return;
+    // Set URL to /lms BEFORE mounting the Router so BrowserRouter reads
+    // the new path on its initial mount inside the dashboard shell.
+    window.history.replaceState({}, '', '/lms');
+    setUser(lmsUser);
     setIsAuthenticated(true);
     setCurrentView('dashboard');
   };
@@ -86,11 +116,17 @@ function App() {
       await authAPI.logout();
     } catch (error) {
       console.error('Logout error:', error);
-    } finally {
-      setUser(null);
-      setIsAuthenticated(false);
-      setCurrentView('landing');
     }
+    try {
+      await lmsAuthAPI.logout();
+    } catch (error) {
+      // ignore — best-effort
+    }
+    // Reset URL so the next login doesn't inherit /lms from this session.
+    window.history.replaceState({}, '', '/');
+    setUser(null);
+    setIsAuthenticated(false);
+    setCurrentView('landing');
   };
 
   const layoutVariants = {
@@ -154,6 +190,17 @@ function App() {
   const renderRoutes = () => {
     const role = user?.role;
 
+    const lmsRoutes = (
+      <>
+        <Route path="/lms" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><LmsDashboard /></motion.div>} />
+        <Route path="/lms/subjects" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><LmsSubjects /></motion.div>} />
+        <Route path="/lms/subjects/:id" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><LmsSubjectDetail /></motion.div>} />
+        <Route path="/lms/submissions" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><LmsSubmissionsOverview /></motion.div>} />
+        <Route path="/lms/gradebook" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><LmsGradebook /></motion.div>} />
+        <Route path="/lms/calendar" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><LmsCalendar /></motion.div>} />
+      </>
+    );
+
     if (role === 'instructor') {
       return (
         <>
@@ -162,6 +209,7 @@ function App() {
           <Route path="/schedule" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><InstructorSchedule /></motion.div>} />
           <Route path="/settings" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Settings /></motion.div>} />
           <Route path="/class-record-builder" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><ClassRecord /></motion.div>} />
+          {lmsRoutes}
           <Route path="*" element={<Navigate to="/class-roster" replace />} />
         </>
       );
@@ -177,6 +225,7 @@ function App() {
           <Route path="/my-payments" element={<motion.div variants={pageTransitionVariants}><StudentPayments /></motion.div>} />
           <Route path="/enrollment-eligibility" element={<motion.div variants={pageTransitionVariants}><StudentEnrollmentEligibility /></motion.div>} />
           <Route path="/settings" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Settings /></motion.div>} />
+          {lmsRoutes}
           <Route path="*" element={<Navigate to="/subject-enrolled" replace />} />
         </>
       );
@@ -197,6 +246,7 @@ function App() {
         <Route path="/grades" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Grades /></motion.div>} />
         <Route path="/id-releasing" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><IDReleasing /></motion.div>} />
         <Route path="/settings" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Settings /></motion.div>} />
+        {lmsRoutes}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </>
     );
@@ -204,6 +254,7 @@ function App() {
 
   return (
     <Router>
+      <Toaster position="top-right" richColors closeButton />
       {currentView === 'landing' && (
         <motion.div className="min-h-screen" variants={layoutVariants} initial="initial" animate="animate">
           <LandingPage onGetStarted={handleGetStarted} onEnrollNow={handleEnrollNow} />
@@ -212,7 +263,7 @@ function App() {
 
       {currentView === 'login' && (
         <motion.div className="min-h-screen" variants={layoutVariants} initial="initial" animate="animate">
-          <LoginPage onLogin={handleLogin} onBack={handleBack} />
+          <LoginPage onLogin={handleLogin} onBack={handleBack} onLmsLogin={handleLmsLogin} />
         </motion.div>
       )}
 

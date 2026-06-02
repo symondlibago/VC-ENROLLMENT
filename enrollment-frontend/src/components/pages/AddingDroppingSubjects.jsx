@@ -156,8 +156,8 @@ const SubjectChangeDetailsModal = ({ isOpen, onClose, requestDetails, currentUse
 };
 
 // --- Main Component ---
-const yearOptions = ['All Years', '1st Year', '2nd Year', '3rd Year', '4th Year'];
-const semesterOptions = ['All Semesters', '1st Semester', '2nd Semester'];
+const yearOptions = ['All Years', 'Grade 11', 'Grade 12', '1st Year', '2nd Year', '3rd Year', '4th Year', '1st Year Summer', '2nd Year Summer'];
+const semesterOptions = ['All Semesters', '1st Semester', '2nd Semester', 'Summer'];
 
 const AddingDroppingSubjects = () => {
     const [searchTerm, setSearchTerm] = useState('');

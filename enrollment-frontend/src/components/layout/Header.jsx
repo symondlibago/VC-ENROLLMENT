@@ -3,17 +3,19 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { 
-  Search, 
-  Bell, 
-  User, 
-  Settings, 
+import {
+  Search,
+  Bell,
+  User,
+  Settings,
   LogOut,
   ChevronDown,
   Moon,
   Sun,
-  Menu
+  Menu,
+  BookOpen
 } from 'lucide-react';
+import LmsNotifBell from '../LMS/ui/LmsNotifBell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -50,10 +52,22 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
     '/my-schedule': { title: 'My Schedule', subtitle: 'Your weekly schedule record for this semester' },
     '/enrollment-eligibility': { title: 'Enrollment Eligibility', subtitle: 'Check your status for the next academic term' },
     '/my-payments': { title: 'My Payments', subtitle: 'View your tuition and payment history' },
-    
+    '/lms': { title: 'LMS Home', subtitle: 'Your learning management dashboard' },
+    '/lms/subjects': { title: 'LMS Subjects', subtitle: 'Browse courses and modules' },
+    '/lms/submissions': { title: 'LMS Submissions', subtitle: 'Review and grade student work' },
+    '/lms/gradebook': { title: 'My Gradebook', subtitle: 'Track grades and feedback across subjects' },
+    '/lms/calendar': { title: 'LMS Calendar', subtitle: 'Upcoming assignment deadlines' },
   };
 
-  const currentPage = pageTitles[location.pathname] || pageTitles['/dashboard'];
+  const isOnLms = location.pathname.startsWith('/lms');
+  let currentPage = pageTitles[location.pathname];
+  if (!currentPage) {
+    if (location.pathname.startsWith('/lms/subjects/')) {
+      currentPage = { title: 'LMS Subject', subtitle: 'Modules, files and assignments' };
+    } else {
+      currentPage = pageTitles['/dashboard'];
+    }
+  }
 
   const headerVariants = {
     initial: { y: -20, opacity: 0 },
@@ -117,6 +131,7 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
       </div>
 
       <div className="flex items-center space-x-3">
+        {isOnLms && <LmsNotifBell />}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
@@ -148,6 +163,25 @@ const Header = ({ isCollapsed, setIsCollapsed, user, onLogout }) => {
               <Settings className="mr-2 h-4 w-4 hover:text-white" />
               <span>Settings</span>
             </DropdownMenuItem>
+            {['Admin', 'admin', 'instructor', 'Student', 'student'].includes(user?.role) && (
+              isOnLms ? (
+                <DropdownMenuItem
+                  className="cursor-pointer transition-colors hover:bg-red-1800 focus:bg-red-800 hover:text-white"
+                  onClick={() => navigate('/dashboard')}
+                >
+                  <BookOpen className="mr-2 h-4 w-4 hover:text-white" />
+                  <span>Exit LMS Dashboard</span>
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  className="cursor-pointer transition-colors hover:bg-red-1800 focus:bg-red-800 hover:text-white"
+                  onClick={() => navigate('/lms')}
+                >
+                  <BookOpen className="mr-2 h-4 w-4 hover:text-white" />
+                  <span>Enter LMS Dashboard</span>
+                </DropdownMenuItem>
+              )
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem 
               className="cursor-pointer transition-colors text-red-600 hover:bg-red-1800 focus:bg-red-800 hover:text-white"

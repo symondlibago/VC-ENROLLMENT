@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 // Add FileText to imports
-import { Users, UserPlus, MoreVertical, Edit, Trash2, Star, ShieldCheck, FileText } from 'lucide-react';
+import { Users, UserPlus, MoreVertical, Edit, Trash2, Star, ShieldCheck, FileText, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { instructorAPI, userAPI } from '@/services/api';
@@ -22,6 +23,7 @@ const FacultyAdminStaff = () => {
   const [adminStaff, setAdminStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('instructors');
+  const [searchTerm, setSearchTerm] = useState('');
   
   const [isInstructorModalOpen, setIsInstructorModalOpen] = useState(false);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
@@ -192,6 +194,20 @@ const FacultyAdminStaff = () => {
   const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
   
   const currentData = activeTab === 'instructors' ? instructors : adminStaff;
+
+  // Filter the active list by the search term (name, title/role, email, department)
+  const filteredData = currentData.filter((item) => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      (item.name || '').toLowerCase().includes(q) ||
+      (item.title || '').toLowerCase().includes(q) ||
+      (item.role || '').toLowerCase().includes(q) ||
+      (item.email || '').toLowerCase().includes(q) ||
+      (item.department || '').toLowerCase().includes(q)
+    );
+  });
+
   const pageTitle = activeTab === 'instructors' ? 'Faculty Management' : 'Admin Staff Management';
   const pageDescription = activeTab === 'instructors' 
     ? "Browse, manage, and connect with the university's esteemed faculty."
@@ -228,10 +244,10 @@ const FacultyAdminStaff = () => {
                       animate={{ left: activeTab === 'instructors' ? '4px' : '50%', right: activeTab === 'instructors' ? '50%' : '4px' }}
                       transition={{ type: "spring", stiffness: 300, damping: 30 }}
                     />
-                    <button onClick={() => setActiveTab('instructors')} title="Faculty" className={`relative z-10 p-3 rounded-xl transition-colors ${activeTab === 'instructors' ? 'text-[var(--dominant-red)]' : 'text-gray-600'}`}>
+                    <button onClick={() => { setActiveTab('instructors'); setSearchTerm(''); }} title="Faculty" className={`relative z-10 p-3 rounded-xl transition-colors ${activeTab === 'instructors' ? 'text-[var(--dominant-red)]' : 'text-gray-600'}`}>
                         <Users className="w-5 h-5" />
                     </button>
-                    <button onClick={() => setActiveTab('staff')} title="Admin Staff" className={`relative z-10 p-3 rounded-xl transition-colors ${activeTab === 'staff' ? 'text-[var(--dominant-red)]' : 'text-gray-600'}`}>
+                    <button onClick={() => { setActiveTab('staff'); setSearchTerm(''); }} title="Admin Staff" className={`relative z-10 p-3 rounded-xl transition-colors ${activeTab === 'staff' ? 'text-[var(--dominant-red)]' : 'text-gray-600'}`}>
                         <ShieldCheck className="w-5 h-5" />
                     </button>
                 </div>
@@ -243,12 +259,37 @@ const FacultyAdminStaff = () => {
           </div>
         </motion.div>
         
+        {/* Search Bar */}
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardContent className="p-4">
+              <div className="relative grow border border-gray-200 rounded-lg">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                <Input
+                  placeholder={`Search ${activeTab === 'instructors' ? 'faculty' : 'admin staff'} by name, role, or email...`}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
         {/* Grid Display */}
         <motion.div variants={itemVariants}>
           {loading ? ( <div className="flex justify-center items-center py-20"><LoadingSpinner size="lg" color="red" /></div>
+          ) : filteredData.length === 0 ? (
+            <Card>
+              <CardContent className="p-12 text-center text-gray-500">
+                {searchTerm.trim()
+                  ? `No ${activeTab === 'instructors' ? 'faculty' : 'admin staff'} match "${searchTerm}".`
+                  : `No ${activeTab === 'instructors' ? 'faculty' : 'admin staff'} to display.`}
+              </CardContent>
+            </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
-              {currentData.map((item) => (
+              {filteredData.map((item) => (
                 <motion.div key={item.id} whileHover={{ scale: 1.02, y: -4 }} className="liquid-hover">
                   <Card className="card-hover border-0 shadow-sm text-center">
                     <CardContent className="p-6">

@@ -9,6 +9,7 @@ use App\Models\EnrollmentApproval;
 use App\Models\Course;
 use App\Models\Grade;
 use App\Models\GradingPeriod;
+use App\Models\Instructor;
 use App\Models\User;
 use App\Models\EnrollmentHistory;
 use Illuminate\Http\Request;
@@ -390,14 +391,15 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
     {
         try {
             $student = PreEnrolledStudent::with([
-                'course.program', 
-                'enrollmentCode', 
-                'enrollmentApprovals', 
+                'course.program',
+                'enrollmentCode',
+                'enrollmentApprovals',
                 'subjects.schedules',
                 'grades',
                 'subjectChangeRequests.items.subject',
                 'sections',
-                'subjects.schedules'
+                'subjects.schedules',
+                'user' // linked account: exposes email + has_pin (password/pin stay hidden)
             ])->findOrFail($id);
 
             $student->id_photo_url = $student->id_photo ? Storage::disk('s3')->url($student->id_photo) : null;
@@ -686,6 +688,9 @@ public function updateStudentDetails(Request $request, $id)
             'fb_acc' => 'nullable|string|max:255',
             'fb_description' => 'nullable|string|max:1000',
             'scholarship' => 'nullable|string|max:255',
+            'school_year' => 'nullable|string|max:255',
+            'password' => 'nullable|string|min:8',
+            'secondary_pin' => 'nullable|string|digits:6',
             
             // Parent Info
             'father_name' => 'nullable|string|max:255',
@@ -723,14 +728,52 @@ public function updateStudentDetails(Request $request, $id)
         }
 
         try {
-            // Update the student with all validated data
-            // This now includes 'academic_status'
-            $student->update($validator->validated());
+            $validated = $validator->validated();
+
+            // Credential fields belong to the linked User account, not the
+            // student profile — strip them before mass-assigning the student.
+            $newPassword = $validated['password'] ?? null;
+            $newPin      = $validated['secondary_pin'] ?? null;
+            unset($validated['password'], $validated['secondary_pin']);
+
+            $credentialsRequested = $newPassword !== null || $newPin !== null;
+            $hasAccount = (bool) $student->user;
+
+            // Block credential changes for students without a login account so the
+            // admin gets clear feedback instead of a silently ignored update.
+            if ($credentialsRequested && !$hasAccount) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => [
+                        'password' => ['This student does not have a login account yet, so the password and PIN cannot be set.'],
+                    ],
+                ], 422);
+            }
+
+            DB::transaction(function () use ($student, $validated, $newPassword, $newPin) {
+                // Update the student profile (now includes school_year & academic_status)
+                $student->update($validated);
+
+                // Apply credential changes to the linked user account, if any were sent.
+                if ($newPassword !== null || $newPin !== null) {
+                    $account = $student->user;
+
+                    if ($newPassword !== null) {
+                        // 'password' cast => 'hashed' on the User model hashes this.
+                        $account->password = $newPassword;
+                    }
+                    if ($newPin !== null) {
+                        $account->secondary_pin = Hash::make($newPin);
+                    }
+                    $account->save();
+                }
+            });
 
             return response()->json([
                 'success' => true,
                 'message' => 'Student details updated successfully.',
-                'data' => $student,
+                'data' => $student->fresh('user'),
             ], 200);
 
         } catch (\Exception $e) {
@@ -976,8 +1019,16 @@ public function getStudentsForIdReleasing()
 
         // 4. Perform Action
         try {
-            // Use updateOrCreate to either create a new grade record or update an existing one.
-            // This sets the subject as "Credited" and gives it a default "Passed" grade.
+            $systemInstructor = Instructor::firstOrCreate(
+                ['email' => 'credited-subjects@system.local'],
+                [
+                    'name'       => 'Credited (Transferee)',
+                    'title'      => 'System',
+                    'department' => 'Registrar',
+                    'status'     => 'Active',
+                ]
+            );
+
             $grade = Grade::updateOrCreate(
                 [
                     'pre_enrolled_student_id' => $student->id,
@@ -986,7 +1037,7 @@ public function getStudentsForIdReleasing()
                 [
                     'status' => 'Credited',
                     'final_grade' => 1.00, // Default "Passed" grade
-                    'instructor_id' => 1, // Or a default system/registrar instructor ID
+                    'instructor_id' => $systemInstructor->id,
                 ]
             );
 
@@ -1389,6 +1440,7 @@ public function submitContinuingEnrollment(Request $request): JsonResponse
             'year' => 'required|string',
             'semester' => 'required|string',
             'school_year' => 'required|string',
+            'section_id' => 'nullable|exists:sections,id',
             'selected_subjects' => 'required|array',
             'selected_subjects.*' => 'exists:subjects,id',
         ]);
@@ -1537,7 +1589,12 @@ public function submitContinuingEnrollment(Request $request): JsonResponse
 
             // 5. Sync subjects for the new term
             $student->subjects()->sync($request->input('selected_subjects'));
-            
+
+            $newSectionId = $request->input('section_id');
+            if (!empty($newSectionId)) {
+                $student->sections()->sync([$newSectionId]);
+            }
+
             DB::commit();
 
             return response()->json([

@@ -422,6 +422,12 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
     
     // Required fields validation
     const requiredFields = [
+      // Enrollment details (these gate subject set-up)
+      { key: 'semester', label: 'Semester' },
+      { key: 'schoolYear', label: 'School Year' },
+      { key: 'year', label: 'Year Level' },
+      { key: 'section_id', label: 'Section' },
+      // Basic information (middle name is optional — some students have none)
       { key: 'firstName', label: 'First Name' },
       { key: 'lastName', label: 'Last Name' },
       { key: 'gender', label: 'Gender' },
@@ -432,30 +438,41 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
       { key: 'address', label: 'Address' },
       { key: 'contactNumber', label: 'Contact Number' },
       { key: 'emailAddress', label: 'Email Address' },
-      { key: 'semester', label: 'Semester' },
-      { key: 'schoolYear', label: 'School Year' },
+      // Parent / guardian information is optional — some students may not have
+      // a father or mother to list, so these are intentionally not required.
+      // Emergency contact
       { key: 'emergencyContactName', label: 'Emergency Contact Name' },
       { key: 'emergencyContactNumber', label: 'Emergency Contact Number' },
       { key: 'emergencyContactAddress', label: 'Emergency Contact Address' },
+      // Educational background
       { key: 'elementary', label: 'Elementary' },
       { key: 'juniorHighSchool', label: 'Junior High School' },
     ];
   
+    // Declared in function scope so they're available both here and when
+    // choosing the validation-modal message further below.
+    const invalidPattern = /^(n\/?a\.?|not\s?available|none)$/i;
+    // Catches lazy/vague descriptions like "picture of me", "my photo", "profile pic", etc.
+    const lazyDescriptionPattern = /\b(picture|photo|pic|image|selfie|profile)\s+(of\s+)?(me|mine|myself|ko|akin)\b|\b(my|ako'?s?)\s+(picture|photo|pic|image|selfie|profile)\b/i;
+
+    // Facebook account link is required only for New and Transferee students.
+    const fbRequired = enrollmentType === 'New' || enrollmentType === 'Transferee';
+
+    if (fbRequired) {
+      requiredFields.push({ key: 'fbAcc', label: 'Facebook Account' });
+
+      // Must be an actual Facebook profile LINK — not just a name or "N/A".
+      const facebookLinkPattern = /(?:https?:\/\/)?(?:www\.|m\.|web\.|mobile\.)?(?:facebook\.com|fb\.com|fb\.me|m\.me)\/[^\s]+/i;
+      if (formData.fbAcc && formData.fbAcc.trim() !== '' && !facebookLinkPattern.test(formData.fbAcc.trim())) {
+        errors.fbAcc = 'Please paste your Facebook profile LINK (e.g., https://facebook.com/your.name), not just your name.';
+      }
+    }
+
     if (enrollmentType === 'New') {
       requiredFields.push(
-        { key: 'fbAcc', label: 'Facebook Account' },
         { key: 'fbDescription', label: 'Facebook Description' }
       );
-  
-      const invalidPattern = /^(n\/?a\.?|not\s?available|none)$/i;
 
-      // Catches lazy/vague descriptions like "picture of me", "my photo", "profile pic", etc.
-      const lazyDescriptionPattern = /\b(picture|photo|pic|image|selfie|profile)\s+(of\s+)?(me|mine|myself|ko|akin)\b|\b(my|ako'?s?)\s+(picture|photo|pic|image|selfie|profile)\b/i;
-  
-      if (formData.fbAcc && invalidPattern.test(formData.fbAcc.trim())) {
-        errors.fbAcc = 'Please provide a valid Facebook account (N/A is not accepted).';
-      }
-  
       if (formData.fbDescription && invalidPattern.test(formData.fbDescription.trim())) {
         errors.fbDescription = 'Please provide a valid description (N/A is not accepted).';
       }
@@ -486,23 +503,48 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
     if (Object.keys(errors).length > 0) {
       console.log('Client-side validation errors found:', errors);
       setFormErrors(errors);
-      
-      const firstErrorKey = Object.keys(errors)[0];
-      const errorElement = document.querySelector(`[name="${firstErrorKey}"]`) || 
+
+      // True when the Facebook link is the problem — either missing OR not an
+      // actual Facebook link (e.g. the user typed just their name).
+      const fbLinkProblem = fbRequired && !!errors.fbAcc;
+
+      // Scroll straight to the Facebook field so the instructional modal and the
+      // highlighted field line up.
+      const firstErrorKey = fbLinkProblem ? 'fbAcc' : Object.keys(errors)[0];
+      const errorElement = document.querySelector(`[name="${firstErrorKey}"]`) ||
                            document.querySelector(`#${firstErrorKey}`) ||
                            document.querySelector(`[data-field="${firstErrorKey}"]`);
-      
+
       if (errorElement) {
         errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         setTimeout(() => {
           errorElement.focus();
         }, 500);
       }
-      
+
       setValidationErrorMessage(
-        errors.fbDescription && lazyDescriptionPattern.test(formData.fbDescription?.trim())
-          ? 'We don\'t know you! Admins here are not "manghuhula" and not your personal friends to recognize your face. Please describe your Facebook profile picture properly — what are you wearing, what\'s the background, are you with other people? Give us something to actually work with!'
-          : 'Please correct the errors in the form before proceeding.'
+        fbLinkProblem
+          ? (
+              <span>
+                A <strong>Facebook profile link</strong> is required so the Registrar can verify your identity — a name is not enough.
+                <br /><br />
+                <strong>How to get your link:</strong>
+                <br />1. Tap <strong>“Open Facebook”</strong> below and log in to your account.
+                <br />2. Go to your profile, then copy the link (URL) from the address bar.
+                <br />3. Paste it into the <strong>“Facebook Account Link”</strong> field, then continue.
+                <br /><br />
+                <button
+                  type="button"
+                  onClick={() => window.open('https://www.facebook.com', '_blank', 'noopener,noreferrer')}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm cursor-pointer"
+                >
+                  Open Facebook
+                </button>
+              </span>
+            )
+          : (errors.fbDescription && lazyDescriptionPattern.test(formData.fbDescription?.trim())
+              ? 'We don\'t know you! Admins here are not "manghuhula" and not your personal friends to recognize your face. Please describe your Facebook profile picture properly — what are you wearing, what\'s the background, are you with other people? Give us something to actually work with!'
+              : 'Please correct the errors in the form before proceeding.')
       );
       setShowValidationErrorModal(true);
       return;
@@ -1128,17 +1170,22 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
                       <button
                         type="button"
                         onClick={() => setIsSectionOpen(!isSectionOpen)}
-                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-left text-gray-800 flex justify-between items-center focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg text-sm"
+                        name="section_id"
+                        data-field="section_id"
+                        className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.section_id ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-left text-gray-800 flex justify-between items-center focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg text-sm`}
                       >
                         <div className="flex items-center gap-2">
                           <span className="font-semibold">
-                            {formData.section_id 
-                              ? sections.find(s => s.id === formData.section_id)?.name 
+                            {formData.section_id
+                              ? sections.find(s => s.id === formData.section_id)?.name
                               : "Select Section"}
                           </span>
                         </div>
                         <ChevronDown size={18} className={`text-gray-400 transition-transform ${isSectionOpen ? 'rotate-180' : ''}`} />
                       </button>
+                      {formErrors.section_id && (
+                        <p className="text-red-500 text-xs mt-1">{formErrors.section_id}</p>
+                      )}
 
                       <AnimatePresence>
                         {isSectionOpen && (
@@ -1448,16 +1495,26 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
-                          Facebook Account (Link or Name)
+                          Facebook Account Link (Kindly open in another tab)
                         </label>
                         <input
                           type="text"
                           placeholder="e.g., https://facebook.com/juan.delacruz"
                           value={formData.fbAcc}
                           onChange={(e) => handleFormDataChange('fbAcc', e.target.value)}
-                          className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                          className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.fbAcc ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
                           name="fbAcc"
+                          data-field="fbAcc"
                         />
+                        {formErrors.fbAcc ? (
+                          <p className="text-red-500 text-xs mt-1 ml-1">{formErrors.fbAcc}</p>
+                        ) : (
+                          <p className="text-xs text-gray-500 mt-1 ml-1">
+                            {(enrollmentType === 'New' || enrollmentType === 'Transferee')
+                              ? 'Required. Open Facebook in another tab, log in, then paste your profile link here.'
+                              : 'Open Facebook in another tab, log in, then paste your profile link here.'}
+                          </p>
+                        )}
                       </div>
                       
                       <div>

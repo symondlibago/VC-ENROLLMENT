@@ -68,11 +68,16 @@ class AuthController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['success' => false, 'message' => 'Validation errors', 'errors' => $validator->errors()], 422);
+            return response()->json(['success' => false, 'message' => 'Please enter a valid email and password.', 'errors' => $validator->errors()], 422);
         }
 
+        // Single, deliberately non-revealing message for both a non-existent
+        // email and a wrong password (prevents user-enumeration).
         if (!Auth::attempt($request->only('email', 'password'))) {
-            return response()->json(['success' => false, 'message' => 'Invalid credentials'], 401);
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid email or password. Please check your credentials and try again.',
+            ], 401);
         }
 
         $user = Auth::user();

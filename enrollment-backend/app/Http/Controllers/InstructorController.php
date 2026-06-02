@@ -519,6 +519,7 @@ public function bulkUpdateGrades(Request $request)
                 // 4. Create Roster Entry for this specific Schedule
                 // We are passing extra subject info here so the PDF header populates properly
                 $rosterData[] = [
+                    'subject_id' => $schedule->subject->id,
                     'subject_code' => $schedule->subject->subject_code,
                     'descriptive_title' => $schedule->subject->descriptive_title,
                     'schedule_time' => $schedule->day . ' ' . $schedule->time,
