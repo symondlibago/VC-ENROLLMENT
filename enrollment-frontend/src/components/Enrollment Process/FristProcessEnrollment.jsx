@@ -26,6 +26,83 @@ import ValidationErrorModal from '../modals/ValidationErrorModal';
 import { subjectAPI, enrollmentAPI, sectionAPI } from '@/services/api';
 import VipcLogo from '/circlelogo.png';
 
+const validateFacebookProfileLink = (raw) => {
+  const value = (raw || '').trim();
+  if (value === '') return null; // emptiness is handled by the required-field check
+
+  if (/\s/.test(value)) {
+    return 'Your Facebook link should not contain spaces. Paste the exact URL copied from your profile.';
+  }
+
+  let url;
+  try {
+    url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
+  } catch {
+    return 'Please paste a valid Facebook profile LINK (e.g., https://facebook.com/your.name), not just a name.';
+  }
+
+  // Host must be an actual Facebook domain (strip a leading www./m./web./mobile./l.).
+  const host = url.hostname.toLowerCase().replace(/^(www|m|web|mobile|l)\./, '');
+  const allowedHosts = ['facebook.com', 'fb.com', 'fb.me', 'm.me'];
+  if (!allowedHosts.includes(host)) {
+    return 'That is not a Facebook link. It must be on facebook.com (e.g., https://facebook.com/your.name).';
+  }
+
+  const segments = url.pathname.split('/').filter(Boolean); // drops empty parts
+  if (segments.length === 0) {
+    return 'Add YOUR profile to the link — “facebook.com” alone is not enough (e.g., facebook.com/your.name).';
+  }
+
+  const first = segments[0].toLowerCase();
+
+  // facebook.com/profile.php?id=<digits>
+  if (first === 'profile.php') {
+    const id = url.searchParams.get('id') || '';
+    return /^\d{5,}$/.test(id)
+      ? null
+      : 'Your profile.php link is missing a valid id (e.g., facebook.com/profile.php?id=100001234567890).';
+  }
+
+  // facebook.com/people/<Name>/<id>
+  if (first === 'people') {
+    const id = segments[2] || '';
+    return /^\d{5,}$/.test(id) || /^pfbid[A-Za-z0-9]+$/i.test(id)
+      ? null
+      : 'That profile link looks incomplete. Open your profile and copy the FULL link from the address bar.';
+  }
+
+  // Facebook's own pages — not a personal profile.
+  const reserved = new Set([
+    'home', 'login', 'signup', 'recover', 'help', 'settings', 'pages', 'page',
+    'groups', 'group', 'events', 'event', 'watch', 'marketplace', 'gaming', 'games',
+    'messages', 'notifications', 'friends', 'bookmarks', 'find-friends', 'reel', 'reels',
+    'stories', 'story.php', 'sharer', 'sharer.php', 'dialog', 'photo.php', 'photo',
+    'media', 'hashtag', 'search', 'public', 'biz', 'business', 'ads', 'adsmanager',
+    'about', 'privacy', 'terms', 'policies',
+  ]);
+  if (reserved.has(first)) {
+    return 'That is a Facebook page, not YOUR personal profile. Open your own profile and copy that link.';
+  }
+
+  // Personal username rules: 5+ characters, letters/numbers/periods only.
+  const username = segments[0];
+  if (!/^[A-Za-z0-9.]{5,}$/.test(username)) {
+    return 'That does not look like a real Facebook username. Copy the link directly from your profile (e.g., facebook.com/juan.delacruz).';
+  }
+
+  // Obvious placeholder / "loophole" usernames.
+  const junk = new Set([
+    'france', 'test', 'tests', 'testing', 'sample', 'samples', 'none', 'null', 'user',
+    'users', 'username', 'account', 'accounts', 'admin', 'asdf', 'asdfgh', 'qwerty',
+    'wala', 'dummy', 'example', 'profile',
+  ]);
+  if (junk.has(username.toLowerCase())) {
+    return 'Please enter your REAL Facebook profile link, not a placeholder.';
+  }
+
+  return null;
+};
+
 const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
   const [department, setDepartment] = useState('');
   const [enrollmentType, setEnrollmentType] = useState('');
@@ -461,10 +538,9 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
     if (fbRequired) {
       requiredFields.push({ key: 'fbAcc', label: 'Facebook Account' });
 
-      // Must be an actual Facebook profile LINK — not just a name or "N/A".
-      const facebookLinkPattern = /(?:https?:\/\/)?(?:www\.|m\.|web\.|mobile\.)?(?:facebook\.com|fb\.com|fb\.me|m\.me)\/[^\s]+/i;
-      if (formData.fbAcc && formData.fbAcc.trim() !== '' && !facebookLinkPattern.test(formData.fbAcc.trim())) {
-        errors.fbAcc = 'Please paste your Facebook profile LINK (e.g., https://facebook.com/your.name), not just your name.';
+      const fbError = validateFacebookProfileLink(formData.fbAcc);
+      if (formData.fbAcc && formData.fbAcc.trim() !== '' && fbError) {
+        errors.fbAcc = fbError;
       }
     }
 
