@@ -656,6 +656,13 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                   <Field label="FB Profile Description" valueClassName="italic font-medium text-gray-700">
                     {student.fb_description || 'N/A'}
                   </Field>
+                  <Field label="Heard About Us">
+                    {student.referral_source
+                      ? (student.referral_source === 'Others'
+                          ? `Others — ${student.referral_source_other || 'Not specified'}`
+                          : student.referral_source)
+                      : 'N/A'}
+                  </Field>
                 </div>
               </SectionCard>
 

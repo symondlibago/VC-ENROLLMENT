@@ -252,6 +252,9 @@ const Enrollment = () => {
 };
 
 const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchTerm, selectedFilter, setSelectedFilter }) => {
+    const PAGE_SIZE = 50;
+    const [currentPage, setCurrentPage] = useState(1);
+
     const filteredEnrollments = useMemo(() => {
         // 1. Filter the enrollments based on search and selected filter
         const filtered = enrollments.filter(enrollment => {
@@ -302,6 +305,21 @@ const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchT
 
     }, [enrollments, searchTerm, selectedFilter]);
 
+    // Reset to the first page whenever the search or filter changes so we
+    // never get stranded on a now-empty page.
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, selectedFilter]);
+
+    // Client-side pagination: slice the already-filtered list into 50-row pages.
+    const totalItems = filteredEnrollments.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+    const safePage = Math.min(currentPage, totalPages);
+    const startIndex = (safePage - 1) * PAGE_SIZE;
+    const pageItems = filteredEnrollments.slice(startIndex, startIndex + PAGE_SIZE);
+    const showingFrom = totalItems === 0 ? 0 : startIndex + 1;
+    const showingTo = Math.min(startIndex + PAGE_SIZE, totalItems);
+
     return (
         <div className="space-y-6">
             <Card>
@@ -326,7 +344,7 @@ const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchT
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredEnrollments.length > 0 ? filteredEnrollments.map(e => (
+                        {pageItems.length > 0 ? pageItems.map(e => (
                             <TableRow key={e.id} className="hover:bg-red-50/50">
                                 <TableCell className="font-medium">
                                     <div className="flex items-center gap-3">
@@ -389,6 +407,36 @@ const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchT
                         )}
                     </TableBody>
                 </Table>
+                {totalItems > PAGE_SIZE && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-gray-100 px-6 py-4">
+                        <p className="text-sm text-gray-600">
+                            Showing <span className="font-semibold text-gray-900">{showingFrom}</span>–<span className="font-semibold text-gray-900">{showingTo}</span> of <span className="font-semibold text-gray-900">{totalItems}</span> students
+                        </p>
+                        <div className="flex items-center gap-3">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="cursor-pointer"
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={safePage <= 1}
+                            >
+                                <ChevronLeft className="w-4 h-4 mr-1" /> Previous
+                            </Button>
+                            <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                                Page {safePage} of {totalPages}
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="cursor-pointer"
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={safePage >= totalPages}
+                            >
+                                Next <ChevronRight className="w-4 h-4 ml-1" />
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </Card>
         </div>
     );

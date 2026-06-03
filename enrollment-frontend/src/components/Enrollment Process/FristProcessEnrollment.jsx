@@ -115,6 +115,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
   const [isSemesterOpen, setIsSemesterOpen] = useState(false);
   const [isCourseOpen, setIsCourseOpen] = useState(false);
   const [isGenderOpen, setIsGenderOpen] = useState(false);
+  const [isHearAboutUsOpen, setIsHearAboutUsOpen] = useState(false);
   const [isYearOpen, setIsYearOpen] = useState(false);
   const [sections, setSections] = useState([]);
   const [isSectionOpen, setIsSectionOpen] = useState(false);
@@ -162,7 +163,9 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
     emailAddress: '',
     fbAcc: '',
     fbDescription: '',
-    
+    hearAboutUs: '',
+    hearAboutUsOther: '',
+
     // Parent Information
     fatherName: '',
     fatherOccupation: '',
@@ -210,6 +213,8 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
   const schoolYears = ['2026-2027','2027-2028' ];
   const semesters = ['1st Semester', '2nd Semester', 'Summer'];
   const genders = ['Male', 'Female'];
+
+  const hearAboutUsOptions = ['TikTok', 'Facebook', 'Instagram', 'Referral', 'Others'];
   const [formErrors, setFormErrors] = useState({});
   
   // Get year options based on program type
@@ -351,6 +356,8 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
       formDataObj.append('email_address', formData.emailAddress);
       formDataObj.append('fb_acc', formData.fbAcc || '');
       formDataObj.append('fb_description', formData.fbDescription || '');
+      formDataObj.append('referral_source', formData.hearAboutUs || '');
+      formDataObj.append('referral_source_other', formData.hearAboutUsOther || '');
       formDataObj.append('father_name', formData.fatherName || '');
       formDataObj.append('father_occupation', formData.fatherOccupation || '');
       formDataObj.append('father_contact_number', formData.fatherContactNumber || '');
@@ -464,6 +471,16 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
     setIsGenderOpen(false);
   };
 
+  const handleHearAboutUsSelect = (option) => {
+    setFormData(prev => ({
+      ...prev,
+      hearAboutUs: option,
+      // Clear the "please specify" text when switching away from Others.
+      hearAboutUsOther: option === 'Others' ? prev.hearAboutUsOther : '',
+    }));
+    setIsHearAboutUsOpen(false);
+  };
+
   const handleBackClick = () => {
     if (currentStep > 1) {
       setCurrentStep(prevStep => prevStep - 1);
@@ -537,6 +554,8 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
 
     if (fbRequired) {
       requiredFields.push({ key: 'fbAcc', label: 'Facebook Account' });
+      // "How did you hear about us?" is required for New & Transferee only.
+      requiredFields.push({ key: 'hearAboutUs', label: 'How did you hear about us' });
 
       const fbError = validateFacebookProfileLink(formData.fbAcc);
       if (formData.fbAcc && formData.fbAcc.trim() !== '' && fbError) {
@@ -558,6 +577,11 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
       }
     }
     
+    // If they chose "Others", they must specify where they heard about us.
+    if (fbRequired && formData.hearAboutUs === 'Others' && (!formData.hearAboutUsOther || formData.hearAboutUsOther.trim() === '')) {
+      errors.hearAboutUsOther = 'Please specify where you heard about us.';
+    }
+
     // Check required fields
     requiredFields.forEach(field => {
       if (!formData[field.key] || (typeof formData[field.key] === 'string' && formData[field.key].trim() === '')) {
@@ -1567,7 +1591,77 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
                 {/* Social Media Information */}
                   <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl p-4 border border-blue-200 mb-4">
                     <h3 className="text-lg font-bold heading-bold text-gray-900 mb-4">Social Media Reference</h3>
-                    
+
+                    {/* How did you hear about us? — New & Transferee only */}
+                    {(enrollmentType === 'New' || enrollmentType === 'Transferee') && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
+                          How did you hear about us?
+                        </label>
+                        <div className="relative">
+                          <button
+                            type="button"
+                            className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.hearAboutUs ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-left text-gray-800 flex justify-between items-center focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg text-sm`}
+                            onClick={() => setIsHearAboutUsOpen(!isHearAboutUsOpen)}
+                            name="hearAboutUs"
+                            data-field="hearAboutUs"
+                          >
+                            <span className="font-semibold">
+                              {formData.hearAboutUs || 'Select an option'}
+                            </span>
+                            <ChevronDown className={`w-4 h-4 text-[var(--dominant-red)] transition-transform duration-300 ${isHearAboutUsOpen ? 'rotate-180' : 'rotate-0'}`} />
+                          </button>
+                          {formErrors.hearAboutUs && (
+                            <p className="text-red-500 text-xs mt-1">{formErrors.hearAboutUs}</p>
+                          )}
+                          <AnimatePresence>
+                            {isHearAboutUsOpen && (
+                              <motion.div
+                                variants={dropdownVariants}
+                                initial="hidden"
+                                animate="visible"
+                                exit="exit"
+                                className="absolute z-20 w-full bg-white border-2 border-gray-200 rounded-2xl shadow-2xl mt-2 max-h-80 overflow-auto"
+                              >
+                                {hearAboutUsOptions.map((option) => (
+                                  <motion.div
+                                    key={option}
+                                    className="px-4 py-3 hover:bg-gradient-to-r hover:from-[var(--whitish-pink)] hover:to-white cursor-pointer transition-all duration-200 text-gray-800 border-b border-gray-100 last:border-b-0 font-medium text-sm"
+                                    onClick={() => handleHearAboutUsSelect(option)}
+                                    whileHover={{ x: 5 }}
+                                  >
+                                    {option}
+                                  </motion.div>
+                                ))}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      </div>
+
+                      {formData.hearAboutUs === 'Others' && (
+                        <div>
+                          <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
+                            Please specify
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g., Saw a poster, school fair, a friend, etc."
+                            value={formData.hearAboutUsOther}
+                            onChange={(e) => handleFormDataChange('hearAboutUsOther', e.target.value)}
+                            className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.hearAboutUsOther ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
+                            name="hearAboutUsOther"
+                            data-field="hearAboutUsOther"
+                          />
+                          {formErrors.hearAboutUsOther && (
+                            <p className="text-red-500 text-xs mt-1">{formErrors.hearAboutUsOther}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    )}
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">

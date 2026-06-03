@@ -43,6 +43,9 @@ class EnrollmentController extends Controller
             'email_address' => 'required|email|max:255|unique:pre_enrolled_students,email_address',
             'fb_acc' => 'nullable|string|max:255',
             'fb_description' => 'nullable|string|max:1000',
+            // Required only for New & Transferee; "Others" detail required when picked.
+            'referral_source' => 'nullable|string|max:255|required_if:enrollment_type,New,Transferee',
+            'referral_source_other' => 'nullable|string|max:255|required_if:referral_source,Others',
             'father_name' => 'nullable|string|max:255',
             'father_occupation' => 'nullable|string|max:255',
             'father_contact_number' => 'nullable|string|max:255',
