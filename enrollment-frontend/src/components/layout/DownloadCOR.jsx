@@ -223,8 +223,13 @@ const DownloadCOR = ({ student, subjectsWithSchedules, paymentData, termPayments
     
     // FETCH THE STUDENT'S SECTION ID
     const studentSectionId = student?.sections?.[0]?.id;
+    const creditedSubjectIds = (student?.grades || [])
+      .filter(g => g.status === 'Credited')
+      .map(g => g.subject_id);
 
-    subjectsWithSchedules.forEach(subject => {
+    subjectsWithSchedules
+      .filter(subject => !creditedSubjectIds.includes(subject.id))
+      .forEach(subject => {
       // FILTER SCHEDULES BY SECTION ID
       const filteredSchedules = (subject.schedules || []).filter(
         sched => !studentSectionId || sched.section_id === studentSectionId
