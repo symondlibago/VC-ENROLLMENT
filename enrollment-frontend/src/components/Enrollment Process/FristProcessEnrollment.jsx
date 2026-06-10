@@ -24,6 +24,7 @@ import CourseChoicesModal from '../modals/CourseChoicesModal';
 import EnrollmentConfirmationModal from '../modals/EnrollmentConfirmationModal';
 import ValidationErrorModal from '../modals/ValidationErrorModal';
 import { subjectAPI, enrollmentAPI, sectionAPI } from '@/services/api';
+import { getProvinces, getCities, getBarangays } from '@/data/phLocations';
 import VipcLogo from '/circlelogo.png';
 
 const validateFacebookProfileLink = (raw) => {
@@ -103,6 +104,85 @@ const validateFacebookProfileLink = (raw) => {
   return null;
 };
 
+// Capitalize the first letter of each word (non-destructive to existing caps),
+// so "juan dela cruz" -> "Juan Dela Cruz". Used for the name fields. Same length
+// in/out, so the input cursor position is preserved while typing.
+const capitalizeWords = (str) => (str || '').replace(/\b[a-z]/g, (c) => c.toUpperCase());
+
+/**
+ * A type-to-filter dropdown that still scrolls — used for the long Philippine
+ * location lists (provinces/cities/barangays) so users can search instead of
+ * scrolling through hundreds of options.
+ */
+const SearchableDropdown = ({ field, label, value, placeholder, options, onSelect, isOpen, setOpen, disabled = false, isLoading = false, error }) => {
+  const [query, setQuery] = useState('');
+
+  // Clear the search box whenever the dropdown closes.
+  useEffect(() => { if (!isOpen) setQuery(''); }, [isOpen]);
+
+  const q = query.trim().toLowerCase();
+  const filtered = q ? options.filter((o) => o.name.toLowerCase().includes(q)) : options;
+
+  return (
+    <div>
+      <span className="block text-gray-500 text-xs mb-1 ml-1">{label}</span>
+      <div className="relative">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => !disabled && setOpen(!isOpen)}
+          className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${error ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-left flex justify-between items-center focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed`}
+          name={field}
+          data-field={field}
+        >
+          <span className={`font-semibold truncate ${value ? 'text-gray-800' : 'text-gray-400'}`}>{value || placeholder}</span>
+          <ChevronDown className={`w-4 h-4 text-[var(--dominant-red)] shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`} />
+        </button>
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.18 }}
+              className="absolute z-30 w-full bg-white border-2 border-gray-200 rounded-2xl shadow-2xl mt-2 overflow-hidden"
+            >
+              <div className="p-2 border-b border-gray-100">
+                <input
+                  autoFocus
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Type to search..."
+                  className="w-full border border-gray-200 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-[var(--dominant-red)]"
+                />
+              </div>
+              <div className="max-h-60 overflow-auto">
+                {isLoading ? (
+                  <div className="px-4 py-3 text-sm text-gray-400">Loading…</div>
+                ) : filtered.length > 0 ? (
+                  filtered.map((option, idx) => (
+                    <div
+                      key={option.code || `${option.name}-${idx}`}
+                      className="px-4 py-2.5 hover:bg-gradient-to-r hover:from-[var(--whitish-pink)] hover:to-white cursor-pointer text-gray-800 border-b border-gray-100 last:border-b-0 font-medium text-sm"
+                      onClick={() => { onSelect(option); setQuery(''); }}
+                    >
+                      {option.name}
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-sm text-gray-400">No results found</div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      {error && <p className="text-red-500 text-xs mt-1 ml-1">{error}</p>}
+    </div>
+  );
+};
+
 const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
   const [department, setDepartment] = useState('');
   const [enrollmentType, setEnrollmentType] = useState('');
@@ -116,6 +196,14 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
   const [isCourseOpen, setIsCourseOpen] = useState(false);
   const [isGenderOpen, setIsGenderOpen] = useState(false);
   const [isHearAboutUsOpen, setIsHearAboutUsOpen] = useState(false);
+  const [isCivilStatusOpen, setIsCivilStatusOpen] = useState(false);
+  const [isProvinceOpen, setIsProvinceOpen] = useState(false);
+  const [isCityMunOpen, setIsCityMunOpen] = useState(false);
+  const [isBarangayOpen, setIsBarangayOpen] = useState(false);
+  const [provinceOptions] = useState(() => getProvinces());
+  const [cityOptions, setCityOptions] = useState([]);
+  const [barangayOptions, setBarangayOptions] = useState([]);
+  const [isLoadingBarangays, setIsLoadingBarangays] = useState(false);
   const [isYearOpen, setIsYearOpen] = useState(false);
   const [sections, setSections] = useState([]);
   const [isSectionOpen, setIsSectionOpen] = useState(false);
@@ -159,6 +247,10 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
     civilStatus: '',
     religion: '',
     address: '',
+    province: '',
+    cityMunicipality: '',
+    barangay: '',
+    street: '',
     contactNumber: '',
     emailAddress: '',
     fbAcc: '',
@@ -215,6 +307,8 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
   const genders = ['Male', 'Female'];
 
   const hearAboutUsOptions = ['TikTok', 'Facebook', 'Instagram', 'Referral', 'Others'];
+
+  const civilStatusOptions = ['Single', 'Married', 'Widowed', 'Separated', 'Divorced', 'Annulled'];
   const [formErrors, setFormErrors] = useState({});
   
   // Get year options based on program type
@@ -351,7 +445,13 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
       formDataObj.append('nationality', formData.nationality);
       formDataObj.append('civil_status', formData.civilStatus);
       formDataObj.append('religion', formData.religion || '');
-      formDataObj.append('address', formData.address);
+      // Compose the structured location into the single `address` column,
+      // ordered specific -> broad so the analytics can parse it from the end.
+      const composedAddress = [formData.street, formData.barangay, formData.cityMunicipality, formData.province]
+        .map((v) => (v || '').trim())
+        .filter(Boolean)
+        .join(', ');
+      formDataObj.append('address', composedAddress);
       formDataObj.append('contact_number', formData.contactNumber);
       formDataObj.append('email_address', formData.emailAddress);
       formDataObj.append('fb_acc', formData.fbAcc || '');
@@ -481,6 +581,38 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
     setIsHearAboutUsOpen(false);
   };
 
+  // --- Cascading Philippine address dropdowns (Province -> City -> Barangay) ---
+  const handleProvinceSelect = (option) => {
+    // Reset the dependent fields when the province changes.
+    setFormData(prev => ({ ...prev, province: option.name, cityMunicipality: '', barangay: '' }));
+    setCityOptions(getCities(option.code));
+    setBarangayOptions([]);
+    setIsProvinceOpen(false);
+  };
+
+  const handleCityMunSelect = async (option) => {
+    setFormData(prev => ({ ...prev, cityMunicipality: option.name, barangay: '' }));
+    setBarangayOptions([]);
+    setIsCityMunOpen(false);
+    // Barangays are lazy-loaded (large dataset) for the chosen city.
+    setIsLoadingBarangays(true);
+    try {
+      setBarangayOptions(await getBarangays(option.code));
+    } finally {
+      setIsLoadingBarangays(false);
+    }
+  };
+
+  const handleBarangaySelect = (option) => {
+    handleFormDataChange('barangay', option.name);
+    setIsBarangayOpen(false);
+  };
+
+  const handleCivilStatusSelect = (status) => {
+    handleFormDataChange('civilStatus', status);
+    setIsCivilStatusOpen(false);
+  };
+
   const handleBackClick = () => {
     if (currentStep > 1) {
       setCurrentStep(prevStep => prevStep - 1);
@@ -529,7 +661,10 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
       { key: 'birthPlace', label: 'Birth Place' },
       { key: 'nationality', label: 'Nationality' },
       { key: 'civilStatus', label: 'Civil Status' },
-      { key: 'address', label: 'Address' },
+      // Structured address: Province/City/Barangay required; street is optional.
+      { key: 'province', label: 'Province' },
+      { key: 'cityMunicipality', label: 'City / Municipality' },
+      { key: 'barangay', label: 'Barangay' },
       { key: 'contactNumber', label: 'Contact Number' },
       { key: 'emailAddress', label: 'Email Address' },
       // Parent / guardian information is optional — some students may not have
@@ -1352,7 +1487,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
                         type="text"
                         placeholder="Enter Last Name"
                         value={formData.lastName}
-                        onChange={(e) => handleFormDataChange('lastName', e.target.value)}
+                        onChange={(e) => handleFormDataChange('lastName', capitalizeWords(e.target.value))}
                         className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.lastName ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
                         name="lastName"
                         data-field="lastName"
@@ -1369,7 +1504,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
                           type="text"
                           placeholder="Enter First Name"
                           value={formData.firstName}
-                          onChange={(e) => handleFormDataChange('firstName', e.target.value)}
+                          onChange={(e) => handleFormDataChange('firstName', capitalizeWords(e.target.value))}
                           className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.firstName ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
                           name="firstName"
                           data-field="firstName"
@@ -1386,7 +1521,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
                         type="text"
                         placeholder="Enter Middle Name"
                         value={formData.middleName}
-                        onChange={(e) => handleFormDataChange('middleName', e.target.value)}
+                        onChange={(e) => handleFormDataChange('middleName', capitalizeWords(e.target.value))}
                         className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.middleName ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
                         name="middleName"
                         data-field="middleName"
@@ -1503,15 +1638,29 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
                       <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
                         Civil Status
                       </label>
-                      <input
-                        type="text"
-                        placeholder="Enter Civil Status"
-                        value={formData.civilStatus}
-                        onChange={(e) => handleFormDataChange('civilStatus', e.target.value)}
-                        className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.civilStatus ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
-                        name="civilStatus"
-                        data-field="civilStatus"
-                      />
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.civilStatus ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-left flex justify-between items-center focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 hover:shadow-lg text-sm`}
+                          onClick={() => setIsCivilStatusOpen(!isCivilStatusOpen)}
+                          name="civilStatus"
+                          data-field="civilStatus"
+                        >
+                          <span className={`font-semibold ${formData.civilStatus ? 'text-gray-800' : 'text-gray-400'}`}>{formData.civilStatus || 'Select Civil Status'}</span>
+                          <ChevronDown className={`w-4 h-4 text-[var(--dominant-red)] transition-transform duration-300 ${isCivilStatusOpen ? 'rotate-180' : 'rotate-0'}`} />
+                        </button>
+                        <AnimatePresence>
+                          {isCivilStatusOpen && (
+                            <motion.div variants={dropdownVariants} initial="hidden" animate="visible" exit="exit" className="absolute z-20 w-full bg-white border-2 border-gray-200 rounded-2xl shadow-2xl mt-2 max-h-80 overflow-auto">
+                              {civilStatusOptions.map((option) => (
+                                <motion.div key={option} className="px-4 py-3 hover:bg-gradient-to-r hover:from-[var(--whitish-pink)] hover:to-white cursor-pointer transition-all duration-200 text-gray-800 border-b border-gray-100 last:border-b-0 font-medium text-sm" onClick={() => handleCivilStatusSelect(option)} whileHover={{ x: 5 }}>
+                                  {option}
+                                </motion.div>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
                       {formErrors.civilStatus && (
                         <p className="text-red-500 text-xs mt-1">{formErrors.civilStatus}</p>
                       )}
@@ -1530,23 +1679,65 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
                     </div>
                   </div>
 
-                  {/* Address */}
+                  {/* Address — cascading Philippine location dropdowns */}
                   <div className="mb-4">
                     <label className="block text-gray-800 text-sm font-bold heading-bold mb-2">
                       Address
                     </label>
-                    <input
-                      type="text"
-                      placeholder="Enter Complete Address"
-                      value={formData.address}
-                      onChange={(e) => handleFormDataChange('address', e.target.value)}
-                      className={`w-full bg-gradient-to-r from-gray-50 to-white border-2 ${formErrors.address ? 'border-red-500' : 'border-gray-200'} rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm`}
-                      name="address"
-                      data-field="address"
-                    />
-                    {formErrors.address && (
-                      <p className="text-red-500 text-xs mt-1">{formErrors.address}</p>
-                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <SearchableDropdown
+                        field="province"
+                        label="Province"
+                        value={formData.province}
+                        placeholder="Select Province"
+                        options={provinceOptions}
+                        onSelect={handleProvinceSelect}
+                        isOpen={isProvinceOpen}
+                        setOpen={setIsProvinceOpen}
+                        error={formErrors.province}
+                      />
+
+                      <SearchableDropdown
+                        field="cityMunicipality"
+                        label="City / Municipality"
+                        value={formData.cityMunicipality}
+                        placeholder={formData.province ? 'Select City / Municipality' : 'Select Province first'}
+                        options={cityOptions}
+                        onSelect={handleCityMunSelect}
+                        isOpen={isCityMunOpen}
+                        setOpen={setIsCityMunOpen}
+                        disabled={!formData.province}
+                        error={formErrors.cityMunicipality}
+                      />
+
+                      <SearchableDropdown
+                        field="barangay"
+                        label="Barangay"
+                        value={formData.barangay}
+                        placeholder={isLoadingBarangays ? 'Loading…' : (formData.cityMunicipality ? 'Select Barangay' : 'Select City first')}
+                        options={barangayOptions}
+                        onSelect={handleBarangaySelect}
+                        isOpen={isBarangayOpen}
+                        setOpen={setIsBarangayOpen}
+                        disabled={!formData.cityMunicipality}
+                        isLoading={isLoadingBarangays}
+                        error={formErrors.barangay}
+                      />
+                    </div>
+
+                    {/* Street / House No. (optional) */}
+                    <div className="mt-4">
+                      <span className="block text-gray-500 text-xs mb-1 ml-1">Street / House No. / Purok (optional)</span>
+                      <input
+                        type="text"
+                        placeholder="e.g., #12 Acacia St., Purok 5"
+                        value={formData.street}
+                        onChange={(e) => handleFormDataChange('street', e.target.value)}
+                        className="w-full bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-gray-800 focus:outline-none focus:border-[var(--dominant-red)] transition-all duration-300 text-sm"
+                        name="street"
+                        data-field="street"
+                      />
+                    </div>
                   </div>
 
                   {/* Contact Information */}

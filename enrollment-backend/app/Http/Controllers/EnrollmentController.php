@@ -637,6 +637,8 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
                 'sectionName' => $student->sections->isNotEmpty() ? $student->sections->first()->name : 'Unassigned',
                 'academic_status' => $currentAcademicStatus, // This now respects the DB value
                 'enrollment_status' => ucfirst($student->enrollment_status),
+                'enrollment_type' => $student->enrollment_type,
+                'address' => $student->address,
             ];
         });
 

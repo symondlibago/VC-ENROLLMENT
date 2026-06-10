@@ -16,7 +16,8 @@ import {
   Hash,
   Settings2,
   ContactRound,
-  Calendar
+  Calendar,
+  MapPin
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -47,6 +48,7 @@ import SuccessAlert from '../modals/SuccessAlert';
 import LoadingSpinner from '../layout/LoadingSpinner';
 import DeleteConfirmationModal from '../modals/DeleteConfirmationModal';
 import { sectionAPI, enrollmentAPI, courseAPI, authAPI } from '@/services/api';
+import { getProvinceNameSet } from '@/data/phLocations';
 
 
 const getStatusBadgeVariant = (status) => {
@@ -381,9 +383,17 @@ const Students = () => {
             </div>
             <div className="flex items-center space-x-2">
               <div className="relative bg-gray-100 rounded-2xl p-1 inline-flex">
-                  <motion.div className="absolute top-1 bottom-1 bg-white rounded-xl shadow-md" initial={false} animate={{ left: activeView === 'sections' ? '4px' : '50%', right: activeView === 'sections' ? '50%' : '4px' }} />
-                  <button onClick={() => setActiveView('sections')} className={`relative z-10 p-3 rounded-xl ${activeView === 'sections' ? 'text-(--dominant-red)' : 'text-gray-600'}`}> <ContactRound className="w-5 h-5" /> </button>
-                  <button onClick={() => setActiveView('students')} className={`relative z-10 p-3 rounded-xl ${activeView === 'students' ? 'text-(--dominant-red)' : 'text-gray-600'}`}> <Users className="w-5 h-5" /> </button>
+                  <motion.div
+                    className="absolute top-1 bottom-1 bg-white rounded-xl shadow-md"
+                    initial={false}
+                    animate={{
+                      left: activeView === 'sections' ? '4px' : activeView === 'students' ? '33.3%' : '66.6%',
+                      right: activeView === 'sections' ? '66.6%' : activeView === 'students' ? '33.3%' : '4px',
+                    }}
+                  />
+                  <button onClick={() => setActiveView('sections')} title="Sections" className={`relative z-10 p-3 rounded-xl ${activeView === 'sections' ? 'text-(--dominant-red)' : 'text-gray-600'}`}> <ContactRound className="w-5 h-5" /> </button>
+                  <button onClick={() => setActiveView('students')} title="Students" className={`relative z-10 p-3 rounded-xl ${activeView === 'students' ? 'text-(--dominant-red)' : 'text-gray-600'}`}> <Users className="w-5 h-5" /> </button>
+                  <button onClick={() => setActiveView('address')} title="New students by address" className={`relative z-10 p-3 rounded-xl ${activeView === 'address' ? 'text-(--dominant-red)' : 'text-gray-600'}`}> <MapPin className="w-5 h-5" /> </button>
               </div>
               <Button className="gradient-primary text-white" onClick={handleAddSectionClick}><Plus className="w-4 h-4 mr-2" />Add Section</Button>
             </div>
@@ -400,13 +410,15 @@ const Students = () => {
 
       <AnimatePresence mode="wait">
         <motion.div key={activeView} variants={pageVariants} initial="initial" animate="animate" exit="exit">
-          {activeView === 'sections' 
-            ? <SectionPage 
+          {activeView === 'address'
+            ? <AddressPage students={enrolledStudents} schoolYearOptions={schoolYearOptions} />
+            : activeView === 'sections'
+            ? <SectionPage
                 sections={filteredSections} courses={courses} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
                 courseFilter={sectionCourseFilter} setCourseFilter={setSectionCourseFilter} onSectionClick={handleSectionClick}
                 onAddSectionClick={handleAddSectionClick} onEditClick={handleEditSectionClick} onDeleteClick={handleDeleteSectionClick}
               />
-            : <StudentPage 
+            : <StudentPage
                 students={filteredStudents} sections={sections} courses={courses} 
                 searchTerm={searchTerm} setSearchTerm={setSearchTerm} 
                 courseFilter={studentCourseFilter} setCourseFilter={setStudentCourseFilter}
@@ -555,5 +567,154 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
       </div>
     );
 }
+
+// Province names (UPPER-CASE) used to detect whether an address was built from
+// the cascading dropdowns (last comma-token is a real province) vs. a legacy
+// free-typed one. Computed once at module load (provinces.json is tiny).
+const PROVINCE_SET = getProvinceNameSet();
+
+// Parse a saved address back into its parts. New addresses are composed as
+// "[Street, ]Barangay, City, Province", so we read from the END (a street may
+// itself contain commas). Returns { structured, barangay, city, province }.
+const parseLocation = (rawAddress) => {
+  const parts = (rawAddress || '').split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length >= 3) {
+    const province = parts[parts.length - 1];
+    if (PROVINCE_SET.has(province.toUpperCase())) {
+      return {
+        structured: true,
+        province,
+        city: parts[parts.length - 2],
+        barangay: parts[parts.length - 3],
+      };
+    }
+  }
+  return { structured: false };
+};
+
+// Light cleanup for legacy free-typed addresses so identical ones group together.
+const normalizeAddress = (addr) =>
+  (addr || '').trim().replace(/\s+/g, ' ').replace(/[.,]+$/g, '');
+
+const AddressPage = ({ students, schoolYearOptions }) => {
+  const [schoolYear, setSchoolYear] = useState('all');
+  const [search, setSearch] = useState('');
+  const [groupBy, setGroupBy] = useState('city'); // 'city' | 'barangay'
+
+  const { rows, totalNew, shownNew } = useMemo(() => {
+    // Only NEW students, optionally narrowed to a school year.
+    const newStudents = students.filter((s) =>
+      (s.enrollment_type || '').toLowerCase() === 'new' &&
+      (schoolYear === 'all' || s.school_year === schoolYear)
+    );
+
+    const groups = new Map();
+    newStudents.forEach((s) => {
+      const loc = parseLocation(s.address);
+      let key, label, legacy = false;
+      if (loc.structured) {
+        if (groupBy === 'barangay') {
+          label = `${loc.barangay}, ${loc.city}`;
+        } else {
+          label = loc.city;
+        }
+        key = label.toUpperCase();
+      } else {
+        // Free-typed / pre-dropdown addresses: keep them visible, grouped by the
+        // exact text the student typed (lightly normalized), marked as legacy.
+        label = normalizeAddress(s.address) || '(No address provided)';
+        key = `legacy::${label.toLowerCase()}`;
+        legacy = true;
+      }
+      if (!groups.has(key)) groups.set(key, { label, count: 0, legacy });
+      groups.get(key).count += 1;
+    });
+
+    let result = Array.from(groups.values());
+    const q = search.trim().toLowerCase();
+    if (q) result = result.filter((r) => r.label.toLowerCase().includes(q));
+    // Real locations by count desc; the legacy bucket always sinks to the bottom.
+    result.sort((a, b) => {
+      if (a.legacy !== b.legacy) return a.legacy ? 1 : -1;
+      return b.count - a.count || a.label.localeCompare(b.label);
+    });
+
+    return {
+      rows: result,
+      totalNew: newStudents.length,
+      shownNew: result.reduce((sum, r) => sum + r.count, 0),
+    };
+  }, [students, schoolYear, search, groupBy]);
+
+  // Scale the bars against the largest count across all rows.
+  const maxCount = Math.max(0, ...rows.map((r) => r.count));
+  const unitLabel = groupBy === 'barangay' ? 'Barangay, City' : 'City / Municipality';
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 flex items-center"><MapPin className="w-5 h-5 mr-2 text-(--dominant-red)" />New Students by Address</h3>
+                <p className="text-sm text-gray-600">How many <span className="font-semibold">new</span> students enrolled from each location.</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="inline-flex bg-gray-100 rounded-lg p-1">
+                  <button onClick={() => setGroupBy('city')} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${groupBy === 'city' ? 'bg-white shadow text-(--dominant-red) font-semibold' : 'text-gray-600'}`}>By City</button>
+                  <button onClick={() => setGroupBy('barangay')} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${groupBy === 'barangay' ? 'bg-white shadow text-(--dominant-red) font-semibold' : 'text-gray-600'}`}>By Barangay</button>
+                </div>
+                <MotionDropdown value={schoolYear} onChange={setSchoolYear} options={schoolYearOptions} placeholder="Filter School Year" />
+              </div>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input placeholder={`Search a ${groupBy === 'barangay' ? 'barangay/city' : 'city/municipality'}...`} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+            </div>
+            <div className="flex flex-wrap gap-3 text-sm">
+              <Badge className="bg-green-100 text-green-800">New students: {totalNew}</Badge>
+              <Badge className="bg-blue-100 text-blue-800">{groupBy === 'barangay' ? 'Barangays' : 'Cities'}: {rows.filter((r) => !r.legacy).length}</Badge>
+              {search.trim() && <Badge className="bg-yellow-100 text-yellow-800">Matching: {shownNew}</Badge>}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[60px]">#</TableHead>
+              <TableHead><MapPin size={16} className="inline mr-2" />{unitLabel}</TableHead>
+              <TableHead className="text-right w-[200px]">New Students</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.length > 0 ? rows.map((row, index) => (
+              <TableRow key={`${row.legacy ? 'L' : 'S'}:${row.label}`} className={row.legacy ? 'bg-gray-50' : ''}>
+                <TableCell className="font-mono text-xs text-gray-500">{index + 1}</TableCell>
+                <TableCell className={row.legacy ? 'italic text-gray-500' : 'font-medium text-gray-900'}>
+                  {row.label}
+                  {row.legacy && <span className="ml-2 not-italic text-xs text-gray-400">(typed)</span>}
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center justify-end gap-3">
+                    <div className="hidden sm:block w-32 h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full ${row.legacy ? 'bg-gray-300' : 'bg-(--dominant-red)'}`} style={{ width: `${maxCount ? (row.count / maxCount) * 100 : 0}%` }} />
+                    </div>
+                    <Badge className={`${row.legacy ? 'bg-gray-200 text-gray-600' : 'bg-red-50 text-(--dominant-red)'} font-bold min-w-10 justify-center`}>{row.count}</Badge>
+                  </div>
+                </TableCell>
+              </TableRow>
+            )) : (
+              <TableRow><TableCell colSpan="3" className="text-center h-24">No new students found{schoolYear !== 'all' ? ' for this school year' : ''}.</TableCell></TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </Card>
+    </div>
+  );
+};
 
 export default Students;

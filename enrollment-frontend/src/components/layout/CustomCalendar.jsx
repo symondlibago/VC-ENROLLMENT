@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Calendar as CalendarIcon } from 'lucide-react';
 
 const CustomCalendar = ({ 
   value, 
@@ -190,20 +190,26 @@ const CustomCalendar = ({
               </motion.button>
 
               <div className="flex space-x-2">
-                <motion.div
-                  className="cursor-pointer font-bold"
+                <motion.button
+                  type="button"
+                  className="cursor-pointer font-bold flex items-center gap-1 px-2.5 py-1 rounded-lg border border-gray-200 hover:border-red-300 hover:bg-red-50 transition-colors"
                   whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => { setMonthPickerOpen(!monthPickerOpen); setYearPickerOpen(false); }}
                 >
                   {months[currentDate.getMonth()]}
-                </motion.div>
-                <motion.div
-                  className="cursor-pointer font-bold"
+                  <ChevronDown className="w-3.5 h-3.5 text-red-500" />
+                </motion.button>
+                <motion.button
+                  type="button"
+                  className="cursor-pointer font-bold flex items-center gap-1 px-2.5 py-1 rounded-lg border border-gray-200 hover:border-red-300 hover:bg-red-50 transition-colors"
                   whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => { setYearPickerOpen(!yearPickerOpen); setMonthPickerOpen(false); }}
                 >
                   {currentDate.getFullYear()}
-                </motion.div>
+                  <ChevronDown className="w-3.5 h-3.5 text-red-500" />
+                </motion.button>
               </div>
 
               <motion.button
