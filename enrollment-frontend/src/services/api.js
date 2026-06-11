@@ -700,6 +700,15 @@ export const sectionAPI = {
       throw error.response?.data || { success: false, message: 'Failed to delete section' };
     }
   },
+
+  toggleFull: async (id) => {
+    try {
+      const response = await api.post(`/sections/${id}/toggle-full`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to update section status' };
+    }
+  },
 };
 
 // --- Upload Receipt API methods ---

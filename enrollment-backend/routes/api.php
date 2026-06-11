@@ -72,6 +72,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('sections', SectionController::class);
     Route::post('sections/{section}/students', [SectionController::class, 'addStudents']);
     Route::delete('sections/{section}/students/{student}', [SectionController::class, 'removeStudent']);
+    Route::post('sections/{section}/toggle-full', [SectionController::class, 'toggleFull']);
 
     // Enrollment routes
     Route::get('enrollments', [EnrollmentController::class, 'getPreEnrolledStudents']);

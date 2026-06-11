@@ -11,7 +11,11 @@ class Section extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'course_id'];
+    protected $fillable = ['name', 'course_id', 'is_full'];
+
+    protected $casts = [
+        'is_full' => 'boolean',
+    ];
 
     /**
      * Get the course that owns the section.

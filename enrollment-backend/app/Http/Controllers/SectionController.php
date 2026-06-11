@@ -101,6 +101,27 @@ class SectionController extends Controller
         return response()->json(['success' => true, 'message' => 'Section updated successfully', 'data' => $section]);
     }
 
+    public function toggleFull(Section $section)
+    {
+        try {
+            $section->is_full = !$section->is_full;
+            $section->save();
+            $section->load('course', 'students');
+
+            return response()->json([
+                'success' => true,
+                'message' => $section->is_full ? 'Section marked as full.' : 'Section marked as available.',
+                'data' => $section,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update section status.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function destroy(Section $section)
     {
         try {

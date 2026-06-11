@@ -296,9 +296,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
 
   const enrollmentTypes = [
     'New',
-    'Old',
     'Transferee',
-    'Returnee',
   ];
 
   // Step 2 dropdown options
@@ -1433,20 +1431,32 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
                               className="absolute z-20 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl max-h-60 overflow-y-auto"
                             >
                               {sections.length > 0 ? (
-                                sections.map((sec) => (
+                                sections.map((sec) => {
+                                  const isFull = !!sec.is_full;
+                                  return (
                                   <button
                                     key={sec.id}
                                     type="button"
                                     onClick={() => {
+                                      if (isFull) {
+                                        setIsSectionOpen(false);
+                                        setValidationErrorMessage(`Section "${sec.name}" is already FULL. Please select a different section.`);
+                                        setShowValidationErrorModal(true);
+                                        return;
+                                      }
                                       setFormData({ ...formData, section_id: sec.id });
                                       setIsSectionOpen(false);
                                     }}
-                                    className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors flex items-center gap-2"
+                                    className={`w-full text-left px-4 py-3 transition-colors flex items-center justify-between gap-2 ${isFull ? 'bg-gray-50 cursor-not-allowed' : 'hover:bg-blue-50'}`}
                                   >
-                                    <div className={`w-2 h-2 rounded-full ${formData.section_id === sec.id ? 'bg-red-800' : 'bg-gray-300'}`} />
-                                    <span className="text-gray-700 font-medium">{sec.name}</span>
+                                    <div className="flex items-center gap-2">
+                                      <div className={`w-2 h-2 rounded-full ${formData.section_id === sec.id ? 'bg-red-800' : 'bg-gray-300'}`} />
+                                      <span className={`font-medium ${isFull ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{sec.name}</span>
+                                    </div>
+                                    {isFull && <span className="text-xs font-bold uppercase tracking-wide text-red-500 border border-red-200 bg-red-50 rounded px-1.5 py-0.5">Full</span>}
                                   </button>
-                                ))
+                                  );
+                                })
                               ) : (
                                 <div className="p-4 text-center text-gray-400 text-sm italic">
                                   Select a course first to see sections

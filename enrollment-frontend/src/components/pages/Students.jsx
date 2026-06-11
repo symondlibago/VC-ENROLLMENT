@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
   Table,
   TableBody,
@@ -235,6 +236,20 @@ const Students = () => {
     }
   };
   
+  const handleToggleSectionFull = async (section) => {
+    try {
+      const response = await sectionAPI.toggleFull(section.id);
+      if (response.success) {
+        setSections(prev => prev.map(s => (s.id === section.id ? response.data : s)));
+        showAlert(`Section "${section.name}" is now ${response.data.is_full ? 'FULL' : 'available'}.`);
+      } else {
+        showAlert(response.message || 'Failed to update section.', 'error');
+      }
+    } catch (error) {
+      showAlert('Failed to update section status.', 'error');
+    }
+  };
+
   // Click Handlers for Modals
   const handleAddSectionClick = () => {
     setEditingSection(null);
@@ -427,6 +442,7 @@ const Students = () => {
                 sections={filteredSections} courses={courses} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
                 courseFilter={sectionCourseFilter} setCourseFilter={setSectionCourseFilter} onSectionClick={handleSectionClick}
                 onAddSectionClick={handleAddSectionClick} onEditClick={handleEditSectionClick} onDeleteClick={handleDeleteSectionClick}
+                onToggleFull={handleToggleSectionFull}
               />
             : <StudentPage
                 students={filteredStudents} sections={sections} courses={courses} 
@@ -458,7 +474,7 @@ const Students = () => {
   );
 };
 
-const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, onSectionClick, onAddSectionClick, onEditClick, onDeleteClick }) => {
+const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, onSectionClick, onAddSectionClick, onEditClick, onDeleteClick, onToggleFull }) => {
     const courseOptions = useMemo(() => [
       { label: 'Filter by All Courses', value: 'all' },
       ...courses.map(course => ({ label: course.course_code, value: course.id.toString() }))
@@ -471,10 +487,20 @@ const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilte
           {sections.map((section, index) => (
             <motion.div key={section.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -5 }} className="relative">
               <div onClick={() => onSectionClick(section)} className="cursor-pointer h-full">
-                <Card className="h-full flex flex-col"><CardContent className="p-6 grow flex flex-col justify-between">
+                <Card className={`h-full flex flex-col ${section.is_full ? 'ring-2 ring-red-300' : ''}`}><CardContent className="p-6 grow flex flex-col justify-between">
                   <div>
-                    <div className="flex items-start justify-between mb-4"><div className="flex items-center space-x-3"><div className="w-12 h-12 bg-(--dominant-red) rounded-xl flex items-center justify-center shrink-0"><BookOpen className="w-6 h-6 text-white" /></div><div><h3 className="font-bold text-gray-900 text-lg">{section.name}</h3><Badge className="bg-green-100 text-green-800 mt-1">{section.students?.length || 0} students</Badge></div></div></div>
+                    <div className="flex items-start justify-between mb-4"><div className="flex items-center space-x-3"><div className="w-12 h-12 bg-(--dominant-red) rounded-xl flex items-center justify-center shrink-0"><BookOpen className="w-6 h-6 text-white" /></div><div><h3 className="font-bold text-gray-900 text-lg">{section.name}</h3><div className="flex items-center gap-2 mt-1"><Badge className="bg-green-100 text-green-800">{section.students?.length || 0} students</Badge>{section.is_full && <Badge className="bg-red-100 text-red-700">FULL</Badge>}</div></div></div></div>
                     <div className="space-y-2"><div className="flex items-center text-sm text-gray-600"><GraduationCap className="w-4 h-4 mr-2" />{section.course?.course_name}</div></div>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
+                    <span className={`text-sm font-semibold ${section.is_full ? 'text-red-600' : 'text-gray-600'}`}>
+                      {section.is_full ? 'Section is FULL' : 'Mark as Full'}
+                    </span>
+                    <Switch
+                      checked={!!section.is_full}
+                      onCheckedChange={() => onToggleFull(section)}
+                      className="scale-125 mr-1 border-2 border-gray-400 data-[state=unchecked]:bg-gray-200 data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600 cursor-pointer"
+                    />
                   </div>
                 </CardContent></Card>
               </div>
