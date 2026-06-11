@@ -383,17 +383,27 @@ const Students = () => {
             </div>
             <div className="flex items-center space-x-2">
               <div className="relative bg-gray-100 rounded-2xl p-1 inline-flex">
-                  <motion.div
-                    className="absolute top-1 bottom-1 bg-white rounded-xl shadow-md"
-                    initial={false}
-                    animate={{
-                      left: activeView === 'sections' ? '4px' : activeView === 'students' ? '33.3%' : '66.6%',
-                      right: activeView === 'sections' ? '66.6%' : activeView === 'students' ? '33.3%' : '4px',
-                    }}
-                  />
-                  <button onClick={() => setActiveView('sections')} title="Sections" className={`relative z-10 p-3 rounded-xl ${activeView === 'sections' ? 'text-(--dominant-red)' : 'text-gray-600'}`}> <ContactRound className="w-5 h-5" /> </button>
-                  <button onClick={() => setActiveView('students')} title="Students" className={`relative z-10 p-3 rounded-xl ${activeView === 'students' ? 'text-(--dominant-red)' : 'text-gray-600'}`}> <Users className="w-5 h-5" /> </button>
-                  <button onClick={() => setActiveView('address')} title="New students by address" className={`relative z-10 p-3 rounded-xl ${activeView === 'address' ? 'text-(--dominant-red)' : 'text-gray-600'}`}> <MapPin className="w-5 h-5" /> </button>
+                  {[
+                    { key: 'sections', icon: ContactRound, title: 'Sections' },
+                    { key: 'students', icon: Users, title: 'Students' },
+                    { key: 'address', icon: MapPin, title: 'New students by address' },
+                  ].map(({ key, icon: Icon, title }) => (
+                    <button
+                      key={key}
+                      onClick={() => setActiveView(key)}
+                      title={title}
+                      className="relative z-10 p-3 rounded-xl"
+                    >
+                      {activeView === key && (
+                        <motion.div
+                          layoutId="studentsViewPill"
+                          className="absolute inset-0 bg-white rounded-xl shadow-md"
+                          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                        />
+                      )}
+                      <Icon className={`relative z-10 w-5 h-5 ${activeView === key ? 'text-(--dominant-red)' : 'text-gray-600'}`} />
+                    </button>
+                  ))}
               </div>
               <Button className="gradient-primary text-white" onClick={handleAddSectionClick}><Plus className="w-4 h-4 mr-2" />Add Section</Button>
             </div>
@@ -600,16 +610,19 @@ const AddressPage = ({ students, schoolYearOptions }) => {
   const [schoolYear, setSchoolYear] = useState('all');
   const [search, setSearch] = useState('');
   const [groupBy, setGroupBy] = useState('city'); // 'city' | 'barangay'
+  const [studentType, setStudentType] = useState('new'); // 'new' | 'continuing'
 
-  const { rows, totalNew, shownNew } = useMemo(() => {
-    // Only NEW students, optionally narrowed to a school year.
-    const newStudents = students.filter((s) =>
-      (s.enrollment_type || '').toLowerCase() === 'new' &&
-      (schoolYear === 'all' || s.school_year === schoolYear)
-    );
+  const { rows, total, shown } = useMemo(() => {
+    // "New" = enrollment_type New; "Continuing" = everyone else (Old / Transferee
+    // / Returnee). Optionally narrowed to a school year.
+    const matched = students.filter((s) => {
+      const type = (s.enrollment_type || '').toLowerCase();
+      const typeMatch = studentType === 'new' ? type === 'new' : type !== 'new';
+      return typeMatch && (schoolYear === 'all' || s.school_year === schoolYear);
+    });
 
     const groups = new Map();
-    newStudents.forEach((s) => {
+    matched.forEach((s) => {
       const loc = parseLocation(s.address);
       let key, label, legacy = false;
       if (loc.structured) {
@@ -641,14 +654,15 @@ const AddressPage = ({ students, schoolYearOptions }) => {
 
     return {
       rows: result,
-      totalNew: newStudents.length,
-      shownNew: result.reduce((sum, r) => sum + r.count, 0),
+      total: matched.length,
+      shown: result.reduce((sum, r) => sum + r.count, 0),
     };
-  }, [students, schoolYear, search, groupBy]);
+  }, [students, schoolYear, search, groupBy, studentType]);
 
   // Scale the bars against the largest count across all rows.
   const maxCount = Math.max(0, ...rows.map((r) => r.count));
   const unitLabel = groupBy === 'barangay' ? 'Barangay, City' : 'City / Municipality';
+  const typeLabel = studentType === 'new' ? 'New' : 'Continuing';
 
   return (
     <div className="space-y-6">
@@ -657,13 +671,25 @@ const AddressPage = ({ students, schoolYearOptions }) => {
           <div className="flex flex-col gap-4">
             <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
               <div>
-                <h3 className="text-lg font-bold text-gray-900 flex items-center"><MapPin className="w-5 h-5 mr-2 text-(--dominant-red)" />New Students by Address</h3>
-                <p className="text-sm text-gray-600">How many <span className="font-semibold">new</span> students enrolled from each location.</p>
+                <h3 className="text-lg font-bold text-gray-900 flex items-center"><MapPin className="w-5 h-5 mr-2 text-(--dominant-red)" />{typeLabel} Students by Address</h3>
+                <p className="text-sm text-gray-600">How many <span className="font-semibold">{typeLabel.toLowerCase()}</span> students enrolled from each location.</p>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="inline-flex bg-gray-100 rounded-lg p-1">
-                  <button onClick={() => setGroupBy('city')} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${groupBy === 'city' ? 'bg-white shadow text-(--dominant-red) font-semibold' : 'text-gray-600'}`}>By City</button>
-                  <button onClick={() => setGroupBy('barangay')} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${groupBy === 'barangay' ? 'bg-white shadow text-(--dominant-red) font-semibold' : 'text-gray-600'}`}>By Barangay</button>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative inline-flex bg-gray-100 rounded-lg p-1">
+                  {[{ k: 'new', label: 'New' }, { k: 'continuing', label: 'Continuing' }].map(({ k, label }) => (
+                    <button key={k} onClick={() => setStudentType(k)} className="relative z-10 px-3 py-1.5 text-sm rounded-md">
+                      {studentType === k && <motion.div layoutId="addrTypePill" className="absolute inset-0 bg-white shadow rounded-md" transition={{ type: 'spring', stiffness: 300, damping: 30 }} />}
+                      <span className={`relative z-10 ${studentType === k ? 'text-(--dominant-red) font-semibold' : 'text-gray-600'}`}>{label}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="relative inline-flex bg-gray-100 rounded-lg p-1">
+                  {[{ k: 'city', label: 'By City' }, { k: 'barangay', label: 'By Barangay' }].map(({ k, label }) => (
+                    <button key={k} onClick={() => setGroupBy(k)} className="relative z-10 px-3 py-1.5 text-sm rounded-md">
+                      {groupBy === k && <motion.div layoutId="addrGroupPill" className="absolute inset-0 bg-white shadow rounded-md" transition={{ type: 'spring', stiffness: 300, damping: 30 }} />}
+                      <span className={`relative z-10 ${groupBy === k ? 'text-(--dominant-red) font-semibold' : 'text-gray-600'}`}>{label}</span>
+                    </button>
+                  ))}
                 </div>
                 <MotionDropdown value={schoolYear} onChange={setSchoolYear} options={schoolYearOptions} placeholder="Filter School Year" />
               </div>
@@ -673,9 +699,9 @@ const AddressPage = ({ students, schoolYearOptions }) => {
               <Input placeholder={`Search a ${groupBy === 'barangay' ? 'barangay/city' : 'city/municipality'}...`} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
             </div>
             <div className="flex flex-wrap gap-3 text-sm">
-              <Badge className="bg-green-100 text-green-800">New students: {totalNew}</Badge>
+              <Badge className="bg-green-100 text-green-800">{typeLabel} students: {total}</Badge>
               <Badge className="bg-blue-100 text-blue-800">{groupBy === 'barangay' ? 'Barangays' : 'Cities'}: {rows.filter((r) => !r.legacy).length}</Badge>
-              {search.trim() && <Badge className="bg-yellow-100 text-yellow-800">Matching: {shownNew}</Badge>}
+              {search.trim() && <Badge className="bg-yellow-100 text-yellow-800">Matching: {shown}</Badge>}
             </div>
           </div>
         </CardContent>
@@ -687,7 +713,7 @@ const AddressPage = ({ students, schoolYearOptions }) => {
             <TableRow>
               <TableHead className="w-[60px]">#</TableHead>
               <TableHead><MapPin size={16} className="inline mr-2" />{unitLabel}</TableHead>
-              <TableHead className="text-right w-[200px]">New Students</TableHead>
+              <TableHead className="text-right w-[200px]">{typeLabel} Students</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -708,7 +734,7 @@ const AddressPage = ({ students, schoolYearOptions }) => {
                 </TableCell>
               </TableRow>
             )) : (
-              <TableRow><TableCell colSpan="3" className="text-center h-24">No new students found{schoolYear !== 'all' ? ' for this school year' : ''}.</TableCell></TableRow>
+              <TableRow><TableCell colSpan="3" className="text-center h-24">No {typeLabel.toLowerCase()} students found{schoolYear !== 'all' ? ' for this school year' : ''}.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

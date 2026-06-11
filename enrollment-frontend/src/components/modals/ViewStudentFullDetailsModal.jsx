@@ -152,8 +152,10 @@ const ViewStudentFullDetailsModal = ({ isOpen, onClose, studentId }) => {
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Parent/Guardian Information</h3>
             <div className="space-y-4">
               <DetailItem icon={User} label="Father's Name" value={student.father_name} />
+              <DetailItem icon={Briefcase} label="Father's Occupation" value={student.father_occupation} />
               <DetailItem icon={Phone} label="Father's Contact" value={student.father_contact_number} />
               <DetailItem icon={User} label="Mother's Name" value={student.mother_name} />
+              <DetailItem icon={Briefcase} label="Mother's Occupation" value={student.mother_occupation} />
               <DetailItem icon={Phone} label="Mother's Contact" value={student.mother_contact_number} />
               <DetailItem icon={Home} label="Parents' Address" value={student.parents_address} fullWidth />
             </div>
