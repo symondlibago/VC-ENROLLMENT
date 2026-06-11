@@ -147,6 +147,8 @@ const Students = () => {
   const [studentYearFilter, setStudentYearFilter] = useState('all');
   const [studentSchoolYearFilter, setStudentSchoolYearFilter] = useState('all');
   const [studentSemesterFilter, setStudentSemesterFilter] = useState('all');
+  const [studentReferralFilter, setStudentReferralFilter] = useState('all');
+  const [studentTypeFilter, setStudentTypeFilter] = useState('all');
   const currentUser = authAPI.getUserData();
 
   // Added States for Assigning Single Student
@@ -369,8 +371,11 @@ const Students = () => {
     const yearMatch = studentYearFilter === 'all' || student.year === studentYearFilter;
     const schoolYearMatch = studentSchoolYearFilter === 'all' || student.school_year === studentSchoolYearFilter;
     const semesterMatch = studentSemesterFilter === 'all' || student.semester === studentSemesterFilter;
-    return matchesSearch && courseMatch && sectionMatch && yearMatch && schoolYearMatch && semesterMatch;
-  }), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter, studentYearFilter, studentSchoolYearFilter, studentSemesterFilter]);
+    const referralMatch = studentReferralFilter === 'all' || (student.referral_source || '') === studentReferralFilter;
+    const type = (student.enrollment_type || '').toLowerCase();
+    const typeMatch = studentTypeFilter === 'all' || (studentTypeFilter === 'new' ? type === 'new' : type !== 'new');
+    return matchesSearch && courseMatch && sectionMatch && yearMatch && schoolYearMatch && semesterMatch && referralMatch && typeMatch;
+  }), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter, studentYearFilter, studentSchoolYearFilter, studentSemesterFilter, studentReferralFilter, studentTypeFilter]);
 
   const stats = useMemo(() => [
     { title: 'Total Sections', value: sections.length.toString(), icon: BookOpen, color: 'text-blue-600', bgColor: 'bg-blue-50' },
@@ -452,6 +457,8 @@ const Students = () => {
                 yearFilter={studentYearFilter} setYearFilter={setStudentYearFilter}
                 schoolYearFilter={studentSchoolYearFilter} setSchoolYearFilter={setStudentSchoolYearFilter}
                 semesterFilter={studentSemesterFilter} setSemesterFilter={setStudentSemesterFilter}
+                referralFilter={studentReferralFilter} setReferralFilter={setStudentReferralFilter}
+                typeFilter={studentTypeFilter} setTypeFilter={setStudentTypeFilter}
                 schoolYearOptions={schoolYearOptions}
                 semesterOptions={semesterOptions}
                 onEditStudent={handleEditStudent}
@@ -512,22 +519,26 @@ const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilte
     );
 };
 
-const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter, yearFilter, setYearFilter, schoolYearFilter, setSchoolYearFilter, semesterFilter, setSemesterFilter, schoolYearOptions, semesterOptions, onEditStudent, onViewStudentDetails, onAssignSection, currentUser }) => {
+const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter, yearFilter, setYearFilter, schoolYearFilter, setSchoolYearFilter, semesterFilter, setSemesterFilter, referralFilter, setReferralFilter, typeFilter, setTypeFilter, schoolYearOptions, semesterOptions, onEditStudent, onViewStudentDetails, onAssignSection, currentUser }) => {
     const courseOptions = useMemo(() => [{ label: 'All Courses', value: 'all' }, ...courses.map(c => ({ label: c.course_code, value: c.id.toString() }))], [courses]);
     const sectionOptions = useMemo(() => [{ label: 'All Sections', value: 'all' }, { label: 'Unassigned', value: 'unassigned' }, ...sections.map(s => ({ label: s.name, value: s.id.toString() }))], [sections]);
     const yearOptions = [{ label: 'All Year Levels', value: 'all' }, { label: '1st Year', value: '1st Year' }, { label: '2nd Year', value: '2nd Year' }, { label: '3rd Year', value: '3rd Year' }, { label: '4th Year', value: '4th Year' }];
+    const referralOptions = [{ label: 'All Sources', value: 'all' }, { label: 'TikTok', value: 'TikTok' }, { label: 'Facebook', value: 'Facebook' }, { label: 'Instagram', value: 'Instagram' }, { label: 'Referral', value: 'Referral' }, { label: 'Others', value: 'Others' }];
+    const typeOptions = [{ label: 'All Types', value: 'all' }, { label: 'New', value: 'new' }, { label: 'Continuing', value: 'continuing' }];
     const canEdit = currentUser.role === 'Admin' || currentUser.role === 'Registrar';
   
     return (
       <div className="space-y-6">
         <Card><CardContent className="p-6"><div className="flex flex-col gap-4">
           <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" /><Input placeholder="Search students by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border border-gray-300 focus:border-red-800 focus:ring-1 focus:ring-red-800 rounded-lg"/></div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <MotionDropdown value={courseFilter} onChange={setCourseFilter} options={courseOptions} placeholder="Filter Course"/>
             <MotionDropdown value={yearFilter} onChange={setYearFilter} options={yearOptions} placeholder="Filter Year"/>
             <MotionDropdown value={sectionFilter} onChange={setSectionFilter} options={sectionOptions} placeholder="Filter Section"/>
             <MotionDropdown value={schoolYearFilter} onChange={setSchoolYearFilter} options={schoolYearOptions} placeholder="Filter School Year"/>
             <MotionDropdown value={semesterFilter} onChange={setSemesterFilter} options={semesterOptions} placeholder="Filter Semester"/>
+            <MotionDropdown value={typeFilter} onChange={setTypeFilter} options={typeOptions} placeholder="Filter Type"/>
+            <MotionDropdown value={referralFilter} onChange={setReferralFilter} options={referralOptions} placeholder="Filter Source"/>
           </div>
         </div></CardContent></Card>
         <Card><Table>

@@ -638,6 +638,7 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
                 'academic_status' => $currentAcademicStatus, // This now respects the DB value
                 'enrollment_status' => ucfirst($student->enrollment_status),
                 'enrollment_type' => $student->enrollment_type,
+                'referral_source' => $student->referral_source,
                 'address' => $student->address,
             ];
         });
