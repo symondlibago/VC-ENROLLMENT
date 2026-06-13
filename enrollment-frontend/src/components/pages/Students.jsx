@@ -441,7 +441,7 @@ const Students = () => {
       <AnimatePresence mode="wait">
         <motion.div key={activeView} variants={pageVariants} initial="initial" animate="animate" exit="exit">
           {activeView === 'address'
-            ? <AddressPage students={enrolledStudents} schoolYearOptions={schoolYearOptions} />
+            ? <AddressPage students={enrolledStudents} schoolYearOptions={schoolYearOptions} courses={courses} />
             : activeView === 'sections'
             ? <SectionPage
                 sections={filteredSections} courses={courses} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
@@ -643,11 +643,17 @@ const parseLocation = (rawAddress) => {
 const normalizeAddress = (addr) =>
   (addr || '').trim().replace(/\s+/g, ' ').replace(/[.,]+$/g, '');
 
-const AddressPage = ({ students, schoolYearOptions }) => {
+const AddressPage = ({ students, schoolYearOptions, courses }) => {
   const [schoolYear, setSchoolYear] = useState('all');
+  const [courseFilter, setCourseFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [groupBy, setGroupBy] = useState('city'); // 'city' | 'barangay'
   const [studentType, setStudentType] = useState('new'); // 'new' | 'continuing'
+
+  const courseOptions = useMemo(() => [
+    { label: 'All Courses', value: 'all' },
+    ...(courses || []).map((c) => ({ label: c.course_code, value: c.id.toString() })),
+  ], [courses]);
 
   const { rows, total, shown } = useMemo(() => {
     // "New" = enrollment_type New; "Continuing" = everyone else (Old / Transferee
@@ -655,7 +661,8 @@ const AddressPage = ({ students, schoolYearOptions }) => {
     const matched = students.filter((s) => {
       const type = (s.enrollment_type || '').toLowerCase();
       const typeMatch = studentType === 'new' ? type === 'new' : type !== 'new';
-      return typeMatch && (schoolYear === 'all' || s.school_year === schoolYear);
+      const courseMatch = courseFilter === 'all' || String(s.courseId) === courseFilter;
+      return typeMatch && courseMatch && (schoolYear === 'all' || s.school_year === schoolYear);
     });
 
     const groups = new Map();
@@ -694,7 +701,7 @@ const AddressPage = ({ students, schoolYearOptions }) => {
       total: matched.length,
       shown: result.reduce((sum, r) => sum + r.count, 0),
     };
-  }, [students, schoolYear, search, groupBy, studentType]);
+  }, [students, schoolYear, search, groupBy, studentType, courseFilter]);
 
   // Scale the bars against the largest count across all rows.
   const maxCount = Math.max(0, ...rows.map((r) => r.count));
@@ -728,6 +735,7 @@ const AddressPage = ({ students, schoolYearOptions }) => {
                     </button>
                   ))}
                 </div>
+                <MotionDropdown value={courseFilter} onChange={setCourseFilter} options={courseOptions} placeholder="Filter Course" />
                 <MotionDropdown value={schoolYear} onChange={setSchoolYear} options={schoolYearOptions} placeholder="Filter School Year" />
               </div>
             </div>
