@@ -84,6 +84,38 @@ class SectionController extends Controller
         }
     }
 
+    public function removeStudents(Request $request, Section $section)
+    {
+        $validator = Validator::make($request->all(), [
+            'student_ids' => 'required|array|min:1',
+            'student_ids.*' => 'exists:pre_enrolled_students,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        try {
+            $section->students()->detach($request->student_ids);
+
+            $section->load('course', 'students');
+
+            $count = count($request->student_ids);
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$count} student" . ($count !== 1 ? 's' : '') . ' removed from section successfully.',
+                'data' => $section,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to remove students from section.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function update(Request $request, Section $section)
     {
         $validator = Validator::make($request->all(), [

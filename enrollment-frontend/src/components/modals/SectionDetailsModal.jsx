@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
   X,
   Edit,
   Trash2,
@@ -23,8 +23,9 @@ import {
 import LoadingSpinner from '../layout/LoadingSpinner';
 
 // Helper component for the confirmation dialog
-const ConfirmationDialog = ({ isOpen, onClose, onConfirm, title, studentName, isRemoving }) => {
+const ConfirmationDialog = ({ isOpen, onClose, onConfirm, title, studentName, bulkCount, isRemoving }) => {
     if (!isOpen) return null;
+    const isBulk = bulkCount > 0;
     return (
         <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-20 flex items-center justify-center p-4">
             <motion.div
@@ -40,13 +41,17 @@ const ConfirmationDialog = ({ isOpen, onClose, onConfirm, title, studentName, is
                     <h3 className="text-lg font-bold text-gray-900 mt-2 sm:mt-0">{title}</h3>
                 </div>
                 <div className="mt-4 text-sm text-gray-600">
-                    <p>Are you sure you want to remove <strong className="text-gray-900">{studentName}</strong> from this section? This action cannot be undone.</p>
+                    {isBulk ? (
+                        <p>Are you sure you want to remove <strong className="text-gray-900">{bulkCount} student{bulkCount !== 1 ? 's' : ''}</strong> from this section? This action cannot be undone.</p>
+                    ) : (
+                        <p>Are you sure you want to remove <strong className="text-gray-900">{studentName}</strong> from this section? This action cannot be undone.</p>
+                    )}
                 </div>
                 <div className="mt-6 flex justify-end space-x-3">
                     <Button variant="outline" onClick={onClose} disabled={isRemoving}>Cancel</Button>
-                    <Button 
-                        className="bg-red-600 hover:bg-red-700 text-white min-w-[120px]" 
-                        onClick={onConfirm} 
+                    <Button
+                        className="bg-red-600 hover:bg-red-700 text-white min-w-[120px]"
+                        onClick={onConfirm}
                         disabled={isRemoving}
                     >
                         {isRemoving ? (
@@ -55,7 +60,7 @@ const ConfirmationDialog = ({ isOpen, onClose, onConfirm, title, studentName, is
                                 Removing...
                             </>
                         ) : (
-                            'Yes, Remove'
+                            isBulk ? `Yes, Remove ${bulkCount}` : 'Yes, Remove'
                         )}
                     </Button>
                 </div>
@@ -65,9 +70,31 @@ const ConfirmationDialog = ({ isOpen, onClose, onConfirm, title, studentName, is
 };
 
 // Main Modal Component
-const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, onOpenAddStudents, onStudentRemoved }) => {
+const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, onOpenAddStudents, onStudentRemoved, onStudentsRemoved }) => {
   const [studentToRemove, setStudentToRemove] = useState(null);
   const [isRemoving, setIsRemoving] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [isBulkConfirmOpen, setIsBulkConfirmOpen] = useState(false);
+
+  const sectionStudents = section?.students || [];
+
+  // Reset selection whenever the modal closes or the viewed section changes
+  useEffect(() => {
+    setSelectedIds([]);
+    setIsBulkConfirmOpen(false);
+  }, [section?.id, isOpen]);
+
+  const toggleSelect = (studentId) => {
+    setSelectedIds((prev) =>
+      prev.includes(studentId) ? prev.filter((id) => id !== studentId) : [...prev, studentId]
+    );
+  };
+
+  const allSelected = sectionStudents.length > 0 && selectedIds.length === sectionStudents.length;
+
+  const toggleSelectAll = () => {
+    setSelectedIds(allSelected ? [] : sectionStudents.map((s) => s.id));
+  };
 
   const handleRemoveClick = (student) => {
     setStudentToRemove(student);
@@ -80,7 +107,7 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, onOpenAddStu
     try {
       await onStudentRemoved(section.id, studentToRemove.id);
       // The parent component now shows the success alert
-      setStudentToRemove(null); 
+      setStudentToRemove(null);
     } catch (error) {
       // The parent component now shows the error alert
     } finally {
@@ -92,7 +119,20 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, onOpenAddStu
     setStudentToRemove(null);
   };
 
-  const sectionStudents = section?.students || [];
+  const handleConfirmBulkRemove = async () => {
+    if (selectedIds.length === 0) return;
+
+    setIsRemoving(true);
+    try {
+      await onStudentsRemoved(section.id, selectedIds);
+      setSelectedIds([]);
+      setIsBulkConfirmOpen(false);
+    } catch (error) {
+      // The parent component shows the error alert
+    } finally {
+      setIsRemoving(false);
+    }
+  };
 
   const modalVariants = {
     hidden: { opacity: 0, scale: 0.8, y: 50 },
@@ -139,6 +179,15 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, onOpenAddStu
           <table className="w-full">
             <thead className="sticky top-0 bg-white z-10">
               <tr className="border-b border-gray-200">
+                <th className="text-center py-4 px-4 w-12">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleSelectAll}
+                    className="h-5 w-5 cursor-pointer accent-red-600 align-middle"
+                    title={allSelected ? 'Deselect all' : 'Select all'}
+                  />
+                </th>
                 <th className="text-left py-4 px-4 font-semibold text-gray-900">ID No.</th>
                 <th className="text-left py-4 px-4 font-semibold text-gray-900">Name</th>
                 <th className="text-left py-4 px-4 font-semibold text-gray-900">Course Code</th>
@@ -152,8 +201,16 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, onOpenAddStu
                   key={student.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0, transition: { duration: 0.4, delay: index * 0.1, ease: [0.23, 1, 0.32, 1] }}}
-                  className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-200"
+                  className={`border-b border-gray-100 transition-colors duration-200 ${selectedIds.includes(student.id) ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}
                 >
+                  <td className="py-4 px-4 text-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(student.id)}
+                      onChange={() => toggleSelect(student.id)}
+                      className="h-5 w-5 cursor-pointer accent-red-600 align-middle"
+                    />
+                  </td>
                   <td className="py-4 px-4">
                     <span className="font-mono text-sm text-gray-600">
                       #{student.student_id_number || student.id.toString().padStart(4, '0')}
@@ -266,15 +323,58 @@ const SectionDetailsModal = ({ isOpen, onClose, section, isLoading, onOpenAddStu
                 </div>
               </div>
             </div>
+            <AnimatePresence>
+              {selectedIds.length > 0 && !isLoading && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="flex-shrink-0 overflow-hidden border-b border-red-100 bg-red-50"
+                >
+                  <div className="flex items-center justify-between px-6 py-3">
+                    <span className="text-sm font-semibold text-red-700">
+                      {selectedIds.length} student{selectedIds.length !== 1 ? 's' : ''} selected
+                    </span>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedIds([])}
+                        className="cursor-pointer"
+                      >
+                        Clear
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
+                        onClick={() => setIsBulkConfirmOpen(true)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Remove Selected
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
             <div className="flex-1 overflow-hidden relative">
               {renderContent()}
-              
+
               <ConfirmationDialog
                 isOpen={!!studentToRemove}
                 onClose={handleCancelRemove}
                 onConfirm={handleConfirmRemove}
                 title="Remove Student?"
                 studentName={studentToRemove ? `${studentToRemove.first_name} ${studentToRemove.last_name}` : ''}
+                isRemoving={isRemoving}
+              />
+
+              <ConfirmationDialog
+                isOpen={isBulkConfirmOpen}
+                onClose={() => !isRemoving && setIsBulkConfirmOpen(false)}
+                onConfirm={handleConfirmBulkRemove}
+                title="Remove Students?"
+                bulkCount={selectedIds.length}
                 isRemoving={isRemoving}
               />
             </div>

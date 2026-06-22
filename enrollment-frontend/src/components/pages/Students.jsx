@@ -290,6 +290,28 @@ const Students = () => {
     }
   };
 
+  const handleRemoveStudentsFromSection = async (sectionId, studentIds) => {
+    try {
+      const response = await sectionAPI.removeStudents(sectionId, studentIds);
+      if (response.success) {
+        const updatedSectionData = response.data;
+        setSections(prevSections =>
+          prevSections.map(s => (s.id === sectionId ? updatedSectionData : s))
+        );
+        if (selectedSection && selectedSection.id === sectionId) {
+          setSelectedSection(updatedSectionData);
+        }
+        showAlert(response.message || 'Students removed successfully.');
+      } else {
+        throw new Error(response.message || 'API call was not successful');
+      }
+    } catch (error) {
+      console.error("Failed to remove students from section:", error);
+      showAlert(error.message || 'Failed to remove students. Please try again.', 'error');
+      throw error;
+    }
+  };
+
   const handleAddStudentsToSection = async (sectionId, studentIds) => {
     try {
       const response = await sectionAPI.addStudents(sectionId, studentIds);
@@ -470,7 +492,7 @@ const Students = () => {
         </motion.div>
       </AnimatePresence>
 
-      <SectionDetailsModal isOpen={isDetailsModalOpen} onClose={() => setIsDetailsModalOpen(false)} section={selectedSection} isLoading={isSectionLoading} onOpenAddStudents={() => setIsAddStudentsModalOpen(true)} onStudentRemoved={handleRemoveStudentFromSection} />
+      <SectionDetailsModal isOpen={isDetailsModalOpen} onClose={() => setIsDetailsModalOpen(false)} section={selectedSection} isLoading={isSectionLoading} onOpenAddStudents={() => setIsAddStudentsModalOpen(true)} onStudentRemoved={handleRemoveStudentFromSection} onStudentsRemoved={handleRemoveStudentsFromSection} />
       <AddSectionModal isOpen={isAddSectionModalOpen} onClose={() => { setIsAddSectionModalOpen(false); setEditingSection(null); }} onSubmit={handleSectionSubmit} courses={courses} sectionToEdit={editingSection} />
       <AddStudentsToSectionModal isOpen={isAddStudentsModalOpen} onClose={() => setIsAddStudentsModalOpen(false)} section={selectedSection} allStudents={enrolledStudents} enrolledStudentIds={selectedSection?.students?.map(s => s.id) || []} onAddStudents={(studentIds) => handleAddStudentsToSection(selectedSection.id, studentIds)} />
       

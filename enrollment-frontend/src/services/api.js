@@ -683,6 +683,15 @@ export const sectionAPI = {
     }
   },
 
+  removeStudents: async (sectionId, studentIds) => {
+    try {
+      const response = await api.post(`/sections/${sectionId}/students/bulk-remove`, { student_ids: studentIds });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to remove students from section' };
+    }
+  },
+
   update: async (id, sectionData) => {
     try {
       const response = await api.put(`/sections/${id}`, sectionData);
