@@ -217,9 +217,9 @@ const ScheduleModal = ({ isOpen, onClose, subject = null }) => {
                       <TableBody>
                         {schedules.map((schedule) => (
                           <TableRow key={schedule.id}>
-                            <TableCell className="font-medium">{schedule.day}</TableCell>
-                            <TableCell className="font-mono">{schedule.time}</TableCell>
-                            <TableCell>{schedule.room_no}</TableCell>
+                            <TableCell className="font-medium">{schedule.day || <span className="text-gray-400 italic">TBA</span>}</TableCell>
+                            <TableCell className="font-mono">{schedule.time || <span className="text-gray-400 italic">TBA</span>}</TableCell>
+                            <TableCell>{schedule.room_no || <span className="text-gray-400 italic">TBA</span>}</TableCell>
                             {/* MODIFIED: Display instructor name from object */}
                             <TableCell>{schedule.instructor?.name || 'Unassigned'}</TableCell>
                             <TableCell>{schedule.section?.name || 'Unassigned'}</TableCell>

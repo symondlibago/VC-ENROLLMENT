@@ -66,9 +66,9 @@ class ScheduleController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'day' => 'required|string|max:255',
-                'time' => 'required|string|max:255',
-                'room_no' => 'required|string|max:255',
+                'day' => 'nullable|string|max:255',
+                'time' => 'nullable|string|max:255',
+                'room_no' => 'nullable|string|max:255',
                 'instructor_id' => 'required|exists:instructors,id',
                 'subject_id' => 'required|exists:subjects,id',
                 'section_id' => 'nullable|exists:sections,id',
@@ -111,9 +111,9 @@ class ScheduleController extends Controller
             $schedule = Schedule::findOrFail($id);
 
             $validator = Validator::make($request->all(), [
-                'day' => 'required|string|max:255',
-                'time' => 'required|string|max:255',
-                'room_no' => 'required|string|max:255',
+                'day' => 'nullable|string|max:255',
+                'time' => 'nullable|string|max:255',
+                'room_no' => 'nullable|string|max:255',
                 'instructor_id' => 'required|exists:instructors,id',
                 'subject_id' => 'required|exists:subjects,id',
                 'section_id' => 'nullable|exists:sections,id', // ✅ ADDED VALIDATION
