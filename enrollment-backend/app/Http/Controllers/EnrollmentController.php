@@ -695,6 +695,8 @@ public function updateStudentDetails(Request $request, $id)
             'fb_description' => 'nullable|string|max:1000',
             'scholarship' => 'nullable|string|max:255',
             'school_year' => 'nullable|string|max:255',
+            'year' => 'nullable|string|max:255',
+            'semester' => 'nullable|string|max:255',
             'password' => 'nullable|string|min:8',
             'secondary_pin' => 'nullable|string|digits:6',
             

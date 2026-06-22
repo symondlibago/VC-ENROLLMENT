@@ -5,7 +5,6 @@ import { enrollmentAPI } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-// ✅ --- ADDED SELECT COMPONENT ---
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import SuccessAlert from './SuccessAlert';
 import ValidationErrorModal from './ValidationErrorModal';
@@ -41,11 +40,13 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
                 setFormData({
                     student_id_number: studentData.student_id_number || '',
 
-                    // ✅ --- ADDED academic_status ---
+                    // --- ADDED academic_status ---
                     academic_status: studentData.academic_status || 'Regular',
 
                     // Enrollment / account
                     school_year: studentData.school_year || '',
+                    year: studentData.year || '',
+                    semester: studentData.semester || '',
                     password: '',        // blank = keep current password
                     secondary_pin: '',   // blank = keep current PIN
 
@@ -109,7 +110,7 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
         setFormData(prev => ({ ...prev, [id]: value }));
     };
 
-    // ✅ --- ADDED Handler for Select component ---
+    // --- ADDED Handler for Select component ---
     const handleSelectChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
@@ -119,7 +120,7 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
     };
 
     const handleSaveChanges = async () => {
-        // ✅ UPDATED basic frontend check
+        // UPDATED basic frontend check
         if (!formData.student_id_number || !formData.first_name || !formData.last_name || !formData.email_address) {
             setValidationError({ isOpen: true, message: 'Student ID, First Name, Last Name, and Email are required fields.' });
             return;
@@ -154,7 +155,7 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
 
         } catch (error) {
             if (error.errors) {
-                // ✅ Handle new validation error for student_id_number
+                // Handle new validation error for student_id_number
                 let errorMsg = '';
                 if (error.errors.student_id_number) {
                     errorMsg = error.errors.student_id_number[0];
@@ -182,7 +183,7 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
         </div>
     );
     
-    // ✅ --- ADDED Helper for Select component ---
+    // --- ADDED Helper for Select component ---
     const renderSelect = (id, label, placeholder, options) => (
         <div className="space-y-1">
             <Label htmlFor={id} className="text-sm font-medium text-gray-700">{label}</Label>
@@ -238,7 +239,7 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
                                     <div className="p-4 border rounded-lg space-y-4">
                                         <h3 className="text-base font-semibold text-gray-900">Basic Information</h3>
                                         
-                                        {/* ✅ UPDATED Student ID and Academic Status Row */}
+                                        {/* UPDATED Student ID and Academic Status Row */}
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             {renderInput("student_id_number", "Student ID Number", { placeholder: "2025-0001" })}
                                             <div className="md:col-span-1">
@@ -249,6 +250,25 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
                                                 ])}
                                             </div>
                                             {renderInput("school_year", "School Year", { placeholder: "2025-2026" })}
+                                        </div>
+
+                                        {/* Year Level & Semester — lets the registrar fix mis-clicked values */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {renderSelect("year", "Year Level", "Select Year Level", [
+                                                { value: "Grade 11", label: "Grade 11" },
+                                                { value: "Grade 12", label: "Grade 12" },
+                                                { value: "1st Year", label: "1st Year" },
+                                                { value: "2nd Year", label: "2nd Year" },
+                                                { value: "3rd Year", label: "3rd Year" },
+                                                { value: "4th Year", label: "4th Year" },
+                                                { value: "1st Year Summer", label: "1st Year Summer" },
+                                                { value: "2nd Year Summer", label: "2nd Year Summer" },
+                                            ])}
+                                            {renderSelect("semester", "Semester", "Select Semester", [
+                                                { value: "1st Semester", label: "1st Semester" },
+                                                { value: "2nd Semester", label: "2nd Semester" },
+                                                { value: "Summer", label: "Summer" },
+                                            ])}
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
