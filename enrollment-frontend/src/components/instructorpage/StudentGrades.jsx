@@ -303,7 +303,7 @@ const StudentGrades = () => {
     if (isDHT || isSHS) {
       finalResult = (p + m + s + f) / 4;
     } else {
-      finalResult = (p * 0.20) + (m * 0.20) + (s * 0.20) + (f * 0.40);
+      finalResult = (p * 0.25) + (m * 0.25) + (s * 0.25) + (f * 0.25);
     }
     
     // Automatically round off the calculated final grade

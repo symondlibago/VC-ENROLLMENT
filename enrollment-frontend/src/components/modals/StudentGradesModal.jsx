@@ -148,7 +148,7 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
     if (isDHT || isSHS) {
       finalResult = (P + M + S + F) / 4; // DHT/SHS Formula
     } else {
-      finalResult = (P * 0.20) + (M * 0.20) + (S * 0.20) + (F * 0.40); // Standard Formula
+      finalResult = (P * 0.25) + (M * 0.25) + (S * 0.25) + (F * 0.25); // Standard Formula (all terms equal weight)
     }
 
     // Automatically round off the calculated final grade

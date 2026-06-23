@@ -157,7 +157,7 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
       const calculateFinal = (s) => {
         const { prelim_grade: p, midterm_grade: m, semifinal_grade: sm, final_grade: f } = s.grades || {};
         if ([p, m, sm, f].some(v => v == null || v === '')) return null;
-        if (showPercent) return (p * 0.2) + (m * 0.2) + (sm * 0.2) + (f * 0.4);
+        if (showPercent) return (p * 0.25) + (m * 0.25) + (sm * 0.25) + (f * 0.25);
         return (p + m + sm + f) / 4;
       };
 

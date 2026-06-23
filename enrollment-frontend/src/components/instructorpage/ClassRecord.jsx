@@ -294,7 +294,10 @@ function buildSheet(ws, term, subjectLabel, sectionLabel, logoImageId) {
       for (let j = 0; j < cat.columns.length; j++) {
         const val = s.scores[cat.columns[j].id];
         const c   = ws.getCell(`${colLetter(cStart + j)}${row}`);
-        c.value   = val == null || val === "" ? 0 : Number(val);
+        // Blank → empty cell (ungraded); "X" → literal "X" (excluded); otherwise the number (incl. 0).
+        if (val == null || val === "")                     c.value = null;
+        else if (String(val).trim().toUpperCase() === "X") c.value = "X";
+        else                                               c.value = Number(val);
         styleCell(c, inpStyle);
       }
 
@@ -302,8 +305,10 @@ function buildSheet(ws, term, subjectLabel, sectionLabel, logoImageId) {
       const inpRange = `${colLetter(cStart)}${row}:${colLetter(cStart + cat.columns.length - 1)}${row}`;
       const maxRange = `${colLetter(cStart)}${MAX_PTS_ROW}:${colLetter(cStart + cat.columns.length - 1)}${MAX_PTS_ROW}`;
       const scoreAddr = `${colLetter(scoreIdx)}${row}`;
+      // Denominator counts only numeric cells (real scores incl. 0); blank and "X" cells are
+      // excluded via ISNUMBER, so a missing/exempt activity never drags the score down.
       wf(ws, scoreAddr,
-        `IFERROR((SUM(${inpRange})/SUMPRODUCT((${inpRange}>0)*${maxRange}))*${cat.pct},0)`,
+        `IFERROR((SUM(${inpRange})/SUMPRODUCT(ISNUMBER(${inpRange})*${maxRange}))*${cat.pct},0)`,
         scrStyle);
       scoreCols.push(scoreAddr);
     }
@@ -600,7 +605,7 @@ function MotionDropdown({ value, onChange, options, placeholder, minWidth = 280 
   );
 }
 
-function TermRecord({ term, onUpdate }) {
+function TermRecord({ term, onUpdate, onApplyToAll, otherTermsCount = 0 }) {
   const { categories, students } = term;
   const [showCatModal, setShowCatModal] = useState(false);
   const [showColModal, setShowColModal] = useState({ open: false, catId: null });
@@ -608,6 +613,7 @@ function TermRecord({ term, onUpdate }) {
   const [colForm, setColForm] = useState({ label: "", maxPts: "100" });
   const [toast, setToast]       = useState(null);
   const [valError, setValError] = useState({ open: false, message: "" });
+  const [confirmApply, setConfirmApply] = useState(false);
   // Confirm-delete state
   const [confirmCat, setConfirmCat] = useState({ open: false, id: null, name: "" });
   const [confirmCol, setConfirmCol] = useState({ open: false, catId: null, colId: null, label: "" });
@@ -655,7 +661,16 @@ function TermRecord({ term, onUpdate }) {
     for (const cat of categories) {
       if (!cat.columns.length) { catScores[cat.id] = null; continue; }
       let earned = 0, total = 0;
-      for (const col of cat.columns) { const v = Number(student.scores[col.id] || 0); if (v > 0) { earned += v; total += col.maxPts; } }
+      for (const col of cat.columns) {
+        const raw = student.scores[col.id];
+        // Blank = not yet graded, "X" = excluded/exempt → neither counts toward the score.
+        // A real number (including 0) counts: earned points over the column's max points.
+        if (raw == null || raw === "") continue;
+        if (String(raw).trim().toUpperCase() === "X") continue;
+        const v = Number(raw);
+        if (Number.isNaN(v)) continue;
+        earned += v; total += col.maxPts;
+      }
       const rawScore = total > 0 ? (earned / total) * cat.pct : 0;
       catScores[cat.id] = { rawScore }; finalGrade += rawScore;
     }
@@ -672,6 +687,9 @@ function TermRecord({ term, onUpdate }) {
       <div style={{ background: P.gray50, borderBottom: `1px solid ${P.gray200}`, padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <SmBtn onClick={() => setShowCatModal(true)} color={totalPct >= 100 ? P.gray300 : P.red} textColor="#fff" icon="➕" disabled={totalPct >= 100}>Add Category</SmBtn>
         <PctBar used={totalPct} />
+        {categories.length > 0 && otherTermsCount > 0 && (
+          <SmBtn onClick={() => setConfirmApply(true)} color={P.blue} textColor="#fff" icon="📋">Apply to all terms</SmBtn>
+        )}
         {students.length > 0 && <span style={{ fontSize: 12, color: P.gray500, marginLeft: "auto" }}>{students.length} student{students.length !== 1 ? "s" : ""} loaded from system</span>}
       </div>
 
@@ -726,13 +744,24 @@ function TermRecord({ term, onUpdate }) {
                   <Td style={{ textAlign: "center", color: P.gray600, fontWeight: 600 }}>{s.no}</Td>
                   <Td><span style={{ fontWeight: 600 }}>{s.name}</span></Td>
                   {categories.map((cat, ci) => {
-                    const inputs = cat.columns.map(col => (
+                    const inputs = cat.columns.map(col => {
+                      const cellRaw = s.scores[col.id] ?? "";
+                      const isExcluded = String(cellRaw).trim().toUpperCase() === "X";
+                      return (
                       <td key={col.id} style={{ padding: "2px 3px", textAlign: "center", border: `1px solid ${P.gray200}` }}>
-                        <input type="number" min={0} max={col.maxPts} value={s.scores[col.id] ?? ""}
-                          onChange={e => setScore(s.id, col.id, e.target.value === "" ? "" : Math.min(Number(e.target.value), col.maxPts))}
-                          style={{ width: 52, textAlign: "center", border: `1px solid ${P.gray200}`, borderRadius: 4, padding: "2px 3px", fontSize: 12, outline: "none", background: P.gray50 }} />
+                        <input type="text" inputMode="numeric" value={cellRaw}
+                          title='Type a score, or "X" to exclude this cell (exempt / not taken)'
+                          onChange={e => {
+                            const txt = e.target.value;
+                            if (txt === "") return setScore(s.id, col.id, "");
+                            if (/^x$/i.test(txt.trim())) return setScore(s.id, col.id, "X");
+                            const n = Number(txt);
+                            if (Number.isNaN(n)) return; // ignore other letters/symbols
+                            setScore(s.id, col.id, String(Math.max(0, Math.min(n, col.maxPts))));
+                          }}
+                          style={{ width: 52, textAlign: "center", border: `1px solid ${isExcluded ? P.red : P.gray200}`, borderRadius: 4, padding: "2px 3px", fontSize: 12, fontWeight: isExcluded ? 800 : 400, color: isExcluded ? P.red : P.gray900, outline: "none", background: isExcluded ? P.redFade : P.gray50 }} />
                       </td>
-                    ));
+                    );});
                     const scoreCell = cat.columns.length > 0 ? [
                       <td key={cat.id + "sv"} style={{ textAlign: "center", fontWeight: 700, fontSize: 11, padding: "3px 6px", background: catBgPale(ci), border: `1px solid ${P.gray200}` }}>
                         {catScores[cat.id]
@@ -779,6 +808,17 @@ function TermRecord({ term, onUpdate }) {
         onClose={() => setValError({ open: false, message: "" })}
         message={valError.message}
       />
+
+      {/* ── Confirm: apply categories to all other terms ── */}
+      <Modal open={confirmApply} onClose={() => setConfirmApply(false)} title="Apply Categories to All Terms">
+        <div style={{ fontSize: 13, color: P.gray700, lineHeight: 1.55 }}>
+          This copies the <strong>{categories.length} categor{categories.length === 1 ? "y" : "ies"}</strong> (same columns and percentages) from <strong>{term.name}</strong> to all <strong>{otherTermsCount}</strong> other term{otherTermsCount !== 1 ? "s" : ""}.
+          <div style={{ marginTop: 10, color: P.red }}>
+            ⚠ Any categories, columns, and scores already in the other terms will be replaced. Scores in {term.name} are kept; the copied columns start empty in the other terms so you can fill them in per term.
+          </div>
+        </div>
+        <MActions onCancel={() => setConfirmApply(false)} onOk={() => { onApplyToAll(); setConfirmApply(false); }} okLabel="Apply to All" />
+      </Modal>
 
       {/* ── Confirm delete CATEGORY ── */}
       <ConfirmDeleteModal
@@ -878,6 +918,23 @@ export default function ClassRecord() {
   }, [terms]);
 
   const updateTerm = (id, patch) => setTerms(p => p.map(t => t.id === id ? { ...t, ...patch } : t));
+
+  // Copy one term's category/column structure (same names, %, and columns) to every other
+  // term. Fresh ids are generated so each term keeps its own independent scores — only the
+  // structure is copied, the copied columns start empty in the other terms.
+  const applyCategoriesToAll = (sourceTermId) => {
+    const source = terms.find(t => t.id === sourceTermId);
+    if (!source || source.categories.length === 0) return;
+    setTerms(prev => prev.map(t => {
+      if (t.id === sourceTermId) return t;
+      const cloned = source.categories.map(c => ({
+        id: uid(), name: c.name, pct: c.pct,
+        columns: c.columns.map(col => ({ id: uid(), label: col.label, maxPts: col.maxPts })),
+      }));
+      return { ...t, categories: cloned };
+    }));
+    showToast(`Categories applied to all other terms (${terms.length - 1})`, "success");
+  };
   const addTerm = () => {
     const name = newTermName.trim();
     if (!name) return showToast("Term name required", "error");
@@ -961,7 +1018,7 @@ export default function ClassRecord() {
 
       <div style={{ background: "#fffbeb", borderBottom: "1px solid #fde68a", padding: "7px 20px", fontSize: 12, color: "#92400e", display: "flex", gap: 6, alignItems: "center" }}>
         <span>💡</span>
-        <span>Students are <strong>loaded automatically</strong> from your assigned subjects and sections. Select a subject, pick a section if needed, then build your categories per term tab.</span>
+        <span>Students are <strong>loaded automatically</strong> from your assigned subjects and sections. Select a subject, pick a section if needed, then build your categories per term tab. Tip: type <strong>X</strong> in a score cell to exclude it (exempt / not taken) so it won't lower the score — build categories once and use <strong>Apply to all terms</strong> to copy them.</span>
       </div>
 
       <div style={{ background: P.white, borderBottom: `1px solid ${P.gray200}`, padding: "14px 20px", display: "flex", gap: 20, alignItems: "flex-end", flexWrap: "wrap" }}>
@@ -997,7 +1054,8 @@ export default function ClassRecord() {
       </div>
 
       <div style={{ padding: "16px 12px" }}>
-        {activeTerm && <TermRecord key={activeTerm.id} term={activeTerm} onUpdate={(patch) => updateTerm(activeTerm.id, patch)} />}
+        {activeTerm && <TermRecord key={activeTerm.id} term={activeTerm} onUpdate={(patch) => updateTerm(activeTerm.id, patch)}
+          onApplyToAll={() => applyCategoriesToAll(activeTerm.id)} otherTermsCount={terms.length - 1} />}
       </div>
 
       <div style={{ display: "flex", gap: 16, padding: "0 12px 20px", flexWrap: "wrap" }}>

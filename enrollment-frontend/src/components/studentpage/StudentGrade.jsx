@@ -85,7 +85,7 @@ const calculateFinalGrade = (grade) => {
     return (P + M + S + F) / 4; 
   } else {
     // Standard College Formula: Weighted Average
-    return (P * 0.20) + (M * 0.20) + (S * 0.20) + (F * 0.40); 
+    return (P * 0.25) + (M * 0.25) + (S * 0.25) + (F * 0.25);
   }
 };
 
