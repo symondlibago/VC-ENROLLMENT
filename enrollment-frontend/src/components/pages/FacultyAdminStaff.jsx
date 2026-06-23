@@ -5,12 +5,13 @@ import { Users, UserPlus, MoreVertical, Edit, Trash2, Star, ShieldCheck, FileTex
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { instructorAPI, userAPI } from '@/services/api';
 // Import jsPDF (make sure to install: npm install jspdf jspdf-autotable)
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { downloadRosterDocx } from '@/lib/rosterDocx';
 
 import AddInstructorModal from '@/components/modals/AddInstructorModal';
 import AddStaffModal from '@/components/modals/AddStaffModal';
@@ -114,12 +115,12 @@ const FacultyAdminStaff = () => {
     }
   };
 
-  // --- NEW EXPORT FUNCTION ---
-  const handleExportRoster = async (instructor) => {
+  // --- EXPORT FUNCTION (PDF or DOCX) ---
+  const handleExportRoster = async (instructor, format = 'pdf') => {
     setIsExporting(true);
     try {
       const response = await instructorAPI.getSpecificRoster(instructor.id);
-      
+
       if (!response.success || response.data.length === 0) {
         showAlert('No classes or students found for this instructor.', 'error');
         setIsExporting(false);
@@ -127,6 +128,18 @@ const FacultyAdminStaff = () => {
       }
 
       const rosterData = response.data; // This is now an array of Schedules
+
+      if (format === 'docx') {
+        downloadRosterDocx({
+          instructorName: instructor.name,
+          rosterData,
+          fileName: `${instructor.name.replace(/\s+/g, '_')}_Class_Roster`,
+        });
+        showAlert('Class roster exported successfully!');
+        setIsExporting(false);
+        return;
+      }
+
       const doc = new jsPDF();
 
       rosterData.forEach((classSchedule, index) => {
@@ -299,16 +312,22 @@ const FacultyAdminStaff = () => {
                           <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="liquid-button h-8 w-8 p-0 cursor-pointer"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             
-                            {/* --- NEW EXPORT OPTION (Only for Instructors) --- */}
+                            {/* --- EXPORT OPTION (Only for Instructors) — choose PDF or DOCX --- */}
                             {activeTab === 'instructors' && (
-                                <DropdownMenuItem 
-                                    onSelect={() => handleExportRoster(item)} 
-                                    disabled={isExporting}
-                                    className="cursor-pointer"
-                                >
-                                    <FileText className="mr-2 h-4 w-4 hover:text-white" />
-                                    {isExporting ? 'Exporting...' : 'Export Class Roster'}
-                                </DropdownMenuItem>
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger disabled={isExporting} className="cursor-pointer">
+                                        <FileText className="mr-2 h-4 w-4 hover:text-white" />
+                                        {isExporting ? 'Exporting...' : 'Export Class Roster'}
+                                    </DropdownMenuSubTrigger>
+                                    <DropdownMenuSubContent>
+                                        <DropdownMenuItem onSelect={() => handleExportRoster(item, 'pdf')} disabled={isExporting} className="cursor-pointer">
+                                            <FileText className="mr-2 h-4 w-4" /> PDF (.pdf)
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onSelect={() => handleExportRoster(item, 'docx')} disabled={isExporting} className="cursor-pointer">
+                                            <FileText className="mr-2 h-4 w-4" /> Word (.docx)
+                                        </DropdownMenuItem>
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuSub>
                             )}
 
                             <DropdownMenuItem onSelect={() => { setSelectedItem(item); activeTab === 'instructors' ? setIsInstructorModalOpen(true) : setIsStaffModalOpen(true); }} className="cursor-pointer">

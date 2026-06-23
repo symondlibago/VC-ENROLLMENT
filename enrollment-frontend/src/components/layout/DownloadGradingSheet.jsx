@@ -2,9 +2,31 @@ import React from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Button } from '@/components/ui/button';
-import { FileDown } from 'lucide-react';
+import { FileDown, ChevronDown, FileText } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { downloadGradingSheetDocx } from '@/lib/gradingSheetDocx';
 
 const DownloadGradingSheet = ({ subject, students, instructorName }) => {
+
+  // Group students by section so the Word export matches the PDF's one-page-per-section layout.
+  const groupSections = () => {
+    const bySection = students.reduce((acc, s) => {
+      const sec = s.section || 'Unassigned';
+      (acc[sec] = acc[sec] || []).push(s);
+      return acc;
+    }, {});
+    return Object.keys(bySection).sort().map((name) => ({ name, students: bySection[name] }));
+  };
+
+  const generateDOCX = async () => {
+    if (!subject || students.length === 0) return;
+    await downloadGradingSheetDocx({
+      subject,
+      sections: groupSections(),
+      instructorName,
+      fileName: `Grading_Sheet_${subject.subject_code}`,
+    });
+  };
 
   const generatePDF = () => {
     if (!subject || students.length === 0) return;
@@ -109,10 +131,10 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
 
       const tableHeaders = [
         'Student Name',
-        showPercent ? 'Prelim (20%)' : 'Prelim',
-        showPercent ? 'Midterm (20%)' : 'Midterm',
-        showPercent ? 'Semi (20%)' : 'Semi',
-        showPercent ? 'Final (40%)' : 'Final',
+        showPercent ? 'Prelim (25%)' : 'Prelim',
+        showPercent ? 'Midterm (25%)' : 'Midterm',
+        showPercent ? 'Semi (25%)' : 'Semi',
+        showPercent ? 'Final (25%)' : 'Final',
         'Final Grade',
         'Equivalent',
         'Remarks'
@@ -332,15 +354,27 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
   };
 
   return (
-    <Button 
-      onClick={generatePDF} 
-      variant="outline" 
-      className="flex items-center gap-2 border-green-600 text-green-700 hover:bg-green-700 cursor-pointer"
-      disabled={!students || students.length === 0}
-    >
-      <FileDown className="w-4 h-4" />
-      Export Grading Sheet
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          className="flex items-center gap-2 border-green-600 text-green-700 hover:bg-green-700 hover:text-white cursor-pointer"
+          disabled={!students || students.length === 0}
+        >
+          <FileDown className="w-4 h-4" />
+          Export Grading Sheet
+          <ChevronDown className="w-4 h-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onSelect={generatePDF} className="cursor-pointer">
+          <FileText className="mr-2 h-4 w-4" /> PDF (.pdf)
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={generateDOCX} className="cursor-pointer">
+          <FileText className="mr-2 h-4 w-4" /> Word (.docx)
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 

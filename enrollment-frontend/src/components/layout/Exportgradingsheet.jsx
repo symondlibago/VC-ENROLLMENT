@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { FileDown, Search, X, ChevronDown, Loader2, Users, BookOpen, LayoutList } from 'lucide-react';
+import { FileDown, Search, X, ChevronDown, Loader2, Users, BookOpen, LayoutList, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { instructorAPI, sectionAPI } from '@/services/api';
+import { downloadGradingSheetDocx } from '@/lib/gradingSheetDocx';
 
 // ---------------------------------------------------------------------------
 // Helpers (mirror DownloadGradingSheet logic exactly)
@@ -149,10 +151,10 @@ const generateGradingSheetPDF = ({ subject, students, instructorName, sectionNam
 
   const tableHeaders = [
     'Student Name',
-    showPercent ? 'Prelim (20%)' : 'Prelim',
-    showPercent ? 'Midterm (20%)' : 'Midterm',
-    showPercent ? 'Semi (20%)' : 'Semi',
-    showPercent ? 'Final (40%)' : 'Final',
+    showPercent ? 'Prelim (25%)' : 'Prelim',
+    showPercent ? 'Midterm (25%)' : 'Midterm',
+    showPercent ? 'Semi (25%)' : 'Semi',
+    showPercent ? 'Final (25%)' : 'Final',
     'Final Grade',
     'Equivalent',
     'Remarks',
@@ -512,7 +514,7 @@ const ExportGradingSheet = ({ onClose }) => {
     return students;
   }, [selectedSubject, selectedSection]);
 
-  const handleExport = async () => {
+  const handleExport = async (format = 'pdf') => {
     if (!selectedInstructor || !selectedSubject || !selectedSection) {
       setError('Please select an instructor, subject, and section.');
       return;
@@ -578,25 +580,36 @@ const ExportGradingSheet = ({ onClose }) => {
         return;
       }
 
-      generateGradingSheetPDF({
-        subject: {
-          subject_code:    selectedSubject.subject_code,
-          descriptive_title: selectedSubject.descriptive_title,
-          schedule_info:   selectedSubject.schedule_info,
-          lec_hrs:         selectedSubject.lec_hrs,
-          lab_hrs:         selectedSubject.lab_hrs,
-          total_units:     selectedSubject.total_units,
-          number_of_hours: selectedSubject.number_of_hours,
-          semester:        selectedSubject.semester,
-          school_year:     selectedSubject.school_year,
-        },
-        students:        finalStudents,
-        instructorName:  selectedInstructor.name,
-        sectionName:     selectedSection.name,
-      });
+      const subjectPayload = {
+        subject_code:    selectedSubject.subject_code,
+        descriptive_title: selectedSubject.descriptive_title,
+        schedule_info:   selectedSubject.schedule_info,
+        lec_hrs:         selectedSubject.lec_hrs,
+        lab_hrs:         selectedSubject.lab_hrs,
+        total_units:     selectedSubject.total_units,
+        number_of_hours: selectedSubject.number_of_hours,
+        semester:        selectedSubject.semester,
+        school_year:     selectedSubject.school_year,
+      };
+
+      if (format === 'docx') {
+        await downloadGradingSheetDocx({
+          subject: subjectPayload,
+          sections: [{ name: selectedSection.name, students: finalStudents }],
+          instructorName: selectedInstructor.name,
+          fileName: `Grading_Sheet_${selectedSubject.subject_code}_${selectedSection.name}`,
+        });
+      } else {
+        generateGradingSheetPDF({
+          subject:        subjectPayload,
+          students:       finalStudents,
+          instructorName: selectedInstructor.name,
+          sectionName:    selectedSection.name,
+        });
+      }
 
     } catch (e) {
-      setError(e.message || 'An error occurred while generating the PDF.');
+      setError(e.message || 'An error occurred while generating the file.');
     } finally {
       setLoadingExport(false);
     }
@@ -691,16 +704,27 @@ const ExportGradingSheet = ({ onClose }) => {
           <Button variant="outline" onClick={onClose} className="cursor-pointer">
             Cancel
           </Button>
-          <Button
-            onClick={handleExport}
-            disabled={!canExport || loadingExport}
-            className="flex items-center gap-2 bg-red-700 hover:bg-red-800 text-white cursor-pointer"
-          >
-            {loadingExport
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating…</>
-              : <><FileDown className="w-4 h-4" /> Export PDF</>
-            }
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                disabled={!canExport || loadingExport}
+                className="flex items-center gap-2 bg-red-700 hover:bg-red-800 text-white cursor-pointer"
+              >
+                {loadingExport
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating…</>
+                  : <><FileDown className="w-4 h-4" /> Export <ChevronDown className="w-4 h-4" /></>
+                }
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => handleExport('pdf')} className="cursor-pointer">
+                <FileText className="mr-2 h-4 w-4" /> PDF (.pdf)
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => handleExport('docx')} className="cursor-pointer">
+                <FileText className="mr-2 h-4 w-4" /> Word (.docx)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </div>
