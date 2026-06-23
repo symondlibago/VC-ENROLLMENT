@@ -149,6 +149,7 @@ const Students = () => {
   const [studentSemesterFilter, setStudentSemesterFilter] = useState('all');
   const [studentReferralFilter, setStudentReferralFilter] = useState('all');
   const [studentTypeFilter, setStudentTypeFilter] = useState('all');
+  const [studentGenderFilter, setStudentGenderFilter] = useState('all');
   const currentUser = authAPI.getUserData();
 
   // Added States for Assigning Single Student
@@ -396,8 +397,9 @@ const Students = () => {
     const referralMatch = studentReferralFilter === 'all' || (student.referral_source || '') === studentReferralFilter;
     const type = (student.enrollment_type || '').toLowerCase();
     const typeMatch = studentTypeFilter === 'all' || (studentTypeFilter === 'new' ? type === 'new' : type !== 'new');
-    return matchesSearch && courseMatch && sectionMatch && yearMatch && schoolYearMatch && semesterMatch && referralMatch && typeMatch;
-  }), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter, studentYearFilter, studentSchoolYearFilter, studentSemesterFilter, studentReferralFilter, studentTypeFilter]);
+    const genderMatch = studentGenderFilter === 'all' || (student.gender || '').toLowerCase() === studentGenderFilter;
+    return matchesSearch && courseMatch && sectionMatch && yearMatch && schoolYearMatch && semesterMatch && referralMatch && typeMatch && genderMatch;
+  }), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter, studentYearFilter, studentSchoolYearFilter, studentSemesterFilter, studentReferralFilter, studentTypeFilter, studentGenderFilter]);
 
   const stats = useMemo(() => [
     { title: 'Total Sections', value: sections.length.toString(), icon: BookOpen, color: 'text-blue-600', bgColor: 'bg-blue-50' },
@@ -481,6 +483,7 @@ const Students = () => {
                 semesterFilter={studentSemesterFilter} setSemesterFilter={setStudentSemesterFilter}
                 referralFilter={studentReferralFilter} setReferralFilter={setStudentReferralFilter}
                 typeFilter={studentTypeFilter} setTypeFilter={setStudentTypeFilter}
+                genderFilter={studentGenderFilter} setGenderFilter={setStudentGenderFilter}
                 schoolYearOptions={schoolYearOptions}
                 semesterOptions={semesterOptions}
                 onEditStudent={handleEditStudent}
@@ -541,12 +544,13 @@ const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilte
     );
 };
 
-const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter, yearFilter, setYearFilter, schoolYearFilter, setSchoolYearFilter, semesterFilter, setSemesterFilter, referralFilter, setReferralFilter, typeFilter, setTypeFilter, schoolYearOptions, semesterOptions, onEditStudent, onViewStudentDetails, onAssignSection, currentUser }) => {
+const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter, yearFilter, setYearFilter, schoolYearFilter, setSchoolYearFilter, semesterFilter, setSemesterFilter, referralFilter, setReferralFilter, typeFilter, setTypeFilter, genderFilter, setGenderFilter, schoolYearOptions, semesterOptions, onEditStudent, onViewStudentDetails, onAssignSection, currentUser }) => {
     const courseOptions = useMemo(() => [{ label: 'All Courses', value: 'all' }, ...courses.map(c => ({ label: c.course_code, value: c.id.toString() }))], [courses]);
     const sectionOptions = useMemo(() => [{ label: 'All Sections', value: 'all' }, { label: 'Unassigned', value: 'unassigned' }, ...sections.map(s => ({ label: s.name, value: s.id.toString() }))], [sections]);
     const yearOptions = [{ label: 'All Year Levels', value: 'all' }, { label: '1st Year', value: '1st Year' }, { label: '2nd Year', value: '2nd Year' }, { label: '3rd Year', value: '3rd Year' }, { label: '4th Year', value: '4th Year' }];
     const referralOptions = [{ label: 'All Sources', value: 'all' }, { label: 'TikTok', value: 'TikTok' }, { label: 'Facebook', value: 'Facebook' }, { label: 'Instagram', value: 'Instagram' }, { label: 'Referral', value: 'Referral' }, { label: 'Others', value: 'Others' }];
     const typeOptions = [{ label: 'All Types', value: 'all' }, { label: 'New', value: 'new' }, { label: 'Continuing', value: 'continuing' }];
+    const genderOptions = [{ label: 'All Genders', value: 'all' }, { label: 'Male', value: 'male' }, { label: 'Female', value: 'female' }];
     const canEdit = currentUser.role === 'Admin' || currentUser.role === 'Registrar';
   
     return (
@@ -561,6 +565,7 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
             <MotionDropdown value={semesterFilter} onChange={setSemesterFilter} options={semesterOptions} placeholder="Filter Semester"/>
             <MotionDropdown value={typeFilter} onChange={setTypeFilter} options={typeOptions} placeholder="Filter Type"/>
             <MotionDropdown value={referralFilter} onChange={setReferralFilter} options={referralOptions} placeholder="Filter Source"/>
+            <MotionDropdown value={genderFilter} onChange={setGenderFilter} options={genderOptions} placeholder="Filter Gender"/>
           </div>
         </div></CardContent></Card>
         <Card><Table>
