@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Receipt, Search, MoreVertical, Eye,
     AlertCircle, CheckCircle, XCircle,
-    CreditCard,
+    CreditCard, CalendarDays,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { enrollmentAPI } from '@/services/api'; // Import enrollmentAPI
-import TermPaymentModal from '../modals/TermPaymentModal'; // Import the new modal  
+import TermPaymentModal from '../modals/TermPaymentModal'; // Import the new modal
+import DailyCollectionsModal from '../modals/DailyCollectionsModal';
 import SuccessAlert from '../modals/SuccessAlert';
 
 // Helper function to get status color
@@ -44,6 +45,7 @@ const TermPayment = () => {
     
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [selectedStudentId, setSelectedStudentId] = useState(null); // Store student ID
+    const [isDailyOpen, setIsDailyOpen] = useState(false); // Daily collections modal
 
     // ✅ 2. Add the alert state here
     const [alert, setAlert] = useState({ isVisible: false, message: '', type: 'success' });
@@ -99,6 +101,13 @@ const TermPayment = () => {
                     </h1>
                     <p className="text-gray-600">Review and manage student payment records.</p>
                 </div>
+                <Button
+                    onClick={() => setIsDailyOpen(true)}
+                    className="bg-(--dominant-red) hover:bg-red-800 text-white cursor-pointer"
+                >
+                    <CalendarDays className="w-4 h-4 mr-2" />
+                    Daily Collections
+                </Button>
             </div>
 
             {/* Filters */}
@@ -194,6 +203,11 @@ const TermPayment = () => {
                     }}
                 />
             )}
+
+            <DailyCollectionsModal
+                isOpen={isDailyOpen}
+                onClose={() => setIsDailyOpen(false)}
+            />
         </div>
     );
 };

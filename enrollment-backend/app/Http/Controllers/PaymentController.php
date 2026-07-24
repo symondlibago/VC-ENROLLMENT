@@ -134,6 +134,53 @@ class PaymentController extends Controller
         }
     }
 
+    /**
+     * Get all term payments made on a specific day (daily collections report).
+     * Returns each payer's name, course code, OR number and amount, plus the grand total.
+     */
+    public function getPaymentsByDate(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'date' => 'required|date',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $date = $request->input('date');
+
+        $termPayments = TermPayment::with(['preEnrolledStudent.course'])
+            ->whereDate('payment_date', $date)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        $rows = $termPayments->map(function ($tp) {
+            $student = $tp->preEnrolledStudent;
+            return [
+                'id' => $tp->id,
+                'name' => $student ? $student->getFullNameAttribute() : 'Unknown Student',
+                'student_id_number' => $student->student_id_number ?? null,
+                'course_code' => ($student && $student->course) ? $student->course->course_code : 'N/A',
+                'or_number' => $tp->or_number,
+                'amount' => (float) $tp->amount,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'date' => $date,
+                'count' => $rows->count(),
+                'grand_total' => (float) $termPayments->sum('amount'),
+                'payments' => $rows->values(),
+            ],
+        ]);
+    }
+
     public function getPaymentByStudent($student_id)
     {
         // Add `preEnrolledStudent` to the eager load

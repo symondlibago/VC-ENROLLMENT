@@ -785,7 +785,17 @@ export const paymentAPI = {
       const message = error.response?.data?.message || 'Failed to fetch payment data';
       throw { success: false, message, status: error.response?.status };
     }
-  }
+  },
+
+  // Daily collections — all term payments made on a specific date (YYYY-MM-DD)
+  getByDate: async (date) => {
+    try {
+      const response = await api.get('/term-payments/by-date', { params: { date } });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch daily collections' };
+    }
+  },
 };
 
 // Schedule API methods

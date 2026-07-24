@@ -27,4 +27,12 @@ class TermPayment extends Model
     {
         return $this->belongsTo(Payment::class);
     }
+
+    /**
+     * Get the student this term payment belongs to (for easy lookup).
+     */
+    public function preEnrolledStudent()
+    {
+        return $this->belongsTo(PreEnrolledStudent::class, 'pre_enrolled_student_id');
+    }
 }
