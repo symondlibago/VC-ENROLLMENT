@@ -11,34 +11,39 @@ import SuccessAlert from '../modals/SuccessAlert';
 import ValidationErrorModal from '../modals/ValidationErrorModal'; 
 import DownloadGradingSheet from '@/components/layout/DownloadGradingSheet';
 
-const MotionDropdown = ({ value, onChange, options, placeholder }) => {
+const MotionDropdown = ({ value, onChange, options, placeholder, searchable = false }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const selectedLabel = useMemo(() => 
+  const [query, setQuery] = useState('');
+  const selectedLabel = useMemo(() =>
     options.find(opt => opt.value === value)?.label || placeholder,
     [value, options, placeholder]
   );
 
+  const filteredOptions = useMemo(() => {
+    if (!searchable || !query.trim()) return options;
+    const q = query.toLowerCase();
+    return options.filter(opt => opt.label.toLowerCase().includes(q));
+  }, [options, query, searchable]);
+
+  const close = () => { setIsOpen(false); setQuery(''); };
+
   const handleSelect = (optionValue) => {
     onChange(optionValue);
-    setIsOpen(false);
-  };
-
-  const getGradeColorClass = (grade) => {
-    if (grade === null || grade === undefined || grade === '') return 'text-gray-900';
-    return parseFloat(grade) < 75 ? 'text-red-600' : 'text-green-600';
+    close();
   };
 
   return (
     <div className="relative">
       <motion.button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => (isOpen ? close() : setIsOpen(true))}
         className="w-full px-4 py-2 text-left bg-white border border-gray-200 rounded-lg focus:border-(--dominant-red) focus:ring-2 focus:ring-(--dominant-red)/20 liquid-morph flex items-center justify-between min-w-[200px]"
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
       >
-        <span className="text-gray-900 truncate">{selectedLabel}</span>
+        <span className="text-gray-900 truncate flex-1 min-w-0 mr-2">{selectedLabel}</span>
         <motion.div
+          className="shrink-0"
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ duration: 0.2 }}
         >
@@ -52,25 +57,41 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-            className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden max-h-60 overflow-y-auto"
+            className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden max-h-72 overflow-y-auto"
           >
-            {options.map((option, index) => {
+            {searchable && (
+              <div className="sticky top-0 bg-white p-2 border-b border-gray-100 z-10">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    autoFocus
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search subject..."
+                    className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-(--dominant-red) focus:ring-1 focus:ring-(--dominant-red)/30"
+                  />
+                </div>
+              </div>
+            )}
+            {filteredOptions.length === 0 ? (
+              <div className="px-4 py-6 text-sm text-gray-400 text-center">No subjects found.</div>
+            ) : filteredOptions.map((option, index) => {
               const isSelected = option.value === value;
-              
+
               return (
                 <motion.button
-                  key={option.value} 
-                  type="button" 
+                  key={option.value}
+                  type="button"
                   onClick={() => handleSelect(option.value)}
                   className={`w-full px-4 py-3 text-left transition-colors duration-200 cursor-pointer border-b border-gray-100 last:border-b-0 ${
                     isSelected ? 'bg-red-800' : 'bg-white'
                   }`}
-                  initial={{ opacity: 0, x: -10 }} 
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }} 
-                  whileHover={{ 
-                    backgroundColor: isSelected ? '#b91c1c' : '#f9fafb', 
-                    x: 4 
+                  initial={searchable ? false : { opacity: 0, x: -10 }}
+                  animate={searchable ? undefined : { opacity: 1, x: 0 }}
+                  transition={{ delay: searchable ? 0 : index * 0.05 }}
+                  whileHover={{
+                    backgroundColor: isSelected ? '#b91c1c' : '#f9fafb',
+                    x: 4
                   }}
                 >
                   <span className={`${isSelected ? 'text-white font-medium' : 'text-gray-900'}`}>
@@ -91,7 +112,9 @@ const StudentGrades = () => {
   const [selectedSubjectId, setSelectedSubjectId] = useState('');
   
   // State for selected section
-  const [selectedSection, setSelectedSection] = useState('All'); 
+  const [selectedSection, setSelectedSection] = useState('All');
+  // State for selected semester filter (1st Sem / 2nd Sem / etc.)
+  const [selectedSemester, setSelectedSemester] = useState('All');
   // State for instructor name
   const [instructorName, setInstructorName] = useState('');
 
@@ -161,12 +184,40 @@ const StudentGrades = () => {
     return now >= start && now <= end;
   };
 
-  const subjectOptions = useMemo(() => 
-    rosterData.map(subject => ({
+  // Distinct semesters available across the instructor's subjects (for the filter)
+  const semesterOptions = useMemo(() => {
+    const uniqueSemesters = [...new Set(rosterData.map(s => s.semester || 'Unspecified'))]
+      .filter(Boolean)
+      .sort();
+    return [
+      { label: 'All Semesters', value: 'All' },
+      ...uniqueSemesters.map(sem => ({ label: sem, value: sem })),
+    ];
+  }, [rosterData]);
+
+  // Subjects narrowed down to the selected semester
+  const filteredSubjects = useMemo(() => {
+    if (selectedSemester === 'All') return rosterData;
+    return rosterData.filter(s => (s.semester || 'Unspecified') === selectedSemester);
+  }, [rosterData, selectedSemester]);
+
+  const subjectOptions = useMemo(() =>
+    filteredSubjects.map(subject => ({
       label: `${subject.subject_code} - ${subject.descriptive_title}`,
       value: subject.subject_id.toString()
     }))
-  , [rosterData]);
+  , [filteredSubjects]);
+
+  // Switch semester and keep a valid subject selected within it
+  const handleSemesterChange = (sem) => {
+    setSelectedSemester(sem);
+    const list = sem === 'All'
+      ? rosterData
+      : rosterData.filter(s => (s.semester || 'Unspecified') === sem);
+    if (!list.some(s => s.subject_id.toString() === selectedSubjectId)) {
+      setSelectedSubjectId(list[0]?.subject_id.toString() || '');
+    }
+  };
 
   // Section options are now safe: the backend already scoped students to only
   // the sections this instructor is assigned to for each subject.
@@ -382,24 +433,40 @@ const StudentGrades = () => {
       <motion.div variants={itemVariants}>
         <Card>
           <CardContent className="p-6 flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between">
-            <div className="flex-1 w-full relative">
+            <div className="flex-1 w-full xl:min-w-[340px] relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input placeholder="Search students by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border border-gray-300 focus:border-red-800 focus:ring-1 focus:ring-red-800 rounded-lg"/>
             </div>
             
             <div className="flex flex-col md:flex-row w-full xl:w-auto gap-4">
-                {/* Subject Dropdown */}
-                <div className="w-full md:w-auto min-w-[250px]">
-                <MotionDropdown value={selectedSubjectId} onChange={setSelectedSubjectId} options={subjectOptions} placeholder="Select a subject..." />
+                {/* Semester Filter */}
+                <div className="w-full md:w-auto min-w-[170px]">
+                    <MotionDropdown
+                        value={selectedSemester}
+                        onChange={handleSemesterChange}
+                        options={semesterOptions}
+                        placeholder="Filter by Semester"
+                    />
+                </div>
+
+                {/* Subject Dropdown (searchable) — fixed width so the long title truncates */}
+                <div className="w-full md:w-[300px]">
+                    <MotionDropdown
+                        value={selectedSubjectId}
+                        onChange={setSelectedSubjectId}
+                        options={subjectOptions}
+                        placeholder="Select a subject..."
+                        searchable
+                    />
                 </div>
 
                 {/* Section Dropdown */}
                 <div className="w-full md:w-auto min-w-[180px]">
-                    <MotionDropdown 
-                        value={selectedSection} 
-                        onChange={setSelectedSection} 
-                        options={sectionOptions} 
-                        placeholder="Filter by Section" 
+                    <MotionDropdown
+                        value={selectedSection}
+                        onChange={setSelectedSection}
+                        options={sectionOptions}
+                        placeholder="Filter by Section"
                     />
                 </div>
             </div>
