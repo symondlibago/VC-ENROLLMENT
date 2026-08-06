@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import LoadingSpinner from '@/components/layout/LoadingSpinner';
 
 const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const TBA_GROUP = 'To Be Announced';
 
 const InstructorSchedule = () => {
   const [scheduleData, setScheduleData] = useState([]);
@@ -35,10 +36,25 @@ const InstructorSchedule = () => {
   const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
   const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
 
-  const groupedSchedule = daysOrder.map(day => ({
-    day,
-    schedules: scheduleData.filter(s => s.day === day),
-  })).filter(group => group.schedules.length > 0);
+  // Match a schedule's day against the known weekdays, ignoring case/whitespace.
+  const matchesDay = (schedule, day) =>
+    (schedule.day || '').trim().toLowerCase() === day.toLowerCase();
+
+  // Anything without a recognized day (blank or TBA) is still the instructor's
+  // class, so it gets its own group instead of being dropped from the page.
+  const isUnscheduled = (schedule) =>
+    !daysOrder.some(day => matchesDay(schedule, day));
+
+  const groupedSchedule = [
+    ...daysOrder.map(day => ({
+      day,
+      schedules: scheduleData.filter(s => matchesDay(s, day)),
+    })),
+    {
+      day: TBA_GROUP,
+      schedules: scheduleData.filter(isUnscheduled),
+    },
+  ].filter(group => group.schedules.length > 0);
 
   const renderContent = () => {
     if (loading) {
@@ -75,7 +91,14 @@ const InstructorSchedule = () => {
       >
         {groupedSchedule.map(({ day, schedules }) => (
           <motion.div key={day} variants={itemVariants}>
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">{day}</h2>
+            <div className="mb-4">
+              <h2 className="text-2xl font-bold text-gray-800">{day}</h2>
+              {day === TBA_GROUP && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Assigned to you, but the day, time or room has not been set yet.
+                </p>
+              )}
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {schedules.map((schedule, index) => (
                 <motion.div key={index} whileHover={{ y: -5, transition: { duration: 0.2 } }}>
@@ -100,11 +123,15 @@ const InstructorSchedule = () => {
                       <div className="mt-4 pt-4 border-t border-gray-100 space-y-2 text-sm text-gray-700">
                         <div className="flex items-center space-x-2">
                           <Clock className="w-4 h-4 text-(--dominant-red)" />
-                          <span>{schedule.time || 'Not specified'}</span>
+                          <span className={schedule.time ? '' : 'text-gray-400 italic'}>
+                            {schedule.time || 'TBA'}
+                          </span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <MapPin className="w-4 h-4 text-(--dominant-red)" />
-                          <span>{schedule.room || 'Not specified'}</span>
+                          <span className={schedule.room ? '' : 'text-gray-400 italic'}>
+                            {schedule.room || 'TBA'}
+                          </span>
                         </div>
                       </div>
                     </CardContent>
