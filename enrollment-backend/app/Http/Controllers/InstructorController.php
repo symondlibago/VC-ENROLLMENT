@@ -303,8 +303,19 @@ public function bulkUpdateGrades(Request $request)
                 
                 // 1. UPDATE ALL THE GRADES
                 foreach ($gradesData as $gradeInput) {
-                    // Authorization check
-                    if (!Schedule::where('subject_id', $gradeInput['subject_id'])->where('instructor_id', $instructor->id)->exists()) {
+                    // Authorization check: the instructor must teach this subject to the
+                    // student's own section (or have a general, section-less schedule),
+                    // matching the roster built in getGradeableStudents().
+                    $studentSectionIds = DB::table('section_student')
+                        ->where('pre_enrolled_student_id', $gradeInput['student_id'])
+                        ->pluck('section_id');
+
+                    $teachesStudent = Schedule::where('subject_id', $gradeInput['subject_id'])
+                        ->where('instructor_id', $instructor->id)
+                        ->where(fn ($q) => $q->whereIn('section_id', $studentSectionIds)->orWhereNull('section_id'))
+                        ->exists();
+
+                    if (!$teachesStudent) {
                         continue;
                     }
 
@@ -313,8 +324,10 @@ public function bulkUpdateGrades(Request $request)
                         'pre_enrolled_student_id' => $gradeInput['student_id'],
                         'subject_id' => $gradeInput['subject_id'],
                     ]);
-                    
-                    if (!$grade->exists) {
+
+                    // The instructor saving the grade is the one who teaches this student,
+                    // so keep the record in sync (fixes rows stamped by a previous instructor).
+                    if ($grade->status !== 'Credited') {
                         $grade->instructor_id = $instructor->id;
                     }
 

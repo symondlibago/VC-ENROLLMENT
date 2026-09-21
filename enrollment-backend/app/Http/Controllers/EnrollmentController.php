@@ -10,6 +10,7 @@ use App\Models\Course;
 use App\Models\Grade;
 use App\Models\GradingPeriod;
 use App\Models\Instructor;
+use App\Models\Schedule;
 use App\Models\User;
 use App\Models\EnrollmentHistory;
 use Illuminate\Http\Request;
@@ -934,6 +935,38 @@ public function getStudentsForIdReleasing()
             /**
      * Get grades for a specific student, filterable by year and semester.
      */
+    /**
+     * Map of subject_id => instructor name, taken from the schedules of the
+     * sections the student belongs to. The schedule is the source of truth for
+     * who teaches a student; grades.instructor_id only records who first saved it.
+     */
+    private function sectionInstructorNames(PreEnrolledStudent $student): array
+    {
+        $sectionIds = $student->sections()->pluck('sections.id');
+
+        if ($sectionIds->isEmpty()) {
+            return [];
+        }
+
+        return Schedule::with('instructor.user:id,name')
+            ->whereIn('section_id', $sectionIds)
+            ->whereNotNull('instructor_id')
+            ->get()
+            ->filter(fn ($schedule) => $schedule->instructor?->user?->name)
+            ->mapWithKeys(fn ($schedule) => [$schedule->subject_id => $schedule->instructor->user->name])
+            ->all();
+    }
+
+    private function resolveGradeInstructorName(Grade $grade, array $sectionInstructors): string
+    {
+        // Credited subjects keep their system "instructor"
+        if ($grade->status !== 'Credited' && isset($sectionInstructors[$grade->subject_id])) {
+            return $sectionInstructors[$grade->subject_id];
+        }
+
+        return $grade->instructor->user->name ?? 'Unassigned';
+    }
+
     public function getStudentGrades(Request $request, PreEnrolledStudent $student): JsonResponse
     {
         try {
@@ -964,14 +997,15 @@ public function getStudentsForIdReleasing()
             });
 
             $grades = $query->orderBy('created_at', 'desc')->get();
+            $sectionInstructors = $this->sectionInstructorNames($student);
 
             // Format the data for a clean frontend response
-            $formattedGrades = $grades->map(function ($grade) {
+            $formattedGrades = $grades->map(function ($grade) use ($sectionInstructors) {
                 return [
                     'id' => $grade->id,
                     'subject_code' => $grade->subject->subject_code ?? 'N/A',
                     'descriptive_title' => $grade->subject->descriptive_title ?? 'N/A',
-                    'instructor_name' => $grade->instructor->user->name ?? 'Unassigned',
+                    'instructor_name' => $this->resolveGradeInstructorName($grade, $sectionInstructors),
                     'prelim_grade' => $grade->prelim_grade,
                     'midterm_grade' => $grade->midterm_grade,
                     'semifinal_grade' => $grade->semifinal_grade,
@@ -1266,9 +1300,10 @@ public function getStudentsForIdReleasing()
 
             // 3. Retrieve the filtered grades.
             $grades = $gradesQuery->orderBy('created_at', 'desc')->get();
+            $sectionInstructors = $this->sectionInstructorNames($student);
 
             // 4. Format the data for a clean frontend response.
-            $formattedData = $grades->map(function ($grade) {
+            $formattedData = $grades->map(function ($grade) use ($sectionInstructors) {
                 if (!$grade->subject) {
                     return null; // Skip if a grade is missing its subject for some reason
                 }
@@ -1280,7 +1315,7 @@ public function getStudentsForIdReleasing()
                     'subject_code' => $grade->subject->subject_code,
                     'descriptive_title' => $grade->subject->descriptive_title,
                     'units' => $grade->subject->total_units,
-                    'instructor_name' => $grade->instructor->user->name ?? 'Unassigned',
+                    'instructor_name' => $this->resolveGradeInstructorName($grade, $sectionInstructors),
                     'prelim_grade' => $grade->prelim_grade,
                     'midterm_grade' => $grade->midterm_grade,
                     'semifinal_grade' => $grade->semifinal_grade,

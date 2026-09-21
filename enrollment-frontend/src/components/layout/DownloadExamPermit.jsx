@@ -5,15 +5,19 @@ import { Button } from '@/components/ui/button';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { FileText, ChevronDown } from 'lucide-react';
 import vineyardLogo from '../../assets/vineyard.png';
 
+const EXAM_TYPES = ['Preliminary Exam', 'Midterm Exam', 'Semi-Final Exam', 'Final Exam'];
+
 const DownloadExamPermit = ({ student }) => {
 
-  const generatePDF = (examType) => {
+  const generatePDF = (examType, isSpecial = false) => {
     // 1. SETUP: Long Bond Paper (8.5" x 13")
     const doc = new jsPDF({
         orientation: 'p',
@@ -50,7 +54,12 @@ const DownloadExamPermit = ({ student }) => {
     // Title
     y += 4;
     doc.setFontSize(10).setFont('helvetica', 'bold');
-    doc.text('E X A M   P E R M I T', pageWidth / 2, y, { align: 'center' });
+    doc.text(
+      isSpecial ? 'S P E C I A L   E X A M   P E R M I T' : 'E X A M   P E R M I T',
+      pageWidth / 2,
+      y,
+      { align: 'center' }
+    );
     y += 2;
     
     // Bottom Dashed Line
@@ -87,7 +96,8 @@ const DownloadExamPermit = ({ student }) => {
     doc.setFont('helvetica', 'bold').text('COURSE:', col1Label, y);
     doc.setFont('helvetica', 'normal').text(student.course?.course_code || '', col1Data, y);
     doc.setFont('helvetica', 'bold').text('PERMIT FOR:', col2Label, y);
-    doc.setFont('helvetica', 'bold').text(examType.toUpperCase(), col2Data, y);
+    const permitFor = isSpecial ? `SPECIAL ${examType.toUpperCase()}` : examType.toUpperCase();
+    doc.setFont('helvetica', 'bold').text(permitFor, col2Data, y);
 
     // ROW 4
     y += rowHeight;
@@ -181,12 +191,19 @@ const DownloadExamPermit = ({ student }) => {
     doc.text(cashierTitle, lineCenter, y + 4, { align: 'center' });
 
     // --- 5. OUTER BORDER ---
-    const totalHeight = y + 8; 
-    doc.setDrawColor(0, 0, 139); 
+    const totalHeight = y + 8;
+    // Special permits use a maroon border so they are easy to tell apart from
+    // the regular (blue) permits at a glance.
+    if (isSpecial) {
+        doc.setDrawColor(153, 0, 0);
+    } else {
+        doc.setDrawColor(0, 0, 139);
+    }
     doc.setLineWidth(0.8);
     doc.rect(5, 5, pageWidth - 10, totalHeight - 5);
 
-    doc.save(`Exam_Permit_${student.last_name}_${examType}.pdf`);
+    const filePrefix = isSpecial ? 'Special_Exam_Permit' : 'Exam_Permit';
+    doc.save(`${filePrefix}_${student.last_name}_${examType}.pdf`);
   };
 
   return (
@@ -198,14 +215,26 @@ const DownloadExamPermit = ({ student }) => {
           <ChevronDown className="w-4 h-4 ml-1 opacity-70" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48 bg-white border shadow-md">
-        {['Preliminary Exam', 'Midterm Exam', 'Semi-Final Exam', 'Final Exam'].map((type) => (
-             <DropdownMenuItem 
+      <DropdownMenuContent align="end" className="w-56 bg-white border shadow-md">
+        <DropdownMenuLabel className="text-xs text-gray-500">Regular</DropdownMenuLabel>
+        {EXAM_TYPES.map((type) => (
+             <DropdownMenuItem
                 key={type}
                 className="cursor-pointer hover:bg-gray-100 p-2"
                 onClick={() => generatePDF(type)}
             >
               {type}
+            </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-xs text-gray-500">Special</DropdownMenuLabel>
+        {EXAM_TYPES.map((type) => (
+             <DropdownMenuItem
+                key={`special-${type}`}
+                className="cursor-pointer hover:bg-gray-100 p-2"
+                onClick={() => generatePDF(type, true)}
+            >
+              Special {type}
             </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
