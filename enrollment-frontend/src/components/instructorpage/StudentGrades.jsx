@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, Search, ChevronDown, BookCopy, Users, CheckCircle, Save, Loader2, Filter } from 'lucide-react';
+import { FileText, Search, ChevronDown, BookCopy, Users, CheckCircle, Save, Loader2, Filter, Upload } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import LoadingSpinner from '@/components/layout/LoadingSpinner';
 import SuccessAlert from '../modals/SuccessAlert'; 
 import ValidationErrorModal from '../modals/ValidationErrorModal'; 
 import DownloadGradingSheet from '@/components/layout/DownloadGradingSheet';
+import ImportGradesModal from '../modals/ImportGradesModal';
 
 const MotionDropdown = ({ value, onChange, options, placeholder, searchable = false }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -124,6 +125,7 @@ const StudentGrades = () => {
   const [gradingPeriods, setGradingPeriods] = useState({});
   const [alertState, setAlertState] = useState({ isVisible: false, message: '', type: 'success' });
   const [validationError, setValidationError] = useState({ isOpen: false, message: '' });
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   useEffect(() => {
     // 1. Get instructor name from localStorage
@@ -300,6 +302,36 @@ const StudentGrades = () => {
     );
   };
 
+  /**
+   * Fills one term's inputs from an imported Class Record file.
+   * Nothing is saved here — the instructor still reviews and presses Submit.
+   */
+  const handleImportedGrades = (field, values) => {
+    if (!values.length) return;
+    const byStudentId = new Map(values.map(v => [v.studentId, v.value]));
+
+    setRosterData(currentRoster =>
+      currentRoster.map(subject => {
+        if (subject.subject_id.toString() !== selectedSubjectId) return subject;
+
+        return {
+          ...subject,
+          students: subject.students.map(student =>
+            byStudentId.has(student.id)
+              ? { ...student, grades: { ...student.grades, [field]: byStudentId.get(student.id) } }
+              : student
+          ),
+        };
+      })
+    );
+
+    setAlertState({
+      isVisible: true,
+      message: `${values.length} grade${values.length === 1 ? '' : 's'} filled in. Review them, then press Submit Grades to save.`,
+      type: 'success',
+    });
+  };
+
   const getEquivalentGrade = (finalGrade) => {
     if (finalGrade === null || finalGrade === undefined) return '--';
     
@@ -432,15 +464,17 @@ const StudentGrades = () => {
       
       <motion.div variants={itemVariants}>
         <Card>
-          <CardContent className="p-6 flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between">
-            <div className="flex-1 w-full xl:min-w-[340px] relative">
+          {/* Filters wrap instead of overflowing: the search shrinks first, then the
+              controls drop onto their own line on narrower screens. */}
+          <CardContent className="p-6 flex flex-col xl:flex-row gap-4 items-stretch xl:items-center justify-between">
+            <div className="relative w-full min-w-0 xl:flex-1 xl:min-w-[220px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input placeholder="Search students by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border border-gray-300 focus:border-red-800 focus:ring-1 focus:ring-red-800 rounded-lg"/>
             </div>
-            
-            <div className="flex flex-col md:flex-row w-full xl:w-auto gap-4">
+
+            <div className="flex flex-wrap w-full xl:w-auto gap-3 xl:justify-end">
                 {/* Semester Filter */}
-                <div className="w-full md:w-auto min-w-[170px]">
+                <div className="w-full sm:w-auto">
                     <MotionDropdown
                         value={selectedSemester}
                         onChange={handleSemesterChange}
@@ -450,7 +484,7 @@ const StudentGrades = () => {
                 </div>
 
                 {/* Subject Dropdown (searchable) — fixed width so the long title truncates */}
-                <div className="w-full md:w-[300px]">
+                <div className="w-full sm:w-[260px]">
                     <MotionDropdown
                         value={selectedSubjectId}
                         onChange={setSelectedSubjectId}
@@ -461,7 +495,7 @@ const StudentGrades = () => {
                 </div>
 
                 {/* Section Dropdown */}
-                <div className="w-full md:w-auto min-w-[180px]">
+                <div className="w-full sm:w-auto">
                     <MotionDropdown
                         value={selectedSection}
                         onChange={setSelectedSection}
@@ -469,6 +503,22 @@ const StudentGrades = () => {
                         placeholder="Filter by Section"
                     />
                 </div>
+
+                {/* Import grades from an exported Class Record */}
+                <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (!selectedSubjectId) {
+                        setValidationError({ isOpen: true, message: 'Please select a subject before importing grades.' });
+                        return;
+                      }
+                      setIsImportOpen(true);
+                    }}
+                    className="w-full sm:w-auto shrink-0 h-[42px] px-4 cursor-pointer bg-white text-gray-900 border-gray-200 hover:bg-red-50 hover:text-red-800 hover:border-red-800"
+                >
+                    <Upload className="mr-2 h-4 w-4" />
+                    Import Grades
+                </Button>
             </div>
           </CardContent>
         </Card>
@@ -554,7 +604,7 @@ const StudentGrades = () => {
          {/* Export Button */}
          <div>
             {currentSubject && (
-                <DownloadGradingSheet 
+                <DownloadGradingSheet
                     subject={currentSubject}
                     students={filteredStudents} // Passes currently filtered students (specific section or all)
                     instructorName={instructorName}
@@ -568,6 +618,16 @@ const StudentGrades = () => {
             {isSubmitting ? 'Submitting...' : 'Submit Grades'}
          </Button>
       </motion.div>
+
+      <ImportGradesModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        students={filteredStudents}
+        subjectLabel={currentSubject ? `${currentSubject.subject_code} - ${currentSubject.descriptive_title}` : ''}
+        sectionLabel={selectedSection === 'All' ? 'All sections' : selectedSection}
+        isPeriodOpen={isPeriodOpen}
+        onApply={handleImportedGrades}
+      />
     </motion.div>
   );
 };
