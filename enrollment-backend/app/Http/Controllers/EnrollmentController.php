@@ -566,12 +566,8 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
 
         $enrolledStudents = $enrolledStudents->map(function ($student) use ($allCurriculumSubjects) {
 
-            // ✅--- CHANGE HERE ---
-            // Get the status from the database first.
             $currentAcademicStatus = $student->academic_status;
 
-            // Only run the irregularity checks if the student is currently 'Regular'.
-            // If they are 'Irregular' or 'Withdraw', we respect that status.
             if ($currentAcademicStatus === 'Regular') {
                 $hasFailedSubjects = $student->grades->where('status', 'Failed')->isNotEmpty();
                 $isApprovedShiftee = $student->shifteeRequests->where('status', 'approved')->isNotEmpty();
@@ -582,7 +578,7 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
                         return $request->items->where('action', 'drop')->isNotEmpty();
                     });
 
-                // ✅ NEW: Logic to check for missed summer subjects
+                // NEW: Logic to check for missed summer subjects
                 $hasMissedSummerSubjects = false;
                 if ($student->course && $student->course->program && $student->course->program->program_code === 'Diploma') {
                     
@@ -621,7 +617,7 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
                     $currentAcademicStatus = 'Irregular';
                 }
             }
-            // ✅--- END OF CHANGE ---
+            //--- END OF CHANGE ---
 
             return [
                 'id' => $student->id,
@@ -664,7 +660,7 @@ public function updateStudentDetails(Request $request, $id)
 
         // EXPANDED Validation rules to include all editable fields
         $validator = Validator::make($request->all(), [
-            // ✅ ADDED student_id_number validation
+            // ADDED student_id_number validation
             'student_id_number' => [
                 'required',
                 'string',
@@ -672,7 +668,7 @@ public function updateStudentDetails(Request $request, $id)
                 Rule::unique('pre_enrolled_students')->ignore($student->id),
             ],
 
-            // ✅ --- ADDED ACADEMIC STATUS VALIDATION ---
+            // --- ADDED ACADEMIC STATUS VALIDATION ---
             'academic_status' => [
                 'required',
                 'string',

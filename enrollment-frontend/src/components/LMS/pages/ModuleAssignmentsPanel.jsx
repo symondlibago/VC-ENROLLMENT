@@ -12,6 +12,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { lmsAssignmentsAPI, lmsSubmissionsAPI } from '../api/lmsApi';
 import SubmissionRosterModal from '../modals/SubmissionRosterModal';
+import FilePreviewModal from '../components/FilePreviewModal';
 
 // Notification helpers fall back to no-ops if parent didn't provide them.
 const noop = () => {};
@@ -64,6 +65,7 @@ const ModuleAssignmentsPanel = ({
   const [formError, setFormError] = useState('');
   const [viewSubsFor, setViewSubsFor] = useState(null);
   const [togglingLate, setTogglingLate] = useState(null); // assignment id being toggled
+  const [previewSub, setPreviewSub] = useState(null); // student's own submission being previewed
 
   const load = () => {
     setLoading(true);
@@ -414,9 +416,16 @@ const ModuleAssignmentsPanel = ({
                     <div className={`mt-3 rounded-lg p-3 border ${submittedLate ? 'bg-amber-50 border-amber-200' : 'bg-(--whitish-pink) border-red-100'}`}>
                       <div className="flex items-center gap-2">
                         <FileText className={`w-4 h-4 ${submittedLate ? 'text-amber-700' : 'text-(--dominant-red)'}`} />
-                        <p className={`text-xs font-medium truncate ${submittedLate ? 'text-amber-800' : 'text-(--dominant-red)'}`}>
+                        <p className={`text-xs font-medium truncate flex-1 ${submittedLate ? 'text-amber-800' : 'text-(--dominant-red)'}`}>
                           {a.my_submission.original_name}
                         </p>
+                        <button
+                          onClick={() => setPreviewSub(a.my_submission)}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-(--dominant-red) shrink-0"
+                          title="Preview"
+                        >
+                          <Eye className="w-3.5 h-3.5" /> Preview
+                        </button>
                       </div>
                       <p className="text-[10px] text-gray-500 mt-1">
                         Submitted {fmtFullDateTime(a.my_submission.submitted_at)}
@@ -534,6 +543,14 @@ const ModuleAssignmentsPanel = ({
           />
         )}
       </AnimatePresence>
+
+      <FilePreviewModal
+        open={!!previewSub}
+        onClose={() => setPreviewSub(null)}
+        fileName={previewSub?.original_name}
+        fetchBlob={() => lmsSubmissionsAPI.fetchBlob(previewSub.id)}
+        onDownload={() => previewSub && lmsSubmissionsAPI.download(previewSub.id, previewSub.original_name)}
+      />
     </div>
   );
 };

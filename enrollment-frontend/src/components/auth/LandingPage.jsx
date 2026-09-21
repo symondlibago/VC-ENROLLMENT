@@ -44,7 +44,7 @@ const getPeriodStatus = (startDate, endDate) => {
     return { status: 'Open', message: 'The enrollment period is open.' };
 };
 
-const LandingPage = ({ onGetStarted, onEnrollNow }) => {
+const LandingPage = ({ onGetStarted, onEnrollNow, onBackToWebsite }) => {
   const [isVisible, setIsVisible] = useState(false);
   const { scrollY } = useScroll();
   const y1 = useTransform(scrollY, [0, 500], [0, -75]); 
@@ -166,6 +166,16 @@ const LandingPage = ({ onGetStarted, onEnrollNow }) => {
         onClose={() => setIsValidationModalOpen(false)} 
         message={`Enrollment is currently not available. ${enrollmentPeriod.message}`} 
       />
+
+      {/* Back to public website */}
+      {onBackToWebsite && (
+        <button
+          onClick={onBackToWebsite}
+          className="absolute top-5 left-5 z-30 inline-flex items-center gap-1.5 text-sm font-semibold text-red-800 bg-white/80 hover:bg-white border border-red-100 rounded-full px-4 py-2 shadow-sm backdrop-blur transition-colors cursor-pointer"
+        >
+          <ArrowRight className="w-4 h-4 rotate-180" /> Back to website
+        </button>
+      )}
 
       {/* Hero Section */}
       <motion.section

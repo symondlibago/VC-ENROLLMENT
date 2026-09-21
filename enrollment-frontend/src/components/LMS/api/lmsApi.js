@@ -97,6 +97,11 @@ export const lmsModulesAPI = {
     const res = await lms.get(`/files/${fileId}/download`, { responseType: 'blob' });
     triggerBrowserDownload(res.data, originalName || `file-${fileId}`);
   },
+  // Fetch the file as a Blob (for in-browser preview, no forced download).
+  fetchFileBlob: async (fileId) => {
+    const res = await lms.get(`/files/${fileId}/download`, { responseType: 'blob' });
+    return res.data;
+  },
 };
 
 export const lmsAssignmentsAPI = {
@@ -119,6 +124,11 @@ export const lmsSubmissionsAPI = {
   download: async (submissionId, originalName) => {
     const res = await lms.get(`/submissions/${submissionId}/download`, { responseType: 'blob' });
     triggerBrowserDownload(res.data, originalName || `submission-${submissionId}`);
+  },
+  // Fetch the submission file as a Blob (for in-browser preview, no forced download).
+  fetchBlob: async (submissionId) => {
+    const res = await lms.get(`/submissions/${submissionId}/download`, { responseType: 'blob' });
+    return res.data;
   },
   // Instructor / admin: full roster including students who haven't submitted yet
   roster: (assignmentId) => wrap(lms.get(`/assignments/${assignmentId}/roster`)),

@@ -3,13 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Plus, FileText, Trash2, Download, Upload, ChevronLeft, BookOpen,
-  Layers, Users, ChevronDown, ClipboardList, Pencil, Clock,
+  Layers, Users, ChevronDown, ClipboardList, Pencil, Clock, Eye,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { lmsSubjectsAPI, lmsModulesAPI, lmsAuthAPI } from '../api/lmsApi';
 import ModuleAssignmentsPanel from './ModuleAssignmentsPanel';
 import SubjectAnnouncementsPanel from './SubjectAnnouncementsPanel';
+import FilePreviewModal from '../components/FilePreviewModal';
 import CreateModuleModal from '../modals/CreateModuleModal';
 import EditModuleModal from '../modals/EditModuleModal';
 import MotionDropdown from '../ui/MotionDropdown';
@@ -57,6 +58,9 @@ const LmsSubjectDetail = () => {
       return next;
     });
   };
+
+  // In-browser file preview
+  const [previewFile, setPreviewFile] = useState(null);
 
   // Unified SMS-style feedback state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -503,6 +507,13 @@ const LmsSubjectDetail = () => {
                             <div className="flex items-center gap-1 shrink-0">
                               <button
                                 className="p-2 text-gray-600 hover:text-(--dominant-red) hover:bg-(--whitish-pink) rounded-lg transition"
+                                onClick={() => setPreviewFile(f)}
+                                title="Preview"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button
+                                className="p-2 text-gray-600 hover:text-(--dominant-red) hover:bg-(--whitish-pink) rounded-lg transition"
                                 onClick={() => handleDownload(f)}
                                 title="Download"
                               >
@@ -595,6 +606,14 @@ const LmsSubjectDetail = () => {
         isLoading={deleteState.isLoading}
         onClose={() => !deleteState.isLoading && resetDeleteState()}
         onConfirm={confirmDelete}
+      />
+
+      <FilePreviewModal
+        open={!!previewFile}
+        onClose={() => setPreviewFile(null)}
+        fileName={previewFile?.original_name}
+        fetchBlob={() => lmsModulesAPI.fetchFileBlob(previewFile.id)}
+        onDownload={() => previewFile && handleDownload(previewFile)}
       />
     </motion.div>
   );
