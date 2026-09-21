@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -10,14 +10,36 @@ import {
   AlertCircle,
   Calendar,
   CheckCircle,
-  Hourglass
+  Hourglass,
+  ChevronDown
 } from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell
+} from 'recharts';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { enrollmentAPI, courseAPI, managementAPI } from '@/services/api';
 import LoadingSpinner from '@/components/layout/LoadingSpinner';
+
+// Shared palette for the analytics charts
+const CHART_COLORS = ['#991b1b', '#2563eb', '#059669', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -30,6 +52,8 @@ const Dashboard = () => {
   });
   const [recentEnrollments, setRecentEnrollments] = useState([]);
   const [upcomingDeadlines, setUpcomingDeadlines] = useState([]);
+  const [enrolledStudents, setEnrolledStudents] = useState([]);
+  const [chartSchoolYear, setChartSchoolYear] = useState('all');
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -140,6 +164,69 @@ const Dashboard = () => {
 
     fetchDashboardData();
   }, []);
+
+  // Data behind the analytics charts. Kept in its own request so a failure here
+  // only empties the charts and leaves the rest of the dashboard working.
+  useEffect(() => {
+    const fetchEnrolledStudents = async () => {
+      try {
+        const response = await enrollmentAPI.getEnrolledStudents();
+        if (response.success && Array.isArray(response.data)) {
+          setEnrolledStudents(response.data.filter(
+            s => (s.enrollment_status || '').toLowerCase() === 'enrolled'
+          ));
+        }
+      } catch (error) {
+        console.error('Dashboard analytics fetch error:', error);
+      }
+    };
+
+    fetchEnrolledStudents();
+  }, []);
+
+  // School years present in the data, newest first
+  const schoolYearOptions = useMemo(() => {
+    const years = [...new Set(enrolledStudents.map(s => s.school_year).filter(Boolean))];
+    return years.sort().reverse();
+  }, [enrolledStudents]);
+
+  const chartStudents = useMemo(() => (
+    chartSchoolYear === 'all'
+      ? enrolledStudents
+      : enrolledStudents.filter(s => s.school_year === chartSchoolYear)
+  ), [enrolledStudents, chartSchoolYear]);
+
+  // Bar chart: how many enrolled students each course has (biggest 8)
+  const studentsPerCourse = useMemo(() => {
+    const counts = chartStudents.reduce((acc, student) => {
+      const course = student.courseName || 'Unassigned';
+      acc[course] = (acc[course] || 0) + 1;
+      return acc;
+    }, {});
+
+    return Object.entries(counts)
+      .map(([course, students]) => ({
+        course,
+        // Long course names don't fit on an axis label
+        label: course.length > 22 ? `${course.slice(0, 20)}…` : course,
+        students
+      }))
+      .sort((a, b) => b.students - a.students)
+      .slice(0, 8);
+  }, [chartStudents]);
+
+  // Pie chart: year-level spread of enrolled students
+  const studentsPerYearLevel = useMemo(() => {
+    const counts = chartStudents.reduce((acc, student) => {
+      const year = student.year || 'Unspecified';
+      acc[year] = (acc[year] || 0) + 1;
+      return acc;
+    }, {});
+
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [chartStudents]);
 
   // Helper functions for UI
   const getStatusColor = (status) => {
@@ -270,6 +357,143 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </motion.div>
+      </motion.div>
+
+      {/* Analytics */}
+      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Students per course */}
+        <Card className="card-hover border-0 shadow-sm lg:col-span-2">
+          <CardHeader className="pb-2">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle className="text-xl font-bold heading-bold">Enrolled Students per Course</CardTitle>
+                <CardDescription>
+                  {studentsPerCourse.length >= 8 ? 'Top 8 courses by enrollment' : 'All courses with enrolled students'}
+                </CardDescription>
+              </div>
+              {schoolYearOptions.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-48 justify-between">
+                      {chartSchoolYear === 'all' ? 'All School Years' : chartSchoolYear}
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onSelect={() => setChartSchoolYear('all')}>
+                      All School Years
+                    </DropdownMenuItem>
+                    {schoolYearOptions.map(year => (
+                      <DropdownMenuItem key={year} onSelect={() => setChartSchoolYear(year)}>
+                        {year}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {studentsPerCourse.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={studentsPerCourse} margin={{ top: 8, right: 8, left: -12, bottom: 48 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                  <XAxis
+                    dataKey="label"
+                    angle={-30}
+                    textAnchor="end"
+                    interval={0}
+                    height={60}
+                    tick={{ fontSize: 11, fill: '#6b7280' }}
+                  />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#6b7280' }} />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(153, 27, 27, 0.06)' }}
+                    formatter={(value) => [`${value} student${value === 1 ? '' : 's'}`, 'Enrolled']}
+                    labelFormatter={(_, payload) => payload?.[0]?.payload?.course || ''}
+                    contentStyle={{ borderRadius: '0.75rem', border: '1px solid #e5e7eb', fontSize: '0.8rem' }}
+                  />
+                  <Bar dataKey="students" fill="#991b1b" radius={[6, 6, 0, 0]} maxBarSize={56} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-500 text-sm">
+                No enrollment data to chart yet.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Students per year level */}
+        <Card className="card-hover border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl font-bold heading-bold">Year Level Mix</CardTitle>
+            <CardDescription>
+              Enrolled students by year level
+              {chartSchoolYear !== 'all' ? ` · ${chartSchoolYear}` : ''}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {studentsPerYearLevel.length > 0 ? (
+              <>
+                <div className="relative">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={studentsPerYearLevel}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={58}
+                        outerRadius={90}
+                        paddingAngle={2}
+                        stroke="none"
+                      >
+                        {studentsPerYearLevel.map((entry, index) => (
+                          <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value, name) => [`${value} student${value === 1 ? '' : 's'}`, name]}
+                        contentStyle={{ borderRadius: '0.75rem', border: '1px solid #e5e7eb', fontSize: '0.8rem' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* Total sits in the middle of the donut */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-2xl font-bold heading-bold text-gray-900">{chartStudents.length}</span>
+                    <span className="text-xs text-gray-500">students</span>
+                  </div>
+                </div>
+
+                <ul className="mt-5 space-y-2">
+                  {studentsPerYearLevel.map((entry, index) => (
+                    <li key={entry.name} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                        />
+                        <span className="text-gray-700 truncate">{entry.name}</span>
+                      </span>
+                      <span className="flex items-baseline gap-2 shrink-0">
+                        <span className="font-semibold text-gray-900">{entry.value}</span>
+                        <span className="text-xs text-gray-400 w-10 text-right">
+                          {chartStudents.length ? Math.round((entry.value / chartStudents.length) * 100) : 0}%
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-500 text-sm">
+                No enrollment data to chart yet.
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* Main Content Grid */}

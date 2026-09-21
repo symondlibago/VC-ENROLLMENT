@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'sonner';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
+import SmoothScroll from './components/layout/SmoothScroll';
 import Dashboard from './components/pages/Dashboard';
 import Students from './components/pages/Students';
 import Courses from './components/pages/Courses';
@@ -254,6 +255,7 @@ function App() {
 
   return (
     <Router>
+      <SmoothScroll />
       <Toaster position="top-right" richColors closeButton />
       {currentView === 'landing' && (
         <motion.div className="min-h-screen" variants={layoutVariants} initial="initial" animate="animate">

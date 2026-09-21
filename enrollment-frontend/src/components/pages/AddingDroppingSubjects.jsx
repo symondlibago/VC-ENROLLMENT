@@ -66,11 +66,15 @@ const SubjectChangeDetailsModal = ({ isOpen, onClose, requestDetails, currentUse
         }
     };
     
-    const canApprove = 
+    // A request that is already approved or rejected can no longer be acted on.
+    const isStillPending = typeof status === 'string' && status.startsWith('pending');
+
+    const canApprove = isStillPending && (
         (status === 'pending_program_head' && currentUserRole === 'Program Head') ||
         (status === 'pending_cashier' && currentUserRole === 'Cashier') ||
-        currentUserRole === 'Admin';
-    
+        currentUserRole === 'Admin'
+    );
+
     const getStatusBadge = (status) => {
         switch (status) {
             case 'pending_program_head': return <Badge variant="secondary">Pending Program Head</Badge>;
@@ -144,6 +148,31 @@ const SubjectChangeDetailsModal = ({ isOpen, onClose, requestDetails, currentUse
                                                 {isSaving ? <Loader2 className="animate-spin" /> : 'Approve'}
                                             </Button>
                                         </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {!isStillPending && (
+                                <div className={`border rounded-lg p-4 flex items-start gap-3 ${
+                                    status === 'approved'
+                                        ? 'bg-green-50 border-green-200'
+                                        : 'bg-red-50 border-red-200'
+                                }`}>
+                                    {status === 'approved'
+                                        ? <CheckCircle size={18} className="mt-0.5 text-green-600 shrink-0" />
+                                        : <XCircle size={18} className="mt-0.5 text-red-600 shrink-0" />}
+                                    <div>
+                                        <h3 className={`font-semibold ${status === 'approved' ? 'text-green-800' : 'text-red-800'}`}>
+                                            This request has already been {status}
+                                        </h3>
+                                        <p className="text-sm text-gray-600 mt-0.5">
+                                            No further action is needed. It is shown here for reference only.
+                                        </p>
+                                        {requestDetails.rejection_remarks && (
+                                            <p className="text-sm text-gray-700 mt-2">
+                                                <b>Remarks:</b> {requestDetails.rejection_remarks}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                             )}

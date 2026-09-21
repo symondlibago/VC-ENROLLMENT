@@ -17,8 +17,9 @@ import {
   GraduationCap,
   School,
   Building,
+  BarChart3,
 } from 'lucide-react';
-import { courseAPI, programAPI, subjectAPI } from '@/services/api';
+import { courseAPI, programAPI, subjectAPI, enrollmentAPI } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -59,6 +60,7 @@ const Courses = () => {
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [courses, setCourses] = useState([]);
   const [programs, setPrograms] = useState([]);
+  const [enrolledStudents, setEnrolledStudents] = useState([]);
   const [isProgramDetailsModalOpen, setIsProgramDetailsModalOpen] = useState(false);
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
   const [isSubjectFormModalOpen, setIsSubjectFormModalOpen] = useState(false);
@@ -118,6 +120,32 @@ const Courses = () => {
     fetchPrograms();
   }, []);
 
+  // Enrolled student counts, used by the stat cards below.
+  // Failure here must never break the page, so the counts just stay at 0.
+  useEffect(() => {
+    const fetchEnrolledStudents = async () => {
+      try {
+        const response = await enrollmentAPI.getEnrolledStudents();
+        if (response.success && Array.isArray(response.data)) {
+          setEnrolledStudents(response.data.filter(
+            s => (s.enrollment_status || '').toLowerCase() === 'enrolled'
+          ));
+        }
+      } catch (error) {
+        console.error('Error fetching enrolled students for course stats:', error);
+      }
+    };
+
+    fetchEnrolledStudents();
+  }, []);
+
+  const enrolledCount = enrolledStudents.length;
+
+  const activeCourseCount = useMemo(() => {
+    const namesWithStudents = new Set(enrolledStudents.map(s => s.courseName));
+    return courses.filter(c => namesWithStudents.has(c.course_name)).length;
+  }, [courses, enrolledStudents]);
+
   // Helper function to get program type for a course
   const getProgramTypeForCourse = (course) => {
     if (!course || !programs) return null;
@@ -135,26 +163,29 @@ const Courses = () => {
     },
     {
       title: 'Active Courses',
-      value: courses.length.toString(),
+      value: activeCourseCount.toString(),
+      hint: 'With enrolled students',
       icon: Play,
       color: 'text-green-600',
       bgColor: 'bg-green-50'
     },
     {
       title: 'Total Students',
-      value: '2,847', // This data is not available in this component
+      value: enrolledCount.toLocaleString(),
+      hint: 'Currently enrolled',
       icon: Users,
       color: 'text-[var(--dominant-red)]',
       bgColor: 'bg-red-50'
     },
     {
-      title: 'Avg Rating',
-      value: '4.7', // This data is not available in this component
-      icon: Award,
+      title: 'Avg Students / Course',
+      value: courses.length ? Math.round(enrolledCount / courses.length).toLocaleString() : '0',
+      hint: 'Enrolled ÷ total courses',
+      icon: BarChart3,
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-50'
     }
-  ]), [courses]);
+  ]), [courses, enrolledCount, activeCourseCount]);
 
   const programStats = useMemo(() => ([
     {
@@ -615,6 +646,11 @@ const Courses = () => {
                         {stat.change && (
                           <p className="text-sm text-green-600 font-medium mt-1">
                             {stat.change}
+                          </p>
+                        )}
+                        {stat.hint && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            {stat.hint}
                           </p>
                         )}
                       </div>

@@ -63,17 +63,24 @@ const ShifteeRequestDetailsModal = ({ isOpen, onClose, requestDetails, currentUs
         }
     };
     
+    const isStillPending = typeof status === 'string' && status.startsWith('pending');
     const canApprove = (status === 'pending_program_head' && (currentUserRole === 'Program Head' || currentUserRole === 'Admin'));
 
     const getStatusBadge = (status) => {
         switch (status) {
-            case 'pending_program_head': return <Badge variant="secondary">Pending Program Head</Badge>;
-            case 'approved': return <Badge className="bg-green-100 text-green-800">Approved</Badge>;
-            case 'rejected': return <Badge variant="destructive">Rejected</Badge>;
-            default: return <Badge>{status}</Badge>;
+            case 'pending_program_head': return <Badge className="bg-white/15 text-white border border-white/30">Pending Program Head</Badge>;
+            case 'approved': return <Badge className="bg-white text-green-700">Approved</Badge>;
+            case 'rejected': return <Badge className="bg-white text-red-700">Rejected</Badge>;
+            default: return <Badge className="bg-white/15 text-white border border-white/30">{status}</Badge>;
         }
     };
-    
+
+    const studentName = `${student.last_name}, ${student.first_name}`;
+    const initials = `${student.first_name?.[0] || ''}${student.last_name?.[0] || ''}`.toUpperCase();
+    const requestedOn = requestDetails.created_at
+        ? new Date(requestDetails.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+        : null;
+
     return (
         <AnimatePresence>
             {isOpen && (
@@ -85,51 +92,137 @@ const ShifteeRequestDetailsModal = ({ isOpen, onClose, requestDetails, currentUs
                     <motion.div
                         initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
                         onClick={(e) => e.stopPropagation()}
-                        className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+                        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
                     >
-                        <div className="sticky top-0 bg-red-800 z-10 flex items-center justify-between p-4 border-b text-white">
-                            <div>
-                                <h2 className="text-xl font-semibold">Shiftee Request Details</h2>
-                                {getStatusBadge(status)}
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-red-800 to-red-700 px-6 py-5 text-white">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="flex items-center gap-4 min-w-0">
+                                    <div className="h-12 w-12 shrink-0 rounded-full bg-white/15 border border-white/30 flex items-center justify-center text-lg font-bold">
+                                        {initials || <User size={20} />}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <h2 className="text-xl font-semibold truncate">{studentName}</h2>
+                                        <p className="text-sm text-white/80 font-mono truncate">{student.student_id_number}</p>
+                                    </div>
+                                </div>
+                                <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 shrink-0 text-white cursor-pointer hover:bg-white hover:text-red-800">
+                                    <X size={20} />
+                                </Button>
                             </div>
-                            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 cursor-pointer hover:bg-white hover:text-red-800"><X size={20} /></Button>
+                            <div className="flex flex-wrap items-center gap-3 mt-4">
+                                <span className="text-xs uppercase tracking-wide text-white/70">Shiftee Request</span>
+                                {getStatusBadge(status)}
+                                {requestedOn && (
+                                    <span className="flex items-center text-xs text-white/80">
+                                        <Calendar size={13} className="mr-1.5" /> Requested {requestedOn}
+                                    </span>
+                                )}
+                            </div>
                         </div>
 
-                        <div className="p-6 space-y-6 overflow-y-auto">
-                            <div className="border rounded-lg p-4 bg-gray-50/50">
-                                <h3 className="font-semibold mb-2">Student Information</h3>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                                    <p className="flex items-center"><User size={14} className="mr-2 text-gray-500" /> <b>Name:</b> &nbsp;{student.last_name}, {student.first_name}</p>
-                                    <p className="flex items-center font-mono"><Hash size={14} className="mr-2 text-gray-500" /> <b>ID Number:</b> &nbsp;{student.student_id_number}</p>
+                        <div className="p-6 space-y-5 overflow-y-auto bg-gray-50/60">
+                            {/* Course shift — the point of the whole request, so it leads */}
+                            <div className="bg-white border rounded-xl p-5 shadow-sm">
+                                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-4">Course Shift</h3>
+                                <div className="flex flex-col sm:flex-row items-stretch gap-3">
+                                    <div className="flex-1 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                        <p className="text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">From</p>
+                                        <p className="font-semibold text-gray-800 leading-snug">{previous_course?.course_name || 'N/A'}</p>
+                                        {previous_course?.course_code && (
+                                            <p className="text-xs text-gray-500 font-mono mt-1">{previous_course.course_code}</p>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center justify-center sm:px-1">
+                                        <ArrowRightCircle className="text-red-700 rotate-90 sm:rotate-0" size={26} />
+                                    </div>
+                                    <div className="flex-1 rounded-lg border-2 border-red-200 bg-red-50 p-4">
+                                        <p className="text-xs font-medium uppercase tracking-wide text-red-700/80 mb-1">To</p>
+                                        <p className="font-semibold text-red-800 leading-snug">{new_course?.course_name || 'N/A'}</p>
+                                        {new_course?.course_code && (
+                                            <p className="text-xs text-red-700/70 font-mono mt-1">{new_course.course_code}</p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                            
-                            <div className="border rounded-lg p-4">
-                                <h3 className="font-semibold mb-3">Course Shift Details</h3>
-                                <div className="flex items-center justify-around text-center">
-                                    <div>
-                                        <p className="text-sm text-gray-500">From Course</p>
-                                        <p className="font-bold">{previous_course?.course_name || 'N/A'}</p>
+
+                            {/* Student details */}
+                            <div className="bg-white border rounded-xl p-5 shadow-sm">
+                                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-4">Student Information</h3>
+                                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                                    <div className="flex items-start gap-2.5">
+                                        <User size={15} className="mt-0.5 text-gray-400 shrink-0" />
+                                        <div>
+                                            <dt className="text-xs text-gray-500">Full Name</dt>
+                                            <dd className="font-medium text-gray-900">{studentName}</dd>
+                                        </div>
                                     </div>
-                                    <ArrowRightCircle className="text-gray-400" size={24}/>
+                                    <div className="flex items-start gap-2.5">
+                                        <Hash size={15} className="mt-0.5 text-gray-400 shrink-0" />
+                                        <div>
+                                            <dt className="text-xs text-gray-500">ID Number</dt>
+                                            <dd className="font-medium text-gray-900 font-mono">{student.student_id_number}</dd>
+                                        </div>
+                                    </div>
+                                    {student.year && (
+                                        <div className="flex items-start gap-2.5">
+                                            <Book size={15} className="mt-0.5 text-gray-400 shrink-0" />
+                                            <div>
+                                                <dt className="text-xs text-gray-500">Year Level</dt>
+                                                <dd className="font-medium text-gray-900">{student.year}</dd>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {student.email_address && (
+                                        <div className="flex items-start gap-2.5 min-w-0">
+                                            <AlertCircle size={15} className="mt-0.5 text-gray-400 shrink-0" />
+                                            <div className="min-w-0">
+                                                <dt className="text-xs text-gray-500">Email</dt>
+                                                <dd className="font-medium text-gray-900 truncate">{student.email_address}</dd>
+                                            </div>
+                                        </div>
+                                    )}
+                                </dl>
+                            </div>
+
+                            {/* Already decided */}
+                            {!isStillPending && (
+                                <div className={`rounded-xl border p-4 flex items-start gap-3 ${
+                                    status === 'approved' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+                                }`}>
+                                    {status === 'approved'
+                                        ? <CheckCircle size={18} className="mt-0.5 text-green-600 shrink-0" />
+                                        : <XCircle size={18} className="mt-0.5 text-red-600 shrink-0" />}
                                     <div>
-                                        <p className="text-sm text-gray-500">To Course</p>
-                                        <p className="font-bold text-blue-600">{new_course?.course_name || 'N/A'}</p>
+                                        <p className={`font-semibold ${status === 'approved' ? 'text-green-800' : 'text-red-800'}`}>
+                                            This request has already been {status}
+                                        </p>
+                                        <p className="text-sm text-gray-600 mt-0.5">
+                                            No further action is needed. It is shown here for reference only.
+                                        </p>
+                                        {requestDetails.rejection_remarks && (
+                                            <p className="text-sm text-gray-700 mt-2">
+                                                <b>Remarks:</b> {requestDetails.rejection_remarks}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
-                            </div>
-                            
+                            )}
+
+                            {/* Approval action */}
                             {canApprove && (
-                                <div className="border rounded-lg p-4 bg-gray-50">
-                                    <h3 className="font-semibold mb-2">Approval Action ({currentUserRole})</h3>
+                                <div className="bg-white border rounded-xl p-5 shadow-sm">
+                                    <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+                                        Approval Action ({currentUserRole})
+                                    </h3>
                                     <div className="space-y-3">
-                                        <Label htmlFor="remarks">Remarks (Optional)</Label>
+                                        <Label htmlFor="remarks" className="text-sm text-gray-600">Remarks (Optional)</Label>
                                         <Textarea id="remarks" placeholder="Add remarks for rejection or approval..." value={remarks} onChange={(e) => setRemarks(e.target.value)} />
-                                        <div className="flex justify-end gap-3">
-                                            <Button variant="destructive" onClick={() => handleProcessRequest('rejected')} disabled={isSaving}>
+                                        <div className="flex justify-end gap-3 pt-1">
+                                            <Button variant="destructive" onClick={() => handleProcessRequest('rejected')} disabled={isSaving} className="cursor-pointer min-w-[110px]">
                                                 {isSaving ? <Loader2 className="animate-spin" /> : 'Reject'}
                                             </Button>
-                                            <Button onClick={() => handleProcessRequest('approved')} disabled={isSaving} className="bg-green-600 hover:bg-green-700">
+                                            <Button onClick={() => handleProcessRequest('approved')} disabled={isSaving} className="bg-green-600 hover:bg-green-700 cursor-pointer min-w-[110px]">
                                                 {isSaving ? <Loader2 className="animate-spin" /> : 'Approve'}
                                             </Button>
                                         </div>
