@@ -2,13 +2,14 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Inbox, Download, Award, FileText, CheckCircle2, Clock, AlertTriangle,
-  Search, Filter,
+  Search, Filter, Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { lmsSubmissionsAPI } from '../api/lmsApi';
 import MotionDropdown from '../ui/MotionDropdown';
+import FilePreviewModal from '../components/FilePreviewModal';
 
 const noop = () => {};
 
@@ -47,6 +48,7 @@ const SubmissionRosterModal = ({ assignment, onClose, notifySuccess = noop, noti
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState('all'); // all | not_submitted | submitted | graded
   const [search, setSearch] = useState('');
+  const [previewSub, setPreviewSub] = useState(null);
 
   const load = () => {
     setLoading(true);
@@ -103,6 +105,7 @@ const SubmissionRosterModal = ({ assignment, onClose, notifySuccess = noop, noti
   }, [roster, filter, search]);
 
   return (
+    <>
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -249,6 +252,9 @@ const SubmissionRosterModal = ({ assignment, onClose, notifySuccess = noop, noti
                       <div className="flex flex-col gap-1.5 flex-shrink-0">
                         {sub ? (
                           <>
+                            <Button size="sm" variant="outline" onClick={() => setPreviewSub(sub)}>
+                              <Eye className="w-3.5 h-3.5 mr-1" /> Preview
+                            </Button>
                             <Button size="sm" variant="outline" onClick={() => handleDownload(sub)}>
                               <Download className="w-3.5 h-3.5 mr-1" /> Download
                             </Button>
@@ -325,6 +331,15 @@ const SubmissionRosterModal = ({ assignment, onClose, notifySuccess = noop, noti
         </div>
       </motion.div>
     </motion.div>
+
+    <FilePreviewModal
+      open={!!previewSub}
+      onClose={() => setPreviewSub(null)}
+      fileName={previewSub?.original_name}
+      fetchBlob={() => lmsSubmissionsAPI.fetchBlob(previewSub.id)}
+      onDownload={() => previewSub && handleDownload(previewSub)}
+    />
+    </>
   );
 };
 

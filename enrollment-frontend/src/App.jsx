@@ -18,6 +18,7 @@ import TermPayment from './components/pages/TermPayment';
 import Settings from './components/pages/Settings';
 import LandingPage from './components/auth/LandingPage';
 import LoginPage from './components/auth/LoginPage';
+import VipcWebsite from './components/VIPC/VipcWebsite';
 import FristProcessEnrollment from './components/Enrollment Process/FristProcessEnrollment';
 import CheckStatus from './components/pages/CheckStatus';
 import UploadReceipt from './components/pages/UploadReceipt';
@@ -46,7 +47,9 @@ function App() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentView, setCurrentView] = useState('landing');
+  // App now opens on the public VIPC website; "Online Enrollment" hands off to
+  // the existing 'landing' view (login + start new enrollment).
+  const [currentView, setCurrentView] = useState('vipc');
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -87,6 +90,8 @@ function App() {
 
   const handleGetStarted = () => setCurrentView('login');
   const handleEnrollNow = () => setCurrentView('enrollment');
+  const handleOnlineEnrollment = () => setCurrentView('landing'); // VIPC website -> enrollment landing
+  const handleBackToWebsite = () => setCurrentView('vipc');        // landing -> back to public website
   const handleCheckStatus = () => setCurrentView('checkstatus');
   const handleUploadReceipt = () => setCurrentView('uploadreceipt');
 
@@ -127,7 +132,7 @@ function App() {
     window.history.replaceState({}, '', '/');
     setUser(null);
     setIsAuthenticated(false);
-    setCurrentView('landing');
+    setCurrentView('vipc');
   };
 
   const layoutVariants = {
@@ -257,9 +262,15 @@ function App() {
     <Router>
       <SmoothScroll />
       <Toaster position="top-right" richColors closeButton />
+      {currentView === 'vipc' && (
+        <motion.div className="min-h-screen" variants={layoutVariants} initial="initial" animate="animate">
+          <VipcWebsite onOnlineEnrollment={handleOnlineEnrollment} />
+        </motion.div>
+      )}
+
       {currentView === 'landing' && (
         <motion.div className="min-h-screen" variants={layoutVariants} initial="initial" animate="animate">
-          <LandingPage onGetStarted={handleGetStarted} onEnrollNow={handleEnrollNow} />
+          <LandingPage onGetStarted={handleGetStarted} onEnrollNow={handleEnrollNow} onBackToWebsite={handleBackToWebsite} />
         </motion.div>
       )}
 

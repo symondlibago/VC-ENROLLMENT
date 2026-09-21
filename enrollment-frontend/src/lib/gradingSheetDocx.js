@@ -1,8 +1,3 @@
-// Grading Sheet -> .docx generator. Mirrors the layout/logic of the PDF
-// exporters (DownloadGradingSheet.jsx / Exportgradingsheet.jsx) so the Word
-// file matches the PDF: logo image, two-column header info, the grades table,
-// the grading legend, and three side-by-side signature blocks.
-// Uses the dependency-free docx writer in ./docx.
 import { saveAs } from 'file-saver';
 import { createDocxBlob, para, table, spacer, pageBreak, image } from './docx';
 

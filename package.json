@@ -1,0 +1,14 @@
+{
+  "name": "vc-enrollment",
+  "private": true,
+  "version": "1.0.0",
+  "description": "VIPC Enrollment System — React frontend (enrollment-frontend) and Laravel API (enrollment-backend).",
+  "scripts": {
+    "dev": "pnpm --dir enrollment-frontend run dev",
+    "build": "pnpm --dir enrollment-frontend run build",
+    "preview": "pnpm --dir enrollment-frontend run preview",
+    "lint": "pnpm --dir enrollment-frontend run lint",
+    "install:frontend": "pnpm --dir enrollment-frontend install",
+    "backend": "php enrollment-backend/artisan serve"
+  }
+}
