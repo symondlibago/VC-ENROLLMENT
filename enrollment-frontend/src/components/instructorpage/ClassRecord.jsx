@@ -4,6 +4,7 @@ import { ChevronDown, AlertTriangle, Trash2, X } from "lucide-react";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import { instructorAPI } from "@/services/api";
+import { TRANSMUTATION_TABLE, transmuteGrade, usesTransmutation } from "@/lib/transmutation";
 import ValidationErrorModal from "../components/../modals/ValidationErrorModal";
 import circleLogoUrl from "../../assets/circlelogo.jpg";
 
@@ -113,7 +114,7 @@ async function fetchLogoBuffer(url) {
 }
 
 
-function buildSheet(ws, term, subjectLabel, sectionLabel, logoImageId) {
+function buildSheet(ws, term, subjectLabel, sectionLabel, logoImageId, transmute = false) {
   const { name: termName, categories, students } = term;
 
   const FIXED        = 2;
@@ -129,9 +130,11 @@ function buildSheet(ws, term, subjectLabel, sectionLabel, logoImageId) {
     catColStart.push(cursor);
     if (cat.columns.length > 0) cursor += cat.columns.length + 1;
   }
-  const finalGradeCol = cursor;
-  const roundedCol    = cursor + 1;
-  const totalCols     = cursor + 2;
+  const finalGradeCol  = cursor;
+  const roundedCol     = cursor + 1;
+  // DHT / SHS classes carry one more column: the transmuted grade
+  const transmutedCol  = transmute ? cursor + 2 : null;
+  const totalCols      = cursor + (transmute ? 3 : 2);
 
   // ── Column widths 
   ws.getColumn(1).width = 6;
@@ -185,9 +188,12 @@ function buildSheet(ws, term, subjectLabel, sectionLabel, logoImageId) {
     const ea   = `${colLetter(catColStart[ci] + span - 1)}${CAT_HDR_ROW}`;
     if (span > 1) ws.mergeCells(`${sa}:${ea}`);
   }
-  // Merge Final & Rounded across rows 8–10
+  // Merge Final & Rounded (and Transmuted) across rows 8–10
   ws.mergeCells(`${colLetter(finalGradeCol)}${CAT_HDR_ROW}:${colLetter(finalGradeCol)}${MAX_PTS_ROW}`);
   ws.mergeCells(`${colLetter(roundedCol)}${CAT_HDR_ROW}:${colLetter(roundedCol)}${MAX_PTS_ROW}`);
+  if (transmutedCol) {
+    ws.mergeCells(`${colLetter(transmutedCol)}${CAT_HDR_ROW}:${colLetter(transmutedCol)}${MAX_PTS_ROW}`);
+  }
 
   // NOW write values into master cells AFTER merges
   const fixedHdr = {
@@ -220,6 +226,14 @@ function buildSheet(ws, term, subjectLabel, sectionLabel, logoImageId) {
   };
   wc(ws, `${colLetter(finalGradeCol)}${CAT_HDR_ROW}`, "FINAL GRADE", fgHdr);
   wc(ws, `${colLetter(roundedCol)}${CAT_HDR_ROW}`,    "ROUNDED",     fgHdr);
+  if (transmutedCol) {
+    wc(ws, `${colLetter(transmutedCol)}${CAT_HDR_ROW}`, "TRANSMUTED", {
+      font:      fontStyle("#ffffff", true, 11),
+      fill:      fillSolid(P.green),
+      alignment: align("center", "middle"),
+      border:    thinBorder(P.green),
+    });
+  }
 
   
   const emptyFixed = { fill: fillSolid("#374151"), border: thinBorder("#4b5563") };
@@ -328,10 +342,70 @@ function buildSheet(ws, term, subjectLabel, sectionLabel, logoImageId) {
         font:      fontStyle(P.gold, true, 12),
         alignment: align("center", "middle"),
       });
+
+      if (transmutedCol) {
+        // The initial grade is the unrounded FINAL GRADE, looked up against the
+        // ascending bands on the TRANSMUTATION TABLE sheet. A student with no
+        // scores at all (final of 0) is left blank instead of showing 60.
+        const tmAddr = `${colLetter(transmutedCol)}${row}`;
+        wf(ws, tmAddr,
+          `IF(${fgAddr}=0,"",IFERROR(LOOKUP(${fgAddr},'${TM_SHEET}'!$A$${TM_DATA_START}:$A$${TM_DATA_END},'${TM_SHEET}'!$C$${TM_DATA_START}:$C$${TM_DATA_END}),""))`,
+          {
+            fill:      fillSolid("#dcfce7"),
+            border:    thinBorder("#86efac"),
+            font:      fontStyle("#14532d", true, 12),
+            alignment: align("center", "middle"),
+          });
+      }
     }
   }
 
-  return { finalGradeCol, roundedCol, DATA_START };
+  return { finalGradeCol, roundedCol, transmutedCol, DATA_START };
+}
+
+// ─── Transmutation table sheet (the lookup the TRANSMUTED column points at)
+const TM_SHEET = "TRANSMUTATION TABLE";
+const TM_DATA_START = 3;
+const TM_DATA_END = TM_DATA_START + TRANSMUTATION_TABLE.length - 1;
+
+function buildTransmutationSheet(ws) {
+  ws.getColumn(1).width = 16;
+  ws.getColumn(2).width = 16;
+  ws.getColumn(3).width = 20;
+
+  ws.mergeCells("A1:C1");
+  wc(ws, "A1", "ADJUSTED TRANSMUTATION TABLE", {
+    font:      fontStyle(P.red, true, 13),
+    fill:      fillSolid("#ffffff"),
+    alignment: align("center", "middle"),
+    border:    thinBorder("#e5e7eb"),
+  });
+  ws.getRow(1).height = 26;
+
+  const hdr = {
+    font:      fontStyle("#ffffff", true, 11),
+    fill:      fillSolid(P.redDark),
+    alignment: align("center", "middle"),
+    border:    thinBorder(P.redDark),
+  };
+  wc(ws, "A2", "Initial Grade From", hdr);
+  wc(ws, "B2", "Initial Grade To",   hdr);
+  wc(ws, "C2", "Transmuted Grade",   hdr);
+
+  TRANSMUTATION_TABLE.forEach((band, i) => {
+    const row = TM_DATA_START + i;
+    const rowBg = i % 2 === 0 ? "#ffffff" : "#f9fafb";
+    const base  = { fill: fillSolid(rowBg), border: thinBorder("#e5e7eb"), alignment: align("center", "middle") };
+
+    const min = ws.getCell(`A${row}`); min.value = band.min; min.numFmt = "0.00"; styleCell(min, base);
+    const max = ws.getCell(`B${row}`); max.value = band.max; max.numFmt = "0.00"; styleCell(max, base);
+    const grd = ws.getCell(`C${row}`); grd.value = band.grade;
+    styleCell(grd, { ...base, fill: fillSolid("#dcfce7"), font: fontStyle("#14532d", true, 11) });
+  });
+
+  wc(ws, `A${TM_DATA_END + 2}`,
+    "Applies to DHT and Senior High School classes only. The TRANSMUTED column on each term sheet reads this table.",
+    { font: fontStyle(P.gray500, false, 10), alignment: align("left", "middle") });
 }
 
 // ─── Build Grading Sheet 
@@ -423,7 +497,7 @@ function buildGradingSheet(gs, terms, termNames, termMeta, subjectLabel, section
 }
 
 // ─── Export all terms
-async function exportAllTerms(terms, subjectLabel, sectionLabel, subjectCode) {
+async function exportAllTerms(terms, subjectLabel, sectionLabel, subjectCode, transmute = false) {
   const wb = new ExcelJS.Workbook();
   wb.creator = "ClassRecord";
   wb.created = new Date();
@@ -436,19 +510,24 @@ async function exportAllTerms(terms, subjectLabel, sectionLabel, subjectCode) {
     logoImageId = wb.addImage({ buffer: logoBuffer, extension: ext });
   }
 
-  // ── Term sheets 
+  // ── Term sheets
   const termNames = [], termMeta = [];
   for (const term of terms) {
     const sheetName = term.name.replace(/[\\/*?[\]:]/g, "").slice(0, 31);
     termNames.push(sheetName);
     const ws   = wb.addWorksheet(sheetName);
-    const meta = buildSheet(ws, term, subjectLabel, sectionLabel, logoImageId);
+    const meta = buildSheet(ws, term, subjectLabel, sectionLabel, logoImageId, transmute);
     termMeta.push(meta);
   }
 
-  // ── Grading sheet 
+  // ── Grading sheet
   const gs = wb.addWorksheet("GRADING SHEET");
   buildGradingSheet(gs, terms, termNames, termMeta, subjectLabel, sectionLabel, logoImageId);
+
+  // ── Transmutation table (DHT / SHS only) — the TRANSMUTED columns look it up
+  if (transmute) {
+    buildTransmutationSheet(wb.addWorksheet(TM_SHEET));
+  }
 
   const buf      = await wb.xlsx.writeBuffer();
   const safeCode    = (subjectCode || subjectLabel).replace(/[\/*?[\]:]/g, "").trim();
@@ -605,7 +684,7 @@ function MotionDropdown({ value, onChange, options, placeholder, minWidth = 280 
   );
 }
 
-function TermRecord({ term, onUpdate, onApplyToAll, otherTermsCount = 0 }) {
+function TermRecord({ term, onUpdate, onApplyToAll, otherTermsCount = 0, transmute = false }) {
   const { categories, students } = term;
   const [showCatModal, setShowCatModal] = useState(false);
   const [showColModal, setShowColModal] = useState({ open: false, catId: null });
@@ -678,7 +757,7 @@ function TermRecord({ term, onUpdate, onApplyToAll, otherTermsCount = 0 }) {
   };
 
   const allCols      = categories.flatMap(c => c.columns.map(col => ({ ...col, catId: c.id })));
-  const emptyColspan = 2 + allCols.length + categories.filter(c => c.columns.length > 0).length + (categories.length > 0 ? 2 : 0);
+  const emptyColspan = 2 + allCols.length + categories.filter(c => c.columns.length > 0).length + (categories.length > 0 ? (transmute ? 3 : 2) : 0);
 
   return (
     <div style={{ background: P.white, borderRadius: 12, border: `1px solid ${P.gray200}`, overflow: "hidden", marginBottom: 8 }}>
@@ -712,6 +791,7 @@ function TermRecord({ term, onUpdate, onApplyToAll, otherTermsCount = 0 }) {
               {categories.length > 0 && <>
                 <Th rowSpan={3} style={{ background: P.redDark, color: P.gold, fontWeight: 800, fontSize: 11 }}>Final</Th>
                 <Th rowSpan={3} style={{ background: P.redDark, color: P.gold, fontWeight: 800, fontSize: 11 }}>Rounded</Th>
+                {transmute && <Th rowSpan={3} style={{ background: "#14532d", color: "#dcfce7", fontWeight: 800, fontSize: 11 }}>Transmuted</Th>}
               </>}
             </tr>
             <tr>
@@ -774,6 +854,11 @@ function TermRecord({ term, onUpdate, onApplyToAll, otherTermsCount = 0 }) {
                   {categories.length > 0 && <>
                     <Td style={{ textAlign: "center", fontWeight: 700, fontSize: 12, background: "#fff5f5", color: gradeColor(finalGrade) }}>{finalGrade.toFixed(2)}</Td>
                     <Td style={{ textAlign: "center", fontWeight: 800, fontSize: 13, background: gradeColor(rounded) + "22", color: gradeColor(rounded) }}>{rounded}</Td>
+                    {transmute && (
+                      <Td style={{ textAlign: "center", fontWeight: 800, fontSize: 13, background: "#dcfce7", color: "#14532d" }}>
+                        {finalGrade > 0 ? transmuteGrade(finalGrade) : <span style={{ color: P.gray400 }}>—</span>}
+                      </Td>
+                    )}
                   </>}
                 </tr>
               );
@@ -960,12 +1045,18 @@ export default function ClassRecord() {
   const currentSubjectLabel = currentSubjectObj ? `${currentSubjectObj.subject_code} – ${currentSubjectObj.descriptive_title}` : "";
   const currentSectionLabel = selectedSection === "All" ? "" : selectedSection;
 
+  // DHT and SHS classes get the extra TRANSMUTED column and lookup sheet
+  const shouldTransmute = useMemo(
+    () => usesTransmutation(currentSubjectObj?.students || [], currentSubjectObj?.subject_code || ""),
+    [currentSubjectObj]
+  );
+
   const handleExport = async () => {
     if (!terms.some(t => t.students.length > 0 && t.categories.some(c => c.columns.length > 0)))
       return showToast("Add categories with columns to at least one term first", "error");
     try {
       showToast("Preparing export…", "info");
-      await exportAllTerms(terms, currentSubjectLabel, currentSectionLabel, currentSubjectObj?.subject_code || "");
+      await exportAllTerms(terms, currentSubjectLabel, currentSectionLabel, currentSubjectObj?.subject_code || "", shouldTransmute);
       showToast("Excel exported successfully ✓", "success");
     } catch (err) {
       console.error(err);
@@ -1055,7 +1146,7 @@ export default function ClassRecord() {
 
       <div style={{ padding: "16px 12px" }}>
         {activeTerm && <TermRecord key={activeTerm.id} term={activeTerm} onUpdate={(patch) => updateTerm(activeTerm.id, patch)}
-          onApplyToAll={() => applyCategoriesToAll(activeTerm.id)} otherTermsCount={terms.length - 1} />}
+          onApplyToAll={() => applyCategoriesToAll(activeTerm.id)} otherTermsCount={terms.length - 1} transmute={shouldTransmute} />}
       </div>
 
       <div style={{ display: "flex", gap: 16, padding: "0 12px 20px", flexWrap: "wrap" }}>

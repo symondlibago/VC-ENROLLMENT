@@ -5,6 +5,7 @@ import {
   X, Upload, FileSpreadsheet, CheckCircle2, AlertTriangle,
   Loader2, ArrowLeft, Lock, ChevronDown
 } from 'lucide-react';
+import { transmuteGrade } from '@/lib/transmutation';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -115,12 +116,12 @@ const readCategories = (worksheet, catHeaderRow, firstDataCol, lastDataCol) => {
 };
 
 /**
- * Recomputes a student's grade the same way the exported formulas do, for files
- * Excel has never saved (a fresh export carries formulas but no results).
- * Blank and "X" cells are excluded from both sides of the ratio, exactly like
- * the SUMPRODUCT(ISNUMBER(...)) in the sheet.
+ * Recomputes a student's raw final grade the same way the exported formulas do,
+ * for files Excel has never saved (a fresh export carries formulas but no
+ * results). Blank and "X" cells are excluded from both sides of the ratio,
+ * exactly like the SUMPRODUCT(ISNUMBER(...)) in the sheet.
  */
-const computeRounded = (row, categories) => {
+const computeFinal = (row, categories) => {
   if (categories.length === 0) return null;
 
   let total = 0;
@@ -143,7 +144,7 @@ const computeRounded = (row, categories) => {
     }
   }
 
-  return sawAnyScore ? Math.round(total) : null;
+  return sawAnyScore ? total : null;
 };
 
 /**
@@ -151,11 +152,12 @@ const computeRounded = (row, categories) => {
  * The export puts its headers on row 8, but this searches instead of assuming
  * so a manually adjusted sheet still works.
  */
-const extractRows = (worksheet) => {
+const extractRows = (worksheet, { transmuted = false } = {}) => {
   let headerRow = null;
   let roundedCol = null;
   let finalCol = null;
   let nameCol = null;
+  let transmutedCol = null;
 
   const lastRowToScan = Math.min(worksheet.rowCount, 30);
   for (let r = 1; r <= lastRowToScan && roundedCol === null; r++) {
@@ -166,6 +168,7 @@ const extractRows = (worksheet) => {
       if (header === 'ROUNDED') { headerRow = r; roundedCol = c; }
       else if (header === 'FINALGRADE') { finalCol = c; }
       else if (header === 'NAME') { nameCol = c; }
+      else if (header === 'TRANSMUTED') { transmutedCol = c; }
     }
   }
 
@@ -191,12 +194,22 @@ const extractRows = (worksheet) => {
     const rounded = readNumber(row.getCell(roundedCol));
     const finalGrade = finalCol ? readNumber(row.getCell(finalCol)) : null;
 
-    // Prefer what the sheet says; recompute only when Excel left no result behind
-    let value = rounded ?? (finalGrade === null ? null : Math.round(finalGrade));
+    // The raw (unrounded) grade: what the sheet saved, else recomputed from scores
+    const raw = finalGrade ?? computeFinal(row, categories);
     let computed = false;
-    if (value === null) {
-      value = computeRounded(row, categories);
-      computed = value !== null;
+    let value;
+
+    if (transmuted) {
+      // DHT / SHS: the transmuted grade is what goes into the system
+      value = transmutedCol ? readNumber(row.getCell(transmutedCol)) : null;
+      if (value === null && raw !== null) {
+        // Older export without the column, or no saved result — transmute here
+        value = raw > 0 ? transmuteGrade(raw) : null;
+        computed = value !== null;
+      }
+    } else {
+      value = rounded ?? (raw === null ? null : Math.round(raw));
+      computed = rounded === null && value !== null;
     }
 
     rows.push({ excelRow: r, name, value, computed });
@@ -213,7 +226,10 @@ const ImportGradesModal = ({
   sectionLabel = '',
   isPeriodOpen,
   onApply,
+  // DHT / SHS classes read the TRANSMUTED column instead of ROUNDED
+  useTransmuted = false,
 }) => {
+  const gradeColumnLabel = useTransmuted ? 'TRANSMUTED' : 'ROUNDED';
   const [step, setStep] = useState('term');       // 'term' | 'file' | 'preview'
   const [term, setTerm] = useState(null);
   const [fileName, setFileName] = useState('');
@@ -291,7 +307,7 @@ const ImportGradesModal = ({
   };
 
   const loadSheet = (workbook, sheet) => {
-    const rows = extractRows(sheet);
+    const rows = extractRows(sheet, { transmuted: useTransmuted });
     if (rows.length === 0) {
       throw new Error(`Sheet "${sheet.name}" has no student rows to read.`);
     }
@@ -401,7 +417,8 @@ const ImportGradesModal = ({
               <div>
                 <h3 className="font-semibold text-gray-900">Which term are you importing?</h3>
                 <p className="text-sm text-gray-600 mt-1 mb-5">
-                  The ROUNDED column of that term's sheet will be read into the matching grade column.
+                  The {gradeColumnLabel} column of that term's sheet will be read into the matching grade column.
+                  {useTransmuted && ' This class transmutes its grades (DHT / SHS).'}
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {TERMS.map(t => {
@@ -548,8 +565,9 @@ const ImportGradesModal = ({
                   )}
                   {matches.some(m => m.status === 'ok' && m.computed) && (
                     <p className="text-xs text-gray-500 mt-2">
-                      Some rows had no saved ROUNDED value, so the grade was recalculated from the
-                      score columns using the same weights as the sheet.
+                      {useTransmuted
+                        ? 'Some rows had no saved TRANSMUTED value, so the grade was transmuted here from the final grade using the Adjusted Transmutation Table.'
+                        : 'Some rows had no saved ROUNDED value, so the grade was recalculated from the score columns using the same weights as the sheet.'}
                     </p>
                   )}
                 </div>

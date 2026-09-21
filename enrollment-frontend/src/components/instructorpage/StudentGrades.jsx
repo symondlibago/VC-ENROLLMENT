@@ -11,6 +11,7 @@ import SuccessAlert from '../modals/SuccessAlert';
 import ValidationErrorModal from '../modals/ValidationErrorModal'; 
 import DownloadGradingSheet from '@/components/layout/DownloadGradingSheet';
 import ImportGradesModal from '../modals/ImportGradesModal';
+import { usesTransmutation } from '@/lib/transmutation';
 
 const MotionDropdown = ({ value, onChange, options, placeholder, searchable = false }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -627,6 +628,7 @@ const StudentGrades = () => {
         sectionLabel={selectedSection === 'All' ? 'All sections' : selectedSection}
         isPeriodOpen={isPeriodOpen}
         onApply={handleImportedGrades}
+        useTransmuted={usesTransmutation(filteredStudents, currentSubject?.subject_code)}
       />
     </motion.div>
   );
