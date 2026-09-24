@@ -756,6 +756,16 @@ export const uploadReceiptAPI = {
 
 // --- Add Payment API methods ---
 export const paymentAPI = {
+  // Every payment record with its term payments — used by the balances report
+  getAll: async () => {
+    try {
+      const response = await api.get('/payments');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch payments' };
+    }
+  },
+
   create: async (paymentData) => {
     try {
       const response = await api.post('/payments', paymentData);
@@ -1043,9 +1053,13 @@ export const instructorAPI = {
     }
   },
 
-  getGradeableStudents: async () => {
+  // term: optional { school_year, semester } to view a past term's roster
+  getGradeableStudents: async (term = {}) => {
     try {
-      const response = await api.get('/instructor/gradeable-students');
+      const params = {};
+      if (term.school_year) params.school_year = term.school_year;
+      if (term.semester) params.semester = term.semester;
+      const response = await api.get('/instructor/gradeable-students', { params });
       return response.data;
     } catch (error) {
       throw error.response?.data || { success: false, message: 'Failed to fetch students for grading' };
@@ -1088,9 +1102,13 @@ export const instructorAPI = {
     }
   },
 
-  getSpecificRoster: async (instructorId) => {
+  // term: optional { school_year, semester } to scope the roster to one term
+  getSpecificRoster: async (instructorId, term = {}) => {
     try {
-      const response = await api.get(`/instructors/${instructorId}/roster`);
+      const params = {};
+      if (term.school_year) params.school_year = term.school_year;
+      if (term.semester) params.semester = term.semester;
+      const response = await api.get(`/instructors/${instructorId}/roster`, { params });
       return response.data;
     } catch (error) {
       throw error.response?.data || { success: false, message: 'Failed to fetch instructor roster' };

@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { FileDown, Search, X, ChevronDown, Loader2, Users, BookOpen, LayoutList, FileText } from 'lucide-react';
+import { FileDown, Search, X, ChevronDown, Loader2, Users, BookOpen, LayoutList, FileText, CalendarRange } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { instructorAPI, sectionAPI } from '@/services/api';
+import { instructorAPI } from '@/services/api';
 import { downloadGradingSheetDocx } from '@/lib/gradingSheetDocx';
 
 // ---------------------------------------------------------------------------
@@ -418,8 +418,9 @@ const SearchDropdown = ({ label, icon: Icon, placeholder, items, labelKey, value
 const ExportGradingSheet = ({ onClose }) => {
   // Data lists
   const [instructors, setInstructors]   = useState([]);
-  const [sections, setSections]         = useState([]);
   const [subjects, setSubjects]         = useState([]);
+  const [rosterEntries, setRosterEntries] = useState([]);
+  const [terms, setTerms]               = useState([]);
 
   // Loading states
   const [loadingInstructors, setLoadingInstructors] = useState(false);
@@ -428,6 +429,7 @@ const ExportGradingSheet = ({ onClose }) => {
 
   // Selections
   const [selectedInstructor, setSelectedInstructor] = useState(null);
+  const [selectedTerm, setSelectedTerm]             = useState(null);
   const [selectedSubject, setSelectedSubject]       = useState(null);
   const [selectedSection, setSelectedSection]       = useState(null);
 
@@ -439,12 +441,8 @@ const ExportGradingSheet = ({ onClose }) => {
     const fetchBase = async () => {
       setLoadingInstructors(true);
       try {
-        const [instrRes, secRes] = await Promise.all([
-          instructorAPI.getAll(),
-          sectionAPI.getAll(),
-        ]);
+        const instrRes = await instructorAPI.getAll();
         if (instrRes.success) setInstructors(instrRes.data.map((i) => ({ ...i, label: i.name })));
-        if (secRes.success)   setSections(secRes.data.map((s) => ({ ...s, label: s.name })));
       } catch (e) {
         setError('Failed to load data. Please try again.');
       } finally {
@@ -454,65 +452,106 @@ const ExportGradingSheet = ({ onClose }) => {
     fetchBase();
   }, []);
 
-  // Fetch subjects when instructor is chosen
+  // Fetch the roster whenever the instructor or the term changes. The roster
+  // carries the students for every subject + section this instructor handles,
+  // including those who have already moved on to a later term.
   useEffect(() => {
-    if (!selectedInstructor) { setSubjects([]); setSelectedSubject(null); return; }
-
-    const fetchSubjects = async () => {
-      setLoadingSubjects(true);
+    if (!selectedInstructor) {
+      setRosterEntries([]);
+      setTerms([]);
+      setSubjects([]);
       setSelectedSubject(null);
+      setSelectedSection(null);
+      return;
+    }
+
+    const fetchRoster = async () => {
+      setLoadingSubjects(true);
       setError('');
       try {
-        const res = await instructorAPI.getSpecificRoster(selectedInstructor.id);
+        const res = await instructorAPI.getSpecificRoster(selectedInstructor.id, {
+          school_year: selectedTerm?.school_year,
+          semester: selectedTerm?.semester,
+        });
         if (res.success) {
-          const subjectMap = {};
-          res.data.forEach((entry) => {
-            // Key by the unique subject id so two distinct subjects that share the
-            // same subject_code (e.g. ENTREP in OBM vs. ENTREP in HRS) don't collide
-            // and overwrite each other. Fall back to code+title if id is missing.
-            const key = entry.subject_id ?? `${entry.subject_code}|${entry.descriptive_title}`;
-            if (!subjectMap[key]) {
-              subjectMap[key] = {
-                id: entry.subject_id ?? entry.subject_code,
-                subject_id: entry.subject_id ?? null,
-                subject_code: entry.subject_code,
-                descriptive_title: entry.descriptive_title,
-                schedule_info: entry.schedule_time || 'TBA',
-                lec_hrs: entry.lec_hrs || 0,
-                lab_hrs: entry.lab_hrs || 0,
-                total_units: entry.total_units || 0,
-                number_of_hours: entry.number_of_hours || 0,
-                semester: entry.semester || '',
-                school_year: entry.school_year || '',
-                label: `${entry.subject_code} – ${entry.descriptive_title}`,
-                _students: entry.students || [],
-                _section_name: entry.section_name || 'All Sections',
-              };
-            }
-          });
-          setSubjects(Object.values(subjectMap));
+          setRosterEntries(res.data || []);
+          setTerms(
+            (res.available_terms || []).map((t) => ({
+              ...t,
+              id: `${t.school_year}|${t.semester}`,
+              label: `${t.school_year} · ${t.semester}`,
+            }))
+          );
         }
       } catch (e) {
-        setError('Failed to load subjects for this instructor.');
+        setError('Failed to load the roster for this instructor.');
+        setRosterEntries([]);
       } finally {
         setLoadingSubjects(false);
       }
     };
-    fetchSubjects();
-  }, [selectedInstructor]);
+    fetchRoster();
+  }, [selectedInstructor, selectedTerm]);
+
+  // Subjects this instructor handles, derived from the roster
+  useEffect(() => {
+    const subjectMap = {};
+    rosterEntries.forEach((entry) => {
+      // Key by the unique subject id so two distinct subjects that share the
+      // same subject_code (e.g. ENTREP in OBM vs. ENTREP in HRS) don't collide
+      // and overwrite each other. Fall back to code+title if id is missing.
+      const key = entry.subject_id ?? `${entry.subject_code}|${entry.descriptive_title}`;
+      if (!subjectMap[key]) {
+        subjectMap[key] = {
+          id: entry.subject_id ?? entry.subject_code,
+          subject_id: entry.subject_id ?? null,
+          subject_code: entry.subject_code,
+          descriptive_title: entry.descriptive_title,
+          schedule_info: entry.schedule_time || 'TBA',
+          lec_hrs: entry.lec_hrs || 0,
+          lab_hrs: entry.lab_hrs || 0,
+          total_units: entry.total_units || 0,
+          number_of_hours: entry.number_of_hours || 0,
+          semester: entry.semester || '',
+          school_year: entry.school_year || '',
+          label: `${entry.subject_code} – ${entry.descriptive_title}`,
+        };
+      }
+    });
+    setSubjects(Object.values(subjectMap));
+  }, [rosterEntries]);
+
+  // Roster entries belonging to the chosen subject
+  const subjectEntries = useMemo(() => {
+    if (!selectedSubject) return [];
+    return rosterEntries.filter((e) =>
+      selectedSubject.subject_id != null
+        ? e.subject_id === selectedSubject.subject_id
+        : e.subject_code === selectedSubject.subject_code &&
+          e.descriptive_title === selectedSubject.descriptive_title
+    );
+  }, [rosterEntries, selectedSubject]);
+
+  // Only the sections this instructor actually handles for that subject, plus
+  // "Unassigned Section" when older grades could not be tied to one.
+  const sectionOptions = useMemo(() => {
+    const names = [...new Set(subjectEntries.map((e) => e.section_name).filter(Boolean))];
+    return names.sort().map((name) => ({ id: name, name, label: name }));
+  }, [subjectEntries]);
 
   // Derive students from selected subject + section
   const previewStudents = useMemo(() => {
-    if (!selectedSubject) return [];
-    let students = selectedSubject._students || [];
-
-    if (selectedSection) {
-      students = students.filter((s) => {
-        return String(s.section || '').toLowerCase() === String(selectedSection.name || '').toLowerCase();
+    if (!selectedSubject || !selectedSection) return [];
+    const students = {};
+    subjectEntries
+      .filter((e) => String(e.section_name || '').toLowerCase() === String(selectedSection.name || '').toLowerCase())
+      .forEach((entry) => {
+        (entry.students || []).forEach((s) => {
+          students[s.student_id || s.name] = s;
+        });
       });
-    }
-    return students;
-  }, [selectedSubject, selectedSection]);
+    return Object.values(students);
+  }, [subjectEntries, selectedSubject, selectedSection]);
 
   const handleExport = async (format = 'pdf') => {
     if (!selectedInstructor || !selectedSubject || !selectedSection) {
@@ -523,56 +562,25 @@ const ExportGradingSheet = ({ onClose }) => {
     setLoadingExport(true);
 
     try {
-      const res = await instructorAPI.getSpecificRoster(selectedInstructor.id);
-
-      if (!res.success) throw new Error('Failed to load roster data.');
-
-      // Pick the roster entries for the EXACT selected subject and section.
-      // Match on the unique subject id when available so we don't merge students
-      // from a different subject that shares the same code (e.g. ENTREP in OBM
-      // vs. ENTREP in HRS). Fall back to code+title when id is missing.
-      const matchingEntries = res.data.filter((e) => {
-        const subjectMatches = selectedSubject.subject_id != null
-          ? e.subject_id === selectedSubject.subject_id
-          : e.subject_code === selectedSubject.subject_code &&
-            e.descriptive_title === selectedSubject.descriptive_title;
-
-        const sectionMatches = String(e.section_name || '').toLowerCase()
-          === String(selectedSection.name || '').toLowerCase();
-
-        return subjectMatches && sectionMatches;
-      });
-
-      const studentMap = {};
-      matchingEntries.forEach((entry) => {
-        (entry.students || []).forEach((s) => {
-          if (
-            selectedSection &&
-            String(s.section || '').toLowerCase() !== String(selectedSection.name || '').toLowerCase()
-          ) return;
-
-          if (!studentMap[s.student_id || s.name]) {
-            studentMap[s.student_id || s.name] = {
-              id: s.student_id,
-              name: s.name,
-              studentId: s.student_id,
-              year: s.year || '',
-              courseCode: s.course || '',
-              courseName: s.course || '',
-              section: s.section || selectedSection.name,
-              grades: {
-                prelim_grade:    s.grades?.prelim_grade    ?? null,
-                midterm_grade:   s.grades?.midterm_grade   ?? null,
-                semifinal_grade: s.grades?.semifinal_grade ?? null,
-                final_grade:     s.grades?.final_grade     ?? null,
-                status:          s.grades?.status          ?? '',
-              },
-            };
-          }
-        });
-      });
-
-      const finalStudents = Object.values(studentMap);
+      // The roster already in state was fetched for the chosen term, and its
+      // students carry the section they were graded in — so students who have
+      // since re-enrolled elsewhere are still included.
+      const finalStudents = previewStudents.map((s) => ({
+        id: s.student_id,
+        name: s.name,
+        studentId: s.student_id,
+        year: s.year || '',
+        courseCode: s.course || '',
+        courseName: s.course || '',
+        section: s.section || selectedSection.name,
+        grades: {
+          prelim_grade:    s.grades?.prelim_grade    ?? null,
+          midterm_grade:   s.grades?.midterm_grade   ?? null,
+          semifinal_grade: s.grades?.semifinal_grade ?? null,
+          final_grade:     s.grades?.final_grade     ?? null,
+          status:          s.grades?.status          ?? '',
+        },
+      }));
 
       if (finalStudents.length === 0) {
         setError('No students with grade records found for this subject and section.');
@@ -651,8 +659,22 @@ const ExportGradingSheet = ({ onClose }) => {
             items={instructors}
             labelKey="label"
             value={selectedInstructor}
-            onChange={(v) => { setSelectedInstructor(v); setSelectedSubject(null); setSelectedSection(null); setError(''); }}
+            onChange={(v) => { setSelectedInstructor(v); setSelectedTerm(null); setSelectedSubject(null); setSelectedSection(null); setError(''); }}
             loading={loadingInstructors}
+          />
+
+          {/* Term — lets you export a past semester, whose students have since
+              moved on to another section */}
+          <SearchDropdown
+            label="School Year & Semester"
+            icon={CalendarRange}
+            placeholder={selectedInstructor ? 'All terms' : 'Select instructor first'}
+            items={terms}
+            labelKey="label"
+            value={selectedTerm}
+            onChange={(v) => { setSelectedTerm(v); setSelectedSubject(null); setSelectedSection(null); setError(''); }}
+            disabled={!selectedInstructor || loadingSubjects}
+            loading={loadingSubjects}
           />
 
           <SearchDropdown
@@ -671,7 +693,7 @@ const ExportGradingSheet = ({ onClose }) => {
             label="Section"
             icon={LayoutList}
             placeholder={selectedSubject ? 'Select a section…' : 'Select subject first'}
-            items={sections}
+            items={sectionOptions}
             labelKey="label"
             value={selectedSection}
             onChange={(v) => { setSelectedSection(v); setError(''); }}

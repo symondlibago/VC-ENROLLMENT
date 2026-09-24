@@ -8,6 +8,7 @@ use App\Models\Schedule;
 use App\Models\Grade;
 use App\Models\PreEnrolledStudent;
 use App\Models\Section;
+use App\Models\Subject;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Http\Request;
@@ -179,6 +180,10 @@ class InstructorController extends Controller
         return response()->json(['success' => false, 'message' => 'Instructor profile not found.'], 404);
     }
 
+    // Optional term filter — without it the roster covers every term
+    $schoolYear = $request->query('school_year');
+    $semester   = $request->query('semester');
+
     $schedules = Schedule::with('subject', 'section')
                          ->where('instructor_id', $instructor->id)
                          ->get();
@@ -216,6 +221,11 @@ class InstructorController extends Controller
                 // Scope to only students who belong to this schedule's section
                 $studentsQuery->whereHas('sections', fn($q) => $q->where('sections.id', $schedule->section_id));
             }
+
+            // When a past term is being viewed, the students currently sitting in
+            // the section belong to a different term and must not be mixed in.
+            if ($schoolYear) $studentsQuery->where('school_year', $schoolYear);
+            if ($semester)   $studentsQuery->where('semester', $semester);
 
             $enrolledStudents = $studentsQuery->get();
 
@@ -258,6 +268,61 @@ class InstructorController extends Controller
         }
     }
     
+    // Students already graded in a past term are no longer attached to the
+    // subject or its section (re-enrollment re-syncs both), so they are added
+    // back from their own grade records, which carry the term and section.
+    $pastGrades = Grade::with(['student.course', 'section', 'subject'])
+        ->where('instructor_id', $instructor->id)
+        ->whereNotNull('school_year')
+        ->when($schoolYear, fn ($q) => $q->where('school_year', $schoolYear))
+        ->when($semester, fn ($q) => $q->where('semester', $semester))
+        ->get();
+
+    foreach ($pastGrades as $grade) {
+        $student = $grade->student;
+        if (!$student || !$grade->subject) continue;
+
+        $subjectId = $grade->subject_id;
+        if (!isset($rosterBySubject[$subjectId])) {
+            $rosterBySubject[$subjectId] = [
+                'subject_id' => $subjectId,
+                'subject_code' => $grade->subject->subject_code,
+                'descriptive_title' => $grade->subject->descriptive_title,
+                'lec_hrs' => $grade->subject->lec_hrs,
+                'lab_hrs' => $grade->subject->lab_hrs,
+                'total_units' => $grade->subject->total_units,
+                'number_of_hours' => $grade->subject->number_of_hours,
+                'schedule_info' => 'TBA',
+                'room' => null,
+                'school_year' => $grade->school_year,
+                'semester' => $grade->semester ?? $grade->subject->semester,
+                'students' => [],
+            ];
+        }
+
+        if (isset($rosterBySubject[$subjectId]['students'][$student->id])) continue;
+
+        $rosterBySubject[$subjectId]['students'][$student->id] = [
+            'id' => $student->id,
+            'name' => $student->getFullNameAttribute(),
+            'studentId' => $student->student_id_number,
+            'year' => $grade->year ?? $student->year,
+            'courseCode' => $student->course->course_code ?? 'N/A',
+            'courseName' => $student->course->course_name ?? 'N/A',
+            'section' => $grade->section->name ?? 'Unassigned',
+            'section_id' => $grade->section_id,
+            'school_year' => $grade->school_year,
+            'semester' => $grade->semester,
+            'grades' => [
+                'prelim_grade' => $grade->prelim_grade,
+                'midterm_grade' => $grade->midterm_grade,
+                'semifinal_grade' => $grade->semifinal_grade,
+                'final_grade' => $grade->final_grade,
+                'status' => $grade->status ?? 'In Progress',
+            ],
+        ];
+    }
+
     $formattedRoster = array_map(function ($subjectData) {
         $subjectData['students'] = array_values($subjectData['students']);
         return $subjectData;
@@ -265,7 +330,22 @@ class InstructorController extends Controller
 
     $gradingPeriods = \App\Models\GradingPeriod::all()->keyBy('name');
 
-    return response()->json(['success' => true, 'data' => $formattedRoster, 'grading_periods' => $gradingPeriods]);
+    // Terms this instructor has grades for, so the page can offer a term filter
+    $availableTerms = Grade::where('instructor_id', $instructor->id)
+        ->whereNotNull('school_year')
+        ->select('school_year', 'semester')
+        ->distinct()
+        ->get()
+        ->map(fn ($g) => ['school_year' => $g->school_year, 'semester' => $g->semester])
+        ->sortByDesc(fn ($t) => $t['school_year'] . '|' . $t['semester'])
+        ->values();
+
+    return response()->json([
+        'success' => true,
+        'data' => $formattedRoster,
+        'grading_periods' => $gradingPeriods,
+        'available_terms' => $availableTerms,
+    ]);
 }
 
 public function bulkUpdateGrades(Request $request)
@@ -294,12 +374,17 @@ public function bulkUpdateGrades(Request $request)
         $gradesData = $request->input('grades');
         $gradingPeriods = \App\Models\GradingPeriod::all()->keyBy('name');
 
+        // Loaded once so each grade can be stamped with the student's current term
+        $students = PreEnrolledStudent::whereIn('id', collect($gradesData)->pluck('student_id'))
+            ->get(['id', 'school_year', 'semester', 'year'])
+            ->keyBy('id');
+
         try {
             // Keep track of students whose grades were updated
             $affectedStudentIds = []; 
 
             // Use a single database transaction for the entire operation
-            DB::transaction(function () use ($gradesData, $instructor, $gradingPeriods, &$affectedStudentIds) {
+            DB::transaction(function () use ($gradesData, $instructor, $gradingPeriods, $students, &$affectedStudentIds) {
                 
                 // 1. UPDATE ALL THE GRADES
                 foreach ($gradesData as $gradeInput) {
@@ -329,6 +414,24 @@ public function bulkUpdateGrades(Request $request)
                     // so keep the record in sync (fixes rows stamped by a previous instructor).
                     if ($grade->status !== 'Credited') {
                         $grade->instructor_id = $instructor->id;
+
+                        // Stamp the term and section this grade belongs to. Without it the
+                        // student vanishes from this roster the moment they re-enroll, since
+                        // re-enrollment re-syncs student_subject and section_student.
+                        $student = $students->get($gradeInput['student_id']);
+                        if ($student) {
+                            $grade->school_year = $student->school_year;
+                            $grade->semester    = $student->semester;
+                            $grade->year        = $student->year;
+                        }
+
+                        $sectionId = Schedule::where('subject_id', $gradeInput['subject_id'])
+                            ->where('instructor_id', $instructor->id)
+                            ->whereIn('section_id', $studentSectionIds)
+                            ->value('section_id');
+                        if ($sectionId) {
+                            $grade->section_id = $sectionId;
+                        }
                     }
 
                     $now = now();
@@ -466,89 +569,159 @@ public function bulkUpdateGrades(Request $request)
     /**
      * ADMIN ONLY: Get the roster for a specific instructor.
      */
-    public function getInstructorRoster($instructorId)
+    /**
+     * Roster for one instructor, used by the admin "Export Grading Sheet" modal.
+     *
+     * A student who has already re-enrolled for the next term is no longer in
+     * last term's section, so the live section membership alone loses them. The
+     * roster is therefore built from two sources per subject + section:
+     *   1. students currently in that section, and
+     *   2. students whose grade record for that subject is stamped with it.
+     *
+     * Optional ?school_year= and ?semester= narrow the roster to one term.
+     */
+    public function getInstructorRoster($instructorId, Request $request)
     {
         $instructor = Instructor::findOrFail($instructorId);
+        $schoolYear = $request->query('school_year');
+        $semester   = $request->query('semester');
 
-        // Fetch schedules with subject and specific section info
         $schedules = Schedule::with(['subject', 'section'])
                              ->where('instructor_id', $instructor->id)
                              ->get();
 
+        // Every grade this instructor has given, keyed by subject then section.
+        // Section may be null on older records whose section could not be
+        // established; those are surfaced under "Unassigned Section" instead of
+        // being dropped.
+        $gradeQuery = Grade::with(['student.course', 'section'])
+            ->where('instructor_id', $instructor->id);
+        if ($schoolYear) $gradeQuery->where('school_year', $schoolYear);
+        if ($semester)   $gradeQuery->where('semester', $semester);
+        $grades = $gradeQuery->get();
+
+        $gradesBySubjectSection = $grades->groupBy(fn ($g) => "{$g->subject_id}|" . ($g->section_id ?? 'none'));
+
+        $formatStudent = function ($student, $grade, $sectionName) {
+            return [
+                'student_id' => $student->student_id_number,
+                'name' => $student->getFullNameAttribute(),
+                'course' => $student->course->course_code ?? 'N/A',
+                'year' => $grade->year ?? $student->year,
+                'gender' => $student->gender,
+                'section' => $sectionName,
+                'school_year' => $grade->school_year ?? $student->school_year,
+                'semester' => $grade->semester ?? $student->semester,
+                'grades' => [
+                    'prelim_grade' => $grade->prelim_grade ?? null,
+                    'midterm_grade' => $grade->midterm_grade ?? null,
+                    'semifinal_grade' => $grade->semifinal_grade ?? null,
+                    'final_grade' => $grade->final_grade ?? null,
+                    'status' => $grade->status ?? 'In Progress',
+                ],
+            ];
+        };
+
         $rosterData = [];
+        $seenSubjectSections = [];
 
         foreach ($schedules as $schedule) {
-            if ($schedule->subject) {
-                $subjectId = $schedule->subject->id;
+            if (!$schedule->subject) continue;
 
-                // 1. Base Query: Fetch students who are EITHER currently enrolled in the subject
-                // OR have a grade record for this subject (meaning they moved to the next sem)
-                $query = PreEnrolledStudent::with(['sections', 'grades' => function($q) use ($subjectId) {
-                    $q->where('subject_id', $subjectId);
-                }])
-                ->where(function($q) use ($subjectId) {
-                    $q->whereHas('subjects', function($subQuery) use ($subjectId) {
-                        $subQuery->where('subjects.id', $subjectId);
-                    })
-                    ->orWhereHas('grades', function($gradeQuery) use ($subjectId) {
-                        $gradeQuery->where('subject_id', $subjectId);
-                    });
-                })
+            $subjectId   = $schedule->subject->id;
+            $sectionName = $schedule->section ? $schedule->section->name : 'All Sections';
+            $key         = "{$subjectId}|" . ($schedule->section_id ?? 'none');
+
+            // Several schedules can share a subject + section (different days);
+            // the roster only needs one entry per pair.
+            if (isset($seenSubjectSections[$key])) continue;
+            $seenSubjectSections[$key] = true;
+
+            $students = [];
+
+            // 1. Students currently sitting in this section
+            $currentQuery = PreEnrolledStudent::with(['course', 'grades' => fn ($q) => $q->where('subject_id', $subjectId)])
+                ->whereHas('subjects', fn ($q) => $q->where('subjects.id', $subjectId))
                 ->where('academic_status', '!=', 'Withdraw');
 
-                // 2. FILTER BY SECTION if the schedule has one assigned
-                if ($schedule->section_id) {
-                    $query->whereHas('sections', function($q) use ($schedule) {
-                        $q->where('sections.id', $schedule->section_id);
-                    });
-                }
-
-                $enrolledStudents = $query->get();
-
-                // 3. Format Students and explicitly include their grades for the PDF
-                $formattedStudents = $enrolledStudents->map(function($student) {
-                    $sectionName = $student->sections->isNotEmpty() ? $student->sections->first()->name : 'Unassigned';
-                    
-                    // Fetch the specific grade for this subject
-                    $grade = $student->grades->first();
-
-                    return [
-                        'student_id' => $student->student_id_number,
-                        'name' => $student->getFullNameAttribute(),
-                        'course' => $student->course->course_code ?? 'N/A',
-                        'year' => $student->year,
-                        'gender' => $student->gender,
-                        'section' => $sectionName,
-                        'grades' => [
-                            'prelim_grade' => $grade->prelim_grade ?? null,
-                            'midterm_grade' => $grade->midterm_grade ?? null,
-                            'semifinal_grade' => $grade->semifinal_grade ?? null,
-                            'final_grade' => $grade->final_grade ?? null,
-                            'status' => $grade->status ?? 'In Progress',
-                        ]
-                    ];
-                });
-
-                // 4. Create Roster Entry for this specific Schedule
-                // We are passing extra subject info here so the PDF header populates properly
-                $rosterData[] = [
-                    'subject_id' => $schedule->subject->id,
-                    'subject_code' => $schedule->subject->subject_code,
-                    'descriptive_title' => $schedule->subject->descriptive_title,
-                    'schedule_time' => $schedule->day . ' ' . $schedule->time,
-                    'room' => $schedule->room_no,
-                    'lec_hrs' => $schedule->subject->lec_hrs,
-                    'lab_hrs' => $schedule->subject->lab_hrs,
-                    'total_units' => $schedule->subject->total_units,
-                    'number_of_hours' => $schedule->subject->number_of_hours,
-                    'semester' => $schedule->subject->semester,
-                    'school_year' => $schedule->subject->school_year,
-                    'section_name' => $schedule->section ? $schedule->section->name : 'All Sections', 
-                    'students' => $formattedStudents
-                ];
+            if ($schedule->section_id) {
+                $currentQuery->whereHas('sections', fn ($q) => $q->where('sections.id', $schedule->section_id));
             }
+            if ($schoolYear) $currentQuery->where('school_year', $schoolYear);
+            if ($semester)   $currentQuery->where('semester', $semester);
+
+            foreach ($currentQuery->get() as $student) {
+                $students[$student->id] = $formatStudent($student, $student->grades->first(), $sectionName);
+            }
+
+            // 2. Students whose grade for this subject is stamped with this section —
+            //    including any who have since moved on to another term
+            foreach ($gradesBySubjectSection->get($key, collect()) as $grade) {
+                if (!$grade->student || isset($students[$grade->student->id])) continue;
+                $students[$grade->student->id] = $formatStudent($grade->student, $grade, $sectionName);
+            }
+
+            $rosterData[] = [
+                'subject_id' => $schedule->subject->id,
+                'subject_code' => $schedule->subject->subject_code,
+                'descriptive_title' => $schedule->subject->descriptive_title,
+                'schedule_time' => $schedule->day . ' ' . $schedule->time,
+                'room' => $schedule->room_no,
+                'lec_hrs' => $schedule->subject->lec_hrs,
+                'lab_hrs' => $schedule->subject->lab_hrs,
+                'total_units' => $schedule->subject->total_units,
+                'number_of_hours' => $schedule->subject->number_of_hours,
+                'semester' => $semester ?: $schedule->subject->semester,
+                'school_year' => $schoolYear ?: $schedule->subject->school_year,
+                'section_name' => $sectionName,
+                'students' => array_values($students),
+            ];
         }
 
-        return response()->json(['success' => true, 'data' => $rosterData]);
+        // 3. Older grades whose section could not be established still need a home,
+        //    otherwise those students are invisible to the export.
+        foreach ($grades->whereNull('section_id')->groupBy('subject_id') as $subjectId => $subjectGrades) {
+            $subject = $subjectGrades->first()->subject ?? Subject::find($subjectId);
+            if (!$subject) continue;
+
+            $students = [];
+            foreach ($subjectGrades as $grade) {
+                if (!$grade->student) continue;
+                $students[$grade->student->id] = $formatStudent($grade->student, $grade, 'Unassigned Section');
+            }
+            if (!$students) continue;
+
+            $rosterData[] = [
+                'subject_id' => $subject->id,
+                'subject_code' => $subject->subject_code,
+                'descriptive_title' => $subject->descriptive_title,
+                'schedule_time' => 'TBA',
+                'room' => null,
+                'lec_hrs' => $subject->lec_hrs,
+                'lab_hrs' => $subject->lab_hrs,
+                'total_units' => $subject->total_units,
+                'number_of_hours' => $subject->number_of_hours,
+                'semester' => $semester ?: $subject->semester,
+                'school_year' => $schoolYear ?: $subject->school_year,
+                'section_name' => 'Unassigned Section',
+                'students' => array_values($students),
+            ];
+        }
+
+        // Terms this instructor actually has grades for, newest first
+        $availableTerms = Grade::where('instructor_id', $instructor->id)
+            ->whereNotNull('school_year')
+            ->select('school_year', 'semester')
+            ->distinct()
+            ->get()
+            ->map(fn ($g) => ['school_year' => $g->school_year, 'semester' => $g->semester])
+            ->sortByDesc(fn ($t) => $t['school_year'] . '|' . $t['semester'])
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $rosterData,
+            'available_terms' => $availableTerms,
+        ]);
     }
 }

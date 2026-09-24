@@ -13,6 +13,13 @@ class Grade extends Model
         'pre_enrolled_student_id',
         'subject_id',
         'instructor_id',
+        // The term and section this grade was earned in. Kept on the grade row
+        // itself so re-enrollment (which re-syncs the student's subjects and
+        // sections) can never orphan it.
+        'section_id',
+        'school_year',
+        'semester',
+        'year',
         'prelim_grade',
         'midterm_grade',
         'semifinal_grade',
@@ -40,5 +47,10 @@ class Grade extends Model
     public function instructor()
     {
         return $this->belongsTo(Instructor::class);
+    }
+
+    public function section()
+    {
+        return $this->belongsTo(Section::class);
     }
 }

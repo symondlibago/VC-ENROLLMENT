@@ -1077,6 +1077,10 @@ public function getStudentsForIdReleasing()
                     'status' => 'Credited',
                     'final_grade' => 1.00, // Default "Passed" grade
                     'instructor_id' => $systemInstructor->id,
+                    // Term the credit was granted in, so it stays attributable later
+                    'school_year' => $student->school_year,
+                    'semester' => $student->semester,
+                    'year' => $student->year,
                 ]
             );
 

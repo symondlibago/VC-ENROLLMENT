@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Receipt, Search, MoreVertical, Eye,
     AlertCircle, CheckCircle, XCircle,
-    CreditCard, CalendarDays,
+    CreditCard, CalendarDays, FileSpreadsheet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { enrollmentAPI } from '@/services/api'; // Import enrollmentAPI
 import TermPaymentModal from '../modals/TermPaymentModal'; // Import the new modal
 import DailyCollectionsModal from '../modals/DailyCollectionsModal';
+import PaymentBalancesModal from '../modals/PaymentBalancesModal';
 import SuccessAlert from '../modals/SuccessAlert';
 
 // Helper function to get status color
@@ -46,6 +47,7 @@ const TermPayment = () => {
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [selectedStudentId, setSelectedStudentId] = useState(null); // Store student ID
     const [isDailyOpen, setIsDailyOpen] = useState(false); // Daily collections modal
+    const [isBalancesOpen, setIsBalancesOpen] = useState(false); // Payment status report
 
     // ✅ 2. Add the alert state here
     const [alert, setAlert] = useState({ isVisible: false, message: '', type: 'success' });
@@ -101,13 +103,23 @@ const TermPayment = () => {
                     </h1>
                     <p className="text-gray-600">Review and manage student payment records.</p>
                 </div>
-                <Button
-                    onClick={() => setIsDailyOpen(true)}
-                    className="bg-(--dominant-red) hover:bg-red-800 text-white cursor-pointer"
-                >
-                    <CalendarDays className="w-4 h-4 mr-2" />
-                    Daily Collections
-                </Button>
+                <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                        onClick={() => setIsBalancesOpen(true)}
+                        variant="outline"
+                        className="bg-white text-gray-900 border-gray-200 hover:bg-red-50 hover:text-red-800 hover:border-red-800 cursor-pointer"
+                    >
+                        <FileSpreadsheet className="w-4 h-4 mr-2" />
+                        Payment Status Report
+                    </Button>
+                    <Button
+                        onClick={() => setIsDailyOpen(true)}
+                        className="bg-(--dominant-red) hover:bg-red-800 text-white cursor-pointer"
+                    >
+                        <CalendarDays className="w-4 h-4 mr-2" />
+                        Daily Collections
+                    </Button>
+                </div>
             </div>
 
             {/* Filters */}
@@ -207,6 +219,12 @@ const TermPayment = () => {
             <DailyCollectionsModal
                 isOpen={isDailyOpen}
                 onClose={() => setIsDailyOpen(false)}
+            />
+
+            <PaymentBalancesModal
+                isOpen={isBalancesOpen}
+                onClose={() => setIsBalancesOpen(false)}
+                students={students}
             />
         </div>
     );

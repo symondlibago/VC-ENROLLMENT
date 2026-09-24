@@ -16,7 +16,9 @@ class PaymentController extends Controller
      */
     public function index()
     {
-        $payments = Payment::with(['preEnrolledStudent', 'enrollmentCode'])->get();
+        // termPayments are included so a caller can work out each student's
+        // outstanding balance (fees − discount − down payment − term payments).
+        $payments = Payment::with(['preEnrolledStudent', 'enrollmentCode', 'termPayments'])->get();
         return response()->json([
             'success' => true,
             'data' => $payments

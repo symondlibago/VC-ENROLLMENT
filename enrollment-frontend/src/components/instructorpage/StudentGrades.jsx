@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, Search, ChevronDown, BookCopy, Users, CheckCircle, Save, Loader2, Filter, Upload } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -127,6 +127,12 @@ const StudentGrades = () => {
   const [alertState, setAlertState] = useState({ isVisible: false, message: '', type: 'success' });
   const [validationError, setValidationError] = useState({ isOpen: false, message: '' });
   const [isImportOpen, setIsImportOpen] = useState(false);
+  // Past terms this instructor has grades for. Picking one brings back students
+  // who have since re-enrolled into another section.
+  const [availableTerms, setAvailableTerms] = useState([]);
+  const [selectedTerm, setSelectedTerm] = useState('current');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const isFirstLoad = useRef(true);
 
   useEffect(() => {
     // 1. Get instructor name from localStorage
@@ -142,13 +148,25 @@ const StudentGrades = () => {
 
     const fetchGradeableStudents = async () => {
       try {
-        setLoading(true);
-        const response = await instructorAPI.getGradeableStudents();
+        // Only the very first load blanks the page. Switching terms refreshes the
+        // table in place so the whole screen doesn't flash like a page reload.
+        if (isFirstLoad.current) {
+          setLoading(true);
+        } else {
+          setIsRefreshing(true);
+        }
+        const [schoolYear, semester] = selectedTerm === 'current' ? [] : selectedTerm.split('|');
+        const response = await instructorAPI.getGradeableStudents({ school_year: schoolYear, semester });
         if (response.success) {
           setRosterData(response.data);
           setGradingPeriods(response.grading_periods || {});
+          setAvailableTerms(response.available_terms || []);
           if (response.data && response.data.length > 0) {
-            setSelectedSubjectId(response.data[0].subject_id.toString());
+            // Keep the current subject selected when switching terms if it still exists
+            const stillThere = response.data.some(s => s.subject_id.toString() === selectedSubjectId);
+            if (!stillThere) setSelectedSubjectId(response.data[0].subject_id.toString());
+          } else {
+            setSelectedSubjectId('');
           }
         } else {
              setAlertState({ isVisible: true, message: 'Failed to fetch student roster.', type: 'error' });
@@ -157,10 +175,15 @@ const StudentGrades = () => {
         setAlertState({ isVisible: true, message: 'An error occurred while fetching students.', type: 'error' });
       } finally {
         setLoading(false);
+        setIsRefreshing(false);
+        isFirstLoad.current = false;
       }
     };
     fetchGradeableStudents();
-  }, []);
+    // selectedSubjectId is intentionally not a dependency: it is only read to
+    // keep the selection when the term changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTerm]);
 
   const getGradeColorClass = (grade) => {
     if (grade === null || grade === undefined || grade === '') {
@@ -465,15 +488,53 @@ const StudentGrades = () => {
       
       <motion.div variants={itemVariants}>
         <Card>
-          {/* Filters wrap instead of overflowing: the search shrinks first, then the
-              controls drop onto their own line on narrower screens. */}
-          <CardContent className="p-6 flex flex-col xl:flex-row gap-4 items-stretch xl:items-center justify-between">
-            <div className="relative w-full min-w-0 xl:flex-1 xl:min-w-[220px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input placeholder="Search students by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border border-gray-300 focus:border-red-800 focus:ring-1 focus:ring-red-800 rounded-lg"/>
+          {/* Two rows: search + import on top, the filter dropdowns underneath. */}
+          <CardContent className="p-6 space-y-4">
+            {/* Row 1 — search and import */}
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+              <div className="relative flex-1 min-w-0">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input placeholder="Search students by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 border border-gray-300 focus:border-red-800 focus:ring-1 focus:ring-red-800 rounded-lg"/>
+              </div>
+
+              {/* Import grades from an exported Class Record */}
+              <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (!selectedSubjectId) {
+                      setValidationError({ isOpen: true, message: 'Please select a subject before importing grades.' });
+                      return;
+                    }
+                    setIsImportOpen(true);
+                  }}
+                  className="w-full sm:w-auto shrink-0 h-[42px] px-4 cursor-pointer bg-white text-gray-900 border-gray-200 hover:bg-red-50 hover:text-red-800 hover:border-red-800"
+              >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Import Grades
+              </Button>
             </div>
 
-            <div className="flex flex-wrap w-full xl:w-auto gap-3 xl:justify-end">
+            {/* Row 2 — filters */}
+            <div className="flex flex-wrap gap-3">
+                {/* Term filter — a past term brings back students who have since
+                    re-enrolled into another section */}
+                {availableTerms.length > 0 && (
+                  <div className="w-full sm:w-auto">
+                      <MotionDropdown
+                          value={selectedTerm}
+                          onChange={setSelectedTerm}
+                          options={[
+                            { label: 'Current Term', value: 'current' },
+                            ...availableTerms.map(t => ({
+                              label: `${t.school_year} · ${t.semester}`,
+                              value: `${t.school_year}|${t.semester}`,
+                            })),
+                          ]}
+                          placeholder="Select term"
+                      />
+                  </div>
+                )}
+
                 {/* Semester Filter */}
                 <div className="w-full sm:w-auto">
                     <MotionDropdown
@@ -504,29 +565,21 @@ const StudentGrades = () => {
                         placeholder="Filter by Section"
                     />
                 </div>
-
-                {/* Import grades from an exported Class Record */}
-                <Button
-                    variant="outline"
-                    onClick={() => {
-                      if (!selectedSubjectId) {
-                        setValidationError({ isOpen: true, message: 'Please select a subject before importing grades.' });
-                        return;
-                      }
-                      setIsImportOpen(true);
-                    }}
-                    className="w-full sm:w-auto shrink-0 h-[42px] px-4 cursor-pointer bg-white text-gray-900 border-gray-200 hover:bg-red-50 hover:text-red-800 hover:border-red-800"
-                >
-                    <Upload className="mr-2 h-4 w-4" />
-                    Import Grades
-                </Button>
             </div>
           </CardContent>
         </Card>
       </motion.div>
       
-      <motion.div className="overflow-x-auto" variants={itemVariants}>
-        <Card>
+      <motion.div className="overflow-x-auto relative" variants={itemVariants}>
+        {/* Switching terms refreshes the table in place rather than blanking the page */}
+        {isRefreshing && (
+          <div className="absolute inset-0 z-10 bg-white/60 flex items-start justify-center pt-16 rounded-xl">
+            <span className="flex items-center gap-2 text-sm text-gray-600 bg-white px-4 py-2 rounded-lg shadow-sm border">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading roster…
+            </span>
+          </div>
+        )}
+        <Card className={isRefreshing ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
             <table className="w-full text-sm text-left text-gray-500">
               <thead className="text-xs text-gray-700 uppercase bg-gray-50">
               <tr>
