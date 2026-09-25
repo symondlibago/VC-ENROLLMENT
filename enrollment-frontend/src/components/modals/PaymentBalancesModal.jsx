@@ -1,13 +1,19 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useTransition, useDeferredValue, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import {
-  X, Loader2, Download, Wallet, CheckCircle2, AlertCircle, Users, Search
+  X, Loader2, Download, Wallet, CheckCircle2, AlertCircle, Users, Search, ChevronDown
 } from 'lucide-react';
 import { paymentAPI } from '../../services/api';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 /**
  * Payment status report: enrolled students split into those who still owe money
@@ -96,12 +102,79 @@ const groupRows = (rows) => {
     }));
 };
 
+/**
+ * The grouped student list, split out and memoised: it can run to several
+ * hundred rows, so re-rendering it on every keystroke or dropdown click is what
+ * made the filters feel sluggish.
+ */
+const BalancesList = memo(function BalancesList({ groups, showBalance }) {
+  return (
+    <div className="divide-y divide-gray-100">
+      {groups.map(group => (
+        <div key={group.course}>
+          {/* Course header */}
+          <div className="sticky top-0 z-10 bg-(--dominant-red) text-white px-6 py-2.5 flex items-center justify-between">
+            <span className="font-bold text-sm uppercase tracking-wide">{group.course}</span>
+            <span className="text-xs text-white/85">
+              {group.count} student{group.count === 1 ? '' : 's'}
+              {showBalance && ` · ${peso(group.total)}`}
+            </span>
+          </div>
+
+          {group.years.map(yearGroup => (
+            <div key={`${group.course}-${yearGroup.year}`}>
+              {/* Year header */}
+              <div className="bg-gray-100 px-6 py-1.5 flex items-center justify-between">
+                <span className="text-xs font-bold text-gray-700 uppercase">{yearGroup.year}</span>
+                <span className="text-xs text-gray-500">
+                  {yearGroup.students.length}
+                  {showBalance && ` · ${peso(yearGroup.total)}`}
+                </span>
+              </div>
+
+              <table className="w-full text-sm">
+                <tbody>
+                  {yearGroup.students.map((student, i) => (
+                    <tr key={student.id} className="border-t border-gray-50 hover:bg-(--whitish-pink)/40">
+                      <td className="px-6 py-2.5 text-gray-400 w-10">{i + 1}</td>
+                      <td className="px-3 py-2.5">
+                        <div className="font-semibold text-gray-800">{student.name}</div>
+                        <div className="text-xs text-gray-400 font-mono">{student.studentId}</div>
+                      </td>
+                      <td className="px-3 py-2.5 text-gray-600">{student.course}</td>
+                      <td className="px-6 py-2.5 text-right whitespace-nowrap">
+                        {!student.hasRecord ? (
+                          <span className="text-xs font-semibold text-amber-600">No payment record</span>
+                        ) : showBalance ? (
+                          <span className="font-bold text-(--dominant-red)">{peso(student.remaining)}</span>
+                        ) : (
+                          <span className="text-xs font-semibold text-green-700">Fully Paid</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+});
+
 const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [tab, setTab] = useState('unpaid'); // 'unpaid' | 'paid'
   const [search, setSearch] = useState('');
+  const [schoolYear, setSchoolYear] = useState('all');
+  const [semester, setSemester] = useState('all');
+  // Filtering re-renders a long list, so it runs as a non-urgent update: the
+  // dropdown closes and the tab highlights immediately, the list catches up.
+  const [isPending, startTransition] = useTransition();
+  const deferredSearch = useDeferredValue(search);
   const [isExporting, setIsExporting] = useState(false);
 
   const fetchPayments = useCallback(async () => {
@@ -122,6 +195,8 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
     if (isOpen) {
       setTab('unpaid');
       setSearch('');
+      setSchoolYear('all');
+      setSemester('all');
       fetchPayments();
     }
   }, [isOpen, fetchPayments]);
@@ -141,22 +216,41 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
           course: s.courseName || 'Unassigned Course',
           year: s.year || 'Unspecified Year',
           section: s.sectionName,
+          schoolYear: s.school_year || 'Unspecified',
+          semester: s.semester || 'Unspecified',
           remaining,
           hasRecord: remaining !== null,
         };
       });
   }, [students, payments]);
 
+  // School years and semesters present in the data
+  const schoolYearOptions = useMemo(
+    () => [...new Set(rows.map(r => r.schoolYear))].sort().reverse(),
+    [rows]
+  );
+  const semesterOptions = useMemo(
+    () => [...new Set(rows.map(r => r.semester))].sort(),
+    [rows]
+  );
+
+  // Balances are always for the student's current term, so filtering by term
+  // means "students whose term is this one".
+  const termRows = useMemo(() => rows.filter(r =>
+    (schoolYear === 'all' || r.schoolYear === schoolYear) &&
+    (semester === 'all' || r.semester === semester)
+  ), [rows, schoolYear, semester]);
+
   const { unpaid, paid } = useMemo(() => ({
     // A student with no billing record yet can't be called fully paid
-    unpaid: rows.filter(r => !r.hasRecord || r.remaining > 0.005),
-    paid: rows.filter(r => r.hasRecord && r.remaining <= 0.005),
-  }), [rows]);
+    unpaid: termRows.filter(r => !r.hasRecord || r.remaining > 0.005),
+    paid: termRows.filter(r => r.hasRecord && r.remaining <= 0.005),
+  }), [termRows]);
 
   const activeRows = tab === 'unpaid' ? unpaid : paid;
 
   const visibleGroups = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = deferredSearch.trim().toLowerCase();
     const filtered = q
       ? activeRows.filter(r =>
           r.name.toLowerCase().includes(q) ||
@@ -164,10 +258,17 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
           (r.studentId || '').toLowerCase().includes(q))
       : activeRows;
     return groupRows(filtered);
-  }, [activeRows, search]);
+  }, [activeRows, deferredSearch]);
 
   const visibleCount = visibleGroups.reduce((sum, g) => sum + g.count, 0);
   const outstandingTotal = unpaid.reduce((sum, r) => sum + (r.remaining || 0), 0);
+
+  // Shown in the modal and written into the exported file so a saved report
+  // always says which term it covers
+  const termLabel = [
+    schoolYear === 'all' ? 'All School Years' : schoolYear,
+    semester === 'all' ? 'All Semesters' : semester,
+  ].join(' · ');
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -189,7 +290,8 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
         title.value = `VINEYARD INTERNATIONAL POLYTECHNIC COLLEGE, INC. — ${name}`;
         title.font = { bold: true, size: 13, color: { argb: 'FF9C262C' } };
         ws.mergeCells('A1:F1');
-        ws.getCell('A2').value = `Generated ${new Date().toLocaleString()} · ${list.length} student${list.length === 1 ? '' : 's'}`;
+        ws.getCell('A2').value =
+          `Generated ${new Date().toLocaleString()} · ${termLabel} · ${list.length} student${list.length === 1 ? '' : 's'}`;
         ws.getCell('A2').font = { size: 10, color: { argb: 'FF6B7280' } };
         ws.mergeCells('A2:F2');
 
@@ -270,7 +372,8 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
       const stamp = new Date().toISOString().split('T')[0];
       saveAs(
         new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
-        `Payment Status Report - ${stamp}.xlsx`
+        // Keep the term in the file name so exports for different terms don't clash
+        `Payment Status Report${schoolYear === 'all' ? '' : ` - ${schoolYear}`}${semester === 'all' ? '' : ` ${semester}`} - ${stamp}.xlsx`
       );
     } catch (e) {
       setError(e.message || 'Failed to export the report.');
@@ -299,7 +402,7 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold heading-bold">Payment Status Report</h2>
-                  <p className="text-white/80 text-sm">Enrolled students by course and year level</p>
+                  <p className="text-white/80 text-sm">Enrolled students by course and year level · {termLabel}</p>
                 </div>
               </div>
               <button
@@ -311,11 +414,12 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
               </button>
             </div>
 
-            {/* Tabs + search */}
-            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/70 shrink-0 flex flex-wrap items-center gap-3">
+            {/* Tabs, term filters, search and export */}
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/70 shrink-0 space-y-3">
+              <div className="flex flex-wrap items-center gap-3">
               <div className="flex rounded-lg border border-gray-200 bg-white overflow-hidden">
                 <button
-                  onClick={() => setTab('unpaid')}
+                  onClick={() => startTransition(() => setTab('unpaid'))}
                   className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 cursor-pointer transition-colors ${
                     tab === 'unpaid' ? 'bg-(--dominant-red) text-white' : 'text-gray-600 hover:bg-gray-50'
                   }`}
@@ -324,7 +428,7 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
                   Not Fully Paid ({unpaid.length})
                 </button>
                 <button
-                  onClick={() => setTab('paid')}
+                  onClick={() => startTransition(() => setTab('paid'))}
                   className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 cursor-pointer transition-colors ${
                     tab === 'paid' ? 'bg-green-600 text-white' : 'text-gray-600 hover:bg-gray-50'
                   }`}
@@ -354,6 +458,55 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
                   : <Download className="w-4 h-4 mr-2" />}
                 Export to Excel
               </Button>
+              </div>
+
+              {/* Term filters — balances always belong to a student's current term */}
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Filter by</span>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-52 justify-between bg-white cursor-pointer">
+                      {schoolYear === 'all' ? 'All School Years' : schoolYear}
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onSelect={() => startTransition(() => setSchoolYear('all'))}>All School Years</DropdownMenuItem>
+                    {schoolYearOptions.map(sy => (
+                      <DropdownMenuItem key={sy} onSelect={() => startTransition(() => setSchoolYear(sy))}>{sy}</DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-52 justify-between bg-white cursor-pointer">
+                      {semester === 'all' ? 'All Semesters' : semester}
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onSelect={() => startTransition(() => setSemester('all'))}>All Semesters</DropdownMenuItem>
+                    {semesterOptions.map(sem => (
+                      <DropdownMenuItem key={sem} onSelect={() => startTransition(() => setSemester(sem))}>{sem}</DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {(schoolYear !== 'all' || semester !== 'all') && (
+                  <button
+                    onClick={() => startTransition(() => { setSchoolYear('all'); setSemester('all'); })}
+                    className="text-sm text-gray-500 hover:text-gray-800 underline cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                )}
+
+                <span className="ml-auto text-sm text-gray-500">
+                  {termRows.length} student{termRows.length === 1 ? '' : 's'} in view
+                </span>
+              </div>
             </div>
 
             {/* Body */}
@@ -371,56 +524,8 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
                   <p className="font-medium text-gray-500">No students to show here.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-100">
-                  {visibleGroups.map(group => (
-                    <div key={group.course}>
-                      {/* Course header */}
-                      <div className="sticky top-0 z-10 bg-(--dominant-red) text-white px-6 py-2.5 flex items-center justify-between">
-                        <span className="font-bold text-sm uppercase tracking-wide">{group.course}</span>
-                        <span className="text-xs text-white/85">
-                          {group.count} student{group.count === 1 ? '' : 's'}
-                          {tab === 'unpaid' && ` · ${peso(group.total)}`}
-                        </span>
-                      </div>
-
-                      {group.years.map(yearGroup => (
-                        <div key={`${group.course}-${yearGroup.year}`}>
-                          {/* Year header */}
-                          <div className="bg-gray-100 px-6 py-1.5 flex items-center justify-between">
-                            <span className="text-xs font-bold text-gray-700 uppercase">{yearGroup.year}</span>
-                            <span className="text-xs text-gray-500">
-                              {yearGroup.students.length}
-                              {tab === 'unpaid' && ` · ${peso(yearGroup.total)}`}
-                            </span>
-                          </div>
-
-                          <table className="w-full text-sm">
-                            <tbody>
-                              {yearGroup.students.map((student, i) => (
-                                <tr key={student.id} className="border-t border-gray-50 hover:bg-(--whitish-pink)/40">
-                                  <td className="px-6 py-2.5 text-gray-400 w-10">{i + 1}</td>
-                                  <td className="px-3 py-2.5">
-                                    <div className="font-semibold text-gray-800">{student.name}</div>
-                                    <div className="text-xs text-gray-400 font-mono">{student.studentId}</div>
-                                  </td>
-                                  <td className="px-3 py-2.5 text-gray-600">{student.course}</td>
-                                  <td className="px-6 py-2.5 text-right whitespace-nowrap">
-                                    {!student.hasRecord ? (
-                                      <span className="text-xs font-semibold text-amber-600">No payment record</span>
-                                    ) : tab === 'unpaid' ? (
-                                      <span className="font-bold text-(--dominant-red)">{peso(student.remaining)}</span>
-                                    ) : (
-                                      <span className="text-xs font-semibold text-green-700">Fully Paid</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
+                <div className={isPending ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
+                  <BalancesList groups={visibleGroups} showBalance={tab === 'unpaid'} />
                 </div>
               )}
             </div>
