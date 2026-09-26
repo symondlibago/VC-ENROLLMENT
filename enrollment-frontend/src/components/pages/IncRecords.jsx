@@ -56,6 +56,7 @@ const PaymentModal = ({ isOpen, onClose, student, records = [], onSubmit, isSavi
   const [amount, setAmount] = useState('');
   const [orNumber, setOrNumber] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [remarks, setRemarks] = useState('');
   const [error, setError] = useState('');
 
   // Only subjects that have not been paid yet can be processed
@@ -70,6 +71,7 @@ const PaymentModal = ({ isOpen, onClose, student, records = [], onSubmit, isSavi
       setAmount('');
       setOrNumber('');
       setDate(new Date().toISOString().split('T')[0]);
+      setRemarks('');
       setError('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -106,10 +108,12 @@ const PaymentModal = ({ isOpen, onClose, student, records = [], onSubmit, isSavi
     if (chosen.length === 0) return setError('Select at least one subject to pay for.');
     if (!total || total <= 0) return setError('Enter the amount paid.');
     if (!orNumber.trim()) return setError('Enter the O.R. number.');
+    if (!remarks.trim()) return setError('Remarks are required.');
 
     onSubmit({
       or_number: orNumber.trim(),
       payment_date: date,
+      remarks: remarks.trim(),
       items: splitAmounts(),
     });
   };
@@ -214,6 +218,19 @@ const PaymentModal = ({ isOpen, onClose, student, records = [], onSubmit, isSavi
             />
           </div>
 
+          <div>
+            <label className="text-sm font-medium text-gray-700">
+              Remarks <span className="text-(--dominant-red)">*</span>
+            </label>
+            <textarea
+              value={remarks}
+              onChange={(e) => { setRemarks(e.target.value); setError(''); }}
+              rows={2}
+              placeholder="e.g. INC completion fee settled in full"
+              className="mt-1 w-full rounded-md border-2 border-gray-300 px-3 py-2 text-sm focus:border-red-800 focus:ring-2 focus:ring-red-800/20 focus:outline-none"
+            />
+          </div>
+
           {error && (
             <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">
               <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />{error}
@@ -245,11 +262,29 @@ const PaymentModal = ({ isOpen, onClose, student, records = [], onSubmit, isSavi
  * signature on an official form, so it shouldn't happen on a stray click.
  */
 const ApprovalConfirmModal = ({ isOpen, action, onClose, onConfirm, isSaving }) => {
+  const [remarks, setRemarks] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setRemarks('');
+      setError('');
+    }
+  }, [isOpen]);
+
   if (!isOpen || !action) return null;
 
   const { record, step, mode } = action;
   const stepLabel = STEPS.find(s => s.key === step)?.label ?? step;
   const isRevoke = mode === 'revoke';
+
+  const submit = () => {
+    // Every desk has to say why it signed
+    if (!isRevoke && !remarks.trim()) {
+      return setError('Remarks are required before approving.');
+    }
+    onConfirm(remarks.trim());
+  };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
@@ -298,11 +333,33 @@ const ApprovalConfirmModal = ({ isOpen, action, onClose, onConfirm, isSaving }) 
             </div>
           </div>
 
+          {!isRevoke && (
+            <div>
+              <label className="text-sm font-medium text-gray-700">
+                Remarks <span className="text-(--dominant-red)">*</span>
+              </label>
+              <textarea
+                value={remarks}
+                onChange={(e) => { setRemarks(e.target.value); setError(''); }}
+                rows={3}
+                placeholder={`Note from the ${stepLabel.toLowerCase()} — e.g. requirements submitted, completion exam taken…`}
+                className="mt-1 w-full rounded-md border-2 border-gray-300 px-3 py-2 text-sm focus:border-red-800 focus:ring-2 focus:ring-red-800/20 focus:outline-none"
+              />
+              <p className="text-xs text-gray-400 mt-1">Recorded against your approval on this form.</p>
+            </div>
+          )}
+
           {!isRevoke && step === 'registrar' && (
             <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
               <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-              This is the final approval — the record is marked completed and the completion form
-              can be issued.
+              This is the final approval — the record is marked completed, the subject's grade is
+              settled, and the completion form can be issued.
+            </div>
+          )}
+
+          {error && (
+            <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">
+              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />{error}
             </div>
           )}
         </div>
@@ -310,7 +367,7 @@ const ApprovalConfirmModal = ({ isOpen, action, onClose, onConfirm, isSaving }) 
         <div className="border-t bg-gray-50 px-6 py-4 flex justify-end gap-3">
           <Button variant="outline" onClick={onClose} className="cursor-pointer">Cancel</Button>
           <Button
-            onClick={onConfirm}
+            onClick={submit}
             disabled={isSaving}
             className={`cursor-pointer min-w-[140px] text-white ${
               isRevoke ? 'bg-amber-600 hover:bg-amber-700' : 'bg-green-600 hover:bg-green-700'
@@ -382,7 +439,7 @@ const IncRecords = () => {
   };
 
   /** Runs the approval (or withdrawal) the confirmation dialog asked about. */
-  const handleConfirmedAction = async () => {
+  const handleConfirmedAction = async (remarks) => {
     if (!confirmAction) return;
     const { record, step, mode } = confirmAction;
 
@@ -390,7 +447,7 @@ const IncRecords = () => {
     try {
       const res = mode === 'revoke'
         ? await incAPI.revoke(record.id, step)
-        : await incAPI.approve(record.id, isAdmin ? step : undefined);
+        : await incAPI.approve(record.id, isAdmin ? step : undefined, remarks);
 
       replaceRecord(res.data);
       setConfirmAction(null);
@@ -699,9 +756,19 @@ const IncRecords = () => {
                                         </div>
 
                                         {approved ? (
-                                          <p className="text-[11px] text-green-700/80 mt-1">
-                                            Approved {approved.split(' ')[0]}
-                                          </p>
+                                          <>
+                                            <p className="text-[11px] text-green-700/80 mt-1">
+                                              Approved {approved.split(' ')[0]}
+                                            </p>
+                                            {record.approval_remarks?.[step.key] && (
+                                              <p
+                                                className="text-[11px] text-gray-600 mt-1 line-clamp-2"
+                                                title={record.approval_remarks[step.key]}
+                                              >
+                                                “{record.approval_remarks[step.key]}”
+                                              </p>
+                                            )}
+                                          </>
                                         ) : canApprove ? (
                                           <button
                                             onClick={() => setConfirmAction({ record, step: step.key, mode: 'approve' })}

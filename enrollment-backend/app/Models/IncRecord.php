@@ -13,10 +13,10 @@ class IncRecord extends Model
         'pre_enrolled_student_id', 'subject_id', 'grade_id', 'instructor_id', 'section_id',
         'school_year', 'semester', 'year', 'status',
         'amount', 'or_number', 'payment_date',
-        'cashier_approved_at', 'cashier_approved_by',
-        'instructor_approved_at', 'instructor_approved_by',
-        'program_head_approved_at', 'program_head_approved_by',
-        'registrar_approved_at', 'registrar_approved_by',
+        'cashier_approved_at', 'cashier_approved_by', 'cashier_remarks',
+        'instructor_approved_at', 'instructor_approved_by', 'instructor_remarks',
+        'program_head_approved_at', 'program_head_approved_by', 'program_head_remarks',
+        'registrar_approved_at', 'registrar_approved_by', 'registrar_remarks',
         'remarks',
     ];
 

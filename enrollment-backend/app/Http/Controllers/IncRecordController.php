@@ -104,6 +104,7 @@ class IncRecordController extends Controller
             'amount' => 'required|numeric|min:0',
             'or_number' => 'required|string|max:255',
             'payment_date' => 'required|date',
+            'remarks' => 'required|string|max:1000',
         ]);
 
         if ($validator->fails()) {
@@ -120,6 +121,7 @@ class IncRecordController extends Controller
             'payment_date' => $request->payment_date,
             'cashier_approved_at' => now(),
             'cashier_approved_by' => $user->id,
+            'cashier_remarks' => $request->remarks,
         ]);
         $incRecord->refreshStatus();
         $incRecord->save();
@@ -147,6 +149,7 @@ class IncRecordController extends Controller
         $validator = Validator::make($request->all(), [
             'or_number' => 'required|string|max:255',
             'payment_date' => 'required|date',
+            'remarks' => 'required|string|max:1000',
             'items' => 'required|array|min:1',
             'items.*.id' => 'required|exists:inc_records,id',
             'items.*.amount' => 'required|numeric|min:0',
@@ -171,6 +174,7 @@ class IncRecordController extends Controller
                     'payment_date' => $request->input('payment_date'),
                     'cashier_approved_at' => now(),
                     'cashier_approved_by' => $user->id,
+                    'cashier_remarks' => $request->input('remarks'),
                 ]);
                 $record->refreshStatus();
                 $record->save();
@@ -201,6 +205,7 @@ class IncRecordController extends Controller
 
         $validator = Validator::make($request->all(), [
             'step' => ['nullable', 'string', Rule::in(IncRecord::APPROVAL_STEPS)],
+            'remarks' => 'required|string|max:1000',
         ]);
         if ($validator->fails()) {
             return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
@@ -233,12 +238,19 @@ class IncRecordController extends Controller
 
         $incRecord->{"{$step}_approved_at"} = now();
         $incRecord->{"{$step}_approved_by"} = $user->id;
+        $incRecord->{"{$step}_remarks"} = $request->input('remarks');
         $incRecord->refreshStatus();
         $incRecord->save();
 
+        // Once every desk has signed, the INC mark is settled and the grade
+        // goes back to following the student's actual final grade.
+        $settled = $incRecord->status === 'completed' ? $this->settleGrade($incRecord) : null;
+
         return response()->json([
             'success' => true,
-            'message' => 'Approval recorded.',
+            'message' => $settled
+                ? "Approval recorded. The INC is complete and the grade is now {$settled}."
+                : 'Approval recorded.',
             'data' => $this->format($incRecord->fresh($this->relations())),
         ]);
     }
@@ -281,6 +293,24 @@ class IncRecordController extends Controller
             'message' => 'Approval withdrawn.',
             'data' => $this->format($incRecord->fresh($this->relations())),
         ]);
+    }
+
+    /**
+     * Clears the INC mark on the grade once the completion form is fully
+     * approved. The grade follows what the student actually earned, so a
+     * completed INC on a failing mark is recorded as Failed, not Passed.
+     */
+    private function settleGrade(IncRecord $record): ?string
+    {
+        $grade = $record->grade;
+        if (!$grade || $grade->status !== 'INC') {
+            return null;
+        }
+
+        $grade->status = ($grade->final_grade === null || $grade->final_grade >= 75) ? 'Passed' : 'Failed';
+        $grade->save();
+
+        return $grade->status;
     }
 
     private function relations(): array
@@ -333,6 +363,12 @@ class IncRecordController extends Controller
                 'instructor' => $record->instructor_approved_at?->toDateTimeString(),
                 'program_head' => $record->program_head_approved_at?->toDateTimeString(),
                 'registrar' => $record->registrar_approved_at?->toDateTimeString(),
+            ],
+            'approval_remarks' => [
+                'cashier' => $seesPayment ? $record->cashier_remarks : null,
+                'instructor' => $record->instructor_remarks,
+                'program_head' => $record->program_head_remarks,
+                'registrar' => $record->registrar_remarks,
             ],
             'is_fully_approved' => $record->isFullyApproved(),
             'created_at' => $record->created_at?->toDateTimeString(),

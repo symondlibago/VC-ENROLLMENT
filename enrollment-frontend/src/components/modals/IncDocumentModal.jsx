@@ -227,7 +227,7 @@ const IncDocumentModal = ({ isOpen, onClose, studentName, records = [] }) => {
                     <div>
                       <p className="text-xs text-gray-600 mb-6">Attested by:</p>
                       <p className="font-bold border-b border-gray-700 inline-block">{SIGNATORIES.programHead}</p>
-                      <p className="text-xs text-gray-600">Program Head</p>
+                      <p className="text-xs text-gray-600">Academic Head</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-600 mb-6">Grade Given by:</p>

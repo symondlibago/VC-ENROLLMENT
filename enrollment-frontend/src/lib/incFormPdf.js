@@ -190,7 +190,7 @@ export const drawIncForm = (form, doc = null, logo = null) => {
 
   y += 5;
   pdf.setFontSize(9);
-  pdf.text('Program Head', colLeft, y);
+  pdf.text('Academic Head', colLeft, y);
   pdf.text('Signature over printed name of Instructor', colRight, y);
 
   y += 14;

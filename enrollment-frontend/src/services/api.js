@@ -785,9 +785,12 @@ export const incAPI = {
     }
   },
 
-  approve: async (id, step) => {
+  approve: async (id, step, remarks) => {
     try {
-      const response = await api.post(`/inc-records/${id}/approve`, step ? { step } : {});
+      const response = await api.post(`/inc-records/${id}/approve`, {
+        ...(step ? { step } : {}),
+        remarks,
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || { success: false, message: 'Failed to record the approval' };
