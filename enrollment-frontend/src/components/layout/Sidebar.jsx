@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Home, Users, BookOpen, Calendar, Settings, ChevronLeft, ChevronRight,
   GraduationCap, FileText, BarChart3, User, CreditCard, BookUser,
-  BookMarked, ClipboardList, CheckCircle, Receipt, Inbox, LogOut,
+  BookMarked, ClipboardList, CheckCircle, Receipt, Inbox, LogOut, FileWarning,
 } from 'lucide-react';
 import { lmsNotificationsAPI } from '../LMS/api/lmsApi';
 import { Button } from '@/components/ui/button';
@@ -52,7 +52,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
     { id: 'schedule', icon: Calendar, label: 'Add/Drop Subjects', badge: null, path: '/addingdroppingsubjects' },
     { id: 'shiftee', icon: FileText, label: 'Shiftee', badge: null, path: '/shiftee' },
     { id: 'facultyadminstaff', icon: User, label: 'Faculty & Admin Staff', badge: null, path: '/facultyadminstaff' },
-    { id: 'grades', icon: BarChart3, label: 'Grades', badge: null, path: '/grades' }, 
+    { id: 'grades', icon: BarChart3, label: 'Grades', badge: null, path: '/grades' },
+    { id: 'inc', icon: FileWarning, label: 'INC Records', badge: null, path: '/inc-records' },
     { id: 'id-releasing', icon: CreditCard, label: 'ID Releasing', badge: null, path: '/id-releasing' },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
   ];
@@ -61,6 +62,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
     { id: 'class-roster', icon: BookUser, label: 'Class Roster', badge: null, path: '/class-roster' },
     { id: 'schedule', icon: Calendar, label: 'Schedule', badge: null, path: '/schedule' },
     { id: 'student-grades', icon: BarChart3, label: 'Student Grades', badge: null, path: '/student-grades' },
+    { id: 'inc', icon: FileWarning, label: 'INC Records', badge: null, path: '/inc-records' },
     { id: 'class-record-builder', icon: ClipboardList, label: 'Class Record', badge: null, path: '/class-record-builder' },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
   ];
@@ -141,7 +143,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
         break;
       }
       case 'Cashier': {
-        const allowedItems = ['dashboard', 'enrollment', 'termpayment', 'schedule', 'shiftee', 'id-releasing', 'settings'];
+        const allowedItems = ['dashboard', 'enrollment', 'termpayment', 'schedule', 'shiftee', 'id-releasing', 'inc', 'settings'];
         items = adminMenuItems.filter(item => allowedItems.includes(item.id));
         break;
       }

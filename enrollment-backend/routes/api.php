@@ -14,6 +14,7 @@ use App\Http\Controllers\UploadReceiptController;
 use App\Http\Controllers\SubjectChangeRequestController;
 use App\Http\Controllers\ShifteeRequestController;
 use App\Http\Controllers\InstructorController;
+use App\Http\Controllers\IncRecordController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ManagementController;
 /*
@@ -63,6 +64,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('enrollments/{id}/status', [EnrollmentController::class, 'updateApprovalStatus']);
     Route::post('enrollments/{id}/approval', [EnrollmentController::class, 'submitApproval']);
     Route::get('/enrolled-students', [EnrollmentController::class, 'getEnrolledStudents']);
+
+    // INC completion forms (cashier → instructor & program head → registrar)
+    Route::get('/inc-records', [IncRecordController::class, 'index']);
+    Route::post('/inc-records/payment-bulk', [IncRecordController::class, 'processPaymentBulk']);
+    Route::post('/inc-records/{incRecord}/payment', [IncRecordController::class, 'processPayment']);
+    Route::post('/inc-records/{incRecord}/approve', [IncRecordController::class, 'approve']);
+    Route::post('/inc-records/{incRecord}/revoke', [IncRecordController::class, 'revokeApproval']);
 
     // Payment routes
     Route::apiResource('payments', PaymentController::class);

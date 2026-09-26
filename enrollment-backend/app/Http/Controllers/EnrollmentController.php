@@ -1143,6 +1143,9 @@ public function getStudentsForIdReleasing()
 
                         $grade->status = $gradeData['status'];
                         $grade->save();
+
+                        // Marking a grade INC opens its record on the INC page
+                        \App\Services\IncRecordService::syncForGrade($grade);
                     }
                 }
             });

@@ -755,6 +755,55 @@ export const uploadReceiptAPI = {
 };
 
 // --- Add Payment API methods ---
+// INC (incomplete) completion forms
+export const incAPI = {
+  getAll: async (params = {}) => {
+    try {
+      const response = await api.get('/inc-records', { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch INC records' };
+    }
+  },
+
+  processPayment: async (id, payload) => {
+    try {
+      const response = await api.post(`/inc-records/${id}/payment`, payload);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to process the payment' };
+    }
+  },
+
+  // One receipt covering several of a student's INC subjects
+  processPaymentBulk: async (payload) => {
+    try {
+      const response = await api.post('/inc-records/payment-bulk', payload);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to process the payment' };
+    }
+  },
+
+  approve: async (id, step) => {
+    try {
+      const response = await api.post(`/inc-records/${id}/approve`, step ? { step } : {});
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to record the approval' };
+    }
+  },
+
+  revoke: async (id, step) => {
+    try {
+      const response = await api.post(`/inc-records/${id}/revoke`, { step });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to withdraw the approval' };
+    }
+  },
+};
+
 export const paymentAPI = {
   // Every payment record with its term payments — used by the balances report
   getAll: async () => {

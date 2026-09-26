@@ -365,6 +365,7 @@ public function bulkUpdateGrades(Request $request)
             'grades.*.midterm_grade' => 'nullable|numeric|min:0|max:100',
             'grades.*.semifinal_grade' => 'nullable|numeric|min:0|max:100',
             'grades.*.final_grade' => 'nullable|numeric|min:0|max:100',
+            'grades.*.status' => ['nullable', 'string', Rule::in(['Passed', 'Failed', 'In Progress', 'INC', 'NFE', 'NFR', 'DA'])],
         ]);
 
         if ($validator->fails()) {
@@ -474,14 +475,25 @@ public function bulkUpdateGrades(Request $request)
                     }
                     // --- END OF FIXED LOGIC ---
 
-                    // Update status logic for college grades
-                    if ($grade->final_grade !== null) {
-                        $grade->status = $grade->final_grade >= 75 ? 'Passed' : 'Failed';
-                    } else {
-                        $grade->status = 'In Progress';
+                    // Status: an explicit remark from the instructor wins; an existing
+                    // remark (INC and friends) is preserved rather than being
+                    // recomputed away; otherwise it follows the final grade.
+                    $specialStatuses = ['INC', 'NFE', 'NFR', 'DA', 'Credited'];
+
+                    if (!empty($gradeInput['status'])) {
+                        $grade->status = $gradeInput['status'];
+                    } elseif (!in_array($grade->status, $specialStatuses, true)) {
+                        if ($grade->final_grade !== null) {
+                            $grade->status = $grade->final_grade >= 75 ? 'Passed' : 'Failed';
+                        } else {
+                            $grade->status = 'In Progress';
+                        }
                     }
 
                     $grade->save();
+
+                    // Marking a grade INC opens its record on the INC page
+                    \App\Services\IncRecordService::syncForGrade($grade);
 
                     // If any grade was changed, add the student's ID to our list for the next step
                     if ($grade->wasChanged()) {

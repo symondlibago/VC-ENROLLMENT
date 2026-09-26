@@ -108,10 +108,8 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
     setEditedGrades(prev => prev.map(grade => {
       if (grade.id === gradeId) {
         const updatedGrade = { ...grade, [field]: value };
-        // If a special status is selected, nullify the grade
-        if (field === 'status' && ['INC', 'NFE', 'NFR', 'DA'].includes(value)) {
-            updatedGrade.final_grade = null;
-        }
+        // INC/NFE/NFR/DA only change the remark — the grades already entered are
+        // kept, since an INC form has to show the student's rating.
 
         // If 'Credited' is selected, set grade to 1.0
         if (field === 'status' && value === 'Credited') {

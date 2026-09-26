@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, Search, ChevronDown, BookCopy, Users, CheckCircle, Save, Loader2, Filter, Upload } from 'lucide-react';
+import { FileText, Search, ChevronDown, BookCopy, Users, CheckCircle, Save, Loader2, Filter, Upload, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,12 @@ import SuccessAlert from '../modals/SuccessAlert';
 import ValidationErrorModal from '../modals/ValidationErrorModal'; 
 import DownloadGradingSheet from '@/components/layout/DownloadGradingSheet';
 import ImportGradesModal from '../modals/ImportGradesModal';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { usesTransmutation } from '@/lib/transmutation';
 
 const MotionDropdown = ({ value, onChange, options, placeholder, searchable = false }) => {
@@ -356,6 +362,26 @@ const StudentGrades = () => {
     });
   };
 
+  /**
+   * Sets a remark on a student (INC, NFE, NFR, DA) or clears it back to being
+   * derived from the grades. Saved with Submit Grades like any other change.
+   */
+  const handleStatusChange = (studentId, status) => {
+    setRosterData(currentRoster =>
+      currentRoster.map(subject => {
+        if (subject.subject_id.toString() !== selectedSubjectId) return subject;
+        return {
+          ...subject,
+          students: subject.students.map(student =>
+            student.id === studentId
+              ? { ...student, grades: { ...student.grades, status: status ?? 'In Progress' } }
+              : student
+          ),
+        };
+      })
+    );
+  };
+
   const getEquivalentGrade = (finalGrade) => {
     if (finalGrade === null || finalGrade === undefined) return '--';
     
@@ -430,6 +456,11 @@ const StudentGrades = () => {
         midterm_grade: student.grades?.midterm_grade,
         semifinal_grade: student.grades?.semifinal_grade,
         final_grade: student.grades?.final_grade,
+        // Only send a remark when one was actually set, so the backend keeps
+        // deriving Passed/Failed from the grades otherwise.
+        status: ['INC', 'NFE', 'NFR', 'DA'].includes(student.grades?.status)
+          ? student.grades.status
+          : undefined,
     }));
 
     try {
@@ -451,6 +482,10 @@ const StudentGrades = () => {
 
   // Get current subject data object for the export button
   const currentSubject = rosterData.find(s => s.subject_id.toString() === selectedSubjectId);
+
+  // Grades stay locked until a specific semester is picked, so every grade is
+  // recorded against a known term instead of "All Semesters".
+  const semesterChosen = selectedSemester !== 'All';
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-[60vh]"><LoadingSpinner size="lg" color="red" /></div>;
@@ -501,6 +536,10 @@ const StudentGrades = () => {
               <Button
                   variant="outline"
                   onClick={() => {
+                    if (!semesterChosen) {
+                      setValidationError({ isOpen: true, message: 'Please choose a semester before importing grades, so they are recorded under the correct term.' });
+                      return;
+                    }
                     if (!selectedSubjectId) {
                       setValidationError({ isOpen: true, message: 'Please select a subject before importing grades.' });
                       return;
@@ -569,7 +608,24 @@ const StudentGrades = () => {
           </CardContent>
         </Card>
       </motion.div>
-      
+
+      {/* Grades are locked until a semester is chosen, so nothing is ever saved
+          against "All Semesters" and the term history stays accurate. */}
+      {!semesterChosen && (
+        <motion.div variants={itemVariants}>
+          <div className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-semibold text-amber-900">Choose a semester before entering grades</p>
+              <p className="text-sm text-amber-800">
+                The grade fields stay locked while the filter says “All Semesters”. Pick the semester
+                you are grading so each grade is recorded under the correct term.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       <motion.div className="overflow-x-auto relative" variants={itemVariants}>
         {/* Switching terms refreshes the table in place rather than blanking the page */}
         {isRefreshing && (
@@ -601,10 +657,17 @@ const StudentGrades = () => {
                   const computedFinal = calculateFinalGrade(student, subject?.subject_code);
                   const equivalent = getEquivalentGrade(computedFinal);
 
+                  // A remark the instructor set (INC and friends) wins over the
+                  // status derived from the grades.
+                  const savedStatus = student.grades?.status;
+                  const isMarked = ['INC', 'NFE', 'NFR', 'DA', 'Credited'].includes(savedStatus);
+
                   let statusBadge;
-                  if (computedFinal !== null) {
+                  if (isMarked) {
+                      statusBadge = <Badge className="bg-yellow-100 text-yellow-800">{savedStatus}</Badge>;
+                  } else if (computedFinal !== null) {
                       statusBadge = computedFinal >= 75
-                          ? <Badge className="bg-green-100 text-green-800">Passed</Badge> 
+                          ? <Badge className="bg-green-100 text-green-800">Passed</Badge>
                           : <Badge variant="destructive">Failed</Badge>;
                   } else {
                       statusBadge = <Badge variant="outline">In Progress</Badge>;
@@ -629,7 +692,8 @@ const StudentGrades = () => {
                             value={student.grades?.[field] ?? ''} 
                             onChange={(e) => handleGradeChange(student.id, field, e.target.value)}
                             className={`w-16 border-gray-300 font-mono font-bold ${getGradeColorClass(student.grades?.[field])}`}
-                            disabled={!isPeriodOpen(field.split('_')[0])}
+                            disabled={!isPeriodOpen(field.split('_')[0]) || !semesterChosen}
+                            title={!semesterChosen ? 'Choose a semester first' : undefined}
                           />
                         </td>
                       ))}
@@ -639,7 +703,31 @@ const StudentGrades = () => {
                           {computedFinal !== null ? computedFinal : '--'}
                       </td>
                       <td className="px-6 py-4 font-mono text-gray-900 font-bold">{equivalent}</td>
-                      <td className="px-6 py-4">{statusBadge}</td>
+                      <td className="px-6 py-4">
+                        {/* The remark can be set here — marking INC opens the
+                            student's record on the INC Records page. */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="cursor-pointer" title="Change remark">
+                              {statusBadge}
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={() => handleStatusChange(student.id, null)}>
+                              Auto (from grades)
+                            </DropdownMenuItem>
+                            {['INC', 'NFE', 'NFR', 'DA'].map(option => (
+                              <DropdownMenuItem
+                                key={option}
+                                onSelect={() => handleStatusChange(student.id, option)}
+                                className={savedStatus === option ? 'font-semibold text-red-800' : ''}
+                              >
+                                {option}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
                     </tr>
                   );
                 })}
@@ -667,7 +755,12 @@ const StudentGrades = () => {
          </div>
 
          {/* Submit Button */}
-         <Button onClick={handleSubmitGrades} disabled={isSubmitting || !selectedSubjectId} className="min-w-[150px]">
+         <Button
+            onClick={handleSubmitGrades}
+            disabled={isSubmitting || !selectedSubjectId || !semesterChosen}
+            title={!semesterChosen ? 'Choose a semester first' : undefined}
+            className="min-w-[150px]"
+         >
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             {isSubmitting ? 'Submitting...' : 'Submit Grades'}
          </Button>
