@@ -224,7 +224,7 @@ const FacultyAdminStaff = () => {
   const pageTitle = activeTab === 'instructors' ? 'Faculty Management' : 'Admin Staff Management';
   const pageDescription = activeTab === 'instructors' 
     ? "Browse, manage, and connect with the university's esteemed faculty."
-    : "Manage users with special roles like Program Head, Cashier, and Registrar.";
+    : "Manage users with special roles like Program Head, Cashier, Registrar, Librarian, and Laboratory.";
   const addButtonText = activeTab === 'instructors' ? 'Add Faculty' : 'Add Admin Staff';
 
   return (

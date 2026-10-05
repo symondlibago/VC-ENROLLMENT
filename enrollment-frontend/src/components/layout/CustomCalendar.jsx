@@ -1,12 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, ChevronDown, Calendar as CalendarIcon } from 'lucide-react';
 
-const CustomCalendar = ({ 
-  value, 
-  onChange, 
+/** Roughly how tall the open panel is, used to decide whether it flips upward. */
+const PANEL_HEIGHT = 430;
+const PANEL_WIDTH = 320;
+
+const CustomCalendar = ({
+  value,
+  onChange,
   placeholder = "Select Date",
   className = "",
+  triggerClassName = "",
   disabled = false,
   position = "below" // "above" or "below"
 }) => {
@@ -15,13 +21,78 @@ const CustomCalendar = ({
   const [yearPickerOpen, setYearPickerOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(value ? new Date(value) : null);
+  // The panel is rendered at the end of <body> so it is never clipped by a
+  // scrolling modal; these are its on-screen coordinates.
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef(null);
+  const panelRef = useRef(null);
+
+  /**
+   * Dismissed by a click outside rather than a full-screen backdrop — a
+   * backdrop would also swallow the wheel, so the page or modal behind it
+   * could not be scrolled while the calendar was open.
+   */
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const onPointerDown = (event) => {
+      if (panelRef.current?.contains(event.target)) return;
+      if (triggerRef.current?.contains(event.target)) return;
+      setIsOpen(false);
+    };
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
+
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (value) {
       setSelectedDate(new Date(value));
       setCurrentDate(new Date(value));
+    } else {
+      setSelectedDate(null);
     }
   }, [value]);
+
+  /** Keeps the panel pinned to its trigger, flipping it when space runs out. */
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+
+    const place = () => {
+      const trigger = triggerRef.current?.getBoundingClientRect();
+      if (!trigger) return;
+
+      const roomBelow = window.innerHeight - trigger.bottom;
+      const openUp = position === 'above'
+        ? trigger.top > PANEL_HEIGHT + 16
+        : roomBelow < PANEL_HEIGHT + 16 && trigger.top > PANEL_HEIGHT + 16;
+
+      const top = openUp ? trigger.top - PANEL_HEIGHT - 8 : trigger.bottom + 8;
+      const left = Math.min(
+        Math.max(8, trigger.left),
+        Math.max(8, window.innerWidth - PANEL_WIDTH - 8)
+      );
+
+      // Scrolling inside the panel fires this too, so only move when it matters
+      setCoords((prev) => (prev.top === top && prev.left === left ? prev : { top, left }));
+    };
+
+    place();
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [isOpen, position]);
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -148,36 +219,17 @@ const CustomCalendar = ({
     return days;
   };
 
-  return (
-    <div className={`relative ${className}`}>
-      <motion.button
-        type="button"
-        disabled={disabled}
-        className={`w-full bg-linear-to-br from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-left flex justify-between items-center ${
-          disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-        }`}
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        whileHover={!disabled ? { scale: 1.01 } : {}}
-        whileTap={!disabled ? { scale: 0.99 } : {}}
-      >
-        <span className={`font-semibold ${selectedDate ? 'text-gray-800' : 'text-gray-500'}`}>
-          {formatDisplayDate(selectedDate)}
-        </span>
-        <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.3 }}>
-          <CalendarIcon className="w-5 h-5 text-red-500" />
-        </motion.div>
-      </motion.button>
-
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: position === "above" ? 10 : -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: position === "above" ? 10 : -10 }}
-            className={`absolute z-50 bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 w-80 ${
-              position === "above" ? "bottom-full mb-2" : "top-full mt-2"
-            }`}
-          >
+  const panel = (
+    <motion.div
+      ref={panelRef}
+      initial={{ opacity: 0, y: position === "above" ? 10 : -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: position === "above" ? 10 : -10 }}
+      onClick={(e) => e.stopPropagation()}
+      data-lenis-prevent
+      style={{ top: coords.top, left: coords.left, width: PANEL_WIDTH }}
+      className="fixed z-999 bg-white rounded-2xl shadow-2xl border border-gray-200 p-4"
+    >
             {/* Header with Month & Year pickers */}
             <div className="flex items-center justify-between mb-4 relative">
               <motion.button
@@ -252,6 +304,7 @@ const CustomCalendar = ({
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
+                    data-lenis-prevent
                     className="absolute top-10 left-1/2 -translate-x-1/2 bg-white shadow-lg rounded-xl p-2 grid grid-cols-3 gap-2 z-50 max-h-60 overflow-y-auto"
                   >
                     {Array.from({ length: 50 }, (_, i) => 1980 + i).map(year => (
@@ -309,21 +362,35 @@ const CustomCalendar = ({
                 Today
               </motion.button>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+    </motion.div>
+  );
 
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40"
-            onClick={() => setIsOpen(false)}
-          />
-        )}
-      </AnimatePresence>
+  return (
+    <div className={`relative ${className}`}>
+      <motion.button
+        ref={triggerRef}
+        type="button"
+        disabled={disabled}
+        className={`w-full bg-linear-to-br from-gray-50 to-white border-2 border-gray-200 rounded-2xl py-3 px-4 text-left flex justify-between items-center ${
+          disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+        } ${triggerClassName}`}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        whileHover={!disabled ? { scale: 1.01 } : {}}
+        whileTap={!disabled ? { scale: 0.99 } : {}}
+      >
+        <span className={`font-semibold ${selectedDate ? 'text-gray-800' : 'text-gray-500'}`}>
+          {formatDisplayDate(selectedDate)}
+        </span>
+        <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.3 }}>
+          <CalendarIcon className="w-5 h-5 text-red-500" />
+        </motion.div>
+      </motion.button>
+
+      {/* Rendered at the end of <body> so a scrolling modal can never clip it */}
+      {createPortal(
+        <AnimatePresence>{isOpen && panel}</AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };

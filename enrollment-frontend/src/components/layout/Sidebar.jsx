@@ -5,6 +5,7 @@ import {
   Home, Users, BookOpen, Calendar, Settings, ChevronLeft, ChevronRight,
   GraduationCap, FileText, BarChart3, User, CreditCard, BookUser,
   BookMarked, ClipboardList, CheckCircle, Receipt, Inbox, LogOut, FileWarning,
+  FileSignature,
 } from 'lucide-react';
 import { lmsNotificationsAPI } from '../LMS/api/lmsApi';
 import { Button } from '@/components/ui/button';
@@ -54,6 +55,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
     { id: 'facultyadminstaff', icon: User, label: 'Faculty & Admin Staff', badge: null, path: '/facultyadminstaff' },
     { id: 'grades', icon: BarChart3, label: 'Grades', badge: null, path: '/grades' },
     { id: 'inc', icon: FileWarning, label: 'INC Records', badge: null, path: '/inc-records' },
+    { id: 'credentials', icon: FileSignature, label: 'Credential Requests', badge: null, path: '/credential-requests' },
     { id: 'id-releasing', icon: CreditCard, label: 'ID Releasing', badge: null, path: '/id-releasing' },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
   ];
@@ -143,7 +145,14 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
         break;
       }
       case 'Cashier': {
-        const allowedItems = ['dashboard', 'enrollment', 'termpayment', 'schedule', 'shiftee', 'id-releasing', 'inc', 'settings'];
+        const allowedItems = ['dashboard', 'enrollment', 'termpayment', 'schedule', 'shiftee', 'id-releasing', 'inc', 'credentials', 'settings'];
+        items = adminMenuItems.filter(item => allowedItems.includes(item.id));
+        break;
+      }
+      // Clearance-only desks: they sign credential requests and nothing else
+      case 'Librarian':
+      case 'Laboratory': {
+        const allowedItems = ['credentials', 'settings'];
         items = adminMenuItems.filter(item => allowedItems.includes(item.id));
         break;
       }

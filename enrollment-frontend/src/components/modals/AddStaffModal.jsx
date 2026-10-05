@@ -123,6 +123,8 @@ const AddStaffModal = ({ isOpen, onClose, onSave, staff = null }) => {
                         <SelectItem value="Program Head">Program Head</SelectItem>
                         <SelectItem value="Cashier">Cashier</SelectItem>
                         <SelectItem value="Registrar">Registrar</SelectItem>
+                        <SelectItem value="Librarian">Librarian</SelectItem>
+                        <SelectItem value="Laboratory">Laboratory</SelectItem>
                          {isEditMode && staff.role === 'Admin' && <SelectItem value="Admin">Admin</SelectItem>}
                       </SelectContent>
                     </Select>

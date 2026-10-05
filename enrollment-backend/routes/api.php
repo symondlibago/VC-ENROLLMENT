@@ -15,6 +15,7 @@ use App\Http\Controllers\SubjectChangeRequestController;
 use App\Http\Controllers\ShifteeRequestController;
 use App\Http\Controllers\InstructorController;
 use App\Http\Controllers\IncRecordController;
+use App\Http\Controllers\CredentialRequestController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ManagementController;
 /*
@@ -71,6 +72,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/inc-records/{incRecord}/payment', [IncRecordController::class, 'processPayment']);
     Route::post('/inc-records/{incRecord}/approve', [IncRecordController::class, 'approve']);
     Route::post('/inc-records/{incRecord}/revoke', [IncRecordController::class, 'revokeApproval']);
+
+    // Credential requests (registrar → library, laboratory & program head → cashier → registrar releases)
+    Route::get('/credential-requests', [CredentialRequestController::class, 'index']);
+    Route::get('/credential-requests/students', [CredentialRequestController::class, 'searchStudents']);
+    Route::post('/credential-requests', [CredentialRequestController::class, 'store']);
+    Route::put('/credential-requests/{credentialRequest}', [CredentialRequestController::class, 'update']);
+    Route::post('/credential-requests/{credentialRequest}/approve', [CredentialRequestController::class, 'approve']);
+    Route::post('/credential-requests/{credentialRequest}/payment', [CredentialRequestController::class, 'processPayment']);
+    Route::post('/credential-requests/{credentialRequest}/release', [CredentialRequestController::class, 'release']);
+    Route::post('/credential-requests/{credentialRequest}/resend-email', [CredentialRequestController::class, 'resendEmail']);
+    Route::post('/credential-requests/{credentialRequest}/revoke', [CredentialRequestController::class, 'revokeApproval']);
+    Route::post('/credential-requests/{credentialRequest}/cancel', [CredentialRequestController::class, 'cancel']);
 
     // Payment routes
     Route::apiResource('payments', PaymentController::class);

@@ -10,13 +10,16 @@ use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
+    /** Staff roles that can be created and managed from this page. */
+    public const ASSIGNABLE_ROLES = ['Program Head', 'Cashier', 'Registrar', 'Librarian', 'Laboratory'];
+
     /**
      * Display a listing of admin staff users.
      */
     public function index()
     {
         // Fetch users who are not instructors
-        $staffRoles = ['Admin', 'Program Head', 'Cashier', 'Registrar'];
+        $staffRoles = array_merge(['Admin'], self::ASSIGNABLE_ROLES);
         $users = User::whereIn('role', $staffRoles)->orderBy('name')->get();
         return response()->json(['success' => true, 'data' => $users]);
     }
@@ -29,7 +32,7 @@ class UserController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'role' => ['required', Rule::in(['Program Head', 'Cashier', 'Registrar'])],
+            'role' => ['required', Rule::in(self::ASSIGNABLE_ROLES)],
             'password' => 'required|string|min:8|confirmed',
             'secondary_pin' => 'nullable|string|digits:6|confirmed',
         ]);
@@ -54,7 +57,7 @@ class UserController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'role' => ['required', Rule::in(['Program Head', 'Cashier', 'Registrar', 'Admin'])],
+            'role' => ['required', Rule::in(array_merge(self::ASSIGNABLE_ROLES, ['Admin']))],
         ]);
 
         if ($validator->fails()) {

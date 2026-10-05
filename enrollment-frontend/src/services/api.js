@@ -807,6 +807,107 @@ export const incAPI = {
   },
 };
 
+/**
+ * Credential requests: filed by the registrar, cleared by the library,
+ * laboratory and program head, paid at the cashier, then released with a claim
+ * stub that is emailed to the student.
+ */
+export const credentialAPI = {
+  getAll: async (params = {}) => {
+    try {
+      const response = await api.get('/credential-requests', { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch credential requests' };
+    }
+  },
+
+  // Students the registrar can file for; alumni are typed in by hand instead
+  searchStudents: async (search) => {
+    try {
+      const response = await api.get('/credential-requests/students', { params: { search } });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to search students' };
+    }
+  },
+
+  create: async (payload) => {
+    try {
+      const response = await api.post('/credential-requests', payload);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to file the request' };
+    }
+  },
+
+  update: async (id, payload) => {
+    try {
+      const response = await api.put(`/credential-requests/${id}`, payload);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to update the request' };
+    }
+  },
+
+  approve: async (id, step, remarks) => {
+    try {
+      const response = await api.post(`/credential-requests/${id}/approve`, {
+        ...(step ? { step } : {}),
+        remarks,
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to record the clearance' };
+    }
+  },
+
+  processPayment: async (id, payload) => {
+    try {
+      const response = await api.post(`/credential-requests/${id}/payment`, payload);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to process the payment' };
+    }
+  },
+
+  release: async (id, payload) => {
+    try {
+      const response = await api.post(`/credential-requests/${id}/release`, payload);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to release the request' };
+    }
+  },
+
+  resendEmail: async (id, email) => {
+    try {
+      const response = await api.post(`/credential-requests/${id}/resend-email`, email ? { email } : {});
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to send the claim stub' };
+    }
+  },
+
+  revoke: async (id, step) => {
+    try {
+      const response = await api.post(`/credential-requests/${id}/revoke`, { step });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to withdraw the approval' };
+    }
+  },
+
+  cancel: async (id, remarks) => {
+    try {
+      const response = await api.post(`/credential-requests/${id}/cancel`, { remarks });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to cancel the request' };
+    }
+  },
+};
+
 export const paymentAPI = {
   // Every payment record with its term payments — used by the balances report
   getAll: async () => {

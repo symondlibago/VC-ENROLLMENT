@@ -14,6 +14,8 @@ import {
 import { incAPI, authAPI } from '@/services/api';
 import SuccessAlert from '../modals/SuccessAlert';
 import IncDocumentModal from '../modals/IncDocumentModal';
+import CustomCalendar from '../layout/CustomCalendar';
+import { toIsoDate, todayIso } from '@/lib/dateFormat';
 
 /**
  * INC records: every incomplete mark a student has to settle, and the desks it
@@ -55,7 +57,7 @@ const PaymentModal = ({ isOpen, onClose, student, records = [], onSubmit, isSavi
   const [selectedIds, setSelectedIds] = useState([]);
   const [amount, setAmount] = useState('');
   const [orNumber, setOrNumber] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(todayIso());
   const [remarks, setRemarks] = useState('');
   const [error, setError] = useState('');
 
@@ -70,7 +72,7 @@ const PaymentModal = ({ isOpen, onClose, student, records = [], onSubmit, isSavi
       setSelectedIds(payable.map(r => r.id));
       setAmount('');
       setOrNumber('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(todayIso());
       setRemarks('');
       setError('');
     }
@@ -136,7 +138,7 @@ const PaymentModal = ({ isOpen, onClose, student, records = [], onSubmit, isSavi
           </button>
         </div>
 
-        <div className="p-6 space-y-4 overflow-y-auto">
+        <div data-lenis-prevent className="flex-1 min-h-0 p-6 space-y-4 overflow-y-auto">
           <div className="rounded-lg bg-gray-50 border p-3 text-sm">
             <p className="font-semibold text-gray-900 uppercase">{student?.name}</p>
             <p className="text-xs text-gray-500 font-mono">{student?.student_id_number}</p>
@@ -210,11 +212,13 @@ const PaymentModal = ({ isOpen, onClose, student, records = [], onSubmit, isSavi
 
           <div>
             <label className="text-sm font-medium text-gray-700">Payment Date</label>
-            <Input
-              type="date"
+            <CustomCalendar
               value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="mt-1 h-11 text-base border-2 border-gray-300 focus:border-red-800 focus:ring-2 focus:ring-red-800/20"
+              onChange={(picked) => setDate(toIsoDate(picked))}
+              placeholder="Select payment date"
+              position="above"
+              className="mt-1"
+              triggerClassName="border-gray-300 py-2.5"
             />
           </div>
 

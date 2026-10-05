@@ -15,6 +15,7 @@ import FacultyAdminStaff from './components/pages/FacultyAdminStaff';
 import Grades from './components/pages/Grades';
 import IDReleasing from './components/pages/IDReleasing';
 import IncRecords from './components/pages/IncRecords';
+import CredentialRequests from './components/pages/CredentialRequests';
 import TermPayment from './components/pages/TermPayment';
 import Settings from './components/pages/Settings';
 import LandingPage from './components/auth/LandingPage';
@@ -239,6 +240,17 @@ function App() {
       );
     }
     
+    // Clearance-only desks: the credential board is all they work on
+    if (role === 'Librarian' || role === 'Laboratory') {
+      return (
+        <>
+          <Route path="/credential-requests" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><CredentialRequests /></motion.div>} />
+          <Route path="/settings" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Settings /></motion.div>} />
+          <Route path="*" element={<Navigate to="/credential-requests" replace />} />
+        </>
+      );
+    }
+
     // Default routes for Admin and other staff roles
     return (
       <>
@@ -253,6 +265,7 @@ function App() {
         <Route path="/facultyadminstaff" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><FacultyAdminStaff /></motion.div>} />
         <Route path="/grades" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Grades /></motion.div>} />
         <Route path="/inc-records" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><IncRecords /></motion.div>} />
+        <Route path="/credential-requests" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><CredentialRequests /></motion.div>} />
         <Route path="/id-releasing" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><IDReleasing /></motion.div>} />
         <Route path="/settings" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Settings /></motion.div>} />
         {lmsRoutes}
