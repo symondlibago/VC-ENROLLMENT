@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import CustomCalendar from '../layout/CustomCalendar';
 import { fabricAPI } from '@/services/api';
 import { toIsoDate, todayIso } from '@/lib/dateFormat';
-import { fabricLabel } from '@/lib/fabric';
+import { fabricLabel, priceForMeters, pesoLabel, PRICE_PER_METER } from '@/lib/fabric';
 
 /**
  * The cashier's counter form: find the student, key in the metres taken of
@@ -43,6 +43,8 @@ const FabricSaleModal = ({ isOpen, onClose, onSubmit, isSaving, summary = [] }) 
   const [searching, setSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [allowOversell, setAllowOversell] = useState(false);
+  // The amount follows the metres until the cashier types over it
+  const [amountEdited, setAmountEdited] = useState(false);
   const [error, setError] = useState('');
   const searchBox = useRef(null);
 
@@ -56,6 +58,7 @@ const FabricSaleModal = ({ isOpen, onClose, onSubmit, isSaving, summary = [] }) 
     setResults([]);
     setShowResults(false);
     setAllowOversell(false);
+    setAmountEdited(false);
     setError('');
   }, [isOpen]);
 
@@ -122,6 +125,15 @@ const FabricSaleModal = ({ isOpen, onClose, onSubmit, isSaving, summary = [] }) 
     () => Object.values(cut).reduce((sum, value) => sum + (parseFloat(value) || 0), 0),
     [cut]
   );
+
+  const computedAmount = priceForMeters(totalMeters);
+
+  // Fabric is priced by the metre, so the cashier never has to multiply.
+  // Typing in the amount takes it off the metres until the modal is reopened.
+  useEffect(() => {
+    if (amountEdited) return;
+    setForm((prev) => ({ ...prev, amount: totalMeters > 0 ? String(computedAmount) : '' }));
+  }, [computedAmount, totalMeters, amountEdited]);
 
   /** Fabrics being taken past what is on hand. */
   const shortages = useMemo(
@@ -314,6 +326,9 @@ const FabricSaleModal = ({ isOpen, onClose, onSubmit, isSaving, summary = [] }) 
               <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Metres taken</h3>
               <span className="text-sm text-gray-500">
                 Total <b className="text-gray-900">{meters(totalMeters)}</b>
+                {totalMeters > 0 && (
+                  <> · <b className="text-(--dominant-red)">{pesoLabel(computedAmount)}</b></>
+                )}
               </span>
             </div>
 
@@ -425,12 +440,24 @@ const FabricSaleModal = ({ isOpen, onClose, onSubmit, isSaving, summary = [] }) 
                   <Input
                     type="number" min="0" step="0.01"
                     value={form.amount}
-                    onChange={(e) => set('amount', e.target.value)}
+                    onChange={(e) => { set('amount', e.target.value); setAmountEdited(true); }}
                     placeholder="0.00"
                     className={`${inputClass} pl-7 font-semibold`}
                   />
                 </div>
-                <p className="text-xs text-gray-400 mt-1">Optional.</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {totalMeters > 0
+                    ? `${meters(totalMeters)} × ${pesoLabel(PRICE_PER_METER)} = ${pesoLabel(computedAmount)}`
+                    : `${pesoLabel(PRICE_PER_METER)} per metre.`}
+                  {amountEdited && totalMeters > 0 && (
+                    <button
+                      onClick={() => setAmountEdited(false)}
+                      className="ml-2 text-(--dominant-red) font-medium hover:underline cursor-pointer"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </p>
               </div>
 
               <div>
