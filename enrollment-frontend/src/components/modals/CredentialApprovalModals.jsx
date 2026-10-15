@@ -153,7 +153,7 @@ export const CredentialPaymentModal = ({ isOpen, onClose, request, onSubmit, isS
 
         <div className="border-t bg-gray-50 px-6 py-4 flex justify-end gap-3 shrink-0">
           <Button variant="outline" onClick={onClose} className="cursor-pointer">Cancel</Button>
-          <Button onClick={submit} disabled={isSaving} className="bg-green-600 hover:bg-green-700 cursor-pointer min-w-[140px]">
+          <Button onClick={submit} disabled={isSaving} className="bg-(--dominant-red) hover:bg-red-800 cursor-pointer min-w-[140px]">
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : `Process ${amount ? peso(amount) : ''}`.trim()}
           </Button>
         </div>
@@ -195,7 +195,7 @@ export const CredentialApprovalConfirmModal = ({ isOpen, action, onClose, onConf
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
       >
-        <div className={`px-6 py-4 flex items-center gap-2 text-white ${isRevoke ? 'bg-amber-600' : 'bg-green-600'}`}>
+        <div className={`px-6 py-4 flex items-center gap-2 text-white ${isRevoke ? 'bg-amber-600' : 'bg-(--dominant-red)'}`}>
           {isRevoke ? <Undo2 className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
           <h2 className="text-lg font-bold heading-bold">
             {isRevoke ? `Withdraw ${stepLabel} clearance` : `Sign as ${stepLabel}`}
@@ -248,7 +248,7 @@ export const CredentialApprovalConfirmModal = ({ isOpen, action, onClose, onConf
             onClick={submit}
             disabled={isSaving}
             className={`cursor-pointer min-w-[150px] text-white ${
-              isRevoke ? 'bg-amber-600 hover:bg-amber-700' : 'bg-green-600 hover:bg-green-700'
+              isRevoke ? 'bg-amber-600 hover:bg-amber-700' : 'bg-(--dominant-red) hover:bg-red-800'
             }`}
           >
             {isSaving

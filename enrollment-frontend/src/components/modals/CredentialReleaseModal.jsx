@@ -67,7 +67,7 @@ const CredentialReleaseModal = ({ isOpen, onClose, request, onSubmit, isSaving }
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden"
       >
-        <div className="bg-green-600 text-white px-6 py-5 flex items-center justify-between shrink-0">
+        <div className="bg-(--dominant-red) text-white px-6 py-5 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center">
               <PackageCheck className="w-6 h-6" />
@@ -274,7 +274,7 @@ const CredentialReleaseModal = ({ isOpen, onClose, request, onSubmit, isSaving }
             <Button
               onClick={submit}
               disabled={isSaving}
-              className="bg-green-600 hover:bg-green-700 text-white cursor-pointer min-w-[190px]"
+              className="bg-(--dominant-red) hover:bg-red-800 text-white cursor-pointer min-w-[190px]"
             >
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : (
                 <>

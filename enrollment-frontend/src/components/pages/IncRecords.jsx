@@ -251,7 +251,7 @@ const PaymentModal = ({ isOpen, onClose, student, records = [], onSubmit, isSavi
           <Button
             onClick={submit}
             disabled={isSaving || payable.length === 0}
-            className="bg-green-600 hover:bg-green-700 cursor-pointer min-w-[140px]"
+            className="bg-(--dominant-red) hover:bg-red-800 cursor-pointer min-w-[140px]"
           >
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : `Process ${chosen.length || ''}`.trim()}
           </Button>
@@ -298,7 +298,7 @@ const ApprovalConfirmModal = ({ isOpen, action, onClose, onConfirm, isSaving }) 
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
       >
-        <div className={`px-6 py-4 flex items-center gap-2 text-white ${isRevoke ? 'bg-amber-600' : 'bg-green-600'}`}>
+        <div className={`px-6 py-4 flex items-center gap-2 text-white ${isRevoke ? 'bg-amber-600' : 'bg-(--dominant-red)'}`}>
           {isRevoke ? <Undo2 className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
           <h2 className="text-lg font-bold heading-bold">
             {isRevoke ? `Withdraw ${stepLabel} approval` : `Approve as ${stepLabel}`}
@@ -374,7 +374,7 @@ const ApprovalConfirmModal = ({ isOpen, action, onClose, onConfirm, isSaving }) 
             onClick={submit}
             disabled={isSaving}
             className={`cursor-pointer min-w-[140px] text-white ${
-              isRevoke ? 'bg-amber-600 hover:bg-amber-700' : 'bg-green-600 hover:bg-green-700'
+              isRevoke ? 'bg-amber-600 hover:bg-amber-700' : 'bg-(--dominant-red) hover:bg-red-800'
             }`}
           >
             {isSaving

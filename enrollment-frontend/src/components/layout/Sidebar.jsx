@@ -5,7 +5,7 @@ import {
   Home, Users, BookOpen, Calendar, Settings, ChevronLeft, ChevronRight,
   GraduationCap, FileText, BarChart3, User, CreditCard, BookUser,
   BookMarked, ClipboardList, CheckCircle, Receipt, Inbox, LogOut, FileWarning,
-  FileSignature,
+  FileSignature, Shirt,
 } from 'lucide-react';
 import { lmsNotificationsAPI } from '../LMS/api/lmsApi';
 import { Button } from '@/components/ui/button';
@@ -56,6 +56,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
     { id: 'grades', icon: BarChart3, label: 'Grades', badge: null, path: '/grades' },
     { id: 'inc', icon: FileWarning, label: 'INC Records', badge: null, path: '/inc-records' },
     { id: 'credentials', icon: FileSignature, label: 'Credential Requests', badge: null, path: '/credential-requests' },
+    { id: 'uniform-fabric', icon: Shirt, label: 'Uniform Fabric', badge: null, path: '/uniform-fabric' },
     { id: 'id-releasing', icon: CreditCard, label: 'ID Releasing', badge: null, path: '/id-releasing' },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
   ];
@@ -140,12 +141,13 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
         break;
       case 'Program Head':
       case 'Registrar': {
-        const hiddenItems = ['grades', 'id-releasing', 'facultyadminstaff', 'courses', 'termpayment'];
+        // Fabric stock is the cashier's counter, not the academic desks'
+        const hiddenItems = ['grades', 'id-releasing', 'facultyadminstaff', 'courses', 'termpayment', 'uniform-fabric'];
         items = adminMenuItems.filter(item => !hiddenItems.includes(item.id));
         break;
       }
       case 'Cashier': {
-        const allowedItems = ['dashboard', 'enrollment', 'termpayment', 'schedule', 'shiftee', 'id-releasing', 'inc', 'credentials', 'settings'];
+        const allowedItems = ['dashboard', 'enrollment', 'termpayment', 'schedule', 'shiftee', 'id-releasing', 'inc', 'credentials', 'uniform-fabric', 'settings'];
         items = adminMenuItems.filter(item => allowedItems.includes(item.id));
         break;
       }

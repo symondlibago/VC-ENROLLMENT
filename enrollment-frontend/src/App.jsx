@@ -5,6 +5,7 @@ import { Toaster } from 'sonner';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import SmoothScroll from './components/layout/SmoothScroll';
+import NumberInputGuard from './components/layout/NumberInputGuard';
 import Dashboard from './components/pages/Dashboard';
 import Students from './components/pages/Students';
 import Courses from './components/pages/Courses';
@@ -16,6 +17,7 @@ import Grades from './components/pages/Grades';
 import IDReleasing from './components/pages/IDReleasing';
 import IncRecords from './components/pages/IncRecords';
 import CredentialRequests from './components/pages/CredentialRequests';
+import UniformFabric from './components/pages/UniformFabric';
 import TermPayment from './components/pages/TermPayment';
 import Settings from './components/pages/Settings';
 import LandingPage from './components/auth/LandingPage';
@@ -266,6 +268,7 @@ function App() {
         <Route path="/grades" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Grades /></motion.div>} />
         <Route path="/inc-records" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><IncRecords /></motion.div>} />
         <Route path="/credential-requests" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><CredentialRequests /></motion.div>} />
+        <Route path="/uniform-fabric" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><UniformFabric /></motion.div>} />
         <Route path="/id-releasing" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><IDReleasing /></motion.div>} />
         <Route path="/settings" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Settings /></motion.div>} />
         {lmsRoutes}
@@ -277,6 +280,7 @@ function App() {
   return (
     <Router>
       <SmoothScroll />
+      <NumberInputGuard />
       <Toaster position="top-right" richColors closeButton />
       {currentView === 'vipc' && (
         <motion.div className="min-h-screen" variants={layoutVariants} initial="initial" animate="animate">

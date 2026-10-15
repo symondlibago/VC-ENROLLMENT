@@ -16,6 +16,7 @@ use App\Http\Controllers\ShifteeRequestController;
 use App\Http\Controllers\InstructorController;
 use App\Http\Controllers\IncRecordController;
 use App\Http\Controllers\CredentialRequestController;
+use App\Http\Controllers\UniformFabricController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ManagementController;
 /*
@@ -84,6 +85,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/credential-requests/{credentialRequest}/resend-email', [CredentialRequestController::class, 'resendEmail']);
     Route::post('/credential-requests/{credentialRequest}/revoke', [CredentialRequestController::class, 'revokeApproval']);
     Route::post('/credential-requests/{credentialRequest}/cancel', [CredentialRequestController::class, 'cancel']);
+
+    // Uniform fabric monitoring (cashier & admin): deliveries in, student purchases out
+    Route::get('/uniform-fabric', [UniformFabricController::class, 'index']);
+    Route::get('/uniform-fabric/students', [UniformFabricController::class, 'searchStudents']);
+    Route::get('/uniform-fabric/purchases', [UniformFabricController::class, 'purchases']);
+    Route::get('/uniform-fabric/deliveries', [UniformFabricController::class, 'deliveries']);
+    Route::post('/uniform-fabric/purchases', [UniformFabricController::class, 'storePurchase']);
+    Route::post('/uniform-fabric/deliveries', [UniformFabricController::class, 'storeDelivery']);
+    Route::delete('/uniform-fabric/purchases/{purchase}', [UniformFabricController::class, 'destroyPurchase']);
+    Route::delete('/uniform-fabric/deliveries/{delivery}', [UniformFabricController::class, 'destroyDelivery']);
 
     // Payment routes
     Route::apiResource('payments', PaymentController::class);

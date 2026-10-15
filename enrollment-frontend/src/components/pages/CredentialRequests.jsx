@@ -545,7 +545,7 @@ const CredentialRequests = () => {
                                           variant="outline"
                                           disabled={isSaving}
                                           onClick={() => handleResend(request)}
-                                          className="cursor-pointer bg-white hover:bg-green-50 hover:text-green-800 hover:border-green-700 shrink-0"
+                                          className="cursor-pointer bg-white hover:bg-red-50 hover:text-red-800 hover:border-red-800 shrink-0"
                                         >
                                           <Mail className="w-3.5 h-3.5 mr-1.5" />
                                           {request.claim.email_sent_at ? 'Send again' : 'Send stub'}

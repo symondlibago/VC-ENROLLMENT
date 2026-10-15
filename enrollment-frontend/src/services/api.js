@@ -908,6 +908,85 @@ export const credentialAPI = {
   },
 };
 
+/**
+ * Uniform fabric: stock on hand, deliveries coming in and the metres sold to
+ * students at the cashier. The summary and the two lists are separate calls so
+ * paging a table never re-runs the stock figures.
+ */
+export const fabricAPI = {
+  getSummary: async (params = {}) => {
+    try {
+      const response = await api.get('/uniform-fabric', { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to load fabric stock' };
+    }
+  },
+
+  getPurchases: async (params = {}) => {
+    try {
+      const response = await api.get('/uniform-fabric/purchases', { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to load purchases' };
+    }
+  },
+
+  getDeliveries: async (params = {}) => {
+    try {
+      const response = await api.get('/uniform-fabric/deliveries', { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to load deliveries' };
+    }
+  },
+
+  searchStudents: async (search) => {
+    try {
+      const response = await api.get('/uniform-fabric/students', { params: { search } });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to search students' };
+    }
+  },
+
+  recordPurchase: async (payload) => {
+    try {
+      const response = await api.post('/uniform-fabric/purchases', payload);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to record the purchase' };
+    }
+  },
+
+  recordDelivery: async (payload) => {
+    try {
+      const response = await api.post('/uniform-fabric/deliveries', payload);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to record the delivery' };
+    }
+  },
+
+  deletePurchase: async (id) => {
+    try {
+      const response = await api.delete(`/uniform-fabric/purchases/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to remove the purchase' };
+    }
+  },
+
+  deleteDelivery: async (id) => {
+    try {
+      const response = await api.delete(`/uniform-fabric/deliveries/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to remove the delivery' };
+    }
+  },
+};
+
 export const paymentAPI = {
   // Every payment record with its term payments — used by the balances report
   getAll: async () => {
