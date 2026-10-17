@@ -101,8 +101,13 @@ function App() {
 
   const handleLogin = () => {
     const userData = authAPI.getUserData();
-    // Reset URL so the Sidebar's role-redirect picks the right landing page.
-    // (Prevents stale /lms URL from a prior LMS session from being reused.)
+    // Signing in on the portal ends any LMS session. Letting both live at once
+    // is what left half-authorised pages behind — a portal page with only an
+    // LMS token answers 401 on every request.
+    localStorage.removeItem('lms_auth_token');
+    localStorage.removeItem('lms_user_data');
+    // Reset URL so the Sidebar's role-redirect picks the right landing page
+    // (an instructor goes to Class Roster, a student to Subject Enrolled).
     window.history.replaceState({}, '', '/');
     setUser(userData);
     setIsAuthenticated(true);
@@ -110,8 +115,13 @@ function App() {
   };
 
   const handleLmsLogin = () => {
+    // Read the LMS user first: it falls back to the portal user, which is
+    // about to be cleared.
     const lmsUser = lmsAuthAPI.getUser();
     if (!lmsUser) return;
+    // The mirror of the above — an LMS sign-in ends any portal session.
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_data');
     // Set URL to /lms BEFORE mounting the Router so BrowserRouter reads
     // the new path on its initial mount inside the dashboard shell.
     window.history.replaceState({}, '', '/lms');

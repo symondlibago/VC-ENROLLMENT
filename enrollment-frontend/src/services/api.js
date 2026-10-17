@@ -15,7 +15,11 @@ const api = axios.create({
 // Request interceptor to add auth token and handle FormData
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('auth_token');
+    // Falls back to the LMS token, the mirror of what the LMS client already
+    // does. Portal routes check auth only, so an LMS token is accepted there —
+    // which is what lets someone who signed in on the LMS tab leave the LMS
+    // and use their portal.
+    const token = localStorage.getItem('auth_token') || localStorage.getItem('lms_auth_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -32,6 +36,10 @@ api.interceptors.request.use(
   }
 );
 
+// A dead session can make several requests fail at once. Without this, each
+// one would send the page somewhere and restart the others.
+let sessionEndHandled = false;
+
 // Response interceptor to handle errors
 api.interceptors.response.use(
   (response) => {
@@ -46,10 +54,26 @@ api.interceptors.response.use(
       requestUrl.includes('/login') ||
       requestUrl.includes('/login/verify-pin');
 
-    if (error.response?.status === 401 && !isAuthEndpoint) {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user_data');
-      window.location.reload();
+    if (error.response?.status === 401 && !isAuthEndpoint && !sessionEndHandled) {
+      // Either token counts as a session, since either can authorise these
+      // calls. With no token at all a 401 is simply an unauthenticated
+      // request, and tearing the app down for it is what used to reload the
+      // page on a loop.
+      const hadSession =
+        !!localStorage.getItem('auth_token') || !!localStorage.getItem('lms_auth_token');
+
+      if (hadSession) {
+        sessionEndHandled = true;
+
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_data');
+        localStorage.removeItem('lms_auth_token');
+        localStorage.removeItem('lms_user_data');
+
+        // Go to the public page rather than reloading the route that just
+        // failed — reloading is what turned one dead session into a loop.
+        window.location.replace('/');
+      }
     }
 
     return Promise.reject(error);

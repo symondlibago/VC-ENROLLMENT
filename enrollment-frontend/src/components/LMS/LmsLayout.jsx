@@ -22,10 +22,28 @@ const LmsLayout = () => {
     });
   }, [navigate]);
 
+  /** Signs out of the LMS for good. */
   const handleLogout = async () => {
     await lmsAuthAPI.logout();
     navigate('/', { replace: true });
-    window.location.reload();
+  };
+
+  /**
+   * "Exit LMS" goes back to the main portal — it is not a sign-out.
+   *
+   * Someone who entered the LMS from an existing session shares that session's
+   * token, so logging out here revoked the token their portal was still using:
+   * every request there then failed and the page reloaded on a loop. With a
+   * main session we simply navigate; only an LMS-only session ends on the way
+   * out, because there is nothing to go back to.
+   */
+  const handleExitLms = async () => {
+    if (localStorage.getItem('auth_token')) {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+
+    await handleLogout();
   };
 
   return (
@@ -35,7 +53,7 @@ const LmsLayout = () => {
           isCollapsed={isCollapsed}
           setIsCollapsed={setIsCollapsed}
           user={user}
-          onExitLms={handleLogout}
+          onExitLms={handleExitLms}
         />
       </div>
       <div className="flex-1 flex flex-col min-h-screen">

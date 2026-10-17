@@ -24,6 +24,10 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
   // Fetch enrollment count on mount and interval
   useEffect(() => {
     const fetchCount = async () => {
+      // Nothing to authorise the poll with — skip it rather than fire a 401
+      // every 30 seconds.
+      if (!localStorage.getItem('auth_token') && !localStorage.getItem('lms_auth_token')) return;
+
       // Only fetch if user has a role that manages enrollment
       if (['Admin', 'Program Head', 'Registrar', 'Cashier'].includes(user?.role)) {
         try {
@@ -110,6 +114,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
     if (isLmsRoute) {
       const lmsRole = (user?.lms_role || user?.role || '').toLowerCase();
       let items = [...lmsMenuItemsBase];
+
       if (lmsRole === 'student') {
         // Students don't grade submissions, but they DO have a gradebook.
         items = items.filter((i) => i.id !== 'lms-submissions');
