@@ -1141,7 +1141,23 @@ public function getStudentsForIdReleasing()
                             $grade->final_grade = $gradeData['final_grade'];
                         }
 
-                        $grade->status = $gradeData['status'];
+                        // A remark (INC and friends) is a deliberate choice and
+                        // is kept; Passed/Failed/In Progress follows the marks
+                        // instead of whatever the page happened to send, so a
+                        // subject with every term in can never stay "In
+                        // Progress". Senior High is judged on its three-term
+                        // average, college on the final period.
+                        $remarks = ['INC', 'NFE', 'NFR', 'DA', 'Credited'];
+
+                        if (in_array($gradeData['status'], $remarks, true)) {
+                            $grade->status = $gradeData['status'];
+                        } else {
+                            $mark = $grade->passingMark();
+                            $grade->status = $mark === null
+                                ? 'In Progress'
+                                : ($mark >= 75 ? 'Passed' : 'Failed');
+                        }
+
                         $grade->save();
 
                         // Marking a grade INC opens its record on the INC page

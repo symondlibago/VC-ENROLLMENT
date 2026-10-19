@@ -6,6 +6,7 @@ import {
   Loader2, ArrowLeft, Lock, ChevronDown
 } from 'lucide-react';
 import { transmuteGrade } from '@/lib/transmutation';
+import { periodsFor } from '@/lib/gradingPeriods';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -23,10 +24,15 @@ import {
  * still reviews them and presses Submit Grades.
  */
 
+/**
+ * Senior High sheets head the same three columns Term 1–3 rather than
+ * Prelim/Midterm/Semi-Final, so both namings are accepted and a sheet imports
+ * either way round.
+ */
 const TERMS = [
-  { key: 'prelim',    field: 'prelim_grade',    label: 'Prelim',     aliases: ['prelim', 'prelims', 'preliminary'] },
-  { key: 'midterm',   field: 'midterm_grade',   label: 'Midterm',    aliases: ['midterm', 'midterms'] },
-  { key: 'semifinal', field: 'semifinal_grade', label: 'Semi-Final', aliases: ['semifinal', 'semifinals', 'semi'] },
+  { key: 'prelim',    field: 'prelim_grade',    label: 'Prelim',     aliases: ['prelim', 'prelims', 'preliminary', 'term1', 'term 1'] },
+  { key: 'midterm',   field: 'midterm_grade',   label: 'Midterm',    aliases: ['midterm', 'midterms', 'term2', 'term 2'] },
+  { key: 'semifinal', field: 'semifinal_grade', label: 'Semi-Final', aliases: ['semifinal', 'semifinals', 'semi', 'term3', 'term 3'] },
   { key: 'final',     field: 'final_grade',     label: 'Final',      aliases: ['final', 'finals'] },
 ];
 
@@ -42,6 +48,13 @@ const normalizeName = (value) =>
 const withoutMiddleInitial = (value) => normalizeName(value).replace(/\s+[A-Z]$/, '');
 
 const normalizeHeader = (value) => normalizeName(value).replace(/[^A-Z]/g, '');
+
+/**
+ * Sheet names keep their digits — "TERM 1", "TERM 2" and "TERM 3" would all
+ * collapse to "TERM" otherwise, and a Senior High class record could not be
+ * told apart term by term.
+ */
+const normalizeSheetName = (value) => normalizeName(value).replace(/[^A-Z0-9]/g, '').toLowerCase();
 
 /** Pulls a number out of a cell, including formula cells (cached result). */
 const readNumber = (cell) => {
@@ -230,6 +243,19 @@ const ImportGradesModal = ({
   useTransmuted = false,
 }) => {
   const gradeColumnLabel = useTransmuted ? 'TRANSMUTED' : 'ROUNDED';
+
+  /**
+   * Only the periods this class is marked on, under the names it uses — a
+   * Senior High class offers Term 1 to Term 3, college the four periods.
+   */
+  const termChoices = useMemo(
+    () => periodsFor(students[0]?.year).map((period) => {
+      const spec = TERMS.find((t) => t.field === period.key);
+      return { ...spec, label: period.label };
+    }),
+    [students]
+  );
+
   const [step, setStep] = useState('term');       // 'term' | 'file' | 'preview'
   const [term, setTerm] = useState(null);
   const [fileName, setFileName] = useState('');
@@ -290,14 +316,13 @@ const ImportGradesModal = ({
     const sheets = workbook.worksheets;
 
     const matched = sheets.find(sheet => {
-      const name = normalizeHeader(sheet.name);
       // "FINAL" must not swallow "SEMIFINAL", so compare whole names first
-      return aliases.includes(name.toLowerCase());
+      return aliases.includes(normalizeSheetName(sheet.name));
     });
     if (matched) return matched;
 
     const startsWith = sheets.find(sheet => {
-      const name = normalizeHeader(sheet.name).toLowerCase();
+      const name = normalizeSheetName(sheet.name);
       return aliases.some(alias => name === alias || name.startsWith(alias));
     });
     if (startsWith) return startsWith;
@@ -421,7 +446,7 @@ const ImportGradesModal = ({
                   {useTransmuted && ' This class transmutes its grades (DHT / SHS).'}
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {TERMS.map(t => {
+                  {termChoices.map(t => {
                     const open = isPeriodOpen ? isPeriodOpen(t.key) : true;
                     return (
                       <button

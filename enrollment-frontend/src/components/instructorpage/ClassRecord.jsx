@@ -5,6 +5,7 @@ import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import { instructorAPI } from "@/services/api";
 import { TRANSMUTATION_TABLE, transmuteGrade, usesTransmutation } from "@/lib/transmutation";
+import { isShsAny } from "@/lib/gradingPeriods";
 import ValidationErrorModal from "../components/../modals/ValidationErrorModal";
 import circleLogoUrl from "../../assets/circlelogo.jpg";
 
@@ -94,6 +95,8 @@ function gradeColor(pct) {
 }
 
 const DEFAULT_TERMS = ["PRELIM", "MIDTERM", "SEMI-FINAL", "FINAL"];
+// Senior High (Grade 11 and Grade 12) is marked on three terms, not four periods
+const SHS_TERMS = ["TERM 1", "TERM 2", "TERM 3"];
 
 const SCHOOL = {
   name:    "VINEYARD INTERNATIONAL POLYTECHNIC COLLEGE, INC.",
@@ -988,6 +991,31 @@ export default function ClassRecord() {
     return list.map((s, i) => ({ id: s.id, no: i + 1, name: s.name?.toUpperCase() || "", program: s.courseCode || s.course || "", section: s.section || "Unassigned", scores: {} }));
   }, [rosterData, selectedSubjectId, selectedSection]);
 
+  // Which set of terms this class is marked on. Read from the raw roster
+  // because derivedStudents drops the year level.
+  const termPresets = useMemo(() => {
+    const subj = rosterData.find(s => s.subject_id.toString() === selectedSubjectId);
+    return isShsAny(subj?.students?.[0]?.year) ? SHS_TERMS : DEFAULT_TERMS;
+  }, [rosterData, selectedSubjectId]);
+
+  /**
+   * Put a Senior High class on its three terms once the roster says which it
+   * is. Only the untouched default tabs are swapped — once categories have
+   * been built, or a term renamed or added, the instructor's own layout wins.
+   */
+  useEffect(() => {
+    setTerms(prev => {
+      const untouched = prev.every(term => term.categories.length === 0);
+      const alreadyRight =
+        prev.length === termPresets.length &&
+        prev.every((term, i) => term.name === termPresets[i]);
+
+      if (!untouched || alreadyRight) return prev;
+
+      return termPresets.map(name => ({ id: uid(), name, categories: [], students: [] }));
+    });
+  }, [termPresets]);
+
   useEffect(() => {
     if (!derivedStudents.length) return;
     setTerms(prev => prev.map(term => {
@@ -1073,7 +1101,7 @@ export default function ClassRecord() {
         <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ fontSize: 12, color: "rgba(255,255,255,0.8)" }}>{terms.length} term{terms.length !== 1 ? "s" : ""} • {activeTerm?.students.length || 0} students</span>
           {ssLoad() && (
-            <button onClick={() => { ssClear(); setTerms(DEFAULT_TERMS.map(name => ({ id: uid(), name, categories: [], students: derivedStudents.map(s => ({ ...s, scores: {} })) }))); showToast("Saved data cleared", "info"); }}
+            <button onClick={() => { ssClear(); setTerms(termPresets.map(name => ({ id: uid(), name, categories: [], students: derivedStudents.map(s => ({ ...s, scores: {} })) }))); showToast("Saved data cleared", "info"); }}
               style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.35)", color: "#fff", borderRadius: 7, padding: "5px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
               🗑 Clear Saved
             </button>
@@ -1170,7 +1198,7 @@ export default function ClassRecord() {
       <Modal open={showAddTerm} onClose={() => setShowAddTerm(false)} title="Add New Term">
         <Label>Term Name</Label>
         <TInput value={newTermName} onChange={setNewTermName} placeholder="e.g. Midterm" />
-        <div style={{ marginTop: 6 }}>{DEFAULT_TERMS.filter(n => !terms.find(t => t.name === n)).map(n => (<QBtn key={n} onClick={() => setNewTermName(n)}>{n}</QBtn>))}</div>
+        <div style={{ marginTop: 6 }}>{termPresets.filter(n => !terms.find(t => t.name === n)).map(n => (<QBtn key={n} onClick={() => setNewTermName(n)}>{n}</QBtn>))}</div>
         <MActions onCancel={() => setShowAddTerm(false)} onOk={addTerm} okLabel="Add Term" />
       </Modal>
 

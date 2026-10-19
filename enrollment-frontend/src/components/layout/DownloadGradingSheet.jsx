@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { FileDown, ChevronDown, FileText } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { downloadGradingSheetDocx } from '@/lib/gradingSheetDocx';
+import { periodsFor, computeFinalGrade } from '@/lib/gradingPeriods';
 
 const DownloadGradingSheet = ({ subject, students, instructorName }) => {
 
@@ -129,12 +130,12 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
       const isSHS = sampleStudent?.year?.includes('Grade');
       const showPercent = !isDHT && !isSHS;
 
+      // Senior High is marked on three terms, college on four periods
+      const periods = periodsFor(sampleStudent?.year);
+
       const tableHeaders = [
         'Student Name',
-        showPercent ? 'Prelim (25%)' : 'Prelim',
-        showPercent ? 'Midterm (25%)' : 'Midterm',
-        showPercent ? 'Semi (25%)' : 'Semi',
-        showPercent ? 'Final (25%)' : 'Final',
+        ...periods.map((period) => (showPercent ? `${period.label} (25%)` : period.label)),
         'Final Grade',
         'Equivalent',
         'Remarks'
@@ -176,12 +177,7 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
         return '5.0'; 
       };
 
-      const calculateFinal = (s) => {
-        const { prelim_grade: p, midterm_grade: m, semifinal_grade: sm, final_grade: f } = s.grades || {};
-        if ([p, m, sm, f].some(v => v == null || v === '')) return null;
-        if (showPercent) return (p * 0.25) + (m * 0.25) + (sm * 0.25) + (f * 0.25);
-        return (p + m + sm + f) / 4;
-      };
+      const calculateFinal = (s) => computeFinalGrade(s.grades || {}, s.year);
 
       const getGradeColor = (value) => {
         if (value === null || value === undefined || value === '') return [0, 0, 0];
@@ -200,17 +196,14 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
         const fmt = (v) => (v != null && v !== '' ? parseFloat(v).toFixed(2) : '');
 
         gradeValues.push({
-          prelim: s.grades?.prelim_grade, midterm: s.grades?.midterm_grade,
-          semi: s.grades?.semifinal_grade, final: s.grades?.final_grade,
+          // One entry per period column, in the order they are printed
+          periods: periods.map((period) => s.grades?.[period.key]),
           finalGrade: final, remarks,
         });
 
         return [
           s.name.toUpperCase(),
-          fmt(s.grades?.prelim_grade),
-          fmt(s.grades?.midterm_grade),
-          fmt(s.grades?.semifinal_grade),
-          fmt(s.grades?.final_grade),
+          ...periods.map((period) => fmt(s.grades?.[period.key])),
           final ? final.toFixed(2) : '',
           equiv,
           remarks
@@ -237,15 +230,14 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
           cellPadding: 1.2,
           valign: 'middle'
         },
+        // Columns shift with the number of periods, so they are worked out
+        // from it rather than hard-coded.
         columnStyles: {
           0: { cellWidth: 50 },
-          1: { halign: 'center' },
-          2: { halign: 'center' },
-          3: { halign: 'center' },
-          4: { halign: 'center' },
-          5: { halign: 'center', fontStyle: 'bold' },
-          6: { halign: 'center', fontStyle: 'bold' },
-          7: { halign: 'center', fontSize: 6.5 }
+          ...Object.fromEntries(periods.map((_, i) => [i + 1, { halign: 'center' }])),
+          [periods.length + 1]: { halign: 'center', fontStyle: 'bold' },
+          [periods.length + 2]: { halign: 'center', fontStyle: 'bold' },
+          [periods.length + 3]: { halign: 'center', fontSize: 6.5 }
         },
         didParseCell: (data) => {
           if (data.section !== 'body') return;
@@ -254,13 +246,13 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
           const gv = gradeValues[rowIndex];
           if (!gv) return;
 
-          if (colIndex === 1) data.cell.styles.textColor = getGradeColor(gv.prelim);
-          else if (colIndex === 2) data.cell.styles.textColor = getGradeColor(gv.midterm);
-          else if (colIndex === 3) data.cell.styles.textColor = getGradeColor(gv.semi);
-          else if (colIndex === 4) data.cell.styles.textColor = getGradeColor(gv.final);
-          else if (colIndex === 5) data.cell.styles.textColor = getGradeColor(gv.finalGrade);
-          else if (colIndex === 6) data.cell.styles.textColor = getGradeColor(gv.finalGrade);
-          else if (colIndex === 7) data.cell.styles.textColor = gv.remarks === 'FAILED' ? [220, 38, 38] : [0, 0, 0];
+          if (colIndex >= 1 && colIndex <= periods.length) {
+            data.cell.styles.textColor = getGradeColor(gv.periods[colIndex - 1]);
+          } else if (colIndex === periods.length + 1 || colIndex === periods.length + 2) {
+            data.cell.styles.textColor = getGradeColor(gv.finalGrade);
+          } else if (colIndex === periods.length + 3) {
+            data.cell.styles.textColor = gv.remarks === 'FAILED' ? [220, 38, 38] : [0, 0, 0];
+          }
         },
       });
 

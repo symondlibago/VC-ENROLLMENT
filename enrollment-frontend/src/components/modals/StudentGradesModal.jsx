@@ -8,6 +8,7 @@ import LoadingSpinner from '@/components/layout/LoadingSpinner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import SuccessAlert from './SuccessAlert';
+import { periodsFor, computeFinalGrade } from '@/lib/gradingPeriods';
 
 // MotionDropdown component remains the same...
 const MotionDropdown = ({ value, onChange, options, placeholder }) => {
@@ -61,6 +62,11 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
 const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseName, year }) => {
   const [grades, setGrades] = useState([]);
   const [editedGrades, setEditedGrades] = useState([]);
+  // Senior High is marked on three terms, college on four periods
+  const periods = useMemo(
+    () => periodsFor(year, editedGrades[0]?.year),
+    [year, editedGrades]
+  );
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -79,8 +85,16 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
         semester: filters.semester || null 
       });
       if (response.success) {
-        setGrades(response.data);
-        setEditedGrades(JSON.parse(JSON.stringify(response.data))); // Deep copy for editing
+        // A stored Passed/Failed/In Progress is brought back in line with the
+        // marks on the row, so a subject whose terms are all in never shows as
+        // still in progress. Remarks the instructor set are left alone.
+        const settled = response.data.map((grade) => ({
+          ...grade,
+          status: computeAutoStatus(grade),
+        }));
+
+        setGrades(settled);
+        setEditedGrades(JSON.parse(JSON.stringify(settled))); // Deep copy for editing
       }
     } catch (error) {
       console.error("Failed to fetch grades:", error);
@@ -122,36 +136,12 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
     }));
   };
 
-  // Helper for Grade Computation (DHT/SHS vs others)
-  const calculateFinalGrade = (grade) => {
-    const { prelim_grade: p, midterm_grade: m, semifinal_grade: s, final_grade: f } = grade;
-    
-    if ([p, m, s, f].some(v => v === null || v === undefined || v === '')) return null;
-  
-    const P = parseFloat(p);
-    const M = parseFloat(m);
-    const S = parseFloat(s);
-    const F = parseFloat(f);
-  
-    // Use the props passed from Grades.jsx
-    const isDHT = courseName?.includes('DHT') || 
-                  courseName?.includes('Diploma in Hospitality Technology')
-                  
-    const isSHS = year?.includes('Grade 11') || 
-                  year?.includes('Grade 12') ||
-                  grade.year?.includes('Grade 11') || 
-                  grade.year?.includes('Grade 12');
-  
-    let finalResult = 0;
-    if (isDHT || isSHS) {
-      finalResult = (P + M + S + F) / 4; // DHT/SHS Formula
-    } else {
-      finalResult = (P * 0.25) + (M * 0.25) + (S * 0.25) + (F * 0.25); // Standard Formula (all terms equal weight)
-    }
-
-    // Automatically round off the calculated final grade
-    return Math.round(finalResult); 
-  };
+  /**
+   * The final grade is the mean of the periods the class is marked on — four
+   * for college, three for Senior High. Both formulas were already an equal
+   * weighting, so only the number of periods differs.
+   */
+  const calculateFinalGrade = (grade) => computeFinalGrade(grade, year, grade.year);
 
   // Helper for Equivalent Conversion based on your provided table
   const getEquivalent = (numericGrade) => {
@@ -197,15 +187,21 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
     return parseFloat(grade) < 75 ? 'text-red-600' : 'text-green-600';
   };
 
+  /**
+   * A remark the instructor set wins; otherwise the status follows the marks.
+   * The final grade is null until every period the class uses is filled in, so
+   * that alone decides whether the subject is still in progress — Senior High
+   * needs three terms, college four.
+   */
   const computeAutoStatus = (grade) => {
     if (['INC', 'NFE', 'NFR', 'DA', 'Credited'].includes(grade.status)) {
       return grade.status;
     }
-    const { prelim_grade: p, midterm_grade: m, semifinal_grade: s, final_grade: f } = grade;
-    const allFilled = [p, m, s, f].every(v => v !== null && v !== undefined && v !== '');
-    if (!allFilled) return 'In Progress';
+
     const computedFinal = calculateFinalGrade(grade);
-    return (computedFinal !== null && computedFinal >= 75) ? 'Passed' : 'Failed';
+    if (computedFinal === null) return 'In Progress';
+
+    return computedFinal >= 75 ? 'Passed' : 'Failed';
   };
 
   // Recompute the auto status only when the user finishes editing a grade cell
@@ -337,10 +333,9 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
                         <th className="px-6 py-3">Subject Code</th>
                         <th className="px-6 py-3">Descriptive Title</th>
                         <th className="px-6 py-3">Instructor</th>
-                        <th className="px-2 py-3 text-center">Prelim</th>
-                        <th className="px-2 py-3 text-center">Midterm</th>
-                        <th className="px-2 py-3 text-center">Semi-Final</th>
-                        <th className="px-6 py-3 text-center">Final</th>
+                        {periods.map((period) => (
+                          <th key={period.key} className="px-2 py-3 text-center">{period.label}</th>
+                        ))}
                         <th className="px-4 py-3 text-center text-red-700">Final Grade</th>
                         <th className="px-4 py-3 text-center">Equivalent</th>
                         <th className="px-6 py-3 text-center">Status</th>
@@ -356,82 +351,32 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
                             <td className="px-6 py-2 font-mono">{grade.subject_code}</td>
                             <td className="px-6 py-2 font-medium">{grade.descriptive_title}</td>
                             <td className="px-6 py-2">{grade.instructor_name}</td>
-                            <td className={`px-2 py-2 text-center font-mono ${getGradeColorClass(grade.prelim_grade)}`}>
-                              {isEditing ? (
-                                <Input
-                                  type="number"
-                                  className="w-16 mx-auto text-center font-mono border-2 border-gray-300 bg-white shadow-sm focus:border-red-600 focus:ring-2 focus:ring-red-200"
-                                  value={grade.prelim_grade ?? ''}
-                                  onChange={(e) =>
-                                    handleGradeDataChange(
-                                      grade.id,
-                                      'prelim_grade',
-                                      e.target.value === '' ? null : parseFloat(e.target.value)
-                                    )
-                                  }
-                                  onBlur={() => handleGradeBlur(grade.id)}
-                                />
-                              ) : (
-                                grade.prelim_grade ?? '-'
-                              )}
-                            </td>
-                            <td className={`px-2 py-2 text-center font-mono ${getGradeColorClass(grade.midterm_grade)}`}>
-                              {isEditing ? (
-                                <Input
-                                  type="number"
-                                  className="w-16 mx-auto text-center font-mono border-2 border-gray-300 bg-white shadow-sm focus:border-red-600 focus:ring-2 focus:ring-red-200"
-                                  value={grade.midterm_grade ?? ''}
-                                  onChange={(e) =>
-                                    handleGradeDataChange(
-                                      grade.id,
-                                      'midterm_grade',
-                                      e.target.value === '' ? null : parseFloat(e.target.value)
-                                    )
-                                  }
-                                  onBlur={() => handleGradeBlur(grade.id)}
-                                />
-                              ) : (
-                                grade.midterm_grade ?? '-'
-                              )}
-                            </td>
-                            <td className={`px-2 py-2 text-center font-mono ${getGradeColorClass(grade.semifinal_grade)}`}>
-                              {isEditing ? (
-                                <Input
-                                  type="number"
-                                  className="w-16 mx-auto text-center font-mono border-2 border-gray-300 bg-white shadow-sm focus:border-red-600 focus:ring-2 focus:ring-red-200"
-                                  value={grade.semifinal_grade ?? ''}
-                                  onChange={(e) =>
-                                    handleGradeDataChange(
-                                      grade.id,
-                                      'semifinal_grade',
-                                      e.target.value === '' ? null : parseFloat(e.target.value)
-                                    )
-                                  }
-                                  onBlur={() => handleGradeBlur(grade.id)}
-                                />
-                              ) : (
-                                grade.semifinal_grade ?? '-'
-                              )}
-                            </td>
-                            <td className={`px-2 py-2 text-center font-mono ${getGradeColorClass(grade.final_grade)}`}>
-                              {isEditing ? (
-                                <Input 
-                                  type="number" 
-                                  className="w-16 mx-auto text-center font-mono border-2 border-gray-300 bg-white shadow-sm focus:border-red-600 focus:ring-2 focus:ring-red-200"
-                                  value={grade.final_grade ?? ''}
-                                  onChange={(e) =>
-                                    handleGradeDataChange(
-                                      grade.id,
-                                      'final_grade',
-                                      e.target.value === '' ? null : parseFloat(e.target.value)
-                                    )
-                                  }
-                                  onBlur={() => handleGradeBlur(grade.id)}
-                                />
-                              ) : (
-                                grade.final_grade ?? '-'
-                              )}
-                            </td>
+                            {/* One cell per period the class is marked on —
+                                four for college, three for Senior High. */}
+                            {periods.map((period) => (
+                              <td
+                                key={period.key}
+                                className={`px-2 py-2 text-center font-mono ${getGradeColorClass(grade[period.key])}`}
+                              >
+                                {isEditing ? (
+                                  <Input
+                                    type="number"
+                                    className="w-16 mx-auto text-center font-mono border-2 border-gray-300 bg-white shadow-sm focus:border-red-600 focus:ring-2 focus:ring-red-200"
+                                    value={grade[period.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleGradeDataChange(
+                                        grade.id,
+                                        period.key,
+                                        e.target.value === '' ? null : parseFloat(e.target.value)
+                                      )
+                                    }
+                                    onBlur={() => handleGradeBlur(grade.id)}
+                                  />
+                                ) : (
+                                  grade[period.key] ?? '-'
+                                )}
+                              </td>
+                            ))}
 
                             {/* Computed Final Grade (The % Result) - Now displays the rounded number without .toFixed(2) */}
                             <td className={`px-4 py-2 text-center font-bold text-gray-900 font-mono ${getGradeColorClass(computedFinal)}`}>

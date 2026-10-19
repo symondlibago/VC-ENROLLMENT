@@ -307,7 +307,11 @@ class IncRecordController extends Controller
             return null;
         }
 
-        $grade->status = ($grade->final_grade === null || $grade->final_grade >= 75) ? 'Passed' : 'Failed';
+        // Senior High is judged on its three-term average, college on the
+        // final period — passingMark() knows which applies.
+        $mark = $grade->passingMark();
+
+        $grade->status = ($mark === null || $mark >= 75) ? 'Passed' : 'Failed';
         $grade->save();
 
         return $grade->status;

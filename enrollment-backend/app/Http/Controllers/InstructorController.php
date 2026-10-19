@@ -483,8 +483,13 @@ public function bulkUpdateGrades(Request $request)
                     if (!empty($gradeInput['status'])) {
                         $grade->status = $gradeInput['status'];
                     } elseif (!in_array($grade->status, $specialStatuses, true)) {
-                        if ($grade->final_grade !== null) {
-                            $grade->status = $grade->final_grade >= 75 ? 'Passed' : 'Failed';
+                        // College is judged on the final period as it always
+                        // has been; Senior High has no fourth period, so it is
+                        // judged on the average of its three terms.
+                        $mark = $grade->passingMark();
+
+                        if ($mark !== null) {
+                            $grade->status = $mark >= 75 ? 'Passed' : 'Failed';
                         } else {
                             $grade->status = 'In Progress';
                         }

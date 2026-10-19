@@ -1,5 +1,6 @@
 import { saveAs } from 'file-saver';
 import { createDocxBlob, para, table, spacer, pageBreak, image } from './docx';
+import { periodsFor, computeFinalGrade } from './gradingPeriods';
 
 const FAIL = 'DC2626';
 const LOGO_REL = 'rId100';
@@ -52,11 +53,11 @@ function buildSectionXml(subject, sectionName, students, hasLogo) {
   const isSHS = sample.year?.includes('Grade');
   const showPercent = !isDHT && !isSHS;
 
-  const calcFinal = (s) => {
-    const { prelim_grade: p, midterm_grade: m, semifinal_grade: sm, final_grade: f } = s.grades || {};
-    if ([p, m, sm, f].some((v) => v == null || v === '')) return null;
-    return Math.round((p + m + sm + f) / 4); // all terms equal weight (25% each)
-  };
+  // Senior High is marked on three terms, college on four periods
+  const periods = periodsFor(sample.year);
+
+  // All periods carry equal weight, so the final is simply their mean
+  const calcFinal = (s) => computeFinalGrade(s.grades || {}, s.year);
 
   // ── Header: logo image (fallback to school name) + GRADING SHEET title ──
   const head =
@@ -90,10 +91,7 @@ function buildSectionXml(subject, sectionName, students, hasLogo) {
   const headerCell = (t) => ({ text: t, bold: true, align: 'center', size: 15, fill: 'FFFFFF' });
   const gradeHeaders = [
     headerCell('Student Name'),
-    headerCell(showPercent ? 'Prelim (25%)' : 'Prelim'),
-    headerCell(showPercent ? 'Midterm (25%)' : 'Midterm'),
-    headerCell(showPercent ? 'Semi (25%)' : 'Semi'),
-    headerCell(showPercent ? 'Final (25%)' : 'Final'),
+    ...periods.map((period) => headerCell(showPercent ? `${period.label} (25%)` : period.label)),
     headerCell('Final Grade'),
     headerCell('Equivalent'),
     headerCell('Remarks'),
@@ -108,10 +106,9 @@ function buildSectionXml(subject, sectionName, students, hasLogo) {
     const finalColor = final !== null && final < 75 ? FAIL : '000000';
     return [
       { text: (s.name || '').toUpperCase(), align: 'left', size: 14 },
-      { text: fmt(g.prelim_grade), align: 'center', size: 14, color: failColor(g.prelim_grade) },
-      { text: fmt(g.midterm_grade), align: 'center', size: 14, color: failColor(g.midterm_grade) },
-      { text: fmt(g.semifinal_grade), align: 'center', size: 14, color: failColor(g.semifinal_grade) },
-      { text: fmt(g.final_grade), align: 'center', size: 14, color: failColor(g.final_grade) },
+      ...periods.map((period) => ({
+        text: fmt(g[period.key]), align: 'center', size: 14, color: failColor(g[period.key]),
+      })),
       { text: final !== null ? final.toFixed(2) : '', align: 'center', bold: true, size: 14, color: finalColor },
       { text: equiv, align: 'center', bold: true, size: 14, color: finalColor },
       { text: remarks, align: 'center', size: 13, color: remarks === 'FAILED' ? FAIL : '000000' },
@@ -119,7 +116,8 @@ function buildSectionXml(subject, sectionName, students, hasLogo) {
   });
 
   const gradesTable = table([gradeHeaders, ...gradeRows], {
-    widths: [3000, 1050, 1050, 1050, 1050, 1150, 1050, 1400],
+    // Name, one column per period, then final / equivalent / remarks
+    widths: [3000, ...periods.map(() => 1050), 1150, 1050, 1400],
     fontSize: 14,
     vMargin: 8,
   });

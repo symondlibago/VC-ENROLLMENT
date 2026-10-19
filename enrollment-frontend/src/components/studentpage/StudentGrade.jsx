@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import LoadingSpinner from '@/components/layout/LoadingSpinner';
 import { useIsMobile } from "@/hooks/use-mobile";
+import { periodsFor, computeFinalGrade } from '@/lib/gradingPeriods';
 
 // --- HELPER FUNCTIONS ---
 
@@ -56,38 +57,11 @@ const getEquivalent = (numericGrade) => {
   return "5.0"; // 69% and below
 };
 
-// 2. Final Grade Calculation (Weighted vs Average)
-const calculateFinalGrade = (grade) => {
-  const { prelim_grade: p, midterm_grade: m, semifinal_grade: s, final_grade: f } = grade;
-  
-  // Return null if any grade component is missing
-  if ([p, m, s, f].some(v => v === null || v === undefined || v === '')) return null;
-
-  const P = parseFloat(p);
-  const M = parseFloat(m);
-  const S = parseFloat(s);
-  const F = parseFloat(f);
-
-  // --- FIX IS HERE ---
-  // The backend sends 'course', not 'course_name'
-  const courseCode = grade.course || '';
-  const subjectCode = grade.subject_code || '';
-  const yearLevel = grade.year || '';
-
-  // Check for DHT (Diploma in Hospitality Technology)
-  const isDHT = courseCode.includes('DHT') || subjectCode.includes('DHT');
-                
-  // Check for Senior High School (SHS)
-  const isSHS = yearLevel.includes('Grade 11') || yearLevel.includes('Grade 12');
-
-  if (isDHT || isSHS) {
-    // DHT/SHS Formula: Simple Average
-    return (P + M + S + F) / 4; 
-  } else {
-    // Standard College Formula: Weighted Average
-    return (P * 0.25) + (M * 0.25) + (S * 0.25) + (F * 0.25);
-  }
-};
+/**
+ * 2. Final Grade Calculation — the mean of the periods the class is marked on:
+ * four for college, three terms for Senior High.
+ */
+const calculateFinalGrade = (grade) => computeFinalGrade(grade, grade.year);
 
 const getGradeColorClass = (grade) => {
   if (grade === null || grade === undefined || grade === '' || isNaN(grade)) {
@@ -176,23 +150,17 @@ const GradeCard = ({ grade }) => {
                 </div>
 
                 {/* Raw Grades Grid */}
-                <div className="border-t border-gray-100 pt-3 grid grid-cols-4 gap-2 text-xs mb-3">
-                    <div className="text-center">
-                        <p className="text-gray-400 mb-1">Prelim</p>
-                        <p className="font-mono font-medium">{grade.prelim_grade || '-'}</p>
-                    </div>
-                    <div className="text-center">
-                        <p className="text-gray-400 mb-1">Midterm</p>
-                        <p className="font-mono font-medium">{grade.midterm_grade || '-'}</p>
-                    </div>
-                    <div className="text-center">
-                        <p className="text-gray-400 mb-1">Semi</p>
-                        <p className="font-mono font-medium">{grade.semifinal_grade || '-'}</p>
-                    </div>
-                    <div className="text-center">
-                        <p className="text-gray-400 mb-1">Final</p>
-                        <p className="font-mono font-medium">{grade.final_grade || '-'}</p>
-                    </div>
+                <div
+                  className={`border-t border-gray-100 pt-3 grid gap-2 text-xs mb-3 ${
+                    periodsFor(grade.year).length === 3 ? 'grid-cols-3' : 'grid-cols-4'
+                  }`}
+                >
+                    {periodsFor(grade.year).map((period) => (
+                      <div key={period.key} className="text-center">
+                        <p className="text-gray-400 mb-1">{period.label}</p>
+                        <p className="font-mono font-medium">{grade[period.key] || '-'}</p>
+                      </div>
+                    ))}
                 </div>
 
                 {/* Computed Result Section */}
@@ -331,10 +299,9 @@ const StudentGrade = () => {
                   <TableHead className="w-[120px]">Subject Code</TableHead>
                   <TableHead className="min-w-[200px]">Descriptive Title</TableHead>
                   <TableHead className="min-w-[150px]">Instructor</TableHead>
-                  <TableHead className="text-center w-20">Prelim</TableHead>
-                  <TableHead className="text-center w-20">Midterm</TableHead>
-                  <TableHead className="text-center w-20">Semi</TableHead>
-                  <TableHead className="text-center w-20">Final</TableHead>
+                  {periodsFor(grades[0]?.year).map((period) => (
+                    <TableHead key={period.key} className="text-center w-20">{period.label}</TableHead>
+                  ))}
                   
                   {/* NEW COLUMNS */}
                   <TableHead className="text-center w-[100px] text-red-700 font-bold bg-red-50/50">Computed</TableHead>
@@ -353,22 +320,15 @@ const StudentGrade = () => {
                       <TableCell className="font-mono text-xs font-semibold">{grade.subject_code}</TableCell>
                       <TableCell className="font-medium text-sm">{grade.descriptive_title}</TableCell>
                       <TableCell className="text-sm text-gray-600">{grade.instructor_name}</TableCell>
-                      <TableCell className={`text-center font-mono text-sm font-semibold ${getGradeColorClass(grade.prelim_grade)}`}>
-                        {grade.prelim_grade ?? '–'}
-                      </TableCell>
+                      {periodsFor(grade.year).map((period) => (
+                        <TableCell
+                          key={period.key}
+                          className={`text-center font-mono text-sm font-semibold ${getGradeColorClass(grade[period.key])}`}
+                        >
+                          {grade[period.key] ?? '–'}
+                        </TableCell>
+                      ))}
 
-                      <TableCell className={`text-center font-mono text-sm font-semibold ${getGradeColorClass(grade.midterm_grade)}`}>
-                        {grade.midterm_grade ?? '–'}
-                      </TableCell>
-
-                      <TableCell className={`text-center font-mono text-sm font-semibold ${getGradeColorClass(grade.semifinal_grade)}`}>
-                        {grade.semifinal_grade ?? '–'}
-                      </TableCell>
-
-                      <TableCell className={`text-center font-mono text-sm font-semibold ${getGradeColorClass(grade.final_grade)}`}>
-                        {grade.final_grade ?? '–'}
-                      </TableCell>
-                      
                       {/* COMPUTED DATA CELLS */}
                       <TableCell className={`text-center font-mono font-bold text-gray-900 bg-red-50/30 ${getGradeColorClass(computedFinal)}`}>
                         {computedFinal ? computedFinal.toFixed(2) : '--'}

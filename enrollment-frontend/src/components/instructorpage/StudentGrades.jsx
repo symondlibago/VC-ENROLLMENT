@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { usesTransmutation } from '@/lib/transmutation';
+import { periodsFor, computeFinalGrade } from '@/lib/gradingPeriods';
 
 const MotionDropdown = ({ value, onChange, options, placeholder, searchable = false }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -303,7 +304,15 @@ const StudentGrades = () => {
     const graded = processedStudents.filter(student => student.grades?.status === 'Passed' || student.grades?.status === 'Failed').length;
     
     return { filteredStudents: processedStudents, totalStudentsInSubject: total, gradedStudentsCount: graded };
-  }, [rosterData, selectedSubjectId, searchTerm, selectedSection]); 
+
+  }, [rosterData, selectedSubjectId, searchTerm, selectedSection]);
+
+  // Senior High is marked on three terms, college on four periods. A class is
+  // one or the other, so the first student settles it.
+  const periodColumns = useMemo(
+    () => periodsFor(filteredStudents[0]?.year),
+    [filteredStudents]
+  );
 
   const handleGradeChange = (studentId, field, value) => {
     let numericValue = null;
@@ -422,26 +431,13 @@ const StudentGrades = () => {
     return '5.0'; // 69% and below
   };
 
-  const calculateFinalGrade = (student, subjectCode) => {
-    const { prelim_grade: p, midterm_grade: m, semifinal_grade: s, final_grade: f } = student.grades || {};
-    if ([p, m, s, f].some(grade => grade === null || grade === undefined || grade === '')) return null;
-
-    const isDHT = student.courseName?.includes('Diploma in Hospitality Technology') || 
-                  student.courseName?.includes('DHT') ||
-                  subjectCode?.includes('DHT');
-                  
-    const isSHS = student.year?.includes('Grade 11') || student.year?.includes('Grade 12');
-
-    let finalResult = 0;
-    if (isDHT || isSHS) {
-      finalResult = (p + m + s + f) / 4;
-    } else {
-      finalResult = (p * 0.25) + (m * 0.25) + (s * 0.25) + (f * 0.25);
-    }
-    
-    // Automatically round off the calculated final grade
-    return Math.round(finalResult);
-  };
+  /**
+   * The mean of the periods the class is marked on — four for college, three
+   * for Senior High. Both formulas were already an equal weighting, so only
+   * the number of periods differs.
+   */
+  const calculateFinalGrade = (student) =>
+    computeFinalGrade(student.grades || {}, student.year);
 
   const handleSubmitGrades = async () => {
     if (!selectedSubjectId) {
@@ -642,10 +638,9 @@ const StudentGrades = () => {
               <th className="px-6 py-3">Student ID</th>
               <th className="px-6 py-3">Name</th>
               <th className="px-6 py-3">Section</th>
-              <th className="px-6 py-3">Prelim</th>
-              <th className="px-6 py-3">Midterm</th>
-              <th className="px-6 py-3">Semi-Final</th>
-              <th className="px-6 py-3">Final</th>
+              {periodColumns.map((period) => (
+                <th key={period.key} className="px-6 py-3">{period.label}</th>
+              ))}
               <th className="px-6 py-3 text-red-600">Final Grade</th>
               <th className="px-6 py-3">Equivalent</th>
               <th className="px-6 py-3">Status</th>
@@ -653,8 +648,7 @@ const StudentGrades = () => {
               </thead>
               <tbody>
                 {filteredStudents.map(student => {
-                  const subject = rosterData.find(s => s.subject_id.toString() === selectedSubjectId);
-                  const computedFinal = calculateFinalGrade(student, subject?.subject_code);
+                  const computedFinal = calculateFinalGrade(student);
                   const equivalent = getEquivalentGrade(computedFinal);
 
                   // A remark the instructor set (INC and friends) wins over the
@@ -685,7 +679,7 @@ const StudentGrades = () => {
                       </td>
 
                       {/* Grade Inputs */}
-                      {['prelim_grade', 'midterm_grade', 'semifinal_grade', 'final_grade'].map((field) => (
+                      {periodColumns.map(({ key: field }) => (
                         <td key={field} className="px-2 py-2">
                           <Input 
                             type="number" min="0" max="100" 
