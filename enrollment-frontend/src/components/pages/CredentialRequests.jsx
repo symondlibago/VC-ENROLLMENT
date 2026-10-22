@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import {
   FileSignature, Search, Loader2, CheckCircle2, Clock, Wallet, FileText, Plus,
   ChevronRight, Undo2, PackageCheck, Mail, MailCheck, Pencil, Ban, AlertCircle,
+  ScrollText,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,6 +17,7 @@ import SuccessAlert from '../modals/SuccessAlert';
 import CredentialRequestFormModal from '../modals/CredentialRequestFormModal';
 import CredentialReleaseModal from '../modals/CredentialReleaseModal';
 import CredentialDocumentModal from '../modals/CredentialDocumentModal';
+import TorGeneratorModal from '../tor/TorGeneratorModal';
 import {
   CredentialPaymentModal, CredentialApprovalConfirmModal,
 } from '../modals/CredentialApprovalModals';
@@ -46,11 +48,14 @@ const CredentialRequests = () => {
   const [releasing, setReleasing] = useState(null);
   const [documentFor, setDocumentFor] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null); // { request, step, mode }
+  const [torOpen, setTorOpen] = useState(false);
 
   const user = authAPI.getUserData();
   const role = user?.role;
   const isAdmin = role === 'Admin';
   const myStep = ROLE_STEP[role] || null;
+  // The transcript is the registrar's own document, signed by the registrar.
+  const canGenerateTor = isAdmin || role === 'Registrar';
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
@@ -203,15 +208,28 @@ const CredentialRequests = () => {
           </p>
         </div>
 
-        {can.create && (
-          <Button
-            onClick={() => { setEditing(null); setFormOpen(true); }}
-            className="bg-(--dominant-red) hover:bg-red-800 text-white cursor-pointer shrink-0 h-11 px-5"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            New Request
-          </Button>
-        )}
+        <div className="flex items-center gap-3 shrink-0">
+          {canGenerateTor && (
+            <Button
+              variant="outline"
+              onClick={() => setTorOpen(true)}
+              className="border-2 border-(--dominant-red) text-(--dominant-red) hover:bg-(--dominant-red) hover:text-white cursor-pointer h-11 px-5"
+            >
+              <ScrollText className="w-4 h-4 mr-2" />
+              Generate TOR
+            </Button>
+          )}
+
+          {can.create && (
+            <Button
+              onClick={() => { setEditing(null); setFormOpen(true); }}
+              className="bg-(--dominant-red) hover:bg-red-800 text-white cursor-pointer h-11 px-5"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Request
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
@@ -645,6 +663,12 @@ const CredentialRequests = () => {
         isOpen={!!documentFor}
         request={documentFor}
         onClose={() => setDocumentFor(null)}
+      />
+
+      <TorGeneratorModal
+        isOpen={torOpen}
+        onClose={() => setTorOpen(false)}
+        onNotify={(message, type) => setAlert({ isVisible: true, message, type })}
       />
     </div>
   );

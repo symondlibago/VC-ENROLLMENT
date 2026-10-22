@@ -933,6 +933,22 @@ export const credentialAPI = {
 };
 
 /**
+ * Transcript of records. Read-only: the registrar pulls a student's record,
+ * corrects it on screen and the document is built in the browser, so there is
+ * nothing to save.
+ */
+export const transcriptAPI = {
+  getForStudent: async (preEnrolledStudentId) => {
+    try {
+      const response = await api.get(`/transcripts/${preEnrolledStudentId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: "Failed to load the student's record" };
+    }
+  },
+};
+
+/**
  * Uniform fabric: stock on hand, deliveries coming in and the metres sold to
  * students at the cashier. The summary and the two lists are separate calls so
  * paging a table never re-runs the stock figures.

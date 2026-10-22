@@ -16,6 +16,7 @@ use App\Http\Controllers\ShifteeRequestController;
 use App\Http\Controllers\InstructorController;
 use App\Http\Controllers\IncRecordController;
 use App\Http\Controllers\CredentialRequestController;
+use App\Http\Controllers\TranscriptController;
 use App\Http\Controllers\UniformFabricController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ManagementController;
@@ -85,6 +86,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/credential-requests/{credentialRequest}/resend-email', [CredentialRequestController::class, 'resendEmail']);
     Route::post('/credential-requests/{credentialRequest}/revoke', [CredentialRequestController::class, 'revokeApproval']);
     Route::post('/credential-requests/{credentialRequest}/cancel', [CredentialRequestController::class, 'cancel']);
+
+    // Transcript of records: the registrar pulls a student's record, edits it
+    // on screen and generates the document. Nothing is stored.
+    Route::get('/transcripts/{preEnrolledStudent}', [TranscriptController::class, 'show']);
 
     // Uniform fabric monitoring (cashier & admin): deliveries in, student purchases out
     Route::get('/uniform-fabric', [UniformFabricController::class, 'index']);
