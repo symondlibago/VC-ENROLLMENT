@@ -638,6 +638,7 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
                 'referral_source' => $student->referral_source,
                 'address' => $student->address,
                 'gender' => $student->gender,
+                'scholarship' => $student->scholarship,
             ];
         });
 

@@ -17,8 +17,12 @@ import {
   Settings2,
   ContactRound,
   Calendar,
-  MapPin
+  MapPin,
+  Download,
+  Loader2
 } from 'lucide-react';
+import { downloadCsv } from '@/lib/csv';
+import { matchesScholarship, scholarshipLabel, scholarshipOptions } from '@/lib/scholarship';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -150,6 +154,7 @@ const Students = () => {
   const [studentReferralFilter, setStudentReferralFilter] = useState('all');
   const [studentTypeFilter, setStudentTypeFilter] = useState('all');
   const [studentGenderFilter, setStudentGenderFilter] = useState('all');
+  const [studentScholarshipFilter, setStudentScholarshipFilter] = useState('all');
   const currentUser = authAPI.getUserData();
 
   // Added States for Assigning Single Student
@@ -398,8 +403,11 @@ const Students = () => {
     const type = (student.enrollment_type || '').toLowerCase();
     const typeMatch = studentTypeFilter === 'all' || (studentTypeFilter === 'new' ? type === 'new' : type !== 'new');
     const genderMatch = studentGenderFilter === 'all' || (student.gender || '').toLowerCase() === studentGenderFilter;
-    return matchesSearch && courseMatch && sectionMatch && yearMatch && schoolYearMatch && semesterMatch && referralMatch && typeMatch && genderMatch;
-  }), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter, studentYearFilter, studentSchoolYearFilter, studentSemesterFilter, studentReferralFilter, studentTypeFilter, studentGenderFilter]);
+    const scholarshipMatch = matchesScholarship(student, studentScholarshipFilter);
+    return matchesSearch && courseMatch && sectionMatch && yearMatch && schoolYearMatch && semesterMatch && referralMatch && typeMatch && genderMatch && scholarshipMatch;
+  }), [enrolledStudents, searchTerm, studentCourseFilter, studentSectionFilter, studentYearFilter, studentSchoolYearFilter, studentSemesterFilter, studentReferralFilter, studentTypeFilter, studentGenderFilter, studentScholarshipFilter]);
+
+  const scholarshipFilterOptions = useMemo(() => scholarshipOptions(enrolledStudents), [enrolledStudents]);
 
   const stats = useMemo(() => [
     { title: 'Total Sections', value: sections.length.toString(), icon: BookOpen, color: 'text-blue-600', bgColor: 'bg-blue-50' },
@@ -484,6 +492,9 @@ const Students = () => {
                 referralFilter={studentReferralFilter} setReferralFilter={setStudentReferralFilter}
                 typeFilter={studentTypeFilter} setTypeFilter={setStudentTypeFilter}
                 genderFilter={studentGenderFilter} setGenderFilter={setStudentGenderFilter}
+                scholarshipFilter={studentScholarshipFilter} setScholarshipFilter={setStudentScholarshipFilter}
+                scholarshipOptions={scholarshipFilterOptions}
+                onNotify={showAlert}
                 schoolYearOptions={schoolYearOptions}
                 semesterOptions={semesterOptions}
                 onEditStudent={handleEditStudent}
@@ -544,7 +555,81 @@ const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilte
     );
 };
 
-const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter, yearFilter, setYearFilter, schoolYearFilter, setSchoolYearFilter, semesterFilter, setSemesterFilter, referralFilter, setReferralFilter, typeFilter, setTypeFilter, genderFilter, setGenderFilter, schoolYearOptions, semesterOptions, onEditStudent, onViewStudentDetails, onAssignSection, currentUser }) => {
+const PAGE_SIZE = 50;
+
+/** The columns of the grades export, in the order the registrar asked for. */
+const GRADE_EXPORT_COLUMNS = [
+  { key: 'school_year', label: 'School Year' },
+  { key: 'semester', label: 'Semester' },
+  { key: 'year_level', label: 'Year Level' },
+  { key: 'student_id_number', label: 'Student No.' },
+  { key: 'name', label: 'Name' },
+  { key: 'subject_code', label: 'Subject Code' },
+  { key: 'subject_name', label: 'Subject Name' },
+  { key: 'units', label: 'Units' },
+  { key: 'final_grade', label: 'Final Grade' },
+  { key: 'status', label: 'Status' },
+];
+
+const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter, yearFilter, setYearFilter, schoolYearFilter, setSchoolYearFilter, semesterFilter, setSemesterFilter, referralFilter, setReferralFilter, typeFilter, setTypeFilter, genderFilter, setGenderFilter, scholarshipFilter, setScholarshipFilter, scholarshipOptions, onNotify, schoolYearOptions, semesterOptions, onEditStudent, onViewStudentDetails, onAssignSection, currentUser }) => {
+    const [selectedIds, setSelectedIds] = useState(() => new Set());
+    const [page, setPage] = useState(1);
+    const [exporting, setExporting] = useState(false);
+
+    // Only the rows on screen are rendered; 790 at once is what made the page
+    // crawl while scrolling.
+    const pageCount = Math.max(1, Math.ceil(students.length / PAGE_SIZE));
+    const currentPage = Math.min(page, pageCount);
+    const pageStudents = useMemo(
+      () => students.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+      [students, currentPage]
+    );
+
+    // A narrowed list should start at the beginning again.
+    useEffect(() => { setPage(1); }, [students.length, searchTerm, courseFilter, sectionFilter, yearFilter, schoolYearFilter, semesterFilter, referralFilter, typeFilter, genderFilter, scholarshipFilter]);
+
+    const toggleOne = useCallback((id) => {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id); else next.add(id);
+        return next;
+      });
+    }, []);
+
+    // The header box works on everything the filters match, not just this page.
+    const allFilteredSelected = students.length > 0 && students.every((s) => selectedIds.has(s.id));
+    const someFilteredSelected = !allFilteredSelected && students.some((s) => selectedIds.has(s.id));
+
+    const toggleAllFiltered = useCallback(() => {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        const everySelected = students.every((s) => next.has(s.id));
+        students.forEach((s) => (everySelected ? next.delete(s.id) : next.add(s.id)));
+        return next;
+      });
+    }, [students]);
+
+    const handleExportGrades = async () => {
+      const ids = [...selectedIds];
+      if (!ids.length) return;
+      setExporting(true);
+      try {
+        const res = await enrollmentAPI.exportGrades(ids);
+        const rows = res.success ? res.data : [];
+        if (!rows.length) {
+          onNotify?.('No grades recorded for their current term yet.', 'error');
+          return;
+        }
+        const stamp = new Date().toISOString().slice(0, 10);
+        downloadCsv(`Student Grades ${stamp}`, GRADE_EXPORT_COLUMNS, rows);
+        onNotify?.(`Exported ${rows.length} grade rows for ${ids.length} student${ids.length === 1 ? '' : 's'}.`, 'success');
+      } catch (error) {
+        onNotify?.(error.message || 'Failed to export the grades.', 'error');
+      } finally {
+        setExporting(false);
+      }
+    };
+
     const courseOptions = useMemo(() => [{ label: 'All Courses', value: 'all' }, ...courses.map(c => ({ label: c.course_code, value: c.id.toString() }))], [courses]);
     const sectionOptions = useMemo(() => [{ label: 'All Sections', value: 'all' }, { label: 'Unassigned', value: 'unassigned' }, ...sections.map(s => ({ label: s.name, value: s.id.toString() }))], [sections]);
     const yearOptions = [{ label: 'All Year Levels', value: 'all' }, { label: '1st Year', value: '1st Year' }, { label: '2nd Year', value: '2nd Year' }, { label: '3rd Year', value: '3rd Year' }, { label: '4th Year', value: '4th Year' }];
@@ -566,10 +651,47 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
             <MotionDropdown value={typeFilter} onChange={setTypeFilter} options={typeOptions} placeholder="Filter Type"/>
             <MotionDropdown value={referralFilter} onChange={setReferralFilter} options={referralOptions} placeholder="Filter Source"/>
             <MotionDropdown value={genderFilter} onChange={setGenderFilter} options={genderOptions} placeholder="Filter Gender"/>
+            <MotionDropdown value={scholarshipFilter} onChange={setScholarshipFilter} options={scholarshipOptions} placeholder="Filter Scholarship"/>
           </div>
         </div></CardContent></Card>
+
+        {/* Selection bar: ticking students arms the grades export. */}
+        <Card><CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <p className="text-sm text-gray-600">
+            {selectedIds.size > 0
+              ? <><span className="font-semibold text-(--dominant-red)">{selectedIds.size}</span> selected of {students.length} shown</>
+              : <>Showing <span className="font-semibold">{students.length}</span> student{students.length === 1 ? '' : 's'} — tick rows to export their current-term grades.</>}
+          </p>
+          <div className="flex items-center gap-2">
+            {selectedIds.size > 0 && (
+              <Button variant="outline" onClick={() => setSelectedIds(new Set())} className="cursor-pointer">
+                Clear
+              </Button>
+            )}
+            <Button
+              onClick={handleExportGrades}
+              disabled={selectedIds.size === 0 || exporting}
+              className="bg-(--dominant-red) hover:bg-red-800 text-white cursor-pointer"
+            >
+              {exporting
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Exporting…</>
+                : <><Download className="w-4 h-4 mr-2" />Export Grades (CSV)</>}
+            </Button>
+          </div>
+        </CardContent></Card>
+
         <Card><Table>
           <TableHeader><TableRow>
+            <TableHead className="w-10">
+              <input
+                type="checkbox"
+                aria-label="Select all shown students"
+                className="w-4 h-4 accent-(--dominant-red) cursor-pointer align-middle"
+                checked={allFilteredSelected}
+                ref={(el) => { if (el) el.indeterminate = someFilteredSelected; }}
+                onChange={toggleAllFiltered}
+              />
+            </TableHead>
             <TableHead><Hash size={16} className="inline mr-2"/>ID</TableHead>
             <TableHead><User size={16} className="inline mr-2"/>Name</TableHead>
             <TableHead><GraduationCap size={16} className="inline mr-2"/>Course</TableHead>
@@ -579,10 +701,26 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
             <TableHead className="text-right">Actions</TableHead>
           </TableRow></TableHeader>
           <TableBody>
-            {students.length > 0 ? students.map(student => (
-              <TableRow key={student.id}>
+            {pageStudents.length > 0 ? pageStudents.map(student => (
+              <TableRow key={student.id} data-state={selectedIds.has(student.id) ? 'selected' : undefined}>
+                <TableCell>
+                  <input
+                    type="checkbox"
+                    aria-label={`Select ${student.name}`}
+                    className="w-4 h-4 accent-(--dominant-red) cursor-pointer align-middle"
+                    checked={selectedIds.has(student.id)}
+                    onChange={() => toggleOne(student.id)}
+                  />
+                </TableCell>
                 <TableCell className="font-mono text-xs">{student.student_id_number}</TableCell>
-                <TableCell className="font-bold uppercase">{student.name}</TableCell>
+                <TableCell className="font-bold uppercase">
+                  {student.name}
+                  {scholarshipLabel(student) && (
+                    <Badge variant="outline" className="ml-2 font-normal normal-case border-amber-300 bg-amber-50 text-amber-800">
+                      {scholarshipLabel(student)}
+                    </Badge>
+                  )}
+                </TableCell>
                 <TableCell>{student.courseName}</TableCell>
                 <TableCell><Badge variant="outline">{student.year}</Badge></TableCell>
                 <TableCell>
@@ -635,9 +773,29 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
                   </DropdownMenu>
                 </TableCell>
               </TableRow>
-            )) : <TableRow><TableCell colSpan="7" className="text-center h-24">No students found.</TableCell></TableRow>}
+            )) : <TableRow><TableCell colSpan="8" className="text-center h-24">No students found.</TableCell></TableRow>}
           </TableBody>
-        </Table></Card>
+        </Table>
+
+        {pageCount > 1 && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 border-t border-gray-100">
+            <p className="text-sm text-gray-500">
+              {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, students.length)} of {students.length}
+            </p>
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="sm" className="cursor-pointer"
+                disabled={currentPage === 1} onClick={() => setPage(1)}>First</Button>
+              <Button variant="outline" size="sm" className="cursor-pointer"
+                disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Prev</Button>
+              <span className="px-3 text-sm text-gray-600">Page {currentPage} of {pageCount}</span>
+              <Button variant="outline" size="sm" className="cursor-pointer"
+                disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>Next</Button>
+              <Button variant="outline" size="sm" className="cursor-pointer"
+                disabled={currentPage === pageCount} onClick={() => setPage(pageCount)}>Last</Button>
+            </div>
+          </div>
+        )}
+        </Card>
       </div>
     );
 }

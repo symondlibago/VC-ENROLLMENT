@@ -577,6 +577,19 @@ export const enrollmentAPI = {
     }
   },
 
+  // Grades for the students ticked on the Students page, one row per subject.
+  exportGrades: async (studentIds, filters = {}) => {
+    try {
+      const response = await api.post('/enrolled-students/grades-export', {
+        student_ids: studentIds,
+        ...filters,
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to export the grades' };
+    }
+  },
+
   updateStudentDetails: async (id, studentData) => {
     try {
       const response = await api.put(`/enrollments/${id}/details`, studentData);

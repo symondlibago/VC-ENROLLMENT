@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Grade;
 use App\Models\PreEnrolledStudent;
+use App\Support\GradeEquivalent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 
@@ -236,25 +237,9 @@ class TranscriptController extends Controller
         }
     }
 
-    /**
-     * Percentage → the 1.0–5.0 equivalent printed on official documents.
-     * Mirrors the table on the grading sheet and the grades pages.
-     */
+    /** Percentage → the 1.0–5.0 equivalent printed on official documents. */
     public static function equivalent(float $percentage): string
     {
-        $grade = (int) round($percentage);
-        if ($grade >= 100) {
-            return '1.0';
-        }
-
-        $map = [
-            99 => '1.1', 98 => '1.2', 97 => '1.25', 96 => '1.3', 95 => '1.4', 94 => '1.5',
-            93 => '1.6', 92 => '1.7', 91 => '1.75', 90 => '1.8', 89 => '1.9', 88 => '2.0',
-            87 => '2.1', 86 => '2.2', 85 => '2.25', 84 => '2.3', 83 => '2.4', 82 => '2.5',
-            81 => '2.6', 80 => '2.7', 79 => '2.75', 78 => '2.8', 77 => '2.9', 76 => '3.0',
-            75 => '3.0', 74 => '3.1', 73 => '3.2', 72 => '3.25', 71 => '3.3', 70 => '3.4',
-        ];
-
-        return $map[$grade] ?? '5.0';
+        return GradeEquivalent::for($percentage);
     }
 }

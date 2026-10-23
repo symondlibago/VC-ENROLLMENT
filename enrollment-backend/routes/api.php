@@ -17,6 +17,7 @@ use App\Http\Controllers\InstructorController;
 use App\Http\Controllers\IncRecordController;
 use App\Http\Controllers\CredentialRequestController;
 use App\Http\Controllers\TranscriptController;
+use App\Http\Controllers\StudentGradeExportController;
 use App\Http\Controllers\UniformFabricController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ManagementController;
@@ -67,6 +68,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('enrollments/{id}/status', [EnrollmentController::class, 'updateApprovalStatus']);
     Route::post('enrollments/{id}/approval', [EnrollmentController::class, 'submitApproval']);
     Route::get('/enrolled-students', [EnrollmentController::class, 'getEnrolledStudents']);
+    // Grades for a hand-picked set of students, one row per subject (CSV export)
+    Route::post('/enrolled-students/grades-export', StudentGradeExportController::class);
 
     // INC completion forms (cashier → instructor & program head → registrar)
     Route::get('/inc-records', [IncRecordController::class, 'index']);
