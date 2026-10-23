@@ -11,6 +11,11 @@ import ValidationErrorModal from './ValidationErrorModal';
 import CustomCalendar from '../layout/CustomCalendar';
 import LoadingSpinner from '../layout/LoadingSpinner';
 
+/** The grants already on file; the box still takes anything typed into it. */
+const SCHOLARSHIP_SUGGESTIONS = [
+    'Academic Scholar', 'City Scholar', 'CHED', 'TESDA', 'TDP', 'OWWA',
+];
+
 const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
     const [formData, setFormData] = useState({});
     const [loading, setLoading] = useState(true);
@@ -47,6 +52,8 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
                     school_year: studentData.school_year || '',
                     year: studentData.year || '',
                     semester: studentData.semester || '',
+                    // Blank means the student holds no scholarship.
+                    scholarship: studentData.scholarship || '',
                     password: '',        // blank = keep current password
                     secondary_pin: '',   // blank = keep current PIN
 
@@ -269,6 +276,23 @@ const EditStudentModal = ({ studentId, isOpen, onClose, onUpdateSuccess }) => {
                                                 { value: "2nd Semester", label: "2nd Semester" },
                                                 { value: "Summer", label: "Summer" },
                                             ])}
+                                        </div>
+
+                                        {/* Scholarship — free text, because the grants vary; clearing
+                                            the box is how a student stops being a scholar. */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <datalist id="edit-student-scholarships">
+                                                    {SCHOLARSHIP_SUGGESTIONS.map((name) => <option key={name} value={name} />)}
+                                                </datalist>
+                                                {renderInput("scholarship", "Scholarship", {
+                                                    placeholder: "Leave blank if not a scholar",
+                                                    list: "edit-student-scholarships",
+                                                })}
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                    Clear the box to remove the scholarship.
+                                                </p>
+                                            </div>
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
