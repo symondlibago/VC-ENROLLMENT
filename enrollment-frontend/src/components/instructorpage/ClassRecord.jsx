@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, AlertTriangle, Trash2, X } from "lucide-react";
+import { ChevronDown, AlertTriangle, Trash2, X, Search } from "lucide-react";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import { instructorAPI } from "@/services/api";
@@ -482,9 +482,12 @@ function buildGradingSheet(gs, terms, termNames, termMeta, subjectLabel, section
     styleCell(nameCell, { fill: fillSolid(rowBg), border: thinBorder("#e5e7eb"), font: fontStyle(P.gray900, true, 11), alignment: align("left", "middle") });
 
     for (let ti = 0; ti < terms.length; ti++) {
-      const { roundedCol: rc, DATA_START: ds } = termMeta[ti];
+      const { roundedCol, transmutedCol, DATA_START: ds } = termMeta[ti];
+      // A DHT / Senior High term carries a TRANSMUTED column, and that is the
+      // grade of record — the rounded figure never leaves the term sheet.
+      const sourceCol = transmutedCol ?? roundedCol;
       wf(gs, `${colLetter(2 + ti)}${row}`,
-        `'${termNames[ti]}'!${colLetter(rc)}${ds + si}`,
+        `'${termNames[ti]}'!${colLetter(sourceCol)}${ds + si}`,
         { ...rowStyle, font: fontStyle(catBg(ti), true, 11) });
     }
 
@@ -602,14 +605,33 @@ function ConfirmDeleteModal({ open, onClose, onConfirm, title, description }) {
 }
 
 
-function MotionDropdown({ value, onChange, options, placeholder, minWidth = 280 }) {
+function MotionDropdown({ value, onChange, options, placeholder, minWidth = 280, searchable = false }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const ref = useRef(null);
+  const searchRef = useRef(null);
 
   const selectedLabel = useMemo(
     () => options.find(o => o.value === value)?.label || placeholder,
     [value, options, placeholder]
   );
+
+  // Every word typed has to appear somewhere in the label, so "ge 13" and
+  // "13 contemporary" both find the same subject.
+  const visibleOptions = useMemo(() => {
+    const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!searchable || !terms.length) return options;
+    return options.filter(o => {
+      const label = String(o.label).toLowerCase();
+      return o.value === "" || terms.every(t => label.includes(t));
+    });
+  }, [options, query, searchable]);
+
+  // A fresh search each time it opens, with the cursor already in the box.
+  useEffect(() => {
+    if (!isOpen) { setQuery(""); return; }
+    if (searchable) requestAnimationFrame(() => searchRef.current?.focus());
+  }, [isOpen, searchable]);
 
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setIsOpen(false); };
@@ -660,7 +682,44 @@ function MotionDropdown({ value, onChange, options, placeholder, minWidth = 280 
               overflow: "hidden", maxHeight: 280, overflowY: "auto",
             }}
           >
-            {options.map((opt, idx) => (
+            {searchable && (
+              <div
+                style={{
+                  position: "sticky", top: 0, zIndex: 1, background: "#fff",
+                  padding: 8, borderBottom: `1px solid ${P.gray100}`,
+                }}
+              >
+                <div style={{ position: "relative" }}>
+                  <Search
+                    size={14} color={P.gray400}
+                    style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }}
+                  />
+                  <input
+                    ref={searchRef}
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") { setIsOpen(false); return; }
+                      // Enter picks the only thing left on screen.
+                      const picks = visibleOptions.filter(o => o.value !== "");
+                      if (e.key === "Enter" && picks.length === 1) {
+                        onChange(picks[0].value);
+                        setIsOpen(false);
+                      }
+                    }}
+                    placeholder="Search subject code or title…"
+                    style={{
+                      width: "100%", padding: "8px 10px 8px 30px", fontSize: 13,
+                      border: `1px solid ${P.gray200}`, borderRadius: 7, outline: "none",
+                      color: P.gray900, background: "#fff",
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {visibleOptions.map((opt, idx) => (
               <motion.button
                 key={opt.value} type="button"
                 onClick={() => { onChange(opt.value); setIsOpen(false); }}
@@ -674,12 +733,19 @@ function MotionDropdown({ value, onChange, options, placeholder, minWidth = 280 
                 }}
                 initial={{ opacity: 0, x: -6 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.03 }}
+                // Capped, so a long list does not crawl in one row at a time.
+                transition={{ delay: Math.min(idx, 8) * 0.03 }}
                 whileHover={{ backgroundColor: P.redFade, x: 4, color: P.red }}
               >
                 {opt.label}
               </motion.button>
             ))}
+
+            {searchable && visibleOptions.filter(o => o.value !== "").length === 0 && (
+              <div style={{ padding: "18px 16px", textAlign: "center", color: P.gray400, fontSize: 13 }}>
+                No subject matches “{query}”.
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -1147,7 +1213,7 @@ export default function ClassRecord() {
             ? <div style={{ fontSize: 13, color: P.gray400, padding: "9px 14px", background: P.gray50, borderRadius: 8, border: `1px solid ${P.gray200}`, minWidth: 300 }}>Loading subjects…</div>
             : <MotionDropdown value={selectedSubjectId} onChange={setSelectedSubjectId}
                 options={[{ value: "", label: "— Select a subject —" }, ...subjectOptions]}
-                placeholder="— Select a subject —" minWidth={340} />
+                placeholder="— Select a subject —" minWidth={340} searchable />
           }
         </div>
         {selectedSubjectId && (
