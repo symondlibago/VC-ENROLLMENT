@@ -5,6 +5,7 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\Str;
 use Symfony\Component\Mailer\Transport\Dsn;
 use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransportFactory;
@@ -25,6 +26,18 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // The house palette, given to every email view.
+        //
+        // A composer rather than a @php block in the layout: Blade renders a
+        // child's sections before the parent, so anything the layout defines
+        // is not yet in scope where the sections need it.
+        View::composer('emails.*', function ($view) {
+            $view->with([
+                'red' => '#9c262c',
+                'green' => '#15803d',
+            ]);
+        });
+
         // Create a symbolic link from "public/storage" to "storage/app/public"
         if (!file_exists(public_path('storage'))) {
             app('files')->link(

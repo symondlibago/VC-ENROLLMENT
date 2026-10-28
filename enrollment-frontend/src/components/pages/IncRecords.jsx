@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   FileWarning, Search, Loader2, CheckCircle2, Clock, Wallet,
-  FileText, X, AlertCircle, Undo2, ChevronRight, ShieldCheck,
+  FileText, X, AlertCircle, Undo2, ChevronRight, ShieldCheck, ShieldAlert,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import { incAPI, authAPI } from '@/services/api';
 import SuccessAlert from '../modals/SuccessAlert';
 import IncDocumentModal from '../modals/IncDocumentModal';
 import CustomCalendar from '../layout/CustomCalendar';
+import HeldGradesPanel from '@/components/clearance/HeldGradesPanel';
 import { toIsoDate, todayIso } from '@/lib/dateFormat';
 
 /**
@@ -388,6 +389,17 @@ const ApprovalConfirmModal = ({ isOpen, action, onClose, onConfirm, isSaving }) 
 };
 
 const IncRecords = () => {
+  // Completion records, or grades merely waiting on a clearance
+  const [incView, setIncView] = useState('records');
+
+  /**
+   * Stable, so the panel below is not handed a new callback on every render.
+   * An inline arrow here is what a child's effect would churn on.
+   */
+  const notifyPanel = useCallback(
+    (message, type = 'success') => setAlert({ isVisible: true, message, type }),
+    []
+  );
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -548,7 +560,34 @@ const IncRecords = () => {
         <p className="text-gray-600 text-lg">
           Incomplete marks and their completion forms — payment, approvals and issuance.
         </p>
+
+        {/* Two kinds of INC that must not be confused: one is a completion
+            form to process, the other clears itself once the student does */}
+        <div className="inline-flex rounded-lg border border-gray-200 bg-white/70 p-0.5 mt-5">
+          {[
+            { key: 'records', label: 'Completion Records', icon: FileWarning },
+            { key: 'clearance', label: 'Held for Clearance', icon: ShieldAlert },
+          ].map((item) => (
+            <button
+              key={item.key}
+              onClick={() => setIncView(item.key)}
+              className={`px-4 py-2 text-sm font-semibold rounded-md cursor-pointer transition-colors flex items-center gap-2 ${
+                incView === item.key
+                  ? 'bg-white text-(--dominant-red) shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <item.icon className="w-4 h-4" />
+              {item.label}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {incView === 'clearance' ? (
+        <HeldGradesPanel notify={notifyPanel} />
+      ) : (
+      <>
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -850,6 +889,8 @@ const IncRecords = () => {
         studentName={documentStudent?.name}
         records={documentRecords}
       />
+      </>
+      )}
     </div>
   );
 };

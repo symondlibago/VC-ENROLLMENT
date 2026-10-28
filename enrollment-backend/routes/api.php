@@ -19,6 +19,10 @@ use App\Http\Controllers\CredentialRequestController;
 use App\Http\Controllers\TranscriptController;
 use App\Http\Controllers\StudentGradeExportController;
 use App\Http\Controllers\UniformFabricController;
+use App\Http\Controllers\IdReleasingController;
+use App\Http\Controllers\SchoolYearController;
+use App\Http\Controllers\ClearanceController;
+use App\Http\Controllers\ClearanceRoleController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ManagementController;
 /*
@@ -103,6 +107,70 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/uniform-fabric/deliveries', [UniformFabricController::class, 'storeDelivery']);
     Route::delete('/uniform-fabric/purchases/{purchase}', [UniformFabricController::class, 'destroyPurchase']);
     Route::delete('/uniform-fabric/deliveries/{delivery}', [UniformFabricController::class, 'destroyDelivery']);
+
+    // School years offered in the enrolment screens (any signed-in user may
+    // read the list; only the registrar and admin may change it)
+    Route::get('/school-years', [SchoolYearController::class, 'index']);
+    Route::post('/school-years', [SchoolYearController::class, 'store']);
+    Route::put('/school-years/{schoolYear}', [SchoolYearController::class, 'update']);
+    Route::delete('/school-years/{schoolYear}', [SchoolYearController::class, 'destroy']);
+
+    // Student clearance. Every one of these re-checks the signer against the
+    // line through ClearanceService — holding a role is never taken on trust
+    // from the request.
+    Route::prefix('clearance')->group(function () {
+        Route::get('/access', [ClearanceController::class, 'access']);
+        // The student's own clearance and the code they present when asked
+        Route::get('/mine', [ClearanceController::class, 'myClearance']);
+        Route::get('/overview', [ClearanceController::class, 'overview']);
+        Route::get('/board', [ClearanceController::class, 'board']);
+        // Grades held at INC for want of a clearance, for the INC page
+        Route::get('/held-grades', [ClearanceController::class, 'heldGrades']);
+        Route::get('/clearances/{clearance}', [ClearanceController::class, 'show']);
+        Route::post('/scan', [ClearanceController::class, 'scan']);
+
+        Route::post('/items/{item}/approve', [ClearanceController::class, 'approve']);
+        Route::post('/bulk-approve', [ClearanceController::class, 'bulkApprove']);
+        Route::post('/approve-all', [ClearanceController::class, 'approveAll']);
+        Route::post('/generate', [ClearanceController::class, 'generate']);
+    });
+
+    // Who signs which clearance line (admin only)
+    Route::prefix('clearance-roles')->group(function () {
+        Route::get('/', [ClearanceRoleController::class, 'index']);
+        Route::get('/assignable-users', [ClearanceRoleController::class, 'assignableUsers']);
+        Route::post('/', [ClearanceRoleController::class, 'store']);
+        // Creates an account for a signatory who does not have one yet
+        Route::post('/signatories', [ClearanceRoleController::class, 'storeSignatory']);
+        Route::put('/{clearanceRole}', [ClearanceRoleController::class, 'update']);
+        Route::put('/{clearanceRole}/users', [ClearanceRoleController::class, 'syncRole']);
+        Route::put('/users/{user}', [ClearanceRoleController::class, 'syncUser']);
+    });
+
+    // Student ID monitoring — one card record per issue, counted per school year
+    Route::prefix('id-releasing')->group(function () {
+        Route::get('/overview', [IdReleasingController::class, 'overview']);
+        Route::get('/board', [IdReleasingController::class, 'students']);
+        Route::get('/records', [IdReleasingController::class, 'records']);
+        Route::get('/students/search', [IdReleasingController::class, 'searchStudents']);
+        Route::get('/students/{student}/history', [IdReleasingController::class, 'history']);
+
+        Route::post('/cards/print', [IdReleasingController::class, 'markPrinted']);
+        Route::post('/cards/release', [IdReleasingController::class, 'markReleased']);
+        Route::post('/cards/replace', [IdReleasingController::class, 'issueReplacement']);
+        Route::post('/cards/{issuance}/lost', [IdReleasingController::class, 'reportLost']);
+        Route::delete('/cards/{issuance}', [IdReleasingController::class, 'destroyCard']);
+
+        // Slings, holders and card stock: deliveries in, issuances out
+        Route::get('/supplies', [IdReleasingController::class, 'supplies']);
+        Route::get('/supplies/movements', [IdReleasingController::class, 'movements']);
+        Route::post('/supplies/items', [IdReleasingController::class, 'storeItem']);
+        Route::put('/supplies/items/{item}', [IdReleasingController::class, 'updateItem']);
+        Route::post('/supplies/deliveries', [IdReleasingController::class, 'storeDelivery']);
+        Route::post('/supplies/issuances', [IdReleasingController::class, 'storeSupplyIssuance']);
+        Route::delete('/supplies/deliveries/{delivery}', [IdReleasingController::class, 'destroyDelivery']);
+        Route::delete('/supplies/issuances/{issuance}', [IdReleasingController::class, 'destroySupplyIssuance']);
+    });
 
     // Payment routes
     Route::apiResource('payments', PaymentController::class);
@@ -197,6 +265,10 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Enrollment routes
     Route::post('enrollments', [EnrollmentController::class, 'submitEnrollment']);
+    // The acknowledgement the form asks the student to accept. Served rather
+    // than kept in the client, so the wording shown, the version recorded and
+    // the text quoted back in the confirmation email are the same one.
+    Route::get('enrollments/acknowledgement', [EnrollmentController::class, 'acknowledgement']);
     Route::get('enrollments/code/{code}', [EnrollmentController::class, 'checkEnrollmentStatus']);
     Route::get('enrollments/{id}/details', [EnrollmentController::class, 'getPreEnrolledStudentDetails']);
     Route::get('enrollments/{id}', [EnrollmentController::class, 'getPreEnrolledStudentDetails']);

@@ -4,6 +4,8 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -77,5 +79,30 @@ class User extends Authenticatable
     public function studentProfile(): HasOne
     {
         return $this->hasOne(PreEnrolledStudent::class);
+    }
+
+    /**
+     * The clearance lines this user may sign.
+     *
+     * Held apart from `role` on purpose: a signatory may be an instructor, a
+     * member of admin staff or neither, and one person can hold two lines —
+     * the registrar is also the guidance counsellor.
+     */
+    public function clearanceRoles(): BelongsToMany
+    {
+        return $this->belongsToMany(ClearanceRole::class, 'clearance_role_user')
+            ->withPivot('assigned_by')
+            ->withTimestamps();
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'Admin';
+    }
+
+    /** Whether the clearance board should appear for this user at all. */
+    public function canAccessClearance(): bool
+    {
+        return $this->isAdmin() || $this->clearanceRoles()->exists();
     }
 }

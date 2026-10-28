@@ -1,8 +1,10 @@
 import { saveAs } from 'file-saver';
 import { createDocxBlob, para, table, spacer, pageBreak, image } from './docx';
-import { periodsFor, computeFinalGrade } from './gradingPeriods';
+import { periodsFor, computeFinalGrade, remarksFor, isClearanceHeld, CLEARANCE_REMARK } from './gradingPeriods';
 
 const FAIL = 'DC2626';
+/** A clearance hold is not a failure, so it gets its own colour. */
+const HELD = 'B45309';
 const LOGO_REL = 'rId100';
 // Match the PDF logo box (140mm x 30mm). 1mm = 36000 EMU.
 const LOGO_CX = 140 * 36000;
@@ -100,8 +102,9 @@ function buildSectionXml(subject, sectionName, students, hasLogo) {
   const gradeRows = students.map((s) => {
     const g = s.grades || {};
     const final = calcFinal(s);
-    let remarks = g.status || '';
-    if (final !== null) remarks = final >= 75 ? 'PASSED' : 'FAILED';
+    // The record's own remark, not one derived from the marks — a deliberate
+    // INC/NFE/DA and a clearance hold both have to survive to the sheet
+    const remarks = remarksFor(g, s.year);
     const equiv = final !== null ? gradeEquivalent(final) : '';
     const finalColor = final !== null && final < 75 ? FAIL : '000000';
     return [
@@ -111,7 +114,12 @@ function buildSectionXml(subject, sectionName, students, hasLogo) {
       })),
       { text: final !== null ? final.toFixed(2) : '', align: 'center', bold: true, size: 14, color: finalColor },
       { text: equiv, align: 'center', bold: true, size: 14, color: finalColor },
-      { text: remarks, align: 'center', size: 13, color: remarks === 'FAILED' ? FAIL : '000000' },
+      {
+        text: remarks,
+        align: 'center',
+        size: 13,
+        color: remarks === CLEARANCE_REMARK ? HELD : (remarks === 'FAILED' ? FAIL : '000000'),
+      },
     ];
   });
 
@@ -153,9 +161,23 @@ function buildSectionXml(subject, sectionName, students, hasLogo) {
     { content: sigBlock('Certified True & Correct:', 'ARCHIE MAY L. MANANGKILA', 'Registrar') },
   ]], { widths: [3600, 3600, 3600], borders: false, vMargin: 0, keepRows: true });
 
+  // Only printed when this sheet actually carries one, so an ordinary sheet
+  // is not cluttered with a rule that does not apply to it.
+  const heldNote = students.some((s) => isClearanceHeld(s.grades))
+    ? para(
+        [{
+          text: `${CLEARANCE_REMARK} — grade earned but held at INC pending completion of the student's clearance for this term.`,
+          italic: true,
+          size: 12,
+          color: HELD,
+        }],
+        { spacingBefore: 60, spacingAfter: 0 }
+      )
+    : '';
+
   return head + infoTable + spacer() + gradesTable + spacer() +
     para('GRADING SYSTEM:', { bold: true, size: 16, spacingBefore: 100, spacingAfter: 40 }) +
-    legendTable + spacer() + spacer() + sigTable;
+    legendTable + heldNote + spacer() + spacer() + sigTable;
 }
 
 async function fetchImageBytes(url) {

@@ -361,7 +361,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     const totalLecHrs = subjectsWithSchedules.reduce((sum, subject) => sum + (parseFloat(subject.lec_hrs) || 0), 0);
     const newTuitionFee = totalLecHrs * 528;
     const totalLabHrs = subjectsWithSchedules.reduce((sum, subject) => sum + (parseFloat(subject.lab_hrs) || 0), 0);
-    const newLaboratoryFee = totalLabHrs * 350;
+    const newLaboratoryFee = totalLabHrs * 500;
     let newBundledProgramFee = 0;
     const programCode = student.course?.program?.program_code;
     if (programCode === 'SHS' || programCode === 'Diploma') {

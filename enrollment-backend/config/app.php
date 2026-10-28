@@ -65,12 +65,17 @@ return [
     |--------------------------------------------------------------------------
     |
     | Here you may specify the default timezone for your application, which
-    | will be used by the PHP date and date-time functions. We have gone
-    | ahead and set this to a sensible default for you out of the box.
+    | will be used by the PHP date and date-time functions.
+    |
+    | The school sits in one timezone and every date it records — an
+    | enrolment, a payment, a signature — is meant as local time. Storing UTC
+    | and converting on the way out buys nothing here and costs a conversion
+    | at every display and every whereDate(), which is where "today" quietly
+    | became yesterday for anything recorded before 8am.
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => env('APP_TIMEZONE', 'Asia/Manila'),
 
     /*
     |--------------------------------------------------------------------------

@@ -11,6 +11,7 @@ import StudentGradesModal from '@/components/modals/StudentGradesModal';
 import SuccessAlert from '@/components/modals/SuccessAlert';
 import CustomCalendar from '@/components/layout/CustomCalendar';
 import ExportGradingSheet from '@/components/layout/ExportGradingSheet';
+import SchoolYearSettings from '@/components/settings/SchoolYearSettings';
 
 // ---------------------------------------------------------------------------
 // SECTION 1: Student list view
@@ -165,8 +166,15 @@ const GradeSubmissionManager = () => {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div>
+    <div className="space-y-6">
       <SuccessAlert isVisible={alert.isVisible} message={alert.message} type={alert.type} onClose={() => setAlert(prev => ({ ...prev, isVisible: false }))} />
+
+      {/* The years the enrolment screens offer — term setup belongs with the
+          grading periods rather than buried in a form */}
+      <SchoolYearSettings
+        notify={(message, type = 'success') => setAlert({ isVisible: true, message, type })}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center"><SlidersHorizontal className="w-6 h-6 mr-3 text-red-800" /> Grade Submission Settings</CardTitle>

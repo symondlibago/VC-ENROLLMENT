@@ -15,6 +15,8 @@ import Shiftee from './components/pages/Shiftee';
 import FacultyAdminStaff from './components/pages/FacultyAdminStaff';
 import Grades from './components/pages/Grades';
 import IDReleasing from './components/pages/IDReleasing';
+import Clearance from './components/pages/Clearance';
+import StudentClearance from './components/studentpage/StudentClearance';
 import IncRecords from './components/pages/IncRecords';
 import CredentialRequests from './components/pages/CredentialRequests';
 import UniformFabric from './components/pages/UniformFabric';
@@ -46,6 +48,15 @@ import LmsGradebook from './components/LMS/pages/LmsGradebook';
 import LmsCalendar from './components/LMS/pages/LmsCalendar';
 import { lmsAuthAPI } from './components/LMS/api/lmsApi';
 
+
+/**
+ * Addresses that open the sign-in form directly.
+ *
+ * The unauthenticated side of the app is a view state rather than a set of
+ * routes, so the path is read once on load instead of being routed to. Both
+ * spellings are accepted because both are what people type.
+ */
+const SIGN_IN_PATHS = ['/login', '/signin', '/sign-in'];
 
 function App() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -85,6 +96,10 @@ function App() {
           setIsAuthenticated(true);
           setCurrentView('dashboard');
         }
+      } else if (SIGN_IN_PATHS.includes(window.location.pathname.replace(/\/+$/, '').toLowerCase())) {
+        // Staff who were given the address go straight to the sign-in form
+        // rather than through the public site and its landing page.
+        setCurrentView('login');
       }
       setIsLoading(false);
     };
@@ -245,6 +260,7 @@ function App() {
           <Route path="/evaluation-records" element={<motion.div variants={pageTransitionVariants}><EvaluationRecords /></motion.div>} />
           <Route path="/my-payments" element={<motion.div variants={pageTransitionVariants}><StudentPayments /></motion.div>} />
           <Route path="/enrollment-eligibility" element={<motion.div variants={pageTransitionVariants}><StudentEnrollmentEligibility /></motion.div>} />
+          <Route path="/my-clearance" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><StudentClearance /></motion.div>} />
           <Route path="/settings" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Settings /></motion.div>} />
           {lmsRoutes}
           <Route path="*" element={<Navigate to="/subject-enrolled" replace />} />
@@ -280,6 +296,11 @@ function App() {
         <Route path="/credential-requests" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><CredentialRequests /></motion.div>} />
         <Route path="/uniform-fabric" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><UniformFabric /></motion.div>} />
         <Route path="/id-releasing" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><IDReleasing /></motion.div>} />
+        {/* Open to anyone signed in; the page itself answers with "you sign
+            nothing" when the server says they hold no line */}
+        {/* /my-clearance is a student's own clearance and lives in the
+            student block; staff have the board at /clearance instead */}
+        <Route path="/clearance" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Clearance /></motion.div>} />
         <Route path="/settings" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Settings /></motion.div>} />
         {lmsRoutes}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

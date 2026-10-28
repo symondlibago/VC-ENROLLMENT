@@ -12,6 +12,17 @@ const api = axios.create({
   },
 });
 
+// Every call in this file hands back response.data and rethrows the server's
+// own error body when there is one, so callers never unwrap axios themselves.
+const unwrap = async (request, fallbackMessage) => {
+  try {
+    const response = await request;
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { success: false, message: fallbackMessage };
+  }
+};
+
 // Request interceptor to add auth token and handle FormData
 api.interceptors.request.use(
   (config) => {
@@ -476,6 +487,22 @@ export const subjectAPI = {
 
 // Enrollment API methods
 export const enrollmentAPI = {
+  /**
+   * The acknowledgement the enrollment form asks a student to accept.
+   *
+   * Fetched rather than kept in the client, so the wording shown, the version
+   * recorded against the student and the text quoted back in their
+   * confirmation email are all the same one.
+   */
+  getAcknowledgement: async () => {
+    try {
+      const response = await api.get('/enrollments/acknowledgement');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to load the acknowledgement' };
+    }
+  },
+
   submitEnrollment: async (enrollmentData) => {
     try {
       const response = await api.post('/enrollments', enrollmentData);
@@ -637,6 +664,68 @@ export const enrollmentAPI = {
     } catch (error) {
         throw error.response?.data || { success: false, message: 'Failed to reset ID status' };
     }
+  },
+
+  // Student clearance. Every write is re-checked against the signer's
+  // assigned lines on the server; nothing here is trusted from the client.
+  clearance: {
+    access: () => unwrap(api.get('/clearance/access'), 'Failed to check clearance access'),
+    mine: () => unwrap(api.get('/clearance/mine'), 'Failed to load your clearance'),
+    overview: (params) => unwrap(api.get('/clearance/overview', { params }), 'Failed to load the clearance board'),
+    board: (params) => unwrap(api.get('/clearance/board', { params }), 'Failed to load the clearance list'),
+    heldGrades: (params) => unwrap(api.get('/clearance/held-grades', { params }), 'Failed to load the held grades'),
+    show: (clearanceId) => unwrap(api.get(`/clearance/clearances/${clearanceId}`), 'Failed to load that clearance'),
+    scan: (token, params) => unwrap(api.post('/clearance/scan', { token, ...params }), 'That code could not be matched'),
+
+    approve: (itemId, payload) => unwrap(api.post(`/clearance/items/${itemId}/approve`, payload), 'Failed to sign that line'),
+    bulkApprove: (payload) => unwrap(api.post('/clearance/bulk-approve', payload), 'Failed to sign those lines'),
+    approveAll: (payload) => unwrap(api.post('/clearance/approve-all', payload), 'Failed to sign every line'),
+    generate: (payload) => unwrap(api.post('/clearance/generate', payload), 'Failed to generate the clearances'),
+  },
+
+  // Who signs which clearance line (admin only)
+  clearanceRoles: {
+    list: () => unwrap(api.get('/clearance-roles'), 'Failed to load the clearance lines'),
+    assignableUsers: (params) => unwrap(api.get('/clearance-roles/assignable-users', { params }), 'Failed to load the accounts'),
+    create: (payload) => unwrap(api.post('/clearance-roles', payload), 'Failed to add the line'),
+    createSignatory: (payload) => unwrap(api.post('/clearance-roles/signatories', payload), 'Failed to create that account'),
+    update: (roleId, payload) => unwrap(api.put(`/clearance-roles/${roleId}`, payload), 'Failed to update the line'),
+    syncRole: (roleId, userIds) => unwrap(api.put(`/clearance-roles/${roleId}/users`, { user_ids: userIds }), 'Failed to update the signatories'),
+    syncUser: (userId, roleIds) => unwrap(api.put(`/clearance-roles/users/${userId}`, { clearance_role_ids: roleIds }), 'Failed to update that account'),
+  },
+
+  // The school years offered in the enrolment screens. Reading is open to any
+  // signed-in user; only the registrar and admin may change the list.
+  schoolYears: {
+    list: (params) => unwrap(api.get('/school-years', { params }), 'Failed to load the school years'),
+    create: (payload) => unwrap(api.post('/school-years', payload), 'Failed to add the school year'),
+    update: (id, payload) => unwrap(api.put(`/school-years/${id}`, payload), 'Failed to update the school year'),
+    remove: (id) => unwrap(api.delete(`/school-years/${id}`), 'Failed to remove the school year'),
+  },
+
+  // ID monitoring — cards are counted per school year, slings and holders
+  // are stocked like the uniform fabric: deliveries in, issuances out.
+  idReleasing: {
+    overview: (params) => unwrap(api.get('/id-releasing/overview', { params }), 'Failed to load the ID overview'),
+    board: (params) => unwrap(api.get('/id-releasing/board', { params }), 'Failed to load the ID board'),
+    records: (params) => unwrap(api.get('/id-releasing/records', { params }), 'Failed to load the ID records'),
+    history: (studentId) => unwrap(api.get(`/id-releasing/students/${studentId}/history`), 'Failed to load the ID history'),
+    searchStudents: (search) => unwrap(api.get('/id-releasing/students/search', { params: { search } }), 'Failed to search students'),
+
+    markPrinted: (payload) => unwrap(api.post('/id-releasing/cards/print', payload), 'Failed to mark the IDs as printed'),
+    markReleased: (payload) => unwrap(api.post('/id-releasing/cards/release', payload), 'Failed to release the IDs'),
+    issueReplacement: (payload) => unwrap(api.post('/id-releasing/cards/replace', payload), 'Failed to record the replacement'),
+    reportLost: (cardId, payload) => unwrap(api.post(`/id-releasing/cards/${cardId}/lost`, payload), 'Failed to report the ID as lost'),
+    deleteCard: (cardId) => unwrap(api.delete(`/id-releasing/cards/${cardId}`), 'Failed to remove the card record'),
+
+    supplies: (params) => unwrap(api.get('/id-releasing/supplies', { params }), 'Failed to load the ID supplies'),
+    movements: (params) => unwrap(api.get('/id-releasing/supplies/movements', { params }), 'Failed to load the stock movements'),
+    createItem: (payload) => unwrap(api.post('/id-releasing/supplies/items', payload), 'Failed to add the item'),
+    updateItem: (itemId, payload) => unwrap(api.put(`/id-releasing/supplies/items/${itemId}`, payload), 'Failed to update the item'),
+    addStock: (payload) => unwrap(api.post('/id-releasing/supplies/deliveries', payload), 'Failed to record the delivery'),
+    issueStock: (payload) => unwrap(api.post('/id-releasing/supplies/issuances', payload), 'Failed to record the issuance'),
+    deleteDelivery: (id) => unwrap(api.delete(`/id-releasing/supplies/deliveries/${id}`), 'Failed to remove the delivery'),
+    deleteIssuance: (id) => unwrap(api.delete(`/id-releasing/supplies/issuances/${id}`), 'Failed to remove the issuance'),
   },
 
   // NEW: Check if a continuing student can enroll in the next term

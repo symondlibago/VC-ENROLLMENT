@@ -50,3 +50,51 @@ export const computeFinalGrade = (grade, ...years) => {
   const total = values.reduce((sum, value) => sum + parseFloat(value), 0);
   return Math.round(total / periods.length);
 };
+
+/**
+ * Statuses a person sets deliberately, which are kept rather than recomputed
+ * from the marks. Mirrors Grade::MANUAL_REMARKS on the server — the two lists
+ * have to agree, or a sheet prints something the record does not say.
+ */
+export const MANUAL_REMARKS = ['INC', 'NFE', 'NFR', 'DA', 'Credited'];
+
+/**
+ * What a grade held for an unsigned clearance prints as.
+ *
+ * Spelt out rather than left at a bare INC: the result was earned, and whoever
+ * reads the sheet needs to know it is the clearance holding it back and not an
+ * unfinished requirement.
+ */
+export const CLEARANCE_REMARK = 'INC (NOT CLEARED)';
+
+/** Whether this grade reads INC only because the clearance is unsigned. */
+export const isClearanceHeld = (grades) => Boolean(grades?.clearance_hold);
+
+/**
+ * The remark for a grade: what the record says, not what the marks imply.
+ *
+ * The order matters. Deriving PASSED/FAILED from the final grade and letting
+ * it overwrite the saved status — which is what three separate exports used
+ * to do — prints PASSED over a deliberate INC, NFE or DA, and over a result
+ * the clearance is holding back.
+ */
+export const remarksFor = (grades, ...years) => {
+  if (isClearanceHeld(grades)) {
+    return CLEARANCE_REMARK;
+  }
+
+  const status = grades?.status;
+
+  if (MANUAL_REMARKS.includes(status)) {
+    return status;
+  }
+
+  const final = computeFinalGrade(grades, ...years);
+
+  // Nothing to derive from yet, so whatever the record says stands
+  if (final === null) {
+    return status || '';
+  }
+
+  return Math.round(final) >= 75 ? 'PASSED' : 'FAILED';
+};

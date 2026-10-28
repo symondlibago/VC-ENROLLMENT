@@ -125,6 +125,10 @@ const AddStaffModal = ({ isOpen, onClose, onSave, staff = null }) => {
                         <SelectItem value="Registrar">Registrar</SelectItem>
                         <SelectItem value="Librarian">Librarian</SelectItem>
                         <SelectItem value="Laboratory">Laboratory</SelectItem>
+                        {/* No desk of its own — the nurse, security, council
+                            officers. Reaches only what their clearance lines
+                            allow, assigned under Clearance Signatories. */}
+                        <SelectItem value="Staff">Staff (clearance only)</SelectItem>
                          {isEditMode && staff.role === 'Admin' && <SelectItem value="Admin">Admin</SelectItem>}
                       </SelectContent>
                     </Select>

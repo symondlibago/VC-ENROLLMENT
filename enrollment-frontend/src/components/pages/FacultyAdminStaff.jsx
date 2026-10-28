@@ -18,6 +18,7 @@ import AddStaffModal from '@/components/modals/AddStaffModal';
 import DeleteConfirmationModal from '@/components/modals/DeleteConfirmationModal';
 import LoadingSpinner from '../layout/LoadingSpinner';
 import SuccessAlert from '../modals/SuccessAlert';
+import ClearanceSignatoriesModal from '@/components/clearance/ClearanceSignatoriesModal';
 
 const FacultyAdminStaff = () => {
   const [instructors, setInstructors] = useState([]);
@@ -29,6 +30,7 @@ const FacultyAdminStaff = () => {
   const [isInstructorModalOpen, setIsInstructorModalOpen] = useState(false);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isSignatoriesOpen, setIsSignatoriesOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isExporting, setIsExporting] = useState(false); // Add exporting state
@@ -230,6 +232,13 @@ const FacultyAdminStaff = () => {
   return (
     <>
       <SuccessAlert {...alertState} onClose={() => setAlertState({ ...alertState, isVisible: false })} />
+
+      {isSignatoriesOpen && (
+        <ClearanceSignatoriesModal
+          notify={showAlert}
+          onClose={() => setIsSignatoriesOpen(false)}
+        />
+      )}
       <AddInstructorModal isOpen={isInstructorModalOpen} onClose={() => setIsInstructorModalOpen(false)} onSave={handleSaveInstructor} instructor={selectedItem} />
       <AddStaffModal isOpen={isStaffModalOpen} onClose={() => setIsStaffModalOpen(false)} onSave={handleSaveStaff} staff={selectedItem}/>
       <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleDeleteConfirm}
@@ -264,6 +273,15 @@ const FacultyAdminStaff = () => {
                         <ShieldCheck className="w-5 h-5" />
                     </button>
                 </div>
+                {/* Clearance lines are an assignment, not a role, so they are
+                    managed here rather than inside the add-staff form */}
+                <Button
+                  variant="outline"
+                  className="cursor-pointer"
+                  onClick={() => setIsSignatoriesOpen(true)}
+                >
+                  <ShieldCheck className="w-4 h-4 mr-2" />Clearance Signatories
+                </Button>
                 <Button className="gradient-primary cursor-pointer text-white liquid-button" onClick={() => { setSelectedItem(null); activeTab === 'instructors' ? setIsInstructorModalOpen(true) : setIsStaffModalOpen(true); }}>
                   <UserPlus className="w-4 h-4 mr-2" />{addButtonText}
                 </Button>

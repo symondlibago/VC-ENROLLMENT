@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSchoolYears } from '@/lib/schoolYears';
 import { 
   ChevronDown, 
   ArrowLeft, 
@@ -17,12 +18,14 @@ import {
   Upload,
   X,
   FileSignature,
-  AlertCircle
+  AlertCircle,
+  FileText
 } from 'lucide-react';
 import CustomCalendar from '../layout/CustomCalendar';
 import CourseChoicesModal from '../modals/CourseChoicesModal';
 import EnrollmentConfirmationModal from '../modals/EnrollmentConfirmationModal';
 import ValidationErrorModal from '../modals/ValidationErrorModal';
+import AcknowledgementModal from '../modals/AcknowledgementModal';
 import { subjectAPI, enrollmentAPI, sectionAPI } from '@/services/api';
 import { getProvinces, getCities, getBarangays } from '@/data/phLocations';
 import VipcLogo from '/circlelogo.png';
@@ -217,6 +220,10 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
 
   // Step 4 confirmation state
   const [isDataConfirmed, setIsDataConfirmed] = useState(false);
+  // The Student Enrollment Acknowledgment and Undertaking. Ticked only by
+  // reaching the end of the modal, never by clicking the box straight off.
+  const [isAcknowledged, setIsAcknowledged] = useState(false);
+  const [isAcknowledgementOpen, setIsAcknowledgementOpen] = useState(false);
   
   // Enrollment submission states
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -299,8 +306,9 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
     'Transferee',
   ];
 
-  // Step 2 dropdown options
-  const schoolYears = ['2026-2027','2027-2028' ];
+  // Step 2 dropdown options. The years come from the registrar's list, which
+  // falls back to the built-in ones if it cannot be read.
+  const { schoolYears } = useSchoolYears();
   const semesters = ['1st Semester', '2nd Semester', 'Summer'];
   const genders = ['Male', 'Female'];
 
@@ -423,7 +431,7 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
   
   // Handle enrollment submission
   const handleSubmitEnrollment = async () => {
-    if (!isDataConfirmed || isSubmitting) return;
+    if (!isDataConfirmed || !isAcknowledged || isSubmitting) return;
     
     setIsSubmitting(true);
     setSubmissionError(null);
@@ -482,6 +490,8 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
       formDataObj.append('enrollment_type', enrollmentType);
       formDataObj.append('scholarship', formData.scholarship || '');
       formDataObj.append('section_id', formData.section_id);
+      // The server stamps when and which version; this only says they did
+      formDataObj.append('acknowledgement_accepted', '1');
 
       // Use the correct format for arrays in FormData
       const subjectIds = selectedSubjects.map(subject => subject.id);
@@ -2763,45 +2773,97 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
                         I confirm that all the information provided above is accurate and complete.
                       </label>
                       <p className="text-sm text-gray-600 mt-2">
-                        Please review all your information carefully. Once submitted, changes may require additional processing time. 
+                        Please review all your information carefully. Once submitted, changes may require additional processing time.
                         Make sure your contact information is correct as we will use it to communicate important updates about your enrollment.
                       </p>
+                    </div>
+                  </div>
+
+                  {/* The acknowledgement. Only the short consent line sits on
+                      the page — the full eight clauses open in a dialog, so
+                      they do not bury the rest of the form. */}
+                  <div className="flex items-start space-x-4 mt-5 pt-5 border-t border-amber-200">
+                    <div className="flex-shrink-0 mt-1">
+                      <input
+                        type="checkbox"
+                        id="acknowledgementConfirmation"
+                        checked={isAcknowledged}
+                        // Ticking it means reading it: an unticked box opens
+                        // the dialog instead, and only reaching the end of
+                        // that dialog can tick it. Unticking stays free.
+                        onChange={() => {
+                          if (isAcknowledged) setIsAcknowledged(false);
+                          else setIsAcknowledgementOpen(true);
+                        }}
+                        className="w-5 h-5 text-[var(--dominant-red)] bg-gray-100 border-gray-300 rounded focus:ring-[var(--dominant-red)] focus:ring-2 cursor-pointer"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label htmlFor="acknowledgementConfirmation" className="text-gray-900 font-semibold cursor-pointer">
+                        I have read and understood the Student Enrollment Acknowledgment and Undertaking of
+                        Vineyard College. I voluntarily confirm my understanding of and commitment to the
+                        responsibilities, policies, rules, regulations, and procedures stated therein, subject
+                        to applicable laws and due process requirements.
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setIsAcknowledgementOpen(true)}
+                        className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--dominant-red)] underline underline-offset-2 hover:opacity-80 cursor-pointer"
+                      >
+                        <FileText className="w-4 h-4" />
+                        Read the full Acknowledgment and Undertaking
+                      </button>
                     </div>
                   </div>
                 </div>
 
                 {/* Submit Button */}
                 <div className="text-center pt-4">
-                  <motion.button 
-                    disabled={!isDataConfirmed || isSubmitting}
-                    className={`px-8 py-3 rounded-2xl text-base font-bold heading-bold shadow-2xl transition-all duration-300 flex items-center justify-center mx-auto group ${
-                      isDataConfirmed && !isSubmitting
-                        ? 'border-2 border-[var(--dominant-red)] bg-linear-to-r from-[var(--dominant-red)] to-red-600 text-white hover:shadow-3xl cursor-pointer'
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                    whileHover={isDataConfirmed && !isSubmitting ? { scale: 1.05, y: -2 } : {}}
-                    whileTap={isDataConfirmed && !isSubmitting ? { scale: 0.98 } : {}}
-                    onClick={handleSubmitEnrollment}
-                  >
-                    {isSubmitting ? (
+                  {(() => {
+                    // Both boxes have to be ticked, so the enabled state is
+                    // worked out once rather than repeated down the markup
+                    const canSubmit = isDataConfirmed && isAcknowledged && !isSubmitting;
+
+                    return (
                       <>
-                        <span className="mr-2">Submitting</span>
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                        <motion.button
+                          disabled={!canSubmit}
+                          className={`px-8 py-3 rounded-2xl text-base font-bold heading-bold shadow-2xl transition-all duration-300 flex items-center justify-center mx-auto group ${
+                            canSubmit
+                              ? 'border-2 border-[var(--dominant-red)] bg-linear-to-r from-[var(--dominant-red)] to-red-600 text-white hover:shadow-3xl cursor-pointer'
+                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          }`}
+                          whileHover={canSubmit ? { scale: 1.05, y: -2 } : {}}
+                          whileTap={canSubmit ? { scale: 0.98 } : {}}
+                          onClick={handleSubmitEnrollment}
+                        >
+                          {isSubmitting ? (
+                            <>
+                              <span className="mr-2">Submitting</span>
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                            </>
+                          ) : (
+                            <>
+                              Submit Enrollment
+                              <CheckCircle className={`ml-2 w-5 h-5 transition-transform ${
+                                canSubmit ? 'group-hover:scale-110' : ''
+                              }`} />
+                            </>
+                          )}
+                        </motion.button>
+
+                        {!isSubmitting && (!isDataConfirmed || !isAcknowledged) && (
+                          <p className="text-sm text-gray-500 mt-2">
+                            {!isDataConfirmed && !isAcknowledged
+                              ? 'Please confirm your information and accept the acknowledgment to enable submission'
+                              : !isDataConfirmed
+                                ? 'Please confirm that your information is correct to enable submission'
+                                : 'Please read and accept the Acknowledgment and Undertaking to enable submission'}
+                          </p>
+                        )}
                       </>
-                    ) : (
-                      <>
-                        Submit Enrollment
-                        <CheckCircle className={`ml-2 w-5 h-5 transition-transform ${
-                          isDataConfirmed ? 'group-hover:scale-110' : ''
-                        }`} />
-                      </>
-                    )}
-                  </motion.button>
-                  {!isDataConfirmed && (
-                    <p className="text-sm text-gray-500 mt-2">
-                      Please confirm that your information is correct to enable submission
-                    </p>
-                  )}
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -2837,6 +2899,19 @@ const EnrollmentPage = ({ onBack, onCheckStatus, onUploadReceipt }) => {
         onClose={() => setShowValidationErrorModal(false)}
         message={validationErrorMessage}
       />
+
+      {/* The Acknowledgment and Undertaking, in full */}
+      <AnimatePresence>
+        {isAcknowledgementOpen && (
+          <AcknowledgementModal
+            onClose={() => setIsAcknowledgementOpen(false)}
+            onAgree={() => {
+              setIsAcknowledged(true);
+              setIsAcknowledgementOpen(false);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

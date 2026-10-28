@@ -1,435 +1,574 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-    CreditCard, 
-    Search, 
-    MoreVertical, 
-    Check, 
-    X, 
-    Users, 
-    Printer, 
-    CheckCircle,
-    ChevronDown,
-    User,
-    Phone,
-    MapPinned,
-    Calendar,
-    RotateCcw, // ✅ Added Icon
-    AlertTriangle // ✅ Added Icon
+import {
+  CreditCard, Search, Check, Users, Printer, CheckCircle,
+  AlertTriangle, RefreshCw, Boxes, CalendarRange, Receipt, LayoutGrid,
 } from 'lucide-react';
 
-// UI & Service Imports
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { 
-    DropdownMenu, 
-    DropdownMenuContent, 
-    DropdownMenuItem, 
-    DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import { enrollmentAPI } from '@/services/api';
 
-// Newly Integrated Components
 import LoadingSpinner from '../layout/LoadingSpinner';
 import SuccessAlert from '../modals/SuccessAlert';
 import ValidationErrorModal from '../modals/ValidationErrorModal';
 
-// ... (ImagePreviewModal and MotionDropdown components remain exactly the same) ...
-const ImagePreviewModal = ({ imageUrl, onClose }) => {
-    if (!imageUrl) return null;
-    return (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
-            <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} exit={{ scale: 0.8 }} onClick={(e) => e.stopPropagation()} className="relative bg-white p-4 rounded-xl shadow-2xl">
-                <img src={imageUrl} alt="Preview" className="max-w-[80vw] max-h-[80vh] object-contain rounded-lg" />
-                <div className="absolute top-4 right-4"><Button onClick={onClose} size="icon" variant="destructive"><X size={20} /></Button></div>
-            </motion.div>
-        </motion.div>
-    );
-};
+import StudentIdTable from '../idreleasing/StudentIdTable';
+import MotionDropdown from '../idreleasing/MotionDropdown';
+import SuppliesTab from '../idreleasing/SuppliesTab';
+import RecordsTab from '../idreleasing/RecordsTab';
+import IdHistoryModal from '../idreleasing/IdHistoryModal';
+import { LostIdModal, ReleaseModal, ReplacementModal } from '../idreleasing/CardActionModals';
+import { BOARD_FILTERS, peso } from '../idreleasing/constants';
 
-const MotionDropdown = ({ value, onChange, options, placeholder }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const selectedOption = useMemo(() => options.find(opt => opt.value === value) || { label: placeholder, value: '' }, [value, options, placeholder]);
-  const handleSelect = (option) => { onChange(option.value); setIsOpen(false); };
+const PER_PAGE = 24;
+
+const StatCard = ({ label, value, sub, icon: Icon, tint }) => (
+  <Card className="card-hover">
+    <CardContent className="p-5 flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-gray-600">{label}</p>
+        <p className="text-2xl font-bold heading-bold text-gray-900">{value}</p>
+        {sub && <p className="text-xs text-gray-400 mt-0.5 truncate">{sub}</p>}
+      </div>
+      <div className={`p-3 rounded-xl shrink-0 ${tint}`}><Icon className="w-5 h-5" /></div>
+    </CardContent>
+  </Card>
+);
+
+/**
+ * ID releasing, read a school year at a time.
+ *
+ * Each card a student is given is its own record, so the year's counts are a
+ * question the data answers rather than a tally that has to be reset. The
+ * board itself is paginated and filtered at the database: the page renders
+ * two dozen students whatever the size of the school.
+ */
+const IDReleasing = () => {
+  const [tab, setTab] = useState('board');
+
+  const [overview, setOverview] = useState(null);
+  const [schoolYear, setSchoolYear] = useState('');
+
+  const [students, setStudents] = useState([]);
+  const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [courseFilter, setCourseFilter] = useState('');
+  const [yearLevelFilter, setYearLevelFilter] = useState('');
+
+  const [loading, setLoading] = useState(true);
+  const [boardLoading, setBoardLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [selected, setSelected] = useState(() => new Set());
+  const [dialog, setDialog] = useState(null);
+
+  const [alertState, setAlertState] = useState({ isVisible: false, message: '', type: 'success' });
+  const [validationError, setValidationError] = useState({ isOpen: false, message: '' });
+
+  const notify = useCallback((message, type = 'success') => {
+    setAlertState({ isVisible: true, message, type });
+  }, []);
+
+  // â”€â”€ loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  const loadOverview = useCallback(async (year) => {
+    const response = await enrollmentAPI.idReleasing.overview(year ? { school_year: year } : {});
+    setOverview(response);
+    setSchoolYear(response.school_year);
+    return response;
+  }, []);
+
+  useEffect(() => {
+    loadOverview()
+      .catch((error) => notify(error.message || 'Could not load the ID board.', 'error'))
+      .finally(() => setLoading(false));
+  }, [loadOverview, notify]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const loadBoard = useCallback(async () => {
+    if (!schoolYear) return;
+
+    setBoardLoading(true);
+    try {
+      const response = await enrollmentAPI.idReleasing.board({
+        school_year: schoolYear,
+        search: debouncedSearch || undefined,
+        status: statusFilter,
+        course_id: courseFilter || undefined,
+        year_level: yearLevelFilter || undefined,
+        page,
+        per_page: PER_PAGE,
+      });
+      setStudents(response.data || []);
+      setMeta(response.meta || { current_page: 1, last_page: 1, total: 0 });
+    } catch (error) {
+      notify(error.message || 'Could not load the student list.', 'error');
+    } finally {
+      setBoardLoading(false);
+    }
+  }, [schoolYear, debouncedSearch, statusFilter, courseFilter, yearLevelFilter, page, notify]);
+
+  useEffect(() => {
+    if (tab === 'board') loadBoard();
+  }, [tab, loadBoard]);
+
+  /** After an action: the board, the counts, and the selection all move on. */
+  const refreshAll = useCallback(async () => {
+    setSelected(new Set());
+    setDialog(null);
+    await Promise.all([
+      loadBoard(),
+      loadOverview(schoolYear).catch(() => {}),
+    ]);
+  }, [loadBoard, loadOverview, schoolYear]);
+
+  // â”€â”€ actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  const runPrint = useCallback(async (targets) => {
+    setSaving(true);
+    try {
+      const response = await enrollmentAPI.idReleasing.markPrinted({
+        student_ids: targets.map((student) => student.id),
+        school_year: schoolYear,
+      });
+      notify(response.message, 'success');
+      await refreshAll();
+    } catch (error) {
+      notify(error.message || 'Could not mark those as printed.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }, [schoolYear, notify, refreshAll]);
+
+  const runRelease = useCallback(async (targets, payload) => {
+    setSaving(true);
+    try {
+      const response = await enrollmentAPI.idReleasing.markReleased({
+        student_ids: targets.map((student) => student.id),
+        school_year: schoolYear,
+        ...payload,
+      });
+      (response.warnings || []).forEach((warning) => notify(warning, 'error'));
+      notify(response.message, 'success');
+      await refreshAll();
+    } catch (error) {
+      notify(error.message || 'Could not release those IDs.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }, [schoolYear, notify, refreshAll]);
+
+  const runReportLost = useCallback(async (student, payload) => {
+    setSaving(true);
+    try {
+      const response = await enrollmentAPI.idReleasing.reportLost(student.card.id, payload);
+      notify(response.message, 'success');
+      await refreshAll();
+    } catch (error) {
+      notify(error.message || 'Could not report that ID as lost.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }, [notify, refreshAll]);
+
+  const runReplacement = useCallback(async (student, payload) => {
+    setSaving(true);
+    try {
+      const response = await enrollmentAPI.idReleasing.issueReplacement({
+        pre_enrolled_student_id: student.id,
+        school_year: schoolYear,
+        ...payload,
+      });
+      notify(response.message, 'success');
+      await refreshAll();
+    } catch (error) {
+      notify(error.message || 'Could not record the replacement.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }, [schoolYear, notify, refreshAll]);
+
+  /** One entry point for every per-card action, so the card stays memoised. */
+  const handleAction = useCallback((action, student) => {
+    switch (action) {
+      case 'print':
+        runPrint([student]);
+        break;
+      case 'release':
+        setDialog({ type: 'release', students: [student] });
+        break;
+      case 'lost':
+        if (!student.card) {
+          setValidationError({ isOpen: true, message: 'This student has no ID on record to report as lost.' });
+          return;
+        }
+        setDialog({ type: 'lost', student });
+        break;
+      case 'replace':
+        setDialog({ type: 'replace', student });
+        break;
+      case 'history':
+        setDialog({ type: 'history', student });
+        break;
+      default:
+        break;
+    }
+  }, [runPrint]);
+
+  const handleSelect = useCallback((studentId) => {
+    setSelected((previous) => {
+      const next = new Set(previous);
+      if (next.has(studentId)) next.delete(studentId);
+      else next.add(studentId);
+      return next;
+    });
+  }, []);
+
+  const selectedStudents = useMemo(
+    () => students.filter((student) => selected.has(student.id)),
+    [students, selected]
+  );
+
+  const allOnPageSelected = students.length > 0 && students.every((student) => selected.has(student.id));
+
+  const toggleSelectAll = () => {
+    setSelected((previous) => {
+      const next = new Set(previous);
+      if (allOnPageSelected) students.forEach((student) => next.delete(student.id));
+      else students.forEach((student) => next.add(student.id));
+      return next;
+    });
+  };
+
+  const bulkPrint = () => {
+    if (selectedStudents.length === 0) {
+      setValidationError({ isOpen: true, message: 'Select at least one student first.' });
+      return;
+    }
+    runPrint(selectedStudents);
+  };
+
+  const bulkRelease = () => {
+    if (selectedStudents.length === 0) {
+      setValidationError({ isOpen: true, message: 'Select at least one student first.' });
+      return;
+    }
+    setDialog({ type: 'release', students: selectedStudents });
+  };
+
+  // â”€â”€ derived â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  const stats = overview?.stats;
+  const supplies = overview?.supplies ?? [];
+  const lowStock = supplies.filter((item) => item.is_low);
+
+  const yearOptions = useMemo(
+    () => (overview?.school_years ?? []).map((year) => ({ value: year, label: `S.Y. ${year}` })),
+    [overview]
+  );
+
+  const courseOptions = useMemo(
+    () => [
+      { value: '', label: 'All courses' },
+      ...(overview?.courses ?? []).map((course) => ({
+        value: String(course.id),
+        label: `${course.code} (${course.students})`,
+      })),
+    ],
+    [overview]
+  );
+
+  const yearLevelOptions = useMemo(
+    () => [
+      { value: '', label: 'All year levels' },
+      ...(overview?.year_levels ?? []).map((level) => ({ value: level, label: level })),
+    ],
+    [overview]
+  );
+
+  const changeYear = (year) => {
+    setSchoolYear(year);
+    setPage(1);
+    setSelected(new Set());
+    setCourseFilter('');
+    setYearLevelFilter('');
+    loadOverview(year).catch((error) => notify(error.message || 'Could not switch year.', 'error'));
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6 py-24 flex justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
   return (
-    <div className="relative">
-      <motion.button type="button" onClick={() => setIsOpen(!isOpen)} className="w-full px-4 py-2 text-left bg-white border border-gray-200 rounded-lg focus:border-[var(--dominant-red)] focus:ring-2 focus:ring-[var(--dominant-red)]/20 liquid-morph flex items-center justify-between min-w-[200px]" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-        <span className="text-gray-900">{selectedOption.label}</span>
-        <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.2 }}><ChevronDown className="w-4 h-4 text-gray-500" /></motion.div>
-      </motion.button>
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      <SuccessAlert
+        isVisible={alertState.isVisible}
+        message={alertState.message}
+        type={alertState.type}
+        onClose={() => setAlertState((state) => ({ ...state, isVisible: false }))}
+      />
+      <ValidationErrorModal
+        isOpen={validationError.isOpen}
+        message={validationError.message}
+        onClose={() => setValidationError({ isOpen: false, message: '' })}
+      />
+
+      {/* Header */}
+      <div className="gradient-soft rounded-2xl p-6 md:p-8 border border-gray-100 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold heading-bold text-gray-900 flex items-center">
+            <CreditCard className="w-8 h-8 text-[var(--dominant-red)] mr-3" />
+            ID Releasing Management
+          </h1>
+          <p className="text-gray-600 mt-2">
+            Printing, releasing, replacements and supplies — counted per school year.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3 w-full lg:w-auto">
+          <MotionDropdown
+            value={schoolYear}
+            onChange={changeYear}
+            options={yearOptions}
+            icon={CalendarRange}
+            className="min-w-[180px] flex-1 lg:flex-none"
+          />
+        </div>
+      </div>
+
+      {/* Low stock is the one thing worth interrupting the page for */}
+      {lowStock.length > 0 && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-900">Supplies running low</p>
+            <p className="text-sm text-amber-800">
+              {lowStock.map((item) => `${item.name} (${item.on_hand} left)`).join(' Â· ')}
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => setTab('supplies')}>
+            Manage Stock
+          </Button>
+        </div>
+      )}
+
+      {/* Counts for the year */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <StatCard label="Enrolled" value={stats?.enrolled ?? 0} icon={Users} tint="bg-red-50 text-red-600" />
+        <StatCard
+          label="Awaiting Print"
+          value={stats?.awaiting_print ?? 0}
+          icon={Printer}
+          tint="bg-amber-50 text-amber-600"
+        />
+        <StatCard label="Printed" value={stats?.printed ?? 0} icon={LayoutGrid} tint="bg-blue-50 text-blue-600" />
+        <StatCard
+          label="Released"
+          value={stats?.released ?? 0}
+          sub={`${stats?.release_rate ?? 0}% of enrolled`}
+          icon={CheckCircle}
+          tint="bg-green-50 text-green-600"
+        />
+        <StatCard label="Reported Lost" value={stats?.lost ?? 0} icon={AlertTriangle} tint="bg-red-50 text-red-600" />
+        <StatCard
+          label="Replacements"
+          value={stats?.replacements ?? 0}
+          sub={stats?.fees_collected ? `${peso(stats.fees_collected)} in fees` : undefined}
+          icon={RefreshCw}
+          tint="bg-purple-50 text-purple-600"
+        />
+      </div>
+
+      {/* Tabs */}
+      <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+        {[
+          { key: 'board', label: 'Releasing Board', icon: CreditCard },
+          { key: 'supplies', label: 'Slings & Holders', icon: Boxes },
+          { key: 'records', label: 'Records', icon: Receipt },
+        ].map((item) => (
+          <button
+            key={item.key}
+            onClick={() => setTab(item.key)}
+            className={`px-4 py-2 text-sm font-semibold rounded-md cursor-pointer transition-colors flex items-center gap-2 ${
+              tab === item.key ? 'bg-white text-[var(--dominant-red)] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <item.icon className="w-4 h-4" />
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'board' && (
+        <>
+          <Card>
+            <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+              <div className="relative xl:col-span-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Search name or ID number..."
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  className="pl-10 border border-gray-300"
+                />
+              </div>
+              <MotionDropdown
+                value={statusFilter}
+                onChange={(value) => { setStatusFilter(value); setPage(1); }}
+                options={BOARD_FILTERS}
+              />
+              <MotionDropdown
+                value={courseFilter}
+                onChange={(value) => { setCourseFilter(value); setPage(1); }}
+                options={courseOptions}
+              />
+              <MotionDropdown
+                value={yearLevelFilter}
+                onChange={(value) => { setYearLevelFilter(value); setPage(1); }}
+                options={yearLevelOptions}
+              />
+            </CardContent>
+          </Card>
+
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <span className="text-sm text-gray-500">
+              {meta.total} student{meta.total === 1 ? '' : 's'} in S.Y. {schoolYear}
+            </span>
+
+            <AnimatePresence>
+              {selected.size > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 12 }}
+                  className="flex items-center gap-2"
+                >
+                  <Badge className="bg-gray-900 text-white">{selected.size} selected</Badge>
+                  <Button size="sm" variant="outline" onClick={() => setSelected(new Set())}>
+                    Clear
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={bulkPrint} disabled={saving}>
+                    <Printer size={14} className="mr-1.5" /> Mark Printed
+                  </Button>
+                  <Button size="sm" className="gradient-primary text-white" onClick={bulkRelease} disabled={saving}>
+                    <Check size={14} className="mr-1.5" /> Release
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <Card>
+            <CardContent className="p-0">
+              {boardLoading ? (
+                <div className="py-16 flex justify-center"><LoadingSpinner size="lg" /></div>
+              ) : students.length === 0 ? (
+                <div className="py-16 text-center text-gray-500">
+                  <p className="font-semibold">No students found.</p>
+                  <p className="text-sm">Nothing matches these filters for S.Y. {schoolYear}.</p>
+                </div>
+              ) : (
+                <StudentIdTable
+                  students={students}
+                  selected={selected}
+                  onSelect={handleSelect}
+                  onSelectAll={toggleSelectAll}
+                  allSelected={allOnPageSelected}
+                  onAction={handleAction}
+                />
+              )}
+
+              {meta.last_page > 1 && (
+                <div className="p-3 border-t flex items-center justify-between">
+                  <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                    Previous
+                  </Button>
+                  <span className="text-sm text-gray-500">
+                    Page {meta.current_page} of {meta.last_page}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= meta.last_page}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {tab === 'supplies' && (
+        <SuppliesTab
+          schoolYear={schoolYear}
+          notify={notify}
+          canDelete={Boolean(overview?.can?.delete)}
+          onChanged={() => loadOverview(schoolYear).catch(() => {})}
+        />
+      )}
+
+      {tab === 'records' && (
+        <RecordsTab
+          schoolYear={schoolYear}
+          schoolYears={overview?.school_years ?? []}
+          notify={notify}
+          canDelete={Boolean(overview?.can?.delete)}
+          onChanged={() => loadOverview(schoolYear).catch(() => {})}
+        />
+      )}
+
       <AnimatePresence>
-        {isOpen && (
-          <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }} transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }} className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
-            {options.map((option, index) => (
-              <motion.button key={option.value} type="button" onClick={() => handleSelect(option)} className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors duration-200 border-b border-gray-100 last:border-b-0" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }} whileHover={{ backgroundColor: '#f9fafb', x: 4 }}>
-                <span className="text-gray-900">{option.label}</span>
-              </motion.button>
-            ))}
-          </motion.div>
+        {dialog?.type === 'release' && (
+          <ReleaseModal
+            students={dialog.students}
+            supplies={supplies}
+            isSaving={saving}
+            onClose={() => setDialog(null)}
+            onConfirm={(payload) => runRelease(dialog.students, payload)}
+          />
+        )}
+        {dialog?.type === 'lost' && (
+          <LostIdModal
+            student={dialog.student}
+            isSaving={saving}
+            onClose={() => setDialog(null)}
+            onConfirm={(payload) => runReportLost(dialog.student, payload)}
+          />
+        )}
+        {dialog?.type === 'replace' && (
+          <ReplacementModal
+            student={dialog.student}
+            isSaving={saving}
+            onClose={() => setDialog(null)}
+            onConfirm={(payload) => runReplacement(dialog.student, payload)}
+          />
+        )}
+        {dialog?.type === 'history' && (
+          <IdHistoryModal student={dialog.student} onClose={() => setDialog(null)} />
         )}
       </AnimatePresence>
     </div>
   );
-};
-
-// ... (StudentIdCard remains exactly the same) ...
-const StudentIdCard = ({ student, onUpdateStatus, onImageClick, isSelected, onSelect }) => {
-    const formatDate = (dateString) => {
-        if (!dateString) return 'N/A';
-        return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    };
-    const getStatusColor = (status) => {
-        if (!status) return 'bg-gray-100 text-gray-800';
-        switch (status) {
-            case 'Released': return 'bg-green-100 text-green-800';
-            case 'Printed': return 'bg-blue-100 text-blue-800';
-            case 'Pending Print': default: return 'bg-yellow-100 text-yellow-800';
-        }
-    };
-    return (
-        <Card className={`card-hover overflow-hidden relative transition-all ${isSelected ? 'ring-2 ring-[var(--dominant-red)]' : ''}`}>
-            <div className="absolute top-2 right-2 z-10 bg-white/70 backdrop-blur-sm p-1 rounded-full">
-                <Checkbox checked={isSelected} onCheckedChange={() => onSelect(student.id)} className="w-5 h-5 border-2 border-red-800" />
-            </div>
-            <CardContent className="p-4 space-y-3">
-                <div className="flex justify-center items-center gap-4">
-                    <button onClick={() => onImageClick(student.id_photo_url)} className="focus:outline-none focus:ring-2 focus:ring-red-500 rounded-lg">
-                        <Avatar className="h-24 w-24 rounded-lg shadow-md hover:scale-105 transition-transform">
-                            <AvatarImage src={student.id_photo_url} alt="ID Photo" className="object-cover" />
-                            <AvatarFallback className="rounded-lg bg-gray-200 text-xs">ID Photo</AvatarFallback>
-                        </Avatar>
-                    </button>
-                    <button onClick={() => onImageClick(student.signature_url)} className="w-24 h-24 flex items-center justify-center bg-white rounded-lg shadow-inner p-2 hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-red-500">
-                        <img src={student.signature_url} alt="Signature" className="object-contain max-h-full max-w-full" />
-                    </button>
-                </div>
-                <div className="text-center">
-                    <h3 className="font-bold text-lg heading-bold">{student.name}</h3>
-                    <p className="text-sm text-gray-500 font-mono">{student.student_id_number}</p>
-                    <p className="text-sm text-gray-600 font-medium">{student.courseName}</p>
-                </div>
-                <div className="border-t pt-3 space-y-2 text-sm">
-                    <p className="font-semibold text-gray-500 text-xs mb-1">Emergency Contact</p>
-                    <div className="flex items-center text-gray-800"><User size={14} className="mr-2 text-gray-400 flex-shrink-0" /><span>{student.emergency_contact_name || 'N/A'}</span></div>
-                    <div className="flex items-center text-gray-800"><Phone size={14} className="mr-2 text-gray-400 flex-shrink-0" /><span className='font-mono'>{student.emergency_contact_number || 'N/A'}</span></div>
-                    <div className="flex items-center text-gray-800"><MapPinned size={14} className="mr-2 text-gray-400 flex-shrink-0" /><span>{student.emergency_contact_address || 'N/A'}</span></div>
-                </div>
-                <div className="border-t pt-3 space-y-2 text-sm">
-                    <div className="flex items-center space-x-2"><span className="font-semibold text-gray-600">Status:</span><Badge className={`${getStatusColor(student.id_status)} font-medium`}>{student.id_status || 'Pending Print'}</Badge></div>
-                    <div className="flex items-center space-x-2"><Calendar size={14} className="mr-2 text-gray-400 flex-shrink-0" /><span>Date Printed:</span><span className="font-medium text-gray-800">{formatDate(student.id_printed_at)}</span></div>
-                    <div className="flex items-center space-x-2"><Calendar size={14} className="mr-2 text-gray-400 flex-shrink-0" /><span>Date Released:</span><span className="font-medium text-gray-800">{formatDate(student.id_released_at)}</span></div>
-                </div>
-                <div className="text-right -mb-2 -mr-2">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreVertical size={16} /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => onUpdateStatus(student.id, 'printed')} disabled={student.id_status === 'Printed' || student.id_status === 'Released'}><Check size={14} className="mr-2" /> Mark as Printed</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => onUpdateStatus(student.id, 'released')} disabled={student.id_status === 'Released'}><Check size={14} className="mr-2" /> Mark as Released</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-            </CardContent>
-        </Card>
-    );
-};
-
-// ✅ NEW: Reset Confirmation Modal
-const ResetConfirmationModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md"
-            >
-                <div className="flex flex-col items-center text-center space-y-4">
-                    <div className="bg-red-100 p-3 rounded-full">
-                        <AlertTriangle className="h-8 w-8 text-red-600" />
-                    </div>
-                    <h2 className="text-xl font-bold text-gray-900">Reset ID Counters?</h2>
-                    <p className="text-gray-600">
-                        This action will reset the <strong>ID Status</strong>, <strong>Date Printed</strong>, and <strong>Date Released</strong> for <span className="font-bold text-red-600">ALL</span> students. 
-                    </p>
-                    <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                        This is typically done at the start of a new school year to restart the printing count. This action cannot be undone.
-                    </p>
-                    <div className="flex gap-3 w-full pt-2">
-                        <Button variant="outline" className="flex-1" onClick={onClose} disabled={isLoading}>
-                            Cancel
-                        </Button>
-                        <Button variant="destructive" className="flex-1 bg-red-600 hover:bg-red-700" onClick={onConfirm} disabled={isLoading}>
-                            {isLoading ? 'Resetting...' : 'Yes, Reset All'}
-                        </Button>
-                    </div>
-                </div>
-            </motion.div>
-        </div>
-    );
-};
-
-const IDReleasing = () => {
-    const [students, setStudents] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('All');
-    const [previewImageUrl, setPreviewImageUrl] = useState(null);
-    const [selectedStudents, setSelectedStudents] = useState(new Set());
-
-    const [alertState, setAlertState] = useState({ isVisible: false, message: '', type: 'success' });
-    const [validationError, setValidationError] = useState({ isOpen: false, message: '' });
-    
-    // ✅ NEW STATE for Reset Modal
-    const [isResetModalOpen, setIsResetModalOpen] = useState(false);
-    const [isResetting, setIsResetting] = useState(false);
-
-    const handleCloseAlert = () => setAlertState({ ...alertState, isVisible: false });
-    const handleCloseModal = () => setValidationError({ isOpen: false, message: '' });
-
-    const fetchStudents = async () => {
-        setLoading(true);
-        try {
-            const res = await enrollmentAPI.getStudentsForIdReleasing();
-            if (!res.success) {
-                 setAlertState({ isVisible: true, message: "Failed to load student data.", type: 'error' });
-            }
-            setStudents(res.data || []);
-        } catch (error) {
-            setAlertState({ isVisible: true, message: "An error occurred while fetching students.", type: 'error' });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchStudents();
-    }, []);
-
-    const handleUpdateStatus = async (studentId, status) => {
-        try {
-            const res = await enrollmentAPI.updateIdStatus(studentId, status);
-            if (res.success) {
-                setAlertState({ isVisible: true, message: `Student ID marked as ${status}.`, type: 'success' });
-                fetchStudents();
-            } else {
-                setAlertState({ isVisible: true, message: res.message || "Failed to update status.", type: 'error' });
-            }
-        } catch (error) {
-            setAlertState({ isVisible: true, message: "An error occurred while updating the ID status.", type: 'error' });
-        }
-    };
-
-    const handleSelectStudent = (studentId) => {
-        setSelectedStudents(prevSelected => {
-            const newSelected = new Set(prevSelected);
-            if (newSelected.has(studentId)) {
-                newSelected.delete(studentId);
-            } else {
-                newSelected.add(studentId);
-            }
-            return newSelected;
-        });
-    };
-
-    const handleBulkMarkAsPrinted = async () => {
-        const studentIds = Array.from(selectedStudents);
-        if (studentIds.length === 0) {
-            setValidationError({ isOpen: true, message: 'Please select at least one student to mark as printed.' });
-            return;
-        }
-
-        try {
-            const res = await enrollmentAPI.bulkUpdateIdStatus(studentIds, 'printed');
-            if (res.success) {
-                setAlertState({ isVisible: true, message: `${studentIds.length} student IDs marked as printed.`, type: 'success' });
-                fetchStudents();
-                setSelectedStudents(new Set());
-            } else {
-                setAlertState({ isVisible: true, message: res.message || "Failed to bulk update status.", type: 'error' });
-            }
-        } catch (error) {
-            setAlertState({ isVisible: true, message: "An error occurred during the bulk update.", type: 'error' });
-        }
-    };
-
-    // ✅ NEW: Handle Reset Logic
-    const handleResetAllStatus = async () => {
-        setIsResetting(true);
-        try {
-            const res = await enrollmentAPI.resetIdStatus();
-            if (res.success) {
-                setAlertState({ isVisible: true, message: res.message, type: 'success' });
-                fetchStudents(); // Refresh data to see zero counts
-                setIsResetModalOpen(false);
-            } else {
-                setAlertState({ isVisible: true, message: res.message || "Failed to reset.", type: 'error' });
-            }
-        } catch (error) {
-            setAlertState({ isVisible: true, message: error.message || "An error occurred during the reset.", type: 'error' });
-        } finally {
-            setIsResetting(false);
-        }
-    };
-
-    const stats = useMemo(() => {
-        const total = students.length;
-        const printed = students.filter(s => s.id_status === 'Printed' || s.id_status === 'Released').length;
-        const released = students.filter(s => s.id_status === 'Released').length;
-        return { total, printed, released };
-    }, [students]);
-    
-    const filterOptions = useMemo(() => [
-        { label: 'Filter by All Statuses', value: 'All' },
-        { label: 'Pending Print', value: 'Pending Print' },
-        { label: 'Printed', value: 'Printed' },
-        { label: 'Released', value: 'Released' }
-    ], []);
-
-    const filteredStudents = useMemo(() => {
-        if (!Array.isArray(students)) return [];
-        return students
-            .filter(student => (statusFilter === 'All' ? true : (student.id_status || 'Pending Print') === statusFilter))
-            .filter(student =>
-                student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (student.student_id_number && student.student_id_number.includes(searchTerm)) || 
-                student.courseName.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-    }, [students, searchTerm, statusFilter]);
-
-    const handleSelectAll = () => {
-        const allFilteredIds = new Set(filteredStudents.map(s => s.id));
-        if (selectedStudents.size === allFilteredIds.size) {
-            setSelectedStudents(new Set());
-        } else {
-            setSelectedStudents(allFilteredIds);
-        }
-    };
-
-    return (
-        <div className="p-6 space-y-6 max-w-7xl mx-auto">
-            <SuccessAlert isVisible={alertState.isVisible} message={alertState.message} type={alertState.type} onClose={handleCloseAlert} />
-            <ValidationErrorModal isOpen={validationError.isOpen} message={validationError.message} onClose={handleCloseModal} />
-            
-            {/* ✅ NEW: Reset Confirmation Modal */}
-            <ResetConfirmationModal 
-                isOpen={isResetModalOpen} 
-                onClose={() => setIsResetModalOpen(false)} 
-                onConfirm={handleResetAllStatus} 
-                isLoading={isResetting} 
-            />
-
-            <AnimatePresence>{previewImageUrl && <ImagePreviewModal imageUrl={previewImageUrl} onClose={() => setPreviewImageUrl(null)} />}</AnimatePresence>
-            
-            {/* Header Section with Reset Button */}
-            <div className="gradient-soft rounded-2xl p-8 border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold heading-bold text-gray-900 flex items-center">
-                        <CreditCard className="w-8 h-8 text-[var(--dominant-red)] mr-3" />
-                        ID Releasing Management
-                    </h1>
-                    <p className="text-gray-600 mt-2">Track, manage, and update the status of student ID cards.</p>
-                </div>
-                
-                {/* ✅ UPDATED: Reset Button with "Courses" style */}
-                <Button 
-                    onClick={() => setIsResetModalOpen(true)} 
-                    className="gradient-primary text-white liquid-button"
-                >
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    Reset ID Count
-                </Button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="card-hover"><CardContent className="p-6 flex items-center justify-between"><div><p className="text-sm font-medium text-gray-600">Total Students</p><p className="text-2xl font-bold heading-bold text-gray-900">{stats.total}</p></div><div className="p-3 rounded-xl bg-red-50"><Users className="w-6 h-6 text-red-600" /></div></CardContent></Card>
-                <Card className="card-hover"><CardContent className="p-6 flex items-center justify-between"><div><p className="text-sm font-medium text-gray-600">IDs Printed</p><p className="text-2xl font-bold heading-bold text-gray-900">{stats.printed}</p></div><div className="p-3 rounded-xl bg-blue-50"><Printer className="w-6 h-6 text-blue-600" /></div></CardContent></Card>
-                <Card className="card-hover"><CardContent className="p-6 flex items-center justify-between"><div><p className="text-sm font-medium text-gray-600">IDs Released</p><p className="text-2xl font-bold heading-bold text-gray-900">{stats.released}</p></div><div className="p-3 rounded-xl bg-green-50"><CheckCircle className="w-6 h-6 text-green-600" /></div></CardContent></Card>
-            </div>
-            
-            <Card>
-            <CardContent className="p-4 flex flex-col md:flex-row items-center gap-4">
-                <div className="relative flex-grow w-full">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                    <Input
-                        placeholder="Search by student name or ID number..."
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        className="pl-10 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                    />
-                </div>
-                <div className="w-full md:w-auto">
-                    <MotionDropdown 
-                        value={statusFilter} 
-                        onChange={setStatusFilter} 
-                        options={filterOptions} 
-                        placeholder="Filter by Status"
-                    />
-                </div>
-            </CardContent>
-        </Card>
-
-
-            <AnimatePresence>
-                {selectedStudents.size > 0 && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        className="bg-gray-50 border rounded-xl p-3 flex items-center justify-between gap-4"
-                    >
-                        <div className="flex items-center gap-3">
-                            <Checkbox 
-                                id="select-all" 
-                                checked={filteredStudents.length > 0 && selectedStudents.size === filteredStudents.length}
-                                onCheckedChange={handleSelectAll}
-                                className="data-[state=checked]:bg-[var(--dominant-red)] data-[state=checked]:border-[var(--dominant-red)]"
-                            />
-                            <label htmlFor="select-all" className="font-medium text-gray-700">{selectedStudents.size} selected</label>
-                        </div>
-                        <Button onClick={handleBulkMarkAsPrinted} size="sm">
-                            <Check size={16} className="mr-2"/>
-                            Mark Selected as Printed
-                        </Button>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {loading ? (
-                <div className="col-span-full py-12 flex justify-center">
-                    <LoadingSpinner size="lg" />
-                </div>
-            ) : (
-                <AnimatePresence>
-                    <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {filteredStudents.length > 0 ? (
-                            filteredStudents.map(student => (
-                                <motion.div key={student.id} layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                                    <StudentIdCard 
-                                        student={student} 
-                                        onUpdateStatus={handleUpdateStatus} 
-                                        onImageClick={setPreviewImageUrl} 
-                                        isSelected={selectedStudents.has(student.id)}
-                                        onSelect={handleSelectStudent}
-                                    />
-                                </motion.div>
-                            ))
-                        ) : (
-                            <motion.div className="col-span-full text-center py-12 text-gray-500" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                                <p className="font-semibold">No students found.</p>
-                                <p>There are no students matching your search and filter criteria.</p>
-                            </motion.div>
-                        )}
-                    </motion.div>
-                </AnimatePresence>
-            )}
-        </div>
-    );
 };
 
 export default IDReleasing;

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { instructorAPI } from '@/services/api';
 import { downloadGradingSheetDocx } from '@/lib/gradingSheetDocx';
-import { periodsFor, computeFinalGrade } from '@/lib/gradingPeriods';
+import { periodsFor, computeFinalGrade, remarksFor, isClearanceHeld, CLEARANCE_REMARK } from '@/lib/gradingPeriods';
 
 // ---------------------------------------------------------------------------
 // Helpers (mirror DownloadGradingSheet logic exactly)
@@ -169,8 +169,9 @@ const generateGradingSheetPDF = ({ subject, students, instructorName, sectionNam
   const tableBody = students.map((s) => {
     const final = calculateFinal(s);
     const equiv = final ? getEquiv(final) : '';
-    let remarks = s.grades?.status || '';
-    if (final !== null) remarks = Math.round(final) >= 75 ? 'PASSED' : 'FAILED';
+    // The record's own remark, not one derived from the marks — a deliberate
+    // INC/NFE/DA and a clearance hold both have to survive to the sheet
+    const remarks = remarksFor(s.grades, s.year);
     const fmt = (v) => (v != null && v !== '' ? parseFloat(v).toFixed(2) : '');
 
     gradeValues.push({
@@ -216,7 +217,8 @@ const generateGradingSheetPDF = ({ subject, students, instructorName, sectionNam
       ...Object.fromEntries(periods.map((_, i) => [i + 1, { halign: 'center' }])),
       [periods.length + 1]: { halign: 'center', fontStyle: 'bold' },
       [periods.length + 2]: { halign: 'center', fontStyle: 'bold' },
-      [periods.length + 3]: { halign: 'center', fontSize: 6.5 },
+      // Wide enough to hold "INC (NOT CLEARED)" on one line
+      [periods.length + 3]: { halign: 'center', fontSize: 6.5, cellWidth: 26 },
     },
     didParseCell: (data) => {
       if (data.section !== 'body') return;
@@ -230,7 +232,10 @@ const generateGradingSheetPDF = ({ subject, students, instructorName, sectionNam
       } else if (colIndex === periods.length + 1 || colIndex === periods.length + 2) {
         data.cell.styles.textColor = getGradeColor(gv.finalGrade);
       } else if (colIndex === periods.length + 3) {
-        data.cell.styles.textColor = gv.remarks === 'FAILED' ? [220, 38, 38] : [0, 0, 0];
+        // Amber for a clearance hold: the result is not a failure, it is
+        // simply not releasable yet
+        if (gv.remarks === CLEARANCE_REMARK) data.cell.styles.textColor = [180, 83, 9];
+        else data.cell.styles.textColor = gv.remarks === 'FAILED' ? [220, 38, 38] : [0, 0, 0];
       }
     },
   });
@@ -298,7 +303,25 @@ const generateGradingSheetPDF = ({ subject, students, instructorName, sectionNam
     columnStyles: dynamicColStyles,
   });
 
-  const sigY = doc.lastAutoTable.finalY + 10;
+  // Only printed when the sheet actually carries one, so an ordinary sheet is
+  // not cluttered with a rule that does not apply to it.
+  let legendBottom = doc.lastAutoTable.finalY;
+
+  if (students.some((s) => isClearanceHeld(s.grades))) {
+    doc.setFontSize(6);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(180, 83, 9);
+    doc.text(
+      `${CLEARANCE_REMARK} — grade earned but held at INC pending completion of the student's clearance for this term.`,
+      margin,
+      legendBottom + 4
+    );
+    doc.setTextColor(0);
+    doc.setFont('helvetica', 'normal');
+    legendBottom += 4;
+  }
+
+  const sigY = legendBottom + 10;
   const drawSigBlock = (label, name, title, xPos) => {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
@@ -566,6 +589,10 @@ const ExportGradingSheet = ({ onClose }) => {
           semifinal_grade: s.grades?.semifinal_grade ?? null,
           final_grade:     s.grades?.final_grade     ?? null,
           status:          s.grades?.status          ?? '',
+          // Carried through, or the sheet cannot tell a held INC from a
+          // result the student actually earned
+          clearance_hold:  s.grades?.clearance_hold  ?? false,
+          held_status:     s.grades?.held_status     ?? null,
         },
       }));
 

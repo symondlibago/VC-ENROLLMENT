@@ -256,13 +256,7 @@ class InstructorController extends Controller
                     'courseName' => $student->course->course_name ?? 'N/A',
                     'section' => $sectionName,
                     'section_id' => $schedule->section_id,
-                    'grades' => [
-                        'prelim_grade' => $grade->prelim_grade ?? null,
-                        'midterm_grade' => $grade->midterm_grade ?? null,
-                        'semifinal_grade' => $grade->semifinal_grade ?? null,
-                        'final_grade' => $grade->final_grade ?? null,
-                        'status' => $grade->status ?? 'In Progress',
-                    ]
+                    'grades' => Grade::payloadFor($grade),
                 ];
             }
         }
@@ -313,13 +307,7 @@ class InstructorController extends Controller
             'section_id' => $grade->section_id,
             'school_year' => $grade->school_year,
             'semester' => $grade->semester,
-            'grades' => [
-                'prelim_grade' => $grade->prelim_grade,
-                'midterm_grade' => $grade->midterm_grade,
-                'semifinal_grade' => $grade->semifinal_grade,
-                'final_grade' => $grade->final_grade,
-                'status' => $grade->status ?? 'In Progress',
-            ],
+            'grades' => Grade::payloadFor($grade),
         ];
     }
 
@@ -375,17 +363,25 @@ public function bulkUpdateGrades(Request $request)
         $gradesData = $request->input('grades');
         $gradingPeriods = \App\Models\GradingPeriod::all()->keyBy('name');
 
-        // Loaded once so each grade can be stamped with the student's current term
-        $students = PreEnrolledStudent::whereIn('id', collect($gradesData)->pluck('student_id'))
-            ->get(['id', 'school_year', 'semester', 'year'])
+        // Loaded once so each grade can be stamped with the student's current
+        // term. The programme comes along because the clearance gate needs it
+        // to tell Senior High (one clearance a year) from college.
+        $students = PreEnrolledStudent::with('course.program:id,program_code')
+            ->whereIn('id', collect($gradesData)->pluck('student_id'))
+            ->get(['id', 'first_name', 'middle_name', 'last_name', 'course_id', 'school_year', 'semester', 'year'])
             ->keyBy('id');
+
+        $clearanceService = app(\App\Services\ClearanceService::class);
 
         try {
             // Keep track of students whose grades were updated
-            $affectedStudentIds = []; 
+            $affectedStudentIds = [];
+            // Students whose results were held back for want of a clearance,
+            // so the instructor is told rather than left guessing at the INC
+            $clearanceHeld = [];
 
             // Use a single database transaction for the entire operation
-            DB::transaction(function () use ($gradesData, $instructor, $gradingPeriods, $students, &$affectedStudentIds) {
+            DB::transaction(function () use ($gradesData, $instructor, $gradingPeriods, $students, $clearanceService, &$affectedStudentIds, &$clearanceHeld) {
                 
                 // 1. UPDATE ALL THE GRADES
                 foreach ($gradesData as $gradeInput) {
@@ -478,11 +474,21 @@ public function bulkUpdateGrades(Request $request)
                     // Status: an explicit remark from the instructor wins; an existing
                     // remark (INC and friends) is preserved rather than being
                     // recomputed away; otherwise it follows the final grade.
-                    $specialStatuses = ['INC', 'NFE', 'NFR', 'DA', 'Credited'];
+                    $specialStatuses = \App\Models\Grade::MANUAL_REMARKS;
 
                     if (!empty($gradeInput['status'])) {
                         $grade->status = $gradeInput['status'];
-                    } elseif (!in_array($grade->status, $specialStatuses, true)) {
+                        // An instructor choosing a remark by hand takes the
+                        // grade out of the clearance hold's control
+                        $grade->clearance_hold = false;
+                        $grade->held_status = null;
+                    } elseif (!in_array($grade->status, $specialStatuses, true) || $grade->clearance_hold) {
+                        // A grade held for clearance sits at INC, which would
+                        // otherwise be mistaken for a remark and never
+                        // recomputed — so it re-derives its earned result and
+                        // is held again below if the student is still not
+                        // cleared. That keeps held_status true to the marks.
+                        //
                         // College is judged on the final period as it always
                         // has been; Senior High has no fourth period, so it is
                         // judged on the average of its three terms.
@@ -493,6 +499,23 @@ public function bulkUpdateGrades(Request $request)
                         } else {
                             $grade->status = 'In Progress';
                         }
+
+                        $grade->clearance_hold = false;
+                        $grade->held_status = null;
+                    }
+
+                    // The clearance gate. A finished result is held back at
+                    // INC until the student is cleared for that term; terms
+                    // that carry no clearance never hold, so summer and any
+                    // student outside the rule are untouched.
+                    $student = $students->get($gradeInput['student_id']);
+
+                    if ($student
+                        && in_array($grade->status, ['Passed', 'Failed'], true)
+                        && !$clearanceService->isClearedFor($student, $grade->school_year, $grade->semester)
+                    ) {
+                        $clearanceService->holdGrade($grade, $grade->status);
+                        $clearanceHeld[$student->id] = $student->getFullNameAttribute();
                     }
 
                     $grade->save();
@@ -523,6 +546,35 @@ public function bulkUpdateGrades(Request $request)
                     }
                 }
             });
+
+            // A held result is not a failure to save — the grade is recorded,
+            // it simply reads INC until the clearance is signed. The caller
+            // gets the names so it can say exactly who, and why.
+            if ($clearanceHeld) {
+                $names = array_values($clearanceHeld);
+                $count = count($names);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Grades submitted successfully.',
+                    'clearance_hold' => [
+                        'count' => $count,
+                        'students' => $names,
+                        'title' => $count === 1
+                            ? 'One student is not yet cleared'
+                            : "{$count} students are not yet cleared",
+                        'message' => $count === 1
+                            ? "{$names[0]} has not completed their clearance for this term, so their "
+                                . 'final grade has been recorded as INC. The grade itself is saved and '
+                                . 'will be restored automatically the moment the clearance is signed off '
+                                . '— no need to enter it again.'
+                            : "{$count} students have not completed their clearance for this term, so "
+                                . 'their final grades have been recorded as INC. The grades themselves '
+                                . 'are saved and will be restored automatically once each clearance is '
+                                . 'signed off — there is no need to enter them again.',
+                    ],
+                ]);
+            }
 
             return response()->json(['success' => true, 'message' => 'Grades submitted successfully.']);
 
@@ -629,13 +681,7 @@ public function bulkUpdateGrades(Request $request)
                 'section' => $sectionName,
                 'school_year' => $grade->school_year ?? $student->school_year,
                 'semester' => $grade->semester ?? $student->semester,
-                'grades' => [
-                    'prelim_grade' => $grade->prelim_grade ?? null,
-                    'midterm_grade' => $grade->midterm_grade ?? null,
-                    'semifinal_grade' => $grade->semifinal_grade ?? null,
-                    'final_grade' => $grade->final_grade ?? null,
-                    'status' => $grade->status ?? 'In Progress',
-                ],
+                'grades' => Grade::payloadFor($grade),
             ];
         };
 

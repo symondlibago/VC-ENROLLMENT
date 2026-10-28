@@ -62,7 +62,15 @@ const CustomCalendar = ({
     }
   }, [value]);
 
-  /** Keeps the panel pinned to its trigger, flipping it when space runs out. */
+  /**
+   * Keeps the panel pinned to its trigger, flipping it when space runs out.
+   *
+   * The panel is measured once it exists rather than assumed: a month that
+   * spans six weeks is a good deal taller than one that spans five, and
+   * guessing the height is what used to drop the footer off the screen.
+   * Whichever way it ends up facing, it is finally clamped into the viewport
+   * so the buttons along the bottom are always reachable.
+   */
   useLayoutEffect(() => {
     if (!isOpen) return;
 
@@ -70,15 +78,27 @@ const CustomCalendar = ({
       const trigger = triggerRef.current?.getBoundingClientRect();
       if (!trigger) return;
 
-      const roomBelow = window.innerHeight - trigger.bottom;
-      const openUp = position === 'above'
-        ? trigger.top > PANEL_HEIGHT + 16
-        : roomBelow < PANEL_HEIGHT + 16 && trigger.top > PANEL_HEIGHT + 16;
+      const height = panelRef.current?.offsetHeight || PANEL_HEIGHT;
+      const width = panelRef.current?.offsetWidth || PANEL_WIDTH;
+      const gap = 8;
+      const margin = 8;
 
-      const top = openUp ? trigger.top - PANEL_HEIGHT - 8 : trigger.bottom + 8;
+      const roomBelow = window.innerHeight - trigger.bottom - gap;
+      const roomAbove = trigger.top - gap;
+
+      // Prefer the requested side, but take the roomier one when neither fits
+      const openUp = position === 'above'
+        ? roomAbove >= height || roomAbove >= roomBelow
+        : roomBelow < height && roomAbove > roomBelow;
+
+      const top = Math.min(
+        Math.max(margin, openUp ? trigger.top - height - gap : trigger.bottom + gap),
+        Math.max(margin, window.innerHeight - height - margin)
+      );
+
       const left = Math.min(
-        Math.max(8, trigger.left),
-        Math.max(8, window.innerWidth - PANEL_WIDTH - 8)
+        Math.max(margin, trigger.left),
+        Math.max(margin, window.innerWidth - width - margin)
       );
 
       // Scrolling inside the panel fires this too, so only move when it matters
@@ -86,13 +106,18 @@ const CustomCalendar = ({
     };
 
     place();
+    // The first pass runs before the panel has been laid out, so its real
+    // height is only available on the next frame.
+    const frame = requestAnimationFrame(place);
+
     window.addEventListener('scroll', place, true);
     window.addEventListener('resize', place);
     return () => {
+      cancelAnimationFrame(frame);
       window.removeEventListener('scroll', place, true);
       window.removeEventListener('resize', place);
     };
-  }, [isOpen, position]);
+  }, [isOpen, position, currentDate]);
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -227,8 +252,15 @@ const CustomCalendar = ({
       exit={{ opacity: 0, y: position === "above" ? 10 : -10 }}
       onClick={(e) => e.stopPropagation()}
       data-lenis-prevent
-      style={{ top: coords.top, left: coords.left, width: PANEL_WIDTH }}
-      className="fixed z-999 bg-white rounded-2xl shadow-2xl border border-gray-200 p-4"
+      style={{
+        top: coords.top,
+        left: coords.left,
+        width: PANEL_WIDTH,
+        // A last resort for windows too short to hold the panel at all —
+        // scrolling beats having the footer out of reach
+        maxHeight: 'calc(100vh - 16px)',
+      }}
+      className="fixed z-999 bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 overflow-y-auto"
     >
             {/* Header with Month & Year pickers */}
             <div className="flex items-center justify-between mb-4 relative">

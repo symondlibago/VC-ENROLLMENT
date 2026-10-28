@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendEnrollmentApprovedEmail;
+use App\Jobs\SendEnrollmentSubmittedEmail;
 use App\Models\EnrollmentCode;
 use App\Models\PreEnrolledStudent;
 use App\Models\EnrollmentApproval;
@@ -13,6 +15,8 @@ use App\Models\Instructor;
 use App\Models\Schedule;
 use App\Models\User;
 use App\Models\EnrollmentHistory;
+use App\Support\Deferred;
+use App\Support\EnrollmentAcknowledgement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -25,6 +29,19 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 class EnrollmentController extends Controller
 {
+    /**
+     * The acknowledgement the enrollment form asks a student to accept.
+     *
+     * Open, because the form is filled in before anyone has an account.
+     */
+    public function acknowledgement(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => EnrollmentAcknowledgement::payload(),
+        ]);
+    }
+
     public function submitEnrollment(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -76,6 +93,13 @@ class EnrollmentController extends Controller
             'scholarship' => 'nullable|string|max:255',
             'selected_subjects' => 'required|array',
             'selected_subjects.*' => 'exists:subjects,id',
+            // The student has to have accepted the acknowledgement. Checked
+            // here as well as in the form, because the form is only the part
+            // we can see.
+            'acknowledgement_accepted' => 'accepted',
+        ], [
+            'acknowledgement_accepted.accepted' =>
+                'The enrollment acknowledgement has to be accepted before the form can be submitted.',
         ]);
 
         if ($validator->fails()) {
@@ -88,9 +112,14 @@ class EnrollmentController extends Controller
 
         try {
             DB::beginTransaction();
-            
+
             $data = $request->all();
             $data = $request->except('selected_subjects');
+
+            // Stamped from the server, never taken from the request: when and
+            // which wording they agreed to is a record, not an input.
+            $data['acknowledgement_accepted_at'] = now();
+            $data['acknowledgement_version'] = EnrollmentAcknowledgement::VERSION;
             
             if ($request->hasFile('id_photo') && $request->file('id_photo')->isValid()) {
                 $idPhotoPath = $request->file('id_photo')->store('identification', 's3'); 
@@ -119,6 +148,10 @@ class EnrollmentController extends Controller
             $preEnrolledStudent->enrollmentCode()->save($enrollmentCode);
 
             DB::commit();
+
+            // The receipt, sent after the response so the student is not left
+            // watching a spinner through an SMTP handshake
+            Deferred::dispatch(new SendEnrollmentSubmittedEmail($preEnrolledStudent->id));
 
             return response()->json([
                 'success' => true,
@@ -523,6 +556,10 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
             $registrarStatus = optional($student->getApprovalStatusFor('Registrar'))->status;
             $cashierStatus = optional($student->getApprovalStatusFor('Cashier'))->status;
 
+            // Read before the write, so the notice below goes out on the
+            // transition rather than on every re-approval
+            $wasEnrolled = $student->enrollment_status === 'enrolled';
+
             if ($programHeadStatus === 'rejected' || $registrarStatus === 'rejected' || $cashierStatus === 'rejected') {
                 $student->enrollment_status = 'rejected';
             } elseif ($programHeadStatus === 'approved' && $registrarStatus === 'approved' && $cashierStatus === 'approved') {
@@ -531,6 +568,14 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
                 $student->enrollment_status = 'pending';
             }
             $student->save();
+
+            // The last approval has landed — the cashier signs last, so this
+            // is the moment the enrollment becomes official. The job claims
+            // the row before sending, so two approvals arriving together
+            // cannot send the confirmation twice.
+            if (!$wasEnrolled && $student->enrollment_status === 'enrolled') {
+                Deferred::dispatch(new SendEnrollmentApprovedEmail($student->id));
+            }
 
             return response()->json([
                 'success' => true,
@@ -1123,12 +1168,17 @@ public function getStudentsForIdReleasing()
             return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
         }
 
+        $clearanceService = app(\App\Services\ClearanceService::class);
+
         // 3. Database Transaction
         try {
-            DB::transaction(function () use ($request) {
+            DB::transaction(function () use ($request, $clearanceService) {
                 foreach ($request->grades as $gradeData) {
-                    $grade = Grade::find($gradeData['id']);
+                    // The programme comes along because the clearance gate
+                    // needs it to tell Senior High from college
+                    $grade = Grade::with('student.course.program')->find($gradeData['id']);
                     if ($grade) {
+                        $student = $grade->student;
                         if (array_key_exists('prelim_grade', $gradeData)) {
                             $grade->prelim_grade = $gradeData['prelim_grade'];
                         }
@@ -1148,15 +1198,34 @@ public function getStudentsForIdReleasing()
                         // subject with every term in can never stay "In
                         // Progress". Senior High is judged on its three-term
                         // average, college on the final period.
-                        $remarks = ['INC', 'NFE', 'NFR', 'DA', 'Credited'];
+                        //
+                        // A grade held for clearance reads INC too, but nobody
+                        // chose that, so the page sending INC back must not
+                        // freeze it — it keeps following the marks and is held
+                        // again below if the student is still not cleared.
+                        $sentRemark = in_array($gradeData['status'], Grade::MANUAL_REMARKS, true)
+                            && !$grade->clearance_hold;
 
-                        if (in_array($gradeData['status'], $remarks, true)) {
+                        if ($sentRemark) {
                             $grade->status = $gradeData['status'];
+                            $grade->clearance_hold = false;
+                            $grade->held_status = null;
                         } else {
                             $mark = $grade->passingMark();
                             $grade->status = $mark === null
                                 ? 'In Progress'
                                 : ($mark >= 75 ? 'Passed' : 'Failed');
+                            $grade->clearance_hold = false;
+                            $grade->held_status = null;
+                        }
+
+                        // The same clearance gate the instructor's path uses,
+                        // so a finished result is held whoever records it
+                        if ($student
+                            && in_array($grade->status, ['Passed', 'Failed'], true)
+                            && !$clearanceService->isClearedFor($student, $grade->school_year, $grade->semester)
+                        ) {
+                            $clearanceService->holdGrade($grade, $grade->status);
                         }
 
                         $grade->save();

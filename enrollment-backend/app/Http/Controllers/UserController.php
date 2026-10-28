@@ -10,8 +10,15 @@ use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
-    /** Staff roles that can be created and managed from this page. */
-    public const ASSIGNABLE_ROLES = ['Program Head', 'Cashier', 'Registrar', 'Librarian', 'Laboratory'];
+    /**
+     * Staff roles that can be created and managed from this page.
+     *
+     * 'Staff' is the account with no desk of its own — the school nurse, the
+     * security personnel, the student council officers. It grants nothing by
+     * itself; whatever such a person can reach comes from the clearance lines
+     * they are assigned, which is why those are not roles in this list.
+     */
+    public const ASSIGNABLE_ROLES = ['Program Head', 'Cashier', 'Registrar', 'Librarian', 'Laboratory', 'Staff'];
 
     /**
      * Display a listing of admin staff users.

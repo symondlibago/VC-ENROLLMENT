@@ -11,6 +11,7 @@ import SuccessAlert from '../modals/SuccessAlert';
 import ValidationErrorModal from '../modals/ValidationErrorModal'; 
 import DownloadGradingSheet from '@/components/layout/DownloadGradingSheet';
 import ImportGradesModal from '../modals/ImportGradesModal';
+import ClearanceHoldModal from '@/components/clearance/ClearanceHoldModal';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { usesTransmutation } from '@/lib/transmutation';
-import { periodsFor, computeFinalGrade } from '@/lib/gradingPeriods';
+import { periodsFor, computeFinalGrade, MANUAL_REMARKS, isClearanceHeld } from '@/lib/gradingPeriods';
 
 const MotionDropdown = ({ value, onChange, options, placeholder, searchable = false }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -134,6 +135,8 @@ const StudentGrades = () => {
   const [alertState, setAlertState] = useState({ isVisible: false, message: '', type: 'success' });
   const [validationError, setValidationError] = useState({ isOpen: false, message: '' });
   const [isImportOpen, setIsImportOpen] = useState(false);
+  // Set when a submission had results held back for want of a clearance
+  const [clearanceHold, setClearanceHold] = useState(null);
   // Past terms this instructor has grades for. Picking one brings back students
   // who have since re-enrolled into another section.
   const [availableTerms, setAvailableTerms] = useState([]);
@@ -454,7 +457,13 @@ const StudentGrades = () => {
         final_grade: student.grades?.final_grade,
         // Only send a remark when one was actually set, so the backend keeps
         // deriving Passed/Failed from the grades otherwise.
-        status: ['INC', 'NFE', 'NFR', 'DA'].includes(student.grades?.status)
+        //
+        // A grade held for clearance also reads INC, but nobody chose it.
+        // Sending that back would land in the branch that treats a remark as
+        // deliberate: the hold would be dropped, the earned result lost, and
+        // the grade would sit at INC for good instead of being restored when
+        // the clearance is signed.
+        status: !isClearanceHeld(student.grades) && MANUAL_REMARKS.includes(student.grades?.status)
           ? student.grades.status
           : undefined,
     }));
@@ -463,6 +472,11 @@ const StudentGrades = () => {
         const response = await instructorAPI.bulkUpdateGrades(gradesToSubmit);
         if (response.success) {
             setAlertState({ isVisible: true, message: response.message, type: 'success' });
+            // Some results were held back for want of a clearance. The grades
+            // saved; the instructor just needs to know why they read INC.
+            if (response.clearance_hold) {
+                setClearanceHold(response.clearance_hold);
+            }
         } else {
             setAlertState({ isVisible: true, message: response.message || 'Failed to submit grades.', type: 'error' });
         }
@@ -489,7 +503,11 @@ const StudentGrades = () => {
   
   return (
     <motion.div className="p-6 space-y-6 max-w-7xl mx-auto" variants={containerVariants} initial="hidden" animate="visible">
-       <SuccessAlert 
+       {clearanceHold && (
+        <ClearanceHoldModal hold={clearanceHold} onClose={() => setClearanceHold(null)} />
+       )}
+
+       <SuccessAlert
         isVisible={alertState.isVisible}
         message={alertState.message}
         type={alertState.type}
@@ -654,10 +672,22 @@ const StudentGrades = () => {
                   // A remark the instructor set (INC and friends) wins over the
                   // status derived from the grades.
                   const savedStatus = student.grades?.status;
-                  const isMarked = ['INC', 'NFE', 'NFR', 'DA', 'Credited'].includes(savedStatus);
+                  const heldForClearance = isClearanceHeld(student.grades);
+                  const isMarked = MANUAL_REMARKS.includes(savedStatus);
 
                   let statusBadge;
-                  if (isMarked) {
+                  if (heldForClearance) {
+                      // Reads INC like any other, so it says why — otherwise
+                      // this looks like a requirement the student still owes
+                      statusBadge = (
+                        <Badge
+                          className="bg-amber-100 text-amber-800 border border-amber-200 whitespace-nowrap"
+                          title={`Earned ${student.grades?.held_status || 'a result'}, held at INC until the clearance for this term is signed off. It restores itself automatically.`}
+                        >
+                          INC · Not cleared
+                        </Badge>
+                      );
+                  } else if (isMarked) {
                       statusBadge = <Badge className="bg-yellow-100 text-yellow-800">{savedStatus}</Badge>;
                   } else if (computedFinal !== null) {
                       statusBadge = computedFinal >= 75

@@ -31,6 +31,18 @@ const formatCurrency = (amount) => {
     return parseFloat(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
+/**
+ * A money field as a number.
+ *
+ * The API sends decimals as strings, so adding them with `+` concatenates
+ * instead of summing — "0.00" + 9130 is "0.009130", which formats as ₱0.01.
+ * Every figure that gets added goes through here first.
+ */
+const money = (value) => {
+    const amount = parseFloat(value);
+    return Number.isFinite(amount) ? amount : 0;
+};
+
 const StudentPayments = () => {
     const [loading, setLoading] = useState(true);
     const [studentInfo, setStudentInfo] = useState(null);
@@ -169,7 +181,7 @@ const StudentPayments = () => {
                             </p>
                             <div className="mt-4 text-sm text-gray-600">
                                 <p><strong>Total Due:</strong> <span className="font-mono">₱{formatCurrency(paymentData.total_amount)}</span></p>
-                                <p><strong>Total Paid:</strong> <span className="font-mono">₱{formatCurrency(paymentData.payment_amount + historicalPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0))}</span></p>
+                                <p><strong>Total Paid:</strong> <span className="font-mono">₱{formatCurrency(money(paymentData.payment_amount) + historicalPayments.reduce((sum, p) => sum + money(p.amount), 0))}</span></p>
                             </div>
                         </CardContent>
                     </Card>

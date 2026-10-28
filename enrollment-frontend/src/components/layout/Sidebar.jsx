@@ -5,7 +5,7 @@ import {
   Home, Users, BookOpen, Calendar, Settings, ChevronLeft, ChevronRight,
   GraduationCap, FileText, BarChart3, User, CreditCard, BookUser,
   BookMarked, ClipboardList, CheckCircle, Receipt, Inbox, LogOut, FileWarning,
-  FileSignature, Shirt,
+  FileSignature, Shirt, ShieldCheck,
 } from 'lucide-react';
 import { lmsNotificationsAPI } from '../LMS/api/lmsApi';
 import { Button } from '@/components/ui/button';
@@ -47,6 +47,48 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
     return () => clearInterval(interval);
   }, [user]);
 
+  /**
+   * Whether this account signs any clearance line.
+   *
+   * Asked of the server rather than inferred from `role`: a signatory may be
+   * an instructor, admin staff or neither, so the sidebar cannot work it out
+   * on its own.
+   */
+  // `checked` keeps the landing redirect from firing before the answer is
+  // in — without it a clearance-only account would be sent to Settings in
+  // the moment before its own page appears in the menu.
+  const [clearanceAccess, setClearanceAccess] = useState({ can_access: false, pending: 0, checked: false });
+
+  useEffect(() => {
+    if (!localStorage.getItem('auth_token') && !localStorage.getItem('lms_auth_token')) return undefined;
+
+    if (!user || user.role === 'Student') {
+      setClearanceAccess({ can_access: false, pending: 0, checked: true });
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const check = () => {
+      enrollmentAPI.clearance
+        .access()
+        .then((data) => {
+          if (!cancelled) setClearanceAccess({ ...data, checked: true });
+        })
+        .catch(() => {
+          if (!cancelled) setClearanceAccess({ can_access: false, pending: 0, checked: true });
+        });
+    };
+
+    check();
+    const timer = setInterval(check, 60000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [user]);
+
   // Admin and Staff Menu - REMOVED STATIC BADGES HERE
   const adminMenuItems = [
     { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null, path: '/dashboard' },
@@ -80,7 +122,11 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
     { id: 'my-grades', icon: BarChart3, label: 'My Grades', badge: null, path: '/my-grades' },
     { id: 'my-payments', icon: Receipt, label: 'My Payments', path: '/my-payments' },
     { id: 'evaluation-records', icon: ClipboardList, label: 'Evaluation Records', path: '/evaluation-records' },
-    { id: 'enrollment-eligibility', icon: CheckCircle, label: 'Enrollment Eligibility', path: '/enrollment-eligibility' },
+    // Enrollment Eligibility is hidden: students are enrolled at the desk
+    // rather than enrolling themselves, so a page telling them they are
+    // "ineligible" only worries them about something they do not do.
+    // { id: 'enrollment-eligibility', icon: CheckCircle, label: 'Enrollment Eligibility', path: '/enrollment-eligibility' },
+    { id: 'my-clearance', icon: ShieldCheck, label: 'My Clearance', path: '/my-clearance' },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
   ];
 
@@ -163,8 +209,40 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
         items = adminMenuItems.filter(item => allowedItems.includes(item.id));
         break;
       }
+      // An account with no desk of its own — the nurse, security, council
+      // officers. Everything they can reach comes from the clearance lines
+      // they hold, which are appended below.
+      case 'Staff': {
+        items = adminMenuItems.filter(item => item.id === 'settings');
+        break;
+      }
       default:
-        items = adminMenuItems;
+        // A role nobody taught this menu about gets the least, not the most.
+        // Falling through to the full admin menu would hand every new role
+        // the run of the system.
+        items = adminMenuItems.filter(item => item.id === 'settings');
+    }
+
+    // The clearance board is not a role's menu but an assignment, so it is
+    // appended to whichever menu the role produced rather than listed in it
+    if (clearanceAccess.can_access && !items.some(item => item.id === 'clearance')) {
+      const clearanceItem = {
+        id: 'clearance',
+        icon: ShieldCheck,
+        label: 'Clearance',
+        // Capped: past a hundred the exact figure tells nobody anything, and
+        // a five-digit badge breaks the row
+        badge: clearanceAccess.pending > 0
+          ? (clearanceAccess.pending > 99 ? '99+' : String(clearanceAccess.pending))
+          : null,
+        path: '/clearance',
+      };
+
+      // Sits above Settings where there is one, otherwise at the end
+      const settingsAt = items.findIndex(item => item.id === 'settings');
+      items = settingsAt === -1
+        ? [...items, clearanceItem]
+        : [...items.slice(0, settingsAt), clearanceItem, ...items.slice(settingsAt)];
     }
 
     // Inject dynamic badge for enrollment
@@ -182,10 +260,18 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
     const currentPath = location.pathname;
 
     if (!currentPath.startsWith('/lms')) {
-      if (user?.role === 'instructor' && (currentPath === '/' || currentPath === '/dashboard')) {
+      const atLanding = currentPath === '/' || currentPath === '/dashboard';
+
+      if (user?.role === 'instructor' && atLanding) {
           navigate('/class-roster', { replace: true });
-      } else if (user?.role === 'Student' && (currentPath === '/' || currentPath === '/dashboard')) {
+      } else if (user?.role === 'Student' && atLanding) {
           navigate('/subject-enrolled', { replace: true });
+      } else if (atLanding && clearanceAccess.checked && menuItems.length
+                 && !menuItems.some(item => item.id === 'dashboard')) {
+          // Someone whose menu has no dashboard — a clearance-only account —
+          // would otherwise land on a page they cannot open and have to type
+          // the address themselves. Send them to the first thing they can use.
+          navigate(menuItems[0].path, { replace: true });
       }
     }
 

@@ -58,7 +58,12 @@ class IncRecordController extends Controller
             'section',
             'instructor.user:id,name',
             'grade',
-        ])->orderByDesc('created_at');
+        ])
+            // A grade held back for want of a clearance also reads INC, but it
+            // is not an incomplete mark: there is nothing to pay and nothing
+            // to complete. Those belong on the clearance tab, not here.
+            ->whereDoesntHave('grade', fn ($q) => $q->where('clearance_hold', true))
+            ->orderByDesc('created_at');
 
         if ($user->role === 'instructor') {
             $instructor = Instructor::where('user_id', $user->id)->first();
@@ -303,7 +308,11 @@ class IncRecordController extends Controller
     private function settleGrade(IncRecord $record): ?string
     {
         $grade = $record->grade;
-        if (!$grade || $grade->status !== 'INC') {
+
+        // needsCompletionForm(), not status === 'INC': a grade held for
+        // clearance also reads INC and must not be settled here — it goes
+        // back to its own result when the clearance is signed.
+        if (!$grade || !$grade->needsCompletionForm()) {
             return null;
         }
 

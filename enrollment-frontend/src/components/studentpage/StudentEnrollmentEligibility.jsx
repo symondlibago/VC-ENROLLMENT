@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSchoolYears } from '@/lib/schoolYears';
 import { motion, AnimatePresence } from 'framer-motion';
 // ✅ ADDED subjectAPI
 import { studentAPI, enrollmentAPI, managementAPI, subjectAPI } from '@/services/api'; 
@@ -185,11 +186,12 @@ const StudentEnrollmentEligibility = () => {
         message: 'Loading enrollment schedule...' 
     });
 
-    // --- STATIC OPTIONS ---
-    const schoolYearOptions = [
-        { label: '2025-2026', value: '2025-2026' },
-        { label: '2026-2027', value: '2026-2027' }
-    ];
+    // The registrar's school year list, falling back to the built-in years
+    const { schoolYears } = useSchoolYears();
+    const schoolYearOptions = useMemo(
+        () => schoolYears.map((year) => ({ label: year, value: year })),
+        [schoolYears]
+    );
     const semesterOptions = [
         { label: '1st Semester', value: '1st Semester' },
         { label: '2nd Semester', value: '2nd Semester' }

@@ -67,10 +67,17 @@ class PreEnrolledStudent extends Model
         'id_printed_at',
         'id_released_at', 
         'academic_status',
+        // The acknowledgement they accepted when they submitted the form, and
+        // which wording it was. Set by the controller, never by the request.
+        'acknowledgement_accepted_at',
+        'acknowledgement_version',
+        'enrolled_notified_at',
     ];
 
     protected $casts = [
         'birth_date' => 'date',
+        'acknowledgement_accepted_at' => 'datetime',
+        'enrolled_notified_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -171,6 +178,24 @@ class PreEnrolledStudent extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** Every physical ID card this student has been given, across all years. */
+    public function idCards(): HasMany
+    {
+        return $this->hasMany(IdCardIssuance::class, 'pre_enrolled_student_id');
+    }
+
+    /** One clearance per term enrolled: per semester, or per year for SHS. */
+    public function clearances(): HasMany
+    {
+        return $this->hasMany(Clearance::class, 'pre_enrolled_student_id');
+    }
+
+    /** True for Senior High, which clears once for the whole school year. */
+    public function isSeniorHigh(): bool
+    {
+        return ($this->course?->program?->program_code) === 'SHS';
     }
 
     public function enrollmentHistories(): HasMany

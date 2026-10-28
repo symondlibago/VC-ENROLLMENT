@@ -25,6 +25,11 @@ class Grade extends Model
         'semifinal_grade',
         'final_grade',
         'status',
+        // Held at INC because the student has not been cleared. `held_status`
+        // is the result the grade actually earned, kept so lifting the hold
+        // restores it rather than recomputing from marks that may have moved.
+        'clearance_hold',
+        'held_status',
     ];
 
     protected $casts = [
@@ -32,7 +37,77 @@ class Grade extends Model
         'midterm_grade' => 'float',
         'semifinal_grade' => 'float',
         'final_grade' => 'float',
+        'clearance_hold' => 'boolean',
     ];
+
+    /**
+     * Statuses a person sets deliberately, which are kept rather than
+     * recomputed from the marks.
+     *
+     * One list, because four copies of it drifted apart the moment a fifth
+     * meaning was added.
+     */
+    public const MANUAL_REMARKS = ['INC', 'NFE', 'NFR', 'DA', 'Credited'];
+
+    /**
+     * Whether the status was chosen by a person rather than derived.
+     *
+     * A grade held for clearance also reads INC, but nobody chose it, so it
+     * must keep following the marks — otherwise editing it later would leave
+     * `held_status` describing a result the grade no longer has.
+     */
+    public function hasManualRemark(): bool
+    {
+        return in_array($this->status, self::MANUAL_REMARKS, true) && !$this->clearance_hold;
+    }
+
+    /**
+     * Whether this INC is the kind that needs a completion form — paid for,
+     * approved, issued. A clearance hold is not: it resolves itself.
+     */
+    public function needsCompletionForm(): bool
+    {
+        return $this->status === 'INC' && !$this->clearance_hold;
+    }
+
+    /** The same question as a query, so a filter cannot forget the difference. */
+    public function scopeNeedingCompletion($query)
+    {
+        return $query->where('status', 'INC')->where('clearance_hold', false);
+    }
+
+    /** Grades reading INC only because the student is not yet cleared. */
+    public function scopeHeldForClearance($query)
+    {
+        return $query->where('clearance_hold', true);
+    }
+
+    /**
+     * The grade as the grading screens and the sheet exports read it.
+     *
+     * One shape in one place. Three controllers were each building this array
+     * by hand, which is how `clearance_hold` came to be missing from all of
+     * them — and why an exported grading sheet printed PASSED over a result
+     * the record was holding at INC.
+     *
+     * Takes a null grade so a student with no record yet still answers with
+     * the full shape rather than a missing key.
+     */
+    public static function payloadFor(?self $grade): array
+    {
+        return [
+            'prelim_grade' => $grade->prelim_grade ?? null,
+            'midterm_grade' => $grade->midterm_grade ?? null,
+            'semifinal_grade' => $grade->semifinal_grade ?? null,
+            'final_grade' => $grade->final_grade ?? null,
+            'status' => $grade->status ?? 'In Progress',
+            // Reading INC only because the clearance is unsigned, and the
+            // result it actually earned. Together these tell a held INC apart
+            // from one an instructor chose, which look identical otherwise.
+            'clearance_hold' => (bool) ($grade->clearance_hold ?? false),
+            'held_status' => $grade->held_status ?? null,
+        ];
+    }
 
     public function student()
     {
