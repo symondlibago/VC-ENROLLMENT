@@ -44,7 +44,10 @@ class ClearanceRoleController extends Controller
             return $denied;
         }
 
-        $roles = ClearanceRole::with(['users:id,name,email,role'])
+        // Student lines first, then faculty — two forms in one table, and a
+        // list that mixes them leaves the admin guessing which is which
+        $roles = ClearanceRole::with(['users:id,name,email,role', 'altRole:id,name'])
+            ->orderByRaw("FIELD(scope, 'student', 'faculty')")
             ->inFormOrder()
             ->get();
 
@@ -55,6 +58,13 @@ class ClearanceRoleController extends Controller
                 'code' => $role->code,
                 'name' => $role->name,
                 'description' => $role->description,
+                'scope' => $role->scope,
+                'scope_label' => $role->scope === ClearanceRole::SCOPE_FACULTY
+                    ? 'Faculty clearance'
+                    : 'Student clearance',
+                // The one line another may sign in place of — the faculty
+                // TESDA line, which the Registrar covers
+                'alt_role_name' => $role->altRole->name ?? null,
                 'is_final' => $role->is_final,
                 'is_active' => $role->is_active,
                 'sort_order' => $role->sort_order,
@@ -304,23 +314,37 @@ class ClearanceRoleController extends Controller
             return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
         }
 
+        // Which form the line belongs on. Defaults to the student's, which is
+        // what every line was before faculty clearance existed.
+        $scope = $request->input('scope') === ClearanceRole::SCOPE_FACULTY
+            ? ClearanceRole::SCOPE_FACULTY
+            : ClearanceRole::SCOPE_STUDENT;
+
         $role = ClearanceRole::create([
             'code' => $this->codeFor($request->input('name')),
             'name' => $request->input('name'),
             'description' => $request->input('description'),
+            'scope' => $scope,
             'is_final' => false,
-            'sort_order' => (int) ClearanceRole::max('sort_order') + 1,
+            'sort_order' => (int) ClearanceRole::forScope($scope)->max('sort_order') + 1,
             'is_active' => true,
         ]);
 
         // The new line has to appear on clearances that already exist, not
-        // only on next term's
+        // only on next term's — but only on the form it belongs to. The two
+        // share this table, so a student line must never land on a faculty
+        // clearance, or the instructor could never finish it.
+        $subjectColumn = $scope === ClearanceRole::SCOPE_FACULTY
+            ? 'instructor_id'
+            : 'pre_enrolled_student_id';
+
         $added = DB::affectingStatement(
-            'INSERT INTO clearance_items
+            "INSERT INTO clearance_items
                 (clearance_id, clearance_role_id, status, on_behalf, created_at, updated_at)
-             SELECT c.id, ?, \'pending\', 0, ?, ?
+             SELECT c.id, ?, 'pending', 0, ?, ?
              FROM clearances c
-             WHERE c.status != \'cleared\'',
+             WHERE c.{$subjectColumn} IS NOT NULL
+               AND c.status != 'cleared'",
             [$role->id, now(), now()]
         );
 

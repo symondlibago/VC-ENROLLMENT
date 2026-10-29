@@ -52,6 +52,27 @@ export const computeFinalGrade = (grade, ...years) => {
 };
 
 /**
+ * A grade row reduced to the values that get saved.
+ *
+ * Used to tell whether what is on screen still matches what the server holds.
+ * Compared rather than tracked with a dirty flag, so typing a mark and then
+ * typing it back does not leave the page insisting there is something to save.
+ */
+export const gradeSignature = (grades) => [
+  ...COLLEGE_PERIODS.map((period) => grades?.[period.key]),
+  grades?.status,
+]
+  .map((value) => (value === null || value === undefined || value === '' ? '' : String(value)))
+  .join('|');
+
+/** Whether any period has actually been marked. */
+export const hasAnyMark = (grades) =>
+  COLLEGE_PERIODS.some((period) => {
+    const value = grades?.[period.key];
+    return value !== null && value !== undefined && value !== '';
+  });
+
+/**
  * Statuses a person sets deliberately, which are kept rather than recomputed
  * from the marks. Mirrors Grade::MANUAL_REMARKS on the server — the two lists
  * have to agree, or a sheet prints something the record does not say.

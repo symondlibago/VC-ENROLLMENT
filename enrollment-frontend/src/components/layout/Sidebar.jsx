@@ -13,6 +13,38 @@ import VipcLogo from '/circlelogo.png';
 // Import the API
 import { enrollmentAPI } from '../../services/api';
 
+/**
+ * Where the last clearance answer is kept between visits.
+ *
+ * The menu item used to wait on a round trip before it could appear, so it
+ * popped in a beat after everything else. Remembering the previous answer
+ * puts it in the first paint; the request still runs and corrects it.
+ */
+const CLEARANCE_ACCESS_KEY = 'clearance_access';
+
+/** The cached answer for this account, or null for anyone else's. */
+const cachedClearanceAccess = (userId) => {
+  if (!userId) return null;
+
+  try {
+    const cached = JSON.parse(localStorage.getItem(CLEARANCE_ACCESS_KEY) || 'null');
+    // Keyed by user: a second account on the same browser must never
+    // inherit the first one's menu
+    return cached?.user_id === userId ? { ...cached, checked: true } : null;
+  } catch {
+    // Private windows and cleared site data both land here
+    return null;
+  }
+};
+
+const rememberClearanceAccess = (userId, access) => {
+  try {
+    localStorage.setItem(CLEARANCE_ACCESS_KEY, JSON.stringify({ ...access, user_id: userId }));
+  } catch {
+    // Storage being unavailable only costs us the head start
+  }
+};
+
 const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -57,7 +89,9 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
   // `checked` keeps the landing redirect from firing before the answer is
   // in — without it a clearance-only account would be sent to Settings in
   // the moment before its own page appears in the menu.
-  const [clearanceAccess, setClearanceAccess] = useState({ can_access: false, pending: 0, checked: false });
+  const [clearanceAccess, setClearanceAccess] = useState(
+    () => cachedClearanceAccess(user?.id) ?? { can_access: false, pending: 0, checked: false }
+  );
 
   useEffect(() => {
     if (!localStorage.getItem('auth_token') && !localStorage.getItem('lms_auth_token')) return undefined;
@@ -67,16 +101,26 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
       return undefined;
     }
 
+    // Last visit's answer, for the case where `user` only arrived after the
+    // first render. Shown at once, then corrected by the request below.
+    const cached = cachedClearanceAccess(user.id);
+    if (cached) setClearanceAccess(cached);
+
     let cancelled = false;
 
     const check = () => {
       enrollmentAPI.clearance
         .access()
         .then((data) => {
+          rememberClearanceAccess(user.id, data);
           if (!cancelled) setClearanceAccess({ ...data, checked: true });
         })
         .catch(() => {
-          if (!cancelled) setClearanceAccess({ can_access: false, pending: 0, checked: true });
+          // A failed poll must not tear the menu item out from under someone
+          // mid-session; only say "no access" when we never had an answer.
+          if (!cancelled && !cached) {
+            setClearanceAccess({ can_access: false, pending: 0, checked: true });
+          }
         });
     };
 
@@ -113,6 +157,9 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
     { id: 'student-grades', icon: BarChart3, label: 'Student Grades', badge: null, path: '/student-grades' },
     { id: 'inc', icon: FileWarning, label: 'INC Records', badge: null, path: '/inc-records' },
     { id: 'class-record-builder', icon: ClipboardList, label: 'Class Record', badge: null, path: '/class-record-builder' },
+    // Their own faculty clearance, read-only — not the board, which is
+    // appended separately for whoever signs a line on it
+    { id: 'my-faculty-clearance', icon: ShieldCheck, label: 'My Clearance', badge: null, path: '/my-faculty-clearance' },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null, path: '/settings' },
   ];
 
@@ -223,21 +270,33 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
         items = adminMenuItems.filter(item => item.id === 'settings');
     }
 
-    // The clearance board is not a role's menu but an assignment, so it is
-    // appended to whichever menu the role produced rather than listed in it
-    if (clearanceAccess.can_access && !items.some(item => item.id === 'clearance')) {
-      const clearanceItem = {
+    // The clearance boards are not a role's menu but an assignment, so they
+    // are appended to whichever menu the role produced rather than listed in
+    // it. The two are separate assignments: signing faculty lines does not
+    // put the student board in front of you, or the other way round.
+    //
+    // Capped at 99+: past a hundred the exact figure tells nobody anything,
+    // and a five-digit badge breaks the row.
+    const badgeFor = (count) => (count > 0 ? (count > 99 ? '99+' : String(count)) : null);
+
+    const boards = [
+      clearanceAccess.can_access && {
         id: 'clearance',
         icon: ShieldCheck,
         label: 'Clearance',
-        // Capped: past a hundred the exact figure tells nobody anything, and
-        // a five-digit badge breaks the row
-        badge: clearanceAccess.pending > 0
-          ? (clearanceAccess.pending > 99 ? '99+' : String(clearanceAccess.pending))
-          : null,
+        badge: badgeFor(clearanceAccess.pending),
         path: '/clearance',
-      };
+      },
+      clearanceAccess.faculty_can_access && {
+        id: 'faculty-clearance',
+        icon: GraduationCap,
+        label: 'Faculty Clearance',
+        badge: badgeFor(clearanceAccess.faculty_pending),
+        path: '/faculty-clearance',
+      },
+    ].filter(Boolean).filter(board => !items.some(item => item.id === board.id));
 
+    for (const clearanceItem of boards) {
       // Sits above Settings where there is one, otherwise at the end
       const settingsAt = items.findIndex(item => item.id === 'settings');
       items = settingsAt === -1

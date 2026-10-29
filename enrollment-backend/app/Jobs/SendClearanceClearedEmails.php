@@ -55,6 +55,9 @@ class SendClearanceClearedEmails implements ShouldQueue
         foreach (array_chunk(array_unique($this->clearanceIds), 100) as $chunk) {
             $clearances = Clearance::with(['student.course', 'items.role', 'items.approver'])
                 ->whereIn('id', $chunk)
+                // Students only. A faculty clearance has no student to write
+                // to, and the College does not email its own staff about one.
+                ->forStudents()
                 ->where('status', 'cleared')
                 ->whereNull('cleared_notified_at')
                 ->get();

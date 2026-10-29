@@ -7,7 +7,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { downloadGradingSheetDocx } from '@/lib/gradingSheetDocx';
 import { periodsFor, computeFinalGrade, remarksFor, isClearanceHeld, CLEARANCE_REMARK } from '@/lib/gradingPeriods';
 
-const DownloadGradingSheet = ({ subject, students, instructorName }) => {
+/**
+ * `disabled` is for the caller to hold the export shut — chiefly while grades
+ * are typed but not yet submitted, since the sheet is built from what is on
+ * screen rather than from what the server holds.
+ */
+const DownloadGradingSheet = ({ subject, students, instructorName, disabled = false, disabledReason }) => {
 
   // Group students by section so the Word export matches the PDF's one-page-per-section layout.
   const groupSections = () => {
@@ -20,7 +25,9 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
   };
 
   const generateDOCX = async () => {
-    if (!subject || students.length === 0) return;
+    // Guarded here as well as on the trigger: a dropdown item can still be
+    // reached by keyboard while the button that opens it is disabled
+    if (disabled || !subject || students.length === 0) return;
     await downloadGradingSheetDocx({
       subject,
       sections: groupSections(),
@@ -30,7 +37,7 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
   };
 
   const generatePDF = () => {
-    if (!subject || students.length === 0) return;
+    if (disabled || !subject || students.length === 0) return;
 
     const doc = new jsPDF('p', 'mm', 'legal'); 
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -359,7 +366,7 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
 
       const iName = instructorName ? instructorName.toUpperCase() : 'INSTRUCTOR';
       drawSigBlock('Prepared by:', iName, "Instructor's signature", margin);
-      drawSigBlock('Approved by:', 'LOYDA B. DACANAY, LPT, MBA', 'Program Head', (pageWidth / 2) - 20);
+      drawSigBlock('Approved by:', 'JONAS D. GAMBA, MBA', 'Program Head', (pageWidth / 2) - 20);
       drawSigBlock('Certified True & Correct:', 'ARCHIE MAY L. MANANGKILA', 'Registrar', pageWidth - margin - 50);
     });
 
@@ -371,8 +378,9 @@ const DownloadGradingSheet = ({ subject, students, instructorName }) => {
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          className="flex items-center gap-2 border-green-600 text-green-700 hover:bg-green-700 hover:text-white cursor-pointer"
-          disabled={!students || students.length === 0}
+          className="flex items-center gap-2 border-green-600 text-green-700 hover:bg-green-700 hover:text-white cursor-pointer disabled:cursor-not-allowed"
+          disabled={disabled || !students || students.length === 0}
+          title={disabled ? disabledReason : undefined}
         >
           <FileDown className="w-4 h-4" />
           Export Grading Sheet

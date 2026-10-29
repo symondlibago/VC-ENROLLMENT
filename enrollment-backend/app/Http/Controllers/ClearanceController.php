@@ -67,23 +67,51 @@ class ClearanceController extends Controller
         }
 
         $roleIds = $this->clearance->heldRoleIds($user);
+        $isAdmin = $user->isAdmin();
 
-        // For someone holding lines, the count is the lines waiting on them —
-        // one tap each. For the admin, who can sign everything, that would be
-        // every open line in the school, which says nothing useful; their
-        // count is the students not yet cleared instead.
-        $pending = $user->isAdmin()
-            ? DB::table('clearances')->where('status', 'pending')->count()
-            : DB::table('clearance_items')
-                ->whereIn('clearance_role_id', $roleIds)
+        // Which of their lines sit on which form. Someone who signs only
+        // faculty lines has no business on the student board, and the sidebar
+        // needs to be told that rather than guessing from the role.
+        $byScope = ClearanceRole::whereIn('id', $roleIds)
+            ->pluck('scope', 'id');
+
+        $held = fn (string $scope) => $roleIds->filter(
+            fn ($id) => ($byScope[$id] ?? ClearanceRole::SCOPE_STUDENT) === $scope
+        );
+
+        /**
+         * For someone holding lines, the count is the lines waiting on them —
+         * one tap each. For the admin, who can sign everything, that would be
+         * every open line in the school, which says nothing useful; their
+         * count is the subjects not yet cleared instead.
+         */
+        $pendingFor = function (string $scope) use ($isAdmin, $held) {
+            $column = $scope === ClearanceRole::SCOPE_FACULTY
+                ? 'instructor_id'
+                : 'pre_enrolled_student_id';
+
+            if ($isAdmin) {
+                return DB::table('clearances')
+                    ->whereNotNull($column)
+                    ->where('status', 'pending')
+                    ->count();
+            }
+
+            $ids = $held($scope);
+
+            return $ids->isEmpty() ? 0 : DB::table('clearance_items')
+                ->whereIn('clearance_role_id', $ids)
                 ->where('status', 'pending')
                 ->count();
+        };
 
         return response()->json([
             'success' => true,
-            'can_access' => true,
-            'is_admin' => $user->isAdmin(),
-            'pending' => $pending,
+            'is_admin' => $isAdmin,
+            'can_access' => $isAdmin || $held(ClearanceRole::SCOPE_STUDENT)->isNotEmpty(),
+            'pending' => $pendingFor(ClearanceRole::SCOPE_STUDENT),
+            'faculty_can_access' => $isAdmin || $held(ClearanceRole::SCOPE_FACULTY)->isNotEmpty(),
+            'faculty_pending' => $pendingFor(ClearanceRole::SCOPE_FACULTY),
         ]);
     }
 
@@ -97,10 +125,14 @@ class ClearanceController extends Controller
         $user = Auth::user();
         [$schoolYear, $semester] = $this->term($request);
 
-        $roles = ClearanceRole::active()->inFormOrder()->get();
+        $roles = ClearanceRole::active()->forStudents()->inFormOrder()->get();
         $heldIds = $this->clearance->heldRoleIds($user);
 
-        $scope = Clearance::where('school_year', $schoolYear)
+        // forStudents throughout this controller: faculty clearances share
+        // the table, and counting them here would inflate every figure on
+        // the student board
+        $scope = Clearance::forStudents()
+            ->where('school_year', $schoolYear)
             ->when($semester, fn ($q) => $q->where('semester', $semester));
 
         $totals = (clone $scope)
@@ -180,7 +212,7 @@ class ClearanceController extends Controller
             ? collect([(int) $roleId])
             : ($user->isAdmin() ? collect() : $heldIds);
 
-        $query = Clearance::query()
+        $query = Clearance::forStudents()
             ->with(['student:id,student_id_number,first_name,last_name,course_id,year', 'student.course:id,course_code'])
             ->where('school_year', $schoolYear)
             ->when($semester, fn ($q) => $q->where('semester', $semester))
@@ -266,11 +298,13 @@ class ClearanceController extends Controller
         $clearance->load([
             'student:id,student_id_number,first_name,last_name,course_id,year',
             'student.course:id,course_code,course_name',
+            'instructor:id,name,title,department',
             'items.role',
             'items.approver:id,name',
         ]);
 
         $outstanding = $this->clearance->outstandingRoleNames($clearance);
+        $faculty = $clearance->isFaculty();
 
         return response()->json([
             'success' => true,
@@ -281,6 +315,24 @@ class ClearanceController extends Controller
                 'school_year' => $clearance->school_year,
                 'semester' => $clearance->semester,
                 'cleared_at' => $clearance->cleared_at?->toDateTimeString(),
+                // Whoever the clearance is for, in one shape the sheet can
+                // render without knowing which kind it is
+                'subject' => [
+                    'kind' => $faculty ? 'faculty' : 'student',
+                    'name' => $faculty
+                        ? $clearance->instructor?->name
+                        : $clearance->student?->getFullNameAttribute(),
+                    'identifier' => $faculty
+                        ? $clearance->instructor?->title
+                        : $clearance->student?->student_id_number,
+                    'detail' => $faculty
+                        ? $clearance->instructor?->department_label
+                        : trim(implode(' · ', array_filter([
+                            $clearance->student?->course->course_name,
+                            $clearance->student?->year,
+                        ]))),
+                ],
+                // Kept for the student sheet, which reads these directly
                 'student' => [
                     'id' => $clearance->student->id ?? null,
                     'name' => $clearance->student?->getFullNameAttribute(),
@@ -292,7 +344,12 @@ class ClearanceController extends Controller
                     ->filter(fn ($item) => $item->role?->is_active)
                     ->sortBy(fn ($item) => $item->role->sort_order)
                     ->map(fn ($item) => $this->itemPayload($item) + [
-                        'can_sign' => $user->isAdmin() || $heldIds->contains($item->clearance_role_id),
+                        // Asked of the service, not worked out from the held
+                        // ids: a line may name a stand-in — the faculty TESDA
+                        // line, which the Registrar may sign — and only the
+                        // service knows that rule. Deciding it here as well
+                        // is how the button and the server come to disagree.
+                        'can_sign' => $this->clearance->canSign($user, $item->role),
                         'approver_name' => $item->approver->name ?? null,
                     ])
                     ->values(),
@@ -712,7 +769,7 @@ class ClearanceController extends Controller
         }
 
         if ($schoolYear === '') {
-            $schoolYear = Clearance::max('school_year')
+            $schoolYear = Clearance::forStudents()->max('school_year')
                 ?? DB::table('pre_enrolled_students')->max('school_year')
                 ?? '';
         }
@@ -720,6 +777,7 @@ class ClearanceController extends Controller
         // The first term of that year that actually has clearances, which is
         // also the first entry the picker lists
         $semester = DB::table('clearances')
+            ->whereNotNull('pre_enrolled_student_id')
             ->where('school_year', $schoolYear)
             ->orderBy('semester')
             ->value('semester');
@@ -731,6 +789,7 @@ class ClearanceController extends Controller
     private function termOptions(): array
     {
         return DB::table('clearances')
+            ->whereNotNull('pre_enrolled_student_id')
             ->selectRaw('school_year, semester, COUNT(*) AS total')
             ->groupBy('school_year', 'semester')
             ->orderByDesc('school_year')

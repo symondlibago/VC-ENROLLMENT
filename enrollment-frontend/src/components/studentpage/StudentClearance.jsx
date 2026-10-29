@@ -2,13 +2,14 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import QRCode from 'qrcode';
 import {
-  ShieldCheck, Clock, Check, QrCode, Download, Maximize2, X, Printer,
+  ShieldCheck, Clock, Check, QrCode, Download, Maximize2, X, Printer, CalendarRange,
 } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { enrollmentAPI } from '@/services/api';
 import LoadingSpinner from '../layout/LoadingSpinner';
+import MotionDropdown from '../idreleasing/MotionDropdown';
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock';
 
 /** The day a line was signed, written the way a person reads it. */
@@ -179,25 +180,21 @@ const StudentClearance = () => {
         </Card>
       ) : (
         <>
-          {/* Term tabs, only when there is more than one to choose between */}
+          {/* Term picker, only when there is more than one to choose
+              between. A dropdown rather than a row of tabs: the row grew a
+              sideways scrollbar as soon as a student had a third term. */}
           {terms.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {terms.map((term) => (
-                <button
-                  key={term.id}
-                  onClick={() => setTermId(String(term.id))}
-                  className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap border-2 cursor-pointer transition-all ${
-                    String(term.id) === termId
-                      ? 'border-[var(--dominant-red)] bg-red-50 text-[var(--dominant-red)]'
-                      : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                  }`}
-                >
-                  {term.term_label}
-                  <span className={`ml-2 text-xs ${term.status === 'cleared' ? 'text-green-600' : 'text-amber-600'}`}>
-                    {term.status === 'cleared' ? '✓' : '•'}
-                  </span>
-                </button>
-              ))}
+            <div className="sm:max-w-xs">
+              <MotionDropdown
+                value={termId}
+                onChange={setTermId}
+                options={terms.map((term) => ({
+                  value: String(term.id),
+                  label: `${term.term_label}${term.status === 'cleared' ? ' · Cleared' : ''}`,
+                }))}
+                icon={CalendarRange}
+                className="w-full"
+              />
             </div>
           )}
 

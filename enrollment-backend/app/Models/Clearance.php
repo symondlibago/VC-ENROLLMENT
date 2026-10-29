@@ -16,6 +16,9 @@ class Clearance extends Model
 {
     protected $fillable = [
         'pre_enrolled_student_id',
+        // Exactly one of these two is ever set. A clearance belongs to a
+        // student or to an instructor, never to both and never to neither.
+        'instructor_id',
         'school_year',
         'semester',
         'year_level',
@@ -37,6 +40,33 @@ class Clearance extends Model
     public function student(): BelongsTo
     {
         return $this->belongsTo(PreEnrolledStudent::class, 'pre_enrolled_student_id');
+    }
+
+    public function instructor(): BelongsTo
+    {
+        return $this->belongsTo(Instructor::class);
+    }
+
+    /** Whether this is a faculty clearance rather than a student's. */
+    public function isFaculty(): bool
+    {
+        return $this->instructor_id !== null;
+    }
+
+    /** Which set of signature lines this clearance is made of. */
+    public function scope(): string
+    {
+        return $this->isFaculty() ? ClearanceRole::SCOPE_FACULTY : ClearanceRole::SCOPE_STUDENT;
+    }
+
+    public function scopeForFaculty($query)
+    {
+        return $query->whereNotNull('instructor_id');
+    }
+
+    public function scopeForStudents($query)
+    {
+        return $query->whereNotNull('pre_enrolled_student_id');
     }
 
     public function items(): HasMany

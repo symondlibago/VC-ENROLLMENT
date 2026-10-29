@@ -24,6 +24,37 @@ class Instructor extends Model
         'is_featured' => 'boolean',
     ];
 
+    /**
+     * The teaching levels, as slug => label.
+     *
+     * The column holds the slug; screens show the label. Printing the slug is
+     * how "deiploma" reached a page — the dialog that wrote it showed
+     * "Diploma" and stored the misspelling, and nothing read it back until
+     * the faculty board did.
+     */
+    public const DEPARTMENTS = [
+        'diploma' => 'Diploma',
+        'bachelor' => 'Bachelor',
+        'shs' => 'Senior High School',
+    ];
+
+    /**
+     * The department as a person should read it.
+     *
+     * Anything filed outside the list — a desk such as "Registrar" — is shown
+     * as entered rather than forced into a label it does not have.
+     */
+    public function getDepartmentLabelAttribute(): ?string
+    {
+        $value = trim((string) $this->department);
+
+        if ($value === '') {
+            return null;
+        }
+
+        return self::DEPARTMENTS[strtolower($value)] ?? $value;
+    }
+
     public function schedules()
     {
         return $this->hasMany(Schedule::class);

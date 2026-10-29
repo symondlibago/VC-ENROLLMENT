@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, Search, ChevronDown, BookCopy, Users, CheckCircle, Save, Loader2, Filter, Upload, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,7 +19,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { usesTransmutation } from '@/lib/transmutation';
-import { periodsFor, computeFinalGrade, MANUAL_REMARKS, isClearanceHeld } from '@/lib/gradingPeriods';
+import {
+  periodsFor, computeFinalGrade, MANUAL_REMARKS, isClearanceHeld, gradeSignature, hasAnyMark,
+} from '@/lib/gradingPeriods';
 
 const MotionDropdown = ({ value, onChange, options, placeholder, searchable = false }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -169,6 +171,8 @@ const StudentGrades = () => {
         const response = await instructorAPI.getGradeableStudents({ school_year: schoolYear, semester });
         if (response.success) {
           setRosterData(response.data);
+          // The baseline the export is judged against
+          rememberSaved(response.data);
           setGradingPeriods(response.grading_periods || {});
           setAvailableTerms(response.available_terms || []);
           if (response.data && response.data.length > 0) {
@@ -375,6 +379,88 @@ const StudentGrades = () => {
   };
 
   /**
+   * What the server last told us each row holds.
+   *
+   * A ref, not state: it is read when deciding whether the export may run,
+   * and writing it must never cause a render of its own.
+   */
+  const savedSignatures = useRef(new Map());
+
+  const rememberSaved = useCallback((roster) => {
+    const map = new Map();
+    (roster ?? []).forEach((subject) => {
+      (subject.students ?? []).forEach((student) => {
+        map.set(`${subject.subject_id}|${student.id}`, gradeSignature(student.grades));
+      });
+    });
+    savedSignatures.current = map;
+  }, []);
+
+  /**
+   * Rows in the chosen subject that differ from what the server holds.
+   *
+   * The export reads what is on screen, so marks typed and not yet submitted
+   * would otherwise be printed on a grading sheet while the system itself
+   * has no record of them — and, for a student who is not cleared, printed
+   * as a pass when the saved result would have been INC.
+   */
+  const unsavedCount = useMemo(() => {
+    const subject = rosterData.find((item) => item.subject_id.toString() === selectedSubjectId);
+    if (!subject) return 0;
+
+    return (subject.students ?? []).reduce((total, student) => {
+      const saved = savedSignatures.current.get(`${subject.subject_id}|${student.id}`);
+
+      // A row the server has never mentioned counts as unsaved only once a
+      // mark has actually been typed into it — an untouched row carries a
+      // default status of its own and would otherwise look like an edit
+      if (saved === undefined) return total + (hasAnyMark(student.grades) ? 1 : 0);
+
+      return total + (saved === gradeSignature(student.grades) ? 0 : 1);
+    }, 0);
+  }, [rosterData, selectedSubjectId]);
+
+  /**
+   * Replaces the grades on screen with the ones the server just saved.
+   *
+   * Keyed on student and subject together, because a student sits in more
+   * than one of this instructor's subjects and matching on the student alone
+   * would write one subject's result over another's.
+   */
+  const applySavedGrades = (saved) => {
+    if (!Array.isArray(saved) || saved.length === 0) return;
+
+    const bySubject = new Map();
+    saved.forEach((row) => {
+      const key = String(row.subject_id);
+      if (!bySubject.has(key)) bySubject.set(key, new Map());
+      bySubject.get(key).set(row.student_id, row.grades);
+    });
+
+    setRosterData((currentRoster) => {
+      const next = currentRoster.map((subject) => {
+        const forSubject = bySubject.get(String(subject.subject_id));
+        if (!forSubject) return subject;
+
+        return {
+          ...subject,
+          students: subject.students.map((student) =>
+            forSubject.has(student.id)
+              ? { ...student, grades: forSubject.get(student.id) }
+              : student
+          ),
+        };
+      });
+
+      // These rows are now exactly what the server holds, so they become the
+      // baseline and the export is free again
+      rememberSaved(next);
+
+      return next;
+    });
+  };
+
+  /**
    * Sets a remark on a student (INC, NFE, NFR, DA) or clears it back to being
    * derived from the grades. Saved with Submit Grades like any other change.
    */
@@ -471,6 +557,16 @@ const StudentGrades = () => {
     try {
         const response = await instructorAPI.bulkUpdateGrades(gradesToSubmit);
         if (response.success) {
+            // Take the saved rows as they came back, before anything else.
+            //
+            // What a grade ends up as is not something this page can work out:
+            // a result is held at INC when the student is not cleared, and the
+            // clearance lives somewhere the browser never sees. Left holding
+            // its own guess, the table kept reading "Passed" and the export
+            // printed that — correct only after a manual refresh, which is
+            // not a thing to ask of anyone.
+            applySavedGrades(response.saved);
+
             setAlertState({ isVisible: true, message: response.message, type: 'success' });
             // Some results were held back for want of a clearance. The grades
             // saved; the instructor just needs to know why they read INC.
@@ -770,11 +866,31 @@ const StudentGrades = () => {
          {/* Export Button */}
          <div>
             {currentSubject && (
+              <>
                 <DownloadGradingSheet
                     subject={currentSubject}
                     students={filteredStudents} // Passes currently filtered students (specific section or all)
                     instructorName={instructorName}
+                    // Held shut while anything is unsaved. The sheet is built
+                    // from what is on screen, and printing marks the system
+                    // has no record of produces a signed document that
+                    // disagrees with the registrar's own data.
+                    disabled={unsavedCount > 0}
+                    disabledReason={
+                      unsavedCount === 1
+                        ? 'One grade has not been submitted yet. Submit it first, then export.'
+                        : `${unsavedCount} grades have not been submitted yet. Submit them first, then export.`
+                    }
                 />
+                {unsavedCount > 0 && (
+                  <p className="text-xs text-amber-700 mt-2 flex items-center gap-1.5 max-w-xs">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    {unsavedCount === 1
+                      ? 'One grade is not submitted yet — submit before exporting.'
+                      : `${unsavedCount} grades are not submitted yet — submit before exporting.`}
+                  </p>
+                )}
+              </>
             )}
          </div>
 

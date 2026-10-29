@@ -379,9 +379,14 @@ public function bulkUpdateGrades(Request $request)
             // Students whose results were held back for want of a clearance,
             // so the instructor is told rather than left guessing at the INC
             $clearanceHeld = [];
+            // What each grade actually came out as, to hand back to the page.
+            // The browser cannot work this out for itself: whether a result
+            // is held at INC depends on a clearance it has not seen, so a
+            // page left holding its own guess exports "Passed" over an INC.
+            $saved = [];
 
             // Use a single database transaction for the entire operation
-            DB::transaction(function () use ($gradesData, $instructor, $gradingPeriods, $students, $clearanceService, &$affectedStudentIds, &$clearanceHeld) {
+            DB::transaction(function () use ($gradesData, $instructor, $gradingPeriods, $students, $clearanceService, &$affectedStudentIds, &$clearanceHeld, &$saved) {
                 
                 // 1. UPDATE ALL THE GRADES
                 foreach ($gradesData as $gradeInput) {
@@ -520,6 +525,14 @@ public function bulkUpdateGrades(Request $request)
 
                     $grade->save();
 
+                    // Read back after the save, so this is the row as it now
+                    // stands — hold and all — not the request that asked for it
+                    $saved[] = [
+                        'student_id' => $grade->pre_enrolled_student_id,
+                        'subject_id' => $grade->subject_id,
+                        'grades' => Grade::payloadFor($grade),
+                    ];
+
                     // Marking a grade INC opens its record on the INC page
                     \App\Services\IncRecordService::syncForGrade($grade);
 
@@ -557,6 +570,7 @@ public function bulkUpdateGrades(Request $request)
                 return response()->json([
                     'success' => true,
                     'message' => 'Grades submitted successfully.',
+                    'saved' => $saved,
                     'clearance_hold' => [
                         'count' => $count,
                         'students' => $names,
@@ -576,7 +590,11 @@ public function bulkUpdateGrades(Request $request)
                 ]);
             }
 
-            return response()->json(['success' => true, 'message' => 'Grades submitted successfully.']);
+            return response()->json([
+                'success' => true,
+                'message' => 'Grades submitted successfully.',
+                'saved' => $saved,
+            ]);
 
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'An error occurred while submitting grades.', 'error' => $e->getMessage()], 500);

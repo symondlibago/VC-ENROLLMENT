@@ -339,7 +339,7 @@ const generateGradingSheetPDF = ({ subject, students, instructorName, sectionNam
 
   const iName = instructorName ? instructorName.toUpperCase() : 'INSTRUCTOR';
   drawSigBlock('Prepared by:', iName, "Instructor's signature", margin);
-  drawSigBlock('Approved by:', 'LOYDA B. DACANAY, LPT, MBA', 'Program Head', (pageWidth / 2) - 20);
+  drawSigBlock('Approved by:', 'JONAS D. GAMBA, MBA', 'Program Head', (pageWidth / 2) - 20);
   drawSigBlock('Certified True & Correct:', 'ARCHIE MAY L. MANANGKILA', 'Registrar', pageWidth - margin - 50);
 
   doc.save(`Grading_Sheet_${subject.subject_code}_${sectionName}.pdf`);

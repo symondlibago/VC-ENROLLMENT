@@ -23,6 +23,7 @@ use App\Http\Controllers\IdReleasingController;
 use App\Http\Controllers\SchoolYearController;
 use App\Http\Controllers\ClearanceController;
 use App\Http\Controllers\ClearanceRoleController;
+use App\Http\Controllers\FacultyClearanceController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ManagementController;
 /*
@@ -133,6 +134,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/bulk-approve', [ClearanceController::class, 'bulkApprove']);
         Route::post('/approve-all', [ClearanceController::class, 'approveAll']);
         Route::post('/generate', [ClearanceController::class, 'generate']);
+    });
+
+    // Faculty clearance. Only the views are separate — signing reuses the
+    // routes above, because ClearanceService is the single place that decides
+    // who may sign a line, whoever the clearance belongs to.
+    Route::prefix('faculty-clearance')->group(function () {
+        Route::get('/overview', [FacultyClearanceController::class, 'overview']);
+        Route::get('/board', [FacultyClearanceController::class, 'board']);
+        // The signed-in instructor's own
+        Route::get('/mine', [FacultyClearanceController::class, 'mine']);
+        Route::post('/generate', [FacultyClearanceController::class, 'generate']);
     });
 
     // Who signs which clearance line (admin only)

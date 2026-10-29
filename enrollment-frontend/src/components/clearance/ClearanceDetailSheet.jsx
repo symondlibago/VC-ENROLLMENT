@@ -113,12 +113,20 @@ const ClearanceDetailSheet = ({ clearanceId, canApproveAll, notify, onClose, onC
           <>
             <div className="p-4 border-b flex items-start gap-3 shrink-0">
               <div className="min-w-0 flex-1">
+                {/* `subject` covers a student or an instructor, so this sheet
+                    serves both boards rather than being copied for each */}
                 <h2 className="text-lg font-bold text-gray-900 leading-tight truncate">
-                  {data.student.name}
+                  {data.subject?.name ?? data.student?.name}
                 </h2>
-                <p className="text-sm text-gray-500 font-mono">{data.student.student_id_number}</p>
+                {(data.subject?.identifier ?? data.student?.student_id_number) && (
+                  <p className={`text-sm text-gray-500 ${data.subject?.kind === 'faculty' ? '' : 'font-mono'}`}>
+                    {data.subject?.identifier ?? data.student?.student_id_number}
+                  </p>
+                )}
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {data.student.course} · {data.student.year_level} · {data.term_label}
+                  {[data.subject?.detail ?? `${data.student?.course} · ${data.student?.year_level}`, data.term_label]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </p>
               </div>
               <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 cursor-pointer" onClick={onClose}>

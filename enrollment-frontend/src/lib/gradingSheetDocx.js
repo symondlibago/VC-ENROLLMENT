@@ -157,7 +157,7 @@ function buildSectionXml(subject, sectionName, students, hasLogo) {
     para([{ text: title, size: 14 }], { spacingAfter: 0 });
   const sigTable = table([[
     { content: sigBlock('Prepared by:', subject.instructorName || 'INSTRUCTOR', "Instructor's signature") },
-    { content: sigBlock('Approved by:', 'LOYDA B. DACANAY, LPT, MBA', 'Program Head') },
+    { content: sigBlock('Approved by:', 'JONAS D. GAMBA, MBA', 'Program Head') },
     { content: sigBlock('Certified True & Correct:', 'ARCHIE MAY L. MANANGKILA', 'Registrar') },
   ]], { widths: [3600, 3600, 3600], borders: false, vMargin: 0, keepRows: true });
 

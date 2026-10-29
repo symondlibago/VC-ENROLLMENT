@@ -683,6 +683,21 @@ export const enrollmentAPI = {
     generate: (payload) => unwrap(api.post('/clearance/generate', payload), 'Failed to generate the clearances'),
   },
 
+  /**
+   * Faculty clearance.
+   *
+   * Only the views are its own. Signing goes through `clearance.approve`,
+   * `bulkApprove` and `approveAll` above, because the server decides who may
+   * sign a line in one place whoever the clearance belongs to — and calling
+   * a second set of endpoints would be a second place for that to drift.
+   */
+  facultyClearance: {
+    overview: (params) => unwrap(api.get('/faculty-clearance/overview', { params }), 'Failed to load the faculty clearance board'),
+    board: (params) => unwrap(api.get('/faculty-clearance/board', { params }), 'Failed to load the faculty clearance list'),
+    mine: () => unwrap(api.get('/faculty-clearance/mine'), 'Failed to load your clearance'),
+    generate: (payload) => unwrap(api.post('/faculty-clearance/generate', payload), 'Failed to generate the faculty clearances'),
+  },
+
   // Who signs which clearance line (admin only)
   clearanceRoles: {
     list: () => unwrap(api.get('/clearance-roles'), 'Failed to load the clearance lines'),

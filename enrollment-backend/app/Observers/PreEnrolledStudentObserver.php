@@ -76,7 +76,16 @@ class PreEnrolledStudentObserver
         }
 
         try {
-            app(ClearanceService::class)->ensureFor($student->loadMissing('course.program'));
+            $clearance = app(ClearanceService::class);
+            $student->loadMissing('course.program');
+
+            $clearance->ensureFor($student);
+
+            // A corrected school year leaves the clearance the wrong one
+            // created still standing. Only one with no signatures and no
+            // enrolment history behind it is dropped, so a real past term is
+            // never swept up with it.
+            $clearance->forgetUnusedTerms($student);
         } catch (\Throwable $e) {
             Log::error('Failed to create clearance for student ID: ' . $student->id . '. Error: ' . $e->getMessage());
         }

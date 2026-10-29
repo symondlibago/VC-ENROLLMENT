@@ -16,7 +16,9 @@ import FacultyAdminStaff from './components/pages/FacultyAdminStaff';
 import Grades from './components/pages/Grades';
 import IDReleasing from './components/pages/IDReleasing';
 import Clearance from './components/pages/Clearance';
+import FacultyClearance from './components/pages/FacultyClearance';
 import StudentClearance from './components/studentpage/StudentClearance';
+import InstructorClearance from './components/instructorpage/InstructorClearance';
 import IncRecords from './components/pages/IncRecords';
 import CredentialRequests from './components/pages/CredentialRequests';
 import UniformFabric from './components/pages/UniformFabric';
@@ -245,6 +247,10 @@ function App() {
           <Route path="/schedule" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><InstructorSchedule /></motion.div>} />
           <Route path="/settings" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Settings /></motion.div>} />
           <Route path="/class-record-builder" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><ClassRecord /></motion.div>} />
+          {/* The instructor's own faculty clearance. The board itself is at
+              /faculty-clearance and belongs to whoever signs its lines. */}
+          <Route path="/my-faculty-clearance" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><InstructorClearance /></motion.div>} />
+          <Route path="/faculty-clearance" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><FacultyClearance /></motion.div>} />
           {lmsRoutes}
           <Route path="*" element={<Navigate to="/class-roster" replace />} />
         </>
@@ -301,6 +307,7 @@ function App() {
         {/* /my-clearance is a student's own clearance and lives in the
             student block; staff have the board at /clearance instead */}
         <Route path="/clearance" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Clearance /></motion.div>} />
+        <Route path="/faculty-clearance" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><FacultyClearance /></motion.div>} />
         <Route path="/settings" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Settings /></motion.div>} />
         {lmsRoutes}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

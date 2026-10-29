@@ -7,7 +7,9 @@ use App\Jobs\SendClearanceClearedEmails;
 use App\Models\Clearance;
 use App\Models\ClearanceItem;
 use App\Models\ClearanceRole;
+use App\Models\EnrollmentHistory;
 use App\Models\Grade;
+use App\Models\Instructor;
 use App\Models\PreEnrolledStudent;
 use App\Models\User;
 use App\Support\Deferred;
@@ -105,7 +107,9 @@ class ClearanceService
      */
     public function syncItems(Clearance $clearance): int
     {
-        $roleIds = ClearanceRole::active()->pluck('id');
+        // Only the lines on this clearance's own form — a student's sixteen
+        // and a faculty member's eight share one table
+        $roleIds = ClearanceRole::active()->forScope($clearance->scope())->pluck('id');
         $existing = $clearance->items()->pluck('clearance_role_id');
         $missing = $roleIds->diff($existing);
 
@@ -141,7 +145,9 @@ class ClearanceService
      */
     public function backfillTerm(string $schoolYear, ?string $semester = null): array
     {
-        $roleIds = ClearanceRole::active()->pluck('id');
+        // Students only. Unscoped, this hands every student clearance the
+        // faculty lines as well — the two share this table.
+        $roleIds = ClearanceRole::active()->forStudents()->pluck('id');
 
         if ($roleIds->isEmpty()) {
             return ['clearances' => 0, 'items' => 0];
@@ -193,12 +199,160 @@ class ClearanceService
                     (clearance_id, clearance_role_id, status, on_behalf, created_at, updated_at)
                  SELECT c.id, ?, \'pending\', 0, ?, ?
                  FROM clearances c
-                 WHERE c.school_year = ?
+                 WHERE c.pre_enrolled_student_id IS NOT NULL
+                   AND c.school_year = ?
                    AND NOT EXISTS (
                        SELECT 1 FROM clearance_items i
                        WHERE i.clearance_id = c.id AND i.clearance_role_id = ?
                    )',
+                // Students only: the faculty clearances for the same year
+                // share this table and must not collect a student's lines
                 [$roleId, $now, $now, $schoolYear, $roleId]
+            );
+        }
+
+        return ['clearances' => $created, 'items' => $items];
+    }
+
+    /**
+     * Drops clearances for terms the student turns out never to have been in.
+     *
+     * Correcting a mistyped school year leaves behind the clearance the typo
+     * created, and the registrar then finds the student on a board for a term
+     * they never enrolled in.
+     *
+     * Two conditions keep this away from a genuine past term:
+     *
+     *  - nobody has signed any of its lines, and
+     *  - the student has no enrolment history for it.
+     *
+     * A term actually sat always leaves a history row behind when the student
+     * moves on from it, so the pair tells a typo apart from a semester that
+     * simply went unsigned. Returns how many were dropped.
+     */
+    public function forgetUnusedTerms(PreEnrolledStudent $student): int
+    {
+        $current = $this->termFor($student);
+
+        $candidates = Clearance::where('pre_enrolled_student_id', $student->id)
+            ->when($current, fn ($q) => $q->whereNot(fn ($w) => $w
+                ->where('school_year', $current['school_year'])
+                ->where('semester', $current['semester'])))
+            // Never a clearance anyone has put their name to
+            ->whereDoesntHave('items', fn ($q) => $q->where('status', 'approved'))
+            ->get();
+
+        if ($candidates->isEmpty()) {
+            return 0;
+        }
+
+        $stale = $candidates->filter(function (Clearance $clearance) use ($student) {
+            // Senior High clears once for the year, so its clearance answers
+            // to either semester's history row
+            $semesters = $clearance->semester === Clearance::WHOLE_YEAR
+                ? self::COLLEGE_TERMS
+                : [$clearance->semester];
+
+            return !EnrollmentHistory::where('pre_enrolled_student_id', $student->id)
+                ->where('school_year', $clearance->school_year)
+                ->whereIn('semester', $semesters)
+                ->exists();
+        });
+
+        if ($stale->isEmpty()) {
+            return 0;
+        }
+
+        // The items go with it through the cascade on clearance_id
+        Clearance::whereIn('id', $stale->pluck('id'))->delete();
+
+        return $stale->count();
+    }
+
+    // ───────────────────────────── faculty ─────────────────────────────
+
+    /**
+     * An instructor's clearance for one term, created if missing.
+     *
+     * Faculty take one per semester, two to a school year — no whole-year
+     * collapse, because the rule that gives Senior High one is about the
+     * student's enrolment, not about the term itself.
+     */
+    public function ensureForInstructor(Instructor $instructor, string $schoolYear, string $semester): ?Clearance
+    {
+        $schoolYear = trim($schoolYear);
+        $semester = trim($semester);
+
+        if ($schoolYear === '' || !in_array($semester, self::COLLEGE_TERMS, true)) {
+            return null;
+        }
+
+        return DB::transaction(function () use ($instructor, $schoolYear, $semester) {
+            $clearance = Clearance::firstOrCreate(
+                [
+                    'instructor_id' => $instructor->id,
+                    'school_year' => $schoolYear,
+                    'semester' => $semester,
+                ],
+                ['status' => 'pending']
+            );
+
+            $this->syncItems($clearance);
+
+            return $clearance;
+        });
+    }
+
+    /**
+     * Creates the faculty clearances for a term.
+     *
+     * Set operations rather than a loop, for the same reason the student
+     * backfill is: forty instructors and eight lines is two statements
+     * instead of three hundred and twenty.
+     */
+    public function backfillFacultyTerm(string $schoolYear, string $semester): array
+    {
+        $roleIds = ClearanceRole::active()->forFaculty()->pluck('id');
+
+        if ($roleIds->isEmpty() || !in_array($semester, self::COLLEGE_TERMS, true)) {
+            return ['clearances' => 0, 'items' => 0];
+        }
+
+        $now = Carbon::now();
+
+        $rows = Instructor::where('status', 'Active')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (Instructor $instructor) => [
+                'instructor_id' => $instructor->id,
+                'school_year' => $schoolYear,
+                'semester' => $semester,
+                'status' => 'pending',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+        $created = 0;
+
+        foreach ($rows->chunk(500) as $chunk) {
+            $created += DB::table('clearances')->insertOrIgnore($chunk->all());
+        }
+
+        $items = 0;
+
+        foreach ($roleIds as $roleId) {
+            $items += DB::affectingStatement(
+                'INSERT INTO clearance_items
+                    (clearance_id, clearance_role_id, status, on_behalf, created_at, updated_at)
+                 SELECT c.id, ?, \'pending\', 0, ?, ?
+                 FROM clearances c
+                 WHERE c.instructor_id IS NOT NULL
+                   AND c.school_year = ? AND c.semester = ?
+                   AND NOT EXISTS (
+                       SELECT 1 FROM clearance_items i
+                       WHERE i.clearance_id = c.id AND i.clearance_role_id = ?
+                   )',
+                [$roleId, $now, $now, $schoolYear, $semester, $roleId]
             );
         }
 
@@ -210,7 +364,17 @@ class ClearanceService
     /** Whether this user may sign this line. The admin may sign any of them. */
     public function canSign(User $user, ClearanceRole $role): bool
     {
-        return $user->isAdmin() || $this->heldRoleIds($user)->contains($role->id);
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        $held = $this->heldRoleIds($user);
+
+        return $held->contains($role->id)
+            // A line that names a stand-in. Only the faculty TESDA In-Charge
+            // line does, which the Registrar may sign in their place — and
+            // one way only, so holding TESDA does not let you sign Registrar.
+            || ($role->alt_role_id !== null && $held->contains($role->alt_role_id));
     }
 
     /**
