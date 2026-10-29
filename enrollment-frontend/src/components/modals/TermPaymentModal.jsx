@@ -5,8 +5,10 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import ValidationErrorModal from './ValidationErrorModal';
 import CustomCalendar from '../layout/CustomCalendar';
-import DownloadExamPermit from '../layout/DownloadExamPermit'; 
+import DownloadExamPermit from '../layout/DownloadExamPermit';
 import DownloadCOR from '../layout/DownloadCOR';
+import PrintBalanceSlip from '../layout/PrintBalanceSlip';
+import { summarizeAccount, TERMS_PER_SEMESTER } from '@/lib/accountBalance';
 
 const defaultPaymentState = {
   previous_account: '',
@@ -116,41 +118,21 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
   useEffect(() => {
     if (loading) return; 
 
-    const prevAccount = parseFloat(paymentData.previous_account) || 0;
-    const regFee = parseFloat(paymentData.registration_fee) || 0;
-    const tuition = parseFloat(paymentData.tuition_fee) || 0;
-    const lab = parseFloat(paymentData.laboratory_fee) || 0;
-    const misc = parseFloat(paymentData.miscellaneous_fee) || 0;
-    const other = parseFloat(paymentData.other_fees) || 0;
-    const bundled = parseFloat(paymentData.bundled_program_fee) || 0;
-
-    const calculatedTotalAmount = prevAccount + regFee + tuition + lab + misc + other + bundled;
-    
-    const downPayment = parseFloat(paymentData.payment_amount) || 0;
-    const discountDeduction = parseFloat(paymentData.discount_deduction) || 0;
-    
-    const balanceAfterDownPayment = calculatedTotalAmount - discountDeduction - downPayment;
-    const totalCurrentPayments = currentTermPayments.reduce((sum, payment) => sum + (parseFloat(payment.amount) || 0), 0);
-
-    let newRemainingAmount = balanceAfterDownPayment - totalCurrentPayments;
-    let calculatedNewAdvance = 0; 
-    
-    if (newRemainingAmount < 0) {
-        calculatedNewAdvance = Math.abs(newRemainingAmount);
-        newRemainingAmount = 0;
-    }
+    // Shared with the printed balance slip, so the counter copy can never
+    // disagree with what the cashier is reading off the screen.
+    const summary = summarizeAccount(paymentData, currentTermPayments);
 
     setPaymentData(prev => {
       const shouldUpdateTerm = currentTermPayments.length === 0 || isEditing;
-    
+
       return {
         ...prev,
-        total_amount: calculatedTotalAmount.toFixed(2),
-        remaining_amount: newRemainingAmount.toFixed(2),
-        advance_payment: calculatedNewAdvance.toFixed(2),
-        term_payment: shouldUpdateTerm 
-            ? (newRemainingAmount > 0 ? (newRemainingAmount / 4).toFixed(2) : "0.00")
-            : prev.term_payment 
+        total_amount: summary.assessment.toFixed(2),
+        remaining_amount: summary.balance.toFixed(2),
+        advance_payment: summary.advance.toFixed(2),
+        term_payment: shouldUpdateTerm
+            ? (summary.balance > 0 ? (summary.balance / TERMS_PER_SEMESTER).toFixed(2) : "0.00")
+            : prev.term_payment
     };
 });
 
@@ -514,8 +496,14 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
                 {isEditing ? <Lock size={16} /> : <Edit3 size={16} />}
                 {isEditing ? 'Locked' : 'Edit Fields'}
               </Button>
+                <PrintBalanceSlip
+                  student={student}
+                  paymentData={paymentData}
+                  termPayments={currentTermPayments}
+                  priorPayments={historicalPayments}
+                />
                 <DownloadExamPermit student={student} />
-                <DownloadCOR 
+                <DownloadCOR
                   student={student} // Ensure student.section_label is present here
                   subjectsWithSchedules={student?.subjects || []} 
                   paymentData={paymentData} 
