@@ -100,9 +100,27 @@ class User extends Authenticatable
         return $this->role === 'Admin';
     }
 
+    /**
+     * Whether this user may sign every outstanding line in one action.
+     *
+     * The admin's override, and the cashier's. The cashier signs last and
+     * sits at the counter the student is standing at, so they are the one
+     * who has to finish a clearance when the other signatories are not
+     * around. Every line signed this way is marked as a stand-in signature,
+     * so the record still says who really held it.
+     *
+     * Keyed on the account role rather than on holding the cashier's
+     * signature line: the power is the job, and it should not quietly
+     * disappear the day somebody reassigns that line.
+     */
+    public function canSignEveryLine(): bool
+    {
+        return $this->isAdmin() || $this->role === 'Cashier';
+    }
+
     /** Whether the clearance board should appear for this user at all. */
     public function canAccessClearance(): bool
     {
-        return $this->isAdmin() || $this->clearanceRoles()->exists();
+        return $this->canSignEveryLine() || $this->clearanceRoles()->exists();
     }
 }

@@ -156,6 +156,8 @@ const FacultyClearance = () => {
 
   const isAdmin = Boolean(overview?.me?.is_admin);
   const canGenerate = Boolean(overview?.can?.generate);
+  // The server's answer, not a guess from the role
+  const canApproveAll = Boolean(overview?.can?.approve_all);
   const totals = overview?.totals ?? { total: 0, cleared: 0, pending: 0 };
 
   const yearOptions = useMemo(() => {
@@ -299,7 +301,9 @@ const FacultyClearance = () => {
         <p className="text-gray-600 text-sm mt-1">
           {isAdmin
             ? 'Admin — you can sign any line'
-            : `${signableRoles.length} signature line(s)`}
+            : canApproveAll
+              ? 'You can sign every line at once'
+              : `${signableRoles.length} signature line(s)`}
           {' · '}
           One clearance per instructor per semester, cashier last
         </p>
@@ -403,7 +407,7 @@ const FacultyClearance = () => {
             </button>
 
             <div className="flex gap-2 ml-auto">
-              {isAdmin && (
+              {canApproveAll && (
                 <Button
                   variant="outline"
                   className="h-10 cursor-pointer"
@@ -535,7 +539,7 @@ const FacultyClearance = () => {
         {openId && (
           <ClearanceDetailSheet
             clearanceId={openId}
-            canApproveAll={isAdmin}
+            canApproveAll={canApproveAll}
             notify={notify}
             onClose={() => setOpenId(null)}
             onChanged={refresh}

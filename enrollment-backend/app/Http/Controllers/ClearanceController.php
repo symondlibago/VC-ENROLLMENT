@@ -68,6 +68,7 @@ class ClearanceController extends Controller
 
         $roleIds = $this->clearance->heldRoleIds($user);
         $isAdmin = $user->isAdmin();
+        $signsEverything = $user->canSignEveryLine();
 
         // Which of their lines sit on which form. Someone who signs only
         // faculty lines has no business on the student board, and the sidebar
@@ -84,20 +85,24 @@ class ClearanceController extends Controller
          * one tap each. For the admin, who can sign everything, that would be
          * every open line in the school, which says nothing useful; their
          * count is the subjects not yet cleared instead.
+         *
+         * The cashier keeps the per-line count, because they do hold a line
+         * and it is the one they tap all day. Only when they hold none on
+         * this form does the open-clearance count serve them better.
          */
-        $pendingFor = function (string $scope) use ($isAdmin, $held) {
+        $pendingFor = function (string $scope) use ($isAdmin, $signsEverything, $held) {
             $column = $scope === ClearanceRole::SCOPE_FACULTY
                 ? 'instructor_id'
                 : 'pre_enrolled_student_id';
 
-            if ($isAdmin) {
+            $ids = $held($scope);
+
+            if ($isAdmin || ($signsEverything && $ids->isEmpty())) {
                 return DB::table('clearances')
                     ->whereNotNull($column)
                     ->where('status', 'pending')
                     ->count();
             }
-
-            $ids = $held($scope);
 
             return $ids->isEmpty() ? 0 : DB::table('clearance_items')
                 ->whereIn('clearance_role_id', $ids)
@@ -108,9 +113,9 @@ class ClearanceController extends Controller
         return response()->json([
             'success' => true,
             'is_admin' => $isAdmin,
-            'can_access' => $isAdmin || $held(ClearanceRole::SCOPE_STUDENT)->isNotEmpty(),
+            'can_access' => $signsEverything || $held(ClearanceRole::SCOPE_STUDENT)->isNotEmpty(),
             'pending' => $pendingFor(ClearanceRole::SCOPE_STUDENT),
-            'faculty_can_access' => $isAdmin || $held(ClearanceRole::SCOPE_FACULTY)->isNotEmpty(),
+            'faculty_can_access' => $signsEverything || $held(ClearanceRole::SCOPE_FACULTY)->isNotEmpty(),
             'faculty_pending' => $pendingFor(ClearanceRole::SCOPE_FACULTY),
         ]);
     }
@@ -181,7 +186,10 @@ class ClearanceController extends Controller
                 'role_ids' => $heldIds->values(),
             ],
             'can' => [
-                'approve_all' => $user->isAdmin(),
+                'approve_all' => $user->canSignEveryLine(),
+                // Silent signing is for catching a finished term up, not for
+                // the counter, so it stays with the admin
+                'approve_all_silently' => $user->isAdmin(),
                 'generate' => in_array($user->role, ['Admin', 'Registrar'], true),
             ],
         ]);
@@ -683,15 +691,14 @@ class ClearanceController extends Controller
         ]);
     }
 
-    /** The admin's override — signs every outstanding line. */
+    /** The admin's and the cashier's override — signs every outstanding line. */
     public function approveAll(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'clearance_ids' => 'required|array|min:1|max:500',
             'clearance_ids.*' => 'integer|exists:clearances,id',
             'remarks' => 'nullable|string|max:1000',
-            // Whether the students hear about it. Only ever honoured here,
-            // where the service has already established the caller is admin.
+            // Whether the students hear about it
             'notify' => 'nullable|boolean',
         ]);
 
@@ -699,13 +706,19 @@ class ClearanceController extends Controller
             return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
         }
 
-        $notify = $request->boolean('notify', true);
+        $user = Auth::user();
+
+        // Signing quietly is for bringing a finished term's records up to
+        // date, which is an admin job. Clearing someone standing at the
+        // counter always tells them, whatever the request asked for.
+        $notify = $user->isAdmin() ? $request->boolean('notify', true) : true;
 
         try {
             $result = $this->clearance->approveAll(
                 $request->input('clearance_ids'),
-                Auth::user(),
-                $request->input('remarks') ?: 'Signed by the admin on the holders\' behalf',
+                $user,
+                $request->input('remarks')
+                    ?: sprintf("Signed by the %s on the holders' behalf", strtolower($user->role)),
                 $notify
             );
         } catch (ClearanceException $e) {

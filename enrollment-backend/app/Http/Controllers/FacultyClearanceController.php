@@ -26,7 +26,7 @@ class FacultyClearanceController extends Controller
     {
     }
 
-    /** Anyone who signs a faculty line, plus the admin. */
+    /** Anyone who signs a faculty line, plus whoever may sign every line. */
     private function denyUnlessApprover(): ?JsonResponse
     {
         $user = Auth::user();
@@ -35,7 +35,7 @@ class FacultyClearanceController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
-        if ($user->isAdmin()) {
+        if ($user->canSignEveryLine()) {
             return null;
         }
 
@@ -104,7 +104,7 @@ class FacultyClearanceController extends Controller
                 ],
                 'can' => [
                     'generate' => in_array($user->role, ['Admin', 'Registrar'], true),
-                    'approve_all' => $user->isAdmin(),
+                    'approve_all' => $user->canSignEveryLine(),
                 ],
                 'roles' => $roles->map(fn (ClearanceRole $role) => [
                     'id' => $role->id,

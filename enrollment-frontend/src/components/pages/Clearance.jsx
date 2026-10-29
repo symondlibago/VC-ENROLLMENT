@@ -269,6 +269,10 @@ const Clearance = () => {
   const stats = overview?.stats;
   const isAdmin = Boolean(overview?.me?.is_admin);
   const canGenerate = Boolean(overview?.can?.generate);
+  // Read off the server rather than inferred from the role: the server is
+  // the one that decides, and it already answered
+  const canApproveAll = Boolean(overview?.can?.approve_all);
+  const canApproveAllSilently = Boolean(overview?.can?.approve_all_silently);
 
   /** Years the school has clearances for, newest first. */
   const yearOptions = useMemo(() => {
@@ -304,16 +308,16 @@ const Clearance = () => {
   const roleOptions = useMemo(() => {
     const roles = overview?.roles ?? [];
     const mine = roles.filter((role) => role.is_mine);
-    const list = isAdmin ? roles : (mine.length ? mine : roles);
+    const list = canApproveAll ? roles : (mine.length ? mine : roles);
 
     return [
-      { value: '', label: isAdmin ? 'All signature lines' : 'All my lines' },
+      { value: '', label: canApproveAll ? 'All signature lines' : 'All my lines' },
       ...list.map((role) => ({
         value: String(role.id),
         label: `${role.name}${role.pending ? ` (${role.pending})` : ''}`,
       })),
     ];
-  }, [overview, isAdmin]);
+  }, [overview, canApproveAll]);
 
   const allSelected = rows.length > 0 && rows.every((row) => selected.has(row.id));
 
@@ -370,7 +374,9 @@ const Clearance = () => {
           {overview.me.name} ·{' '}
           {isAdmin
             ? 'Admin — you can sign any line'
-            : `${overview.roles.filter((role) => role.is_mine).length} signature line(s)`}
+            : canApproveAll
+              ? `${overview.me.role} — you can sign every line at once`
+              : `${overview.roles.filter((role) => role.is_mine).length} signature line(s)`}
         </p>
 
       </div>
@@ -518,7 +524,7 @@ const Clearance = () => {
                       </Button>
                     </div>
 
-                    {isAdmin && scanned.status !== 'cleared' && (
+                    {canApproveAll && scanned.status !== 'cleared' && (
                       <Button
                         className="w-full h-11 gradient-primary text-white cursor-pointer"
                         disabled={busy}
@@ -632,29 +638,29 @@ const Clearance = () => {
                 </button>
 
                 <div className="flex gap-2 ml-auto">
-                  {isAdmin && (
-                    <>
-                      <Button
-                        variant="outline"
-                        className="h-10 cursor-pointer"
-                        disabled={busy}
-                        onClick={() => bulkSignAll(true)}
-                        title="Sign every outstanding line for the selected students, and email each one to say they are cleared"
-                      >
-                        <UserCheck size={15} className="mr-1.5" /> Sign all lines
-                      </Button>
-                      {/* The quieter of the two, for catching records up on a
-                          term that is already over */}
-                      <Button
-                        variant="outline"
-                        className="h-10 cursor-pointer text-gray-600 border-gray-300"
-                        disabled={busy}
-                        onClick={() => bulkSignAll(false)}
-                        title="Sign every outstanding line without emailing anyone — for bringing a finished term's records up to date"
-                      >
-                        <MailX size={15} className="mr-1.5" /> Sign all, no email
-                      </Button>
-                    </>
+                  {canApproveAll && (
+                    <Button
+                      variant="outline"
+                      className="h-10 cursor-pointer"
+                      disabled={busy}
+                      onClick={() => bulkSignAll(true)}
+                      title="Sign every outstanding line for the selected students, and email each one to say they are cleared"
+                    >
+                      <UserCheck size={15} className="mr-1.5" /> Sign all lines
+                    </Button>
+                  )}
+                  {/* The quieter of the two, for catching records up on a
+                      term that is already over */}
+                  {canApproveAllSilently && (
+                    <Button
+                      variant="outline"
+                      className="h-10 cursor-pointer text-gray-600 border-gray-300"
+                      disabled={busy}
+                      onClick={() => bulkSignAll(false)}
+                      title="Sign every outstanding line without emailing anyone — for bringing a finished term's records up to date"
+                    >
+                      <MailX size={15} className="mr-1.5" /> Sign all, no email
+                    </Button>
                   )}
                   <Button
                     className="h-10 gradient-primary text-white cursor-pointer"
@@ -718,7 +724,7 @@ const Clearance = () => {
         {detailId && (
           <ClearanceDetailSheet
             clearanceId={detailId}
-            canApproveAll={isAdmin}
+            canApproveAll={canApproveAll}
             notify={notify}
             onClose={() => setDetailId(null)}
             onChanged={refresh}

@@ -512,20 +512,28 @@ class ClearanceService
     }
 
     /**
-     * The admin's override: signs every outstanding line on these clearances.
+     * The override: signs every outstanding line on these clearances.
      *
      * The way to clear a student when the people who should sign are not
-     * around. Every row it writes is marked as a stand-in signature.
+     * around. Open to the admin and to the cashier, who signs last and is the
+     * one the student is standing in front of. Every row it writes is marked
+     * as a stand-in signature for any line the signer does not personally
+     * hold, so the record never claims the librarian signed.
+     *
+     * The cashier's own final line is signed here without the usual
+     * wait-for-the-others gate, which is sound only because this signs those
+     * others in the same breath — there is nothing left to wait for.
      *
      * `$notify` false signs them quietly — for bringing a finished term's
      * records up to date, where telling several hundred students they have
      * just been cleared would be both untrue and a mailbox full of noise.
-     * Admin only, because approveAll already is.
+     * The caller restricts that to the admin; clearing someone at the counter
+     * always tells them.
      */
     public function approveAll(array $clearanceIds, User $user, ?string $remarks = null, bool $notify = true): array
     {
-        if (!$user->isAdmin()) {
-            throw ClearanceException::forbidden('Only an admin can sign every line at once.');
+        if (!$user->canSignEveryLine()) {
+            throw ClearanceException::forbidden('Only an admin or the cashier can sign every line at once.');
         }
 
         $held = $this->heldRoleIds($user);
