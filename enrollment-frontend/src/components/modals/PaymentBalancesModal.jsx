@@ -5,7 +5,7 @@ import jsPDF from 'jspdf';
 import { saveAs } from 'file-saver';
 import {
   X, Loader2, Download, Wallet, CheckCircle2, AlertCircle, Users, Search, ChevronDown,
-  FileSpreadsheet, FileText, UserMinus
+  FileSpreadsheet, FileText, UserMinus, GraduationCap
 } from 'lucide-react';
 import { paymentAPI } from '../../services/api';
 import { termAccountFor } from '@/lib/accountBalance';
@@ -317,24 +317,31 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
     (semester === 'all' || r.semester === semester)
   ), [rows, schoolYear, semester]);
 
+  /**
+   * Four lists, and nobody is on two of them.
+   *
+   * Every student lands in exactly one: withdrawn first, then scholars, then
+   * the paid / unpaid split for everyone else. Scholars used to appear in
+   * both their own list and the unpaid one, which meant working through the
+   * outstanding balances and then meeting the same names again further on —
+   * so the four counts now add up to the students in view.
+   */
   const { unpaid, paid, withdrawn, scholars } = useMemo(() => {
-    // Withdrawn students are a separate sheet, not part of the paid and
-    // unpaid split: leaving them in makes the collection figures describe
-    // people who are no longer studying here.
+    const withdrawnRows = termRows.filter(r => r.withdrawn);
     const studying = termRows.filter(r => !r.withdrawn);
+    const scholarRows = studying.filter(r => r.scholarship);
+    const rest = studying.filter(r => !r.scholarship);
 
     return {
       // A student with no billing record yet can't be called fully paid
-      unpaid: studying.filter(r => !r.hasRecord || r.remaining > 0.005),
-      paid: studying.filter(r => r.hasRecord && r.remaining <= 0.005),
-      withdrawn: termRows.filter(r => r.withdrawn),
-      // Cuts across paid and unpaid rather than partitioning them — a scholar
-      // is still in one of those two lists
-      scholars: studying.filter(r => r.scholarship),
+      unpaid: rest.filter(r => !r.hasRecord || r.remaining > 0.005),
+      paid: rest.filter(r => r.hasRecord && r.remaining <= 0.005),
+      withdrawn: withdrawnRows,
+      scholars: scholarRows,
     };
   }, [termRows]);
 
-  const activeRows = tab === 'paid' ? paid : tab === 'withdrawn' ? withdrawn : unpaid;
+  const activeRows = { paid, withdrawn, scholars }[tab] ?? unpaid;
 
   const visibleGroups = useMemo(() => {
     const q = deferredSearch.trim().toLowerCase();
@@ -344,8 +351,10 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
           r.course.toLowerCase().includes(q) ||
           (r.studentId || '').toLowerCase().includes(q))
       : activeRows;
-    return groupRows(filtered);
-  }, [activeRows, deferredSearch]);
+    // The scholars list leads with the scholarship on screen too, so what is
+    // printed is what was being read
+    return groupRows(filtered, tab === 'scholars' ? byScholarshipThenCourse : byCourseThenYear);
+  }, [activeRows, deferredSearch, tab]);
 
   const visibleCount = visibleGroups.reduce((sum, g) => sum + g.count, 0);
   /**
@@ -395,7 +404,7 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
       name: 'Not Fully Paid',
       title: 'NOT FULLY PAID',
       accent: TONES.owed,
-      subtitle: 'Students with an outstanding balance for their current term',
+      subtitle: 'Outstanding balances — scholars and withdrawn students are listed on their own pages',
     },
     paid: {
       rows: paid,
@@ -409,14 +418,17 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
       name: 'Withdrawn',
       title: 'WITHDRAWN STUDENTS',
       accent: TONES.withdrawn,
-      subtitle: 'Kept out of the collection figures — these students are no longer studying',
+      // Accurate about what the separation does: these students are out of
+      // the paid and unpaid lists, but their balances are still counted in
+      // the term's outstanding total below
+      subtitle: 'Separated from the paid and unpaid lists — these students are no longer studying',
     },
     scholars: {
       rows: scholars,
       name: 'Scholars',
       title: 'SCHOLARS — CITY SCHOLAR & STUDENT ASSISTANT',
       accent: TONES.scholars,
-      subtitle: 'School-funded scholarships only; TESDA, CHED and other grants are not listed here',
+      subtitle: 'Listed here only, not in the paid or unpaid pages. TESDA, CHED and other grants are not scholars here',
     },
   };
 
@@ -691,6 +703,16 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   Fully Paid ({paid.length})
+                </button>
+                <button
+                  onClick={() => startTransition(() => setTab('scholars'))}
+                  className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 cursor-pointer transition-colors ${
+                    tab === 'scholars' ? 'bg-amber-700 text-white' : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                  title="City Scholars and Student Assistants, listed here instead of in the paid and unpaid lists"
+                >
+                  <GraduationCap className="w-4 h-4" />
+                  Scholars ({scholars.length})
                 </button>
                 <button
                   onClick={() => startTransition(() => setTab('withdrawn'))}

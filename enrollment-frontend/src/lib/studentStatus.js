@@ -17,13 +17,20 @@ const NOT_A_SCHOLARSHIP = /^(n\s*\/?\s*a|none|no|null|nil|-+|—+|0)$/i;
  * appears on the report the day it is first recorded rather than silently
  * falling into "other".
  */
+/**
+ * `scholar`, `scholars`, `scholarship`, `scholarships` — all the same word as
+ * far as this report is concerned. Spelling it out once rather than per
+ * scholarship keeps the two lists from drifting apart.
+ */
+const SCHOLAR = 'scholar(s|ship|ships)?';
+
 const ALIASES = [
   // Printed in full rather than as "SA": the abbreviation is what people type
   // into the field, not what reads clearly on a report, and "Student Assistant
   // (SA)" is too wide for the column it has to sit in
-  [/^(sa|student\s*assistant|student\s*asst\.?)$/i, 'Student Assistant'],
-  [/^city\s*scholar(ship)?$/i, 'City Scholar'],
-  [/^academic\s*scholar(ship)?$/i, 'Academic Scholar'],
+  [/^(sas?|student[\s-]*assistants?|student[\s-]*assts?\.?)$/i, 'Student Assistant'],
+  [new RegExp(`^city[\\s-]*${SCHOLAR}$`, 'i'), 'City Scholar'],
+  [new RegExp(`^academic[\\s-]*${SCHOLAR}$`, 'i'), 'Academic Scholar'],
   [/^tesda$/i, 'TESDA'],
   [/^ched$/i, 'CHED'],
   [/^tdp$/i, 'TDP'],
@@ -45,7 +52,9 @@ const titleCase = (text) =>
  * accidentally keeping the 137 students whose record says "n/a" or "none".
  */
 export const scholarshipLabel = (value) => {
-  const text = String(value ?? '').trim();
+  // Collapsed before matching: "City  Scholar" typed with two spaces is the
+  // same scholarship as "City Scholar"
+  const text = String(value ?? '').trim().replace(/\s+/g, ' ');
 
   if (!text || NOT_A_SCHOLARSHIP.test(text)) return null;
 
