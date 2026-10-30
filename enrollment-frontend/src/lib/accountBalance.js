@@ -81,6 +81,56 @@ export const summarizeAccount = (paymentData = {}, termPayments = []) => {
   };
 };
 
+/** Money, to the centavo. */
+const round2 = (value) => Math.round(value * 100) / 100;
+
+/**
+ * A student's account for the term they are currently enrolled in, or null
+ * when they have not been assessed.
+ *
+ * Only payments stamped with that same term count: earlier terms are already
+ * carried by Previous Account, and counting them again credits the same money
+ * twice.
+ *
+ * `paid` is money actually received — the down payment plus the installments.
+ * The discount is deliberately left out of it: a discount reduces what is
+ * owed but never reaches the drawer, and a collections figure that counts it
+ * as cash overstates the day's takings.
+ *
+ * Null covers two cases that mean the same thing to whoever reads the report:
+ * no billing row at all, and a row that was created but never filled in.
+ * Nothing charged, nothing received and nothing discounted is not a student
+ * who has settled — it is a student nobody has billed yet, and calling that
+ * "fully paid" quietly inflates the paid list with people who owe an unknown
+ * amount.
+ */
+export const termAccountFor = (payment, student) => {
+  if (!payment) return null;
+
+  const termPayments = (payment.term_payments || []).filter(
+    (entry) =>
+      entry?.year === student?.year &&
+      entry?.semester === student?.semester &&
+      entry?.school_year === student?.school_year,
+  );
+
+  const account = summarizeAccount(payment, termPayments);
+
+  const assessed = round2(account.assessment);
+  const discount = round2(account.discount);
+  const paid = round2(account.downPayment + account.installments);
+
+  if (assessed === 0 && discount === 0 && paid === 0) return null;
+
+  return {
+    assessed,
+    discount,
+    paid,
+    advance: round2(account.advance),
+    remaining: round2(account.balance),
+  };
+};
+
 /** `12345.5` → `"12,345.50"`. No currency mark: callers choose the prefix. */
 export const formatAmount = (value) =>
   toAmount(value).toLocaleString('en-US', {
