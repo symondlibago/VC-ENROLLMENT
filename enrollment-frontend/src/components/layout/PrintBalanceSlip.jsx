@@ -10,52 +10,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ChevronDown, Download, Loader2, Printer, ReceiptText } from 'lucide-react';
-import circleLogo from '../../assets/circlelogo.jpg';
 import { SLIP_HEIGHT, SLIP_WIDTH, drawBalanceSlip } from '@/lib/balanceSlip';
-
-/**
- * The logo, converted once per session to something jsPDF can embed directly.
- *
- * Handing jsPDF the bundled asset URL also works, but only because it falls
- * back to a synchronous XHR — which blocks the tab for as long as the fetch
- * takes. Loading it properly costs one promise and nothing afterwards.
- */
-let logoPromise = null;
-
-const loadLogo = () => {
-  if (logoPromise) return logoPromise;
-
-  logoPromise = new Promise((resolve) => {
-    const image = new Image();
-
-    image.onload = () => {
-      try {
-        // The slot is 11mm square, so 256px is already more than a 300dpi
-        // printer can use. Scaling down here keeps the slip small enough to
-        // reprint all day without filling the cashier's downloads folder.
-        const size = Math.min(256, image.naturalWidth || 256);
-        const canvas = document.createElement('canvas');
-        canvas.width = size;
-        canvas.height = size;
-
-        const context = canvas.getContext('2d');
-        context.fillStyle = '#ffffff';
-        context.fillRect(0, 0, size, size);
-        context.drawImage(image, 0, 0, size, size);
-
-        resolve({ data: canvas.toDataURL('image/jpeg', 0.92), format: 'JPEG' });
-      } catch (error) {
-        console.error('Balance slip logo could not be prepared', error);
-        resolve(null);
-      }
-    };
-
-    image.onerror = () => resolve(null);
-    image.src = circleLogo;
-  });
-
-  return logoPromise;
-};
+import { loadSchoolLogo } from '@/lib/schoolLogo';
 
 const safePart = (value) => String(value ?? '').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '');
 
@@ -67,7 +23,7 @@ const PrintBalanceSlip = ({ student, paymentData, termPayments = [], priorPaymen
   const [busy, setBusy] = useState(false);
 
   const build = async () => {
-    const logo = await loadLogo();
+    const logo = await loadSchoolLogo();
 
     const doc = new jsPDF({
       orientation: 'landscape',

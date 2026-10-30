@@ -675,6 +675,9 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
                 'semester' => $student->semester,
                 'courseId' => $student->course->id ?? null,
                 'courseName' => $student->course ? $student->course->course_name : 'N/A',
+                // The short form, for printed rosters where the full course
+                // name would be cut off mid-word
+                'courseCode' => $student->course->course_code ?? null,
                 'sectionId' => $student->sections->first()->id ?? null,
                 'sectionName' => $student->sections->isNotEmpty() ? $student->sections->first()->name : 'Unassigned',
                 'academic_status' => $currentAcademicStatus, // This now respects the DB value

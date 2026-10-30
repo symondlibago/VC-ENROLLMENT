@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useMemo, useCallback, useTransition, useDeferredValue, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ExcelJS from 'exceljs';
+import jsPDF from 'jspdf';
 import { saveAs } from 'file-saver';
 import {
-  X, Loader2, Download, Wallet, CheckCircle2, AlertCircle, Users, Search, ChevronDown
+  X, Loader2, Download, Wallet, CheckCircle2, AlertCircle, Users, Search, ChevronDown,
+  FileSpreadsheet, FileText
 } from 'lucide-react';
 import { paymentAPI } from '../../services/api';
+import { summarizeAccount } from '@/lib/accountBalance';
+import { REPORT_FORMAT, drawPaymentStatusReport } from '@/lib/paymentStatusReport';
+import { loadSchoolLogo } from '@/lib/schoolLogo';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,21 +24,16 @@ import {
  * Payment status report: enrolled students split into those who still owe money
  * and those who are fully paid, grouped by course and year level.
  *
- * The balance is worked out exactly the way the Term Payment modal does:
- *   total     = previous account + registration + tuition + laboratory
- *               + miscellaneous + other + bundled program fees
- *   remaining = total − discount deduction − down payment − term payments
- *               recorded for the student's current year / semester / school year
- * A negative remainder means an advance payment, so it counts as fully paid.
+ * The balance is not worked out here: it comes from summarizeAccount, the
+ * same function behind the Term Payment modal and the printed balance slip.
+ * An overpayment settles to zero rather than going negative, so it counts as
+ * fully paid.
+ *
+ * Exports as a spreadsheet to work on, or a PDF to print and hand round.
  */
 
 const peso = (n) =>
   `₱${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-const num = (v) => {
-  const parsed = parseFloat(v);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
 
 // Year levels in school order, anything unexpected sorts last alphabetically
 const YEAR_ORDER = [
@@ -50,26 +50,18 @@ const yearRank = (year) => {
 const computeRemaining = (payment, student) => {
   if (!payment) return null; // no billing record yet
 
-  const total =
-    num(payment.previous_account) +
-    num(payment.registration_fee) +
-    num(payment.tuition_fee) +
-    num(payment.laboratory_fee) +
-    num(payment.miscellaneous_fee) +
-    num(payment.other_fees) +
-    num(payment.bundled_program_fee);
-
   // Only payments stamped with the student's current term count against it
-  const termPaid = (payment.term_payments || [])
-    .filter(t =>
-      t.year === student.year &&
-      t.semester === student.semester &&
-      t.school_year === student.school_year
-    )
-    .reduce((sum, t) => sum + num(t.amount), 0);
+  const termPayments = (payment.term_payments || []).filter(t =>
+    t.year === student.year &&
+    t.semester === student.semester &&
+    t.school_year === student.school_year
+  );
 
-  const remaining = total - num(payment.discount_deduction) - num(payment.payment_amount) - termPaid;
-  return Math.round(remaining * 100) / 100;
+  // summarizeAccount is the single formula behind this report, the payment
+  // modal and the printed balance slip — three places that have to agree to
+  // the centavo about what a student owes.
+  const { balance } = summarizeAccount(payment, termPayments);
+  return Math.round(balance * 100) / 100;
 };
 
 /** Groups rows by course, then by year level, both in a sensible order. */
@@ -214,6 +206,7 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
           studentId: s.student_id_number,
           name: (s.name || '').toUpperCase(),
           course: s.courseName || 'Unassigned Course',
+          courseCode: s.courseCode || null,
           year: s.year || 'Unspecified Year',
           section: s.sectionName,
           schoolYear: s.school_year || 'Unspecified',
@@ -269,6 +262,41 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
     schoolYear === 'all' ? 'All School Years' : schoolYear,
     semester === 'all' ? 'All Semesters' : semester,
   ].join(' · ');
+
+  /** Keeps exports for different terms from overwriting each other. */
+  const fileStem = `Payment Status Report${schoolYear === 'all' ? '' : ` - ${schoolYear}`}`
+    + `${semester === 'all' ? '' : ` ${semester}`} - ${new Date().toISOString().split('T')[0]}`;
+
+  /**
+   * The list as it is on screen, as a PDF.
+   *
+   * Exports the tab in view rather than both: the two are read by different
+   * people for different reasons, and a cashier chasing balances does not
+   * want forty pages of students who already paid.
+   */
+  const handleExportPdf = async () => {
+    setIsExporting(true);
+    try {
+      const logo = await loadSchoolLogo();
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: REPORT_FORMAT });
+
+      drawPaymentStatusReport(doc, {
+        groups: groupRows(activeRows),
+        subtitle: tab === 'unpaid' ? 'Students with an outstanding balance' : 'Students fully paid for the term',
+        termLabel,
+        showBalance: tab === 'unpaid',
+        studentCount: activeRows.length,
+        grandTotal: activeRows.reduce((sum, r) => sum + (r.remaining || 0), 0),
+        logo,
+      });
+
+      doc.save(`${fileStem} (${tab === 'unpaid' ? 'Not Fully Paid' : 'Fully Paid'}).pdf`);
+    } catch (e) {
+      setError(e.message || 'Failed to export the report.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -369,11 +397,9 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
       buildSheet('FULLY PAID', paid, false);
 
       const buf = await wb.xlsx.writeBuffer();
-      const stamp = new Date().toISOString().split('T')[0];
       saveAs(
         new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
-        // Keep the term in the file name so exports for different terms don't clash
-        `Payment Status Report${schoolYear === 'all' ? '' : ` - ${schoolYear}`}${semester === 'all' ? '' : ` ${semester}`} - ${stamp}.xlsx`
+        `${fileStem}.xlsx`
       );
     } catch (e) {
       setError(e.message || 'Failed to export the report.');
@@ -448,16 +474,40 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
                 />
               </div>
 
-              <Button
-                onClick={handleExport}
-                disabled={loading || isExporting || rows.length === 0}
-                className="bg-green-600 hover:bg-green-700 text-white cursor-pointer shrink-0"
-              >
-                {isExporting
-                  ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  : <Download className="w-4 h-4 mr-2" />}
-                Export to Excel
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    disabled={loading || isExporting || rows.length === 0}
+                    className="bg-green-600 hover:bg-green-700 text-white cursor-pointer shrink-0"
+                  >
+                    {isExporting
+                      ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      : <Download className="w-4 h-4 mr-2" />}
+                    Export
+                    <ChevronDown className="w-4 h-4 ml-1.5 opacity-70" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuItem onSelect={handleExportPdf} className="cursor-pointer">
+                    <FileText className="w-4 h-4 mr-2" />
+                    <span>
+                      PDF — {tab === 'unpaid' ? 'Not Fully Paid' : 'Fully Paid'}
+                      <span className="block text-xs text-gray-500">
+                        {activeRows.length} student{activeRows.length === 1 ? '' : 's'}, ready to print
+                      </span>
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={handleExport} className="cursor-pointer">
+                    <FileSpreadsheet className="w-4 h-4 mr-2" />
+                    <span>
+                      Excel — both lists
+                      <span className="block text-xs text-gray-500">
+                        A sheet each for unpaid and paid
+                      </span>
+                    </span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               </div>
 
               {/* Term filters — balances always belong to a student's current term */}
