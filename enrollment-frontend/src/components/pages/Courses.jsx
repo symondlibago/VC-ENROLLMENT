@@ -20,6 +20,7 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { courseAPI, programAPI, subjectAPI, enrollmentAPI } from '@/services/api';
+import { isEnrolled } from '@/lib/studentStatus';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -127,9 +128,7 @@ const Courses = () => {
       try {
         const response = await enrollmentAPI.getEnrolledStudents();
         if (response.success && Array.isArray(response.data)) {
-          setEnrolledStudents(response.data.filter(
-            s => (s.enrollment_status || '').toLowerCase() === 'enrolled'
-          ));
+          setEnrolledStudents(response.data.filter(isEnrolled));
         }
       } catch (error) {
         console.error('Error fetching enrolled students for course stats:', error);

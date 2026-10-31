@@ -12,7 +12,7 @@ import { termAccountFor } from '@/lib/accountBalance';
 import {
   REPORT_FORMAT, REPORT_ORIENTATION, STATUS, TONES, drawPaymentStatusReport, finishReport, statusFor,
 } from '@/lib/paymentStatusReport';
-import { isWithdrawn, reportedScholarship, scholarshipRank } from '@/lib/studentStatus';
+import { isEnrolled, isWithdrawn, reportedScholarship, scholarshipRank } from '@/lib/studentStatus';
 import { loadSchoolLogo } from '@/lib/schoolLogo';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -273,7 +273,7 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
     const paymentByStudent = new Map(payments.map(p => [p.pre_enrolled_student_id, p]));
 
     return students
-      .filter(s => String(s.enrollment_status || '').toLowerCase() === 'enrolled')
+      .filter(isEnrolled)
       .map(s => {
         const account = termAccountFor(paymentByStudent.get(s.id), s);
         return {

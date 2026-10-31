@@ -8,7 +8,7 @@
  */
 
 /** Values that mean "no scholarship", however someone typed them. */
-const NOT_A_SCHOLARSHIP = /^(n\s*\/?\s*a|none|no|null|nil|-+|—+|0)$/i;
+const NOT_A_SCHOLARSHIP = /^(n\s*\/?\s*a|nan|none|no|null|nil|wala|-+|—+|0)$/i;
 
 /**
  * The spellings the office actually uses, mapped to one printed form.
@@ -85,6 +85,33 @@ export const reportedScholarship = (student) => {
 
 /** Whether a student holds any scholarship at all, of any kind. */
 export const isScholar = (student) => Boolean(scholarshipLabel(student?.scholarship));
+
+/**
+ * Whether a student is actually enrolled this term.
+ *
+ * Applications that were never approved stay in the same table as the students
+ * who got in, so a list that doesn't ask this question counts people who are
+ * not studying here. That is exactly the gap between the 550 the students page
+ * showed and the 546 the cashier's report counted: two `pending` applications
+ * and two `rejected` ones.
+ */
+export const isEnrolled = (student) =>
+  String(student?.enrollment_status ?? '').trim().toLowerCase() === 'enrolled';
+
+/**
+ * The enrolment standing to flag beside a student, or null when they are
+ * enrolled and there is nothing to say.
+ *
+ * Returned rather than tested inline so a row can show *why* it is not counted
+ * instead of looking identical to every enrolled row around it.
+ */
+export const enrollmentFlag = (student) => {
+  if (isEnrolled(student)) return null;
+
+  const text = String(student?.enrollment_status ?? '').trim();
+
+  return text ? titleCase(text) : 'Not Enrolled';
+};
 
 /**
  * Whether a student has withdrawn.

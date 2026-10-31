@@ -36,6 +36,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { enrollmentAPI, courseAPI, managementAPI } from '@/services/api';
+import { isEnrolled } from '@/lib/studentStatus';
 import LoadingSpinner from '@/components/layout/LoadingSpinner';
 
 // Shared palette for the analytics charts
@@ -172,9 +173,7 @@ const Dashboard = () => {
       try {
         const response = await enrollmentAPI.getEnrolledStudents();
         if (response.success && Array.isArray(response.data)) {
-          setEnrolledStudents(response.data.filter(
-            s => (s.enrollment_status || '').toLowerCase() === 'enrolled'
-          ));
+          setEnrolledStudents(response.data.filter(isEnrolled));
         }
       } catch (error) {
         console.error('Dashboard analytics fetch error:', error);

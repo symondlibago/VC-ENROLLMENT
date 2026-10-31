@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { downloadCsv } from '@/lib/csv';
 import { matchesScholarship, scholarshipLabel, scholarshipOptions } from '@/lib/scholarship';
+import { enrollmentFlag, isEnrolled } from '@/lib/studentStatus';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -409,12 +410,26 @@ const Students = () => {
 
   const scholarshipFilterOptions = useMemo(() => scholarshipOptions(enrolledStudents), [enrolledStudents]);
 
+  /**
+   * The card is headed "Enrolled Students", so it counts students who are
+   * enrolled.
+   *
+   * Applications still pending and ones that were rejected sit in this same
+   * list — they have to, the registrar needs to find them — but counting them
+   * as enrolled is what made this page report 550 for the term while the
+   * cashier's payment report, which does ask the question, counted 546.
+   */
+  const enrolledCount = useMemo(
+    () => (activeView === 'students' ? filteredStudents : enrolledStudents).filter(isEnrolled).length,
+    [activeView, filteredStudents, enrolledStudents]
+  );
+
   const stats = useMemo(() => [
     { title: 'Total Sections', value: sections.length.toString(), icon: BookOpen, color: 'text-blue-600', bgColor: 'bg-blue-50' },
-    { title: 'Enrolled Students', value: activeView === 'students' ? filteredStudents.length.toString() : enrolledStudents.length.toString(), icon: Users, color: 'text-green-600', bgColor: 'bg-green-50' },
+    { title: 'Enrolled Students', value: enrolledCount.toString(), icon: Users, color: 'text-green-600', bgColor: 'bg-green-50' },
     { title: 'Total Courses', value: courses.length.toString(), icon: GraduationCap, color: 'text-[var(--dominant-red)]', bgColor: 'bg-red-50' },
     { title: 'Empty Sections', value: sections.filter(s => s.students_count === 0).length.toString(), icon: UserPlus, color: 'text-purple-600', bgColor: 'bg-purple-50' }
-  ], [sections, enrolledStudents, courses, filteredStudents, activeView]);
+  ], [sections, courses, enrolledCount]);
   
   const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
   const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
@@ -555,6 +570,21 @@ const SectionPage = ({ sections, courses, searchTerm, setSearchTerm, courseFilte
     );
 };
 
+/**
+ * Flags a student whose enrolment was never approved.
+ *
+ * Nothing else on the row says so, so a rejected application reads exactly
+ * like an enrolled student — which is how four of them went unnoticed until
+ * the cashier's totals disagreed with this page's.
+ */
+const EnrollmentFlag = ({ student }) => {
+  const flag = enrollmentFlag(student);
+
+  if (!flag) return null;
+
+  return <Badge className="bg-red-100 text-red-800">{flag}</Badge>;
+};
+
 const PAGE_SIZE = 50;
 
 /** The columns of the grades export, in the order the registrar asked for. */
@@ -578,6 +608,10 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
 
     // Only the rows on screen are rendered; 790 at once is what made the page
     // crawl while scrolling.
+    // Said out loud next to the total so the gap between this page's count and
+    // the payment report's is visible here rather than only in the difference
+    const notEnrolledCount = useMemo(() => students.filter(s => !isEnrolled(s)).length, [students]);
+
     const pageCount = Math.max(1, Math.ceil(students.length / PAGE_SIZE));
     const currentPage = Math.min(page, pageCount);
     const pageStudents = useMemo(
@@ -660,7 +694,9 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
           <p className="text-sm text-gray-600">
             {selectedIds.size > 0
               ? <><span className="font-semibold text-(--dominant-red)">{selectedIds.size}</span> selected of {students.length} shown</>
-              : <>Showing <span className="font-semibold">{students.length}</span> student{students.length === 1 ? '' : 's'} — tick rows to export their current-term grades.</>}
+              : <>Showing <span className="font-semibold">{students.length}</span> student{students.length === 1 ? '' : 's'}
+                  {notEnrolledCount > 0 && <> · <span className="font-semibold text-red-700">{notEnrolledCount}</span> not enrolled</>}
+                  {' '}— tick rows to export their current-term grades.</>}
           </p>
           <div className="flex items-center gap-2">
             {selectedIds.size > 0 && (
@@ -762,7 +798,12 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
                     <Badge variant="secondary">{student.sectionName}</Badge>
                   )}
                 </TableCell>
-                <TableCell><Badge className={student.academic_status === 'Regular' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}>{student.academic_status}</Badge></TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge className={student.academic_status === 'Regular' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}>{student.academic_status}</Badge>
+                    <EnrollmentFlag student={student} />
+                  </div>
+                </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
