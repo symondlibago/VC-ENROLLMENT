@@ -236,17 +236,84 @@ const countLabel = (count, unbilled) =>
 const moneyCells = (student) =>
   (student.hasRecord ? [formatAmount(student.paid), formatAmount(student.remaining)] : ['—', '—']);
 
-/** A full-width heading row with its subtotals aligned under the figures. */
-const bandRow = (label, totals, columnCount, { fill, color, size }) => {
+/**
+ * A full-width band spanning the table.
+ *
+ * With `totals` it is a subtotal, its figures aligned under the columns they
+ * total; with null it is a heading and the money cells stay empty. Headings
+ * run above their rows and subtotals below them, which is the order an
+ * accountant reads: what am I looking at, then what does it come to.
+ */
+const bandRow = (label, totals, columnCount, { fill, color, size, align = 'left' }) => {
   const style = { fillColor: fill, textColor: color, fontStyle: 'bold', fontSize: size };
   const trailing = columnCount - MONEY_FROM - 2;
+  const money = totals ? [formatAmount(totals.paid), formatAmount(totals.balance)] : ['', ''];
 
   return [
-    { content: label, colSpan: MONEY_FROM, styles: style },
-    { content: formatAmount(totals.paid), styles: { ...style, halign: 'right' } },
-    { content: formatAmount(totals.balance), styles: { ...style, halign: 'right' } },
+    { content: label, colSpan: MONEY_FROM, styles: { ...style, halign: align } },
+    ...money.map((amount) => ({ content: amount, styles: { ...style, halign: 'right' } })),
     ...Array.from({ length: trailing }, () => ({ content: '', styles: style })),
   ];
+};
+
+/**
+ * The furniture at the top of every page: seal, school, and the coloured
+ * banner naming the list.
+ *
+ * Repeated on every page of a section, so no page is ambiguous about which
+ * list it belongs to — including a page torn off and passed on. Shared with
+ * the reconciliation sheet so the last page of the file is recognisably part
+ * of the same document.
+ */
+const drawPageHeader = (doc, {
+  title, sectionTitle, accent, subtitle, termLabel, countText, logo, now,
+}) => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  if (logo) {
+    try {
+      doc.addImage(logo.data, logo.format, MARGIN, 7, 12, 12);
+    } catch (error) {
+      // A missing seal must never cost the report
+      console.error('Report logo could not be drawn', error);
+    }
+  }
+
+  const textX = logo ? MARGIN + 15.5 : MARGIN;
+
+  doc.setFontSize(9.5).setFont('helvetica', 'bold').setTextColor(...BRAND);
+  doc.text(SCHOOL, textX, 12);
+
+  doc.setFontSize(6.5).setFont('helvetica', 'normal').setTextColor(...MUTED);
+  doc.text(ADDRESS, textX, 16);
+
+  doc.setFontSize(7.5).setFont('helvetica', 'bold').setTextColor(...MUTED);
+  doc.text(title, pageWidth - MARGIN, 12, { align: 'right' });
+
+  // The band that makes the section unmistakable
+  doc.setFillColor(...accent);
+  doc.rect(MARGIN, 20, pageWidth - MARGIN * 2, 10.5, 'F');
+
+  doc.setFontSize(13).setFont('helvetica', 'bold').setTextColor(...PAPER);
+  doc.text(sectionTitle || title, MARGIN + 4, 27.3);
+
+  doc.setFontSize(7.5).setFont('helvetica', 'normal');
+  doc.text(
+    [countText, termLabel].filter(Boolean).join('   •   '),
+    pageWidth - MARGIN - 4,
+    27.1,
+    { align: 'right' },
+  );
+
+  doc.setFontSize(7).setFont('helvetica', 'normal').setTextColor(...MUTED);
+  doc.text(
+    [subtitle, `Generated ${stampedAt(now)}`].filter(Boolean).join('   •   '),
+    MARGIN,
+    34.5,
+  );
+
+  doc.setDrawColor(...accent).setLineWidth(0.6);
+  doc.line(MARGIN, 36.8, pageWidth - MARGIN, 36.8);
 };
 
 /**
@@ -277,56 +344,10 @@ export const drawPaymentStatusReport = (doc, {
   const pageHeight = doc.internal.pageSize.getHeight();
   const { columns, widths, scholarshipAt, statusAt } = layoutFor(showScholarship);
 
-  /**
-   * Repeated on every page of the section, so no page is ambiguous about
-   * which list it belongs to — including a page torn off and passed on.
-   */
-  const header = () => {
-    if (logo) {
-      try {
-        doc.addImage(logo.data, logo.format, MARGIN, 7, 12, 12);
-      } catch (error) {
-        // A missing seal must never cost the report
-        console.error('Report logo could not be drawn', error);
-      }
-    }
-
-    const textX = logo ? MARGIN + 15.5 : MARGIN;
-
-    doc.setFontSize(9.5).setFont('helvetica', 'bold').setTextColor(...BRAND);
-    doc.text(SCHOOL, textX, 12);
-
-    doc.setFontSize(6.5).setFont('helvetica', 'normal').setTextColor(...MUTED);
-    doc.text(ADDRESS, textX, 16);
-
-    doc.setFontSize(7.5).setFont('helvetica', 'bold').setTextColor(...MUTED);
-    doc.text(title, pageWidth - MARGIN, 12, { align: 'right' });
-
-    // The band that makes the section unmistakable
-    doc.setFillColor(...accent);
-    doc.rect(MARGIN, 20, pageWidth - MARGIN * 2, 10.5, 'F');
-
-    doc.setFontSize(13).setFont('helvetica', 'bold').setTextColor(...PAPER);
-    doc.text(sectionTitle || title, MARGIN + 4, 27.3);
-
-    doc.setFontSize(7.5).setFont('helvetica', 'normal');
-    doc.text(
-      [countLabel(studentCount, 0), termLabel].filter(Boolean).join('   •   '),
-      pageWidth - MARGIN - 4,
-      27.1,
-      { align: 'right' },
-    );
-
-    doc.setFontSize(7).setFont('helvetica', 'normal').setTextColor(...MUTED);
-    doc.text(
-      [subtitle, `Generated ${stampedAt(now)}`].filter(Boolean).join('   •   '),
-      MARGIN,
-      34.5,
-    );
-
-    doc.setDrawColor(...accent).setLineWidth(0.6);
-    doc.line(MARGIN, 36.8, pageWidth - MARGIN, 36.8);
-  };
+  const header = () => drawPageHeader(doc, {
+    title, sectionTitle, accent, subtitle, termLabel, logo, now,
+    countText: countLabel(studentCount, 0),
+  });
 
   // One flat body: group headings ride along as full-width rows so autoTable
   // paginates them with their students instead of orphaning a heading at the
@@ -334,15 +355,21 @@ export const drawPaymentStatusReport = (doc, {
   const body = [];
   let printed = 0;
 
+  const GROUP_BAND = { fill: deepen(accent), color: PAPER, size: 8 };
+  const SECTION_BAND = { fill: WASH, color: INK, size: 7.2 };
+
   groups.forEach((group) => {
     const groupStudents = group.sections.flatMap((section) => section.students);
     const groupTotals = totalsFor(groupStudents);
 
+    // Names the rows that follow. No figures: a total printed before the rows
+    // it totals is read as an opening balance, and it meant adding up the page
+    // backwards to check it
     body.push(bandRow(
       `${group.heading}  —  ${countLabel(groupStudents.length, groupTotals.unbilled)}`,
-      groupTotals,
+      null,
       columns.length,
-      { fill: deepen(accent), color: PAPER, size: 8 },
+      GROUP_BAND,
     ));
 
     group.sections.forEach((section) => {
@@ -350,9 +377,9 @@ export const drawPaymentStatusReport = (doc, {
 
       body.push(bandRow(
         `${section.heading}  (${countLabel(section.students.length, sectionTotals.unbilled)})`,
-        sectionTotals,
+        null,
         columns.length,
-        { fill: WASH, color: INK, size: 7.2 },
+        SECTION_BAND,
       ));
 
       section.students.forEach((student, index) => {
@@ -369,7 +396,27 @@ export const drawPaymentStatusReport = (doc, {
           statusFor(student),
         ]);
       });
+
+      // Skipped where the group holds a single section: its subtotal and the
+      // group total directly beneath it would be the same figures twice.
+      // Right-aligned otherwise, so the label sits beside the figures it
+      // belongs to rather than stranded at the far side of the page
+      if (group.sections.length > 1) {
+        body.push(bandRow(
+          `Subtotal  —  ${section.heading}`,
+          sectionTotals,
+          columns.length,
+          { ...SECTION_BAND, align: 'right' },
+        ));
+      }
     });
+
+    body.push(bandRow(
+      `TOTAL  —  ${group.heading}`,
+      groupTotals,
+      columns.length,
+      { ...GROUP_BAND, align: 'right' },
+    ));
   });
 
   autoTable(doc, {
@@ -489,6 +536,131 @@ export const drawPaymentStatusReport = (doc, {
   }
 
   return printed;
+};
+
+/** The name the reconciliation sheet is known by, in the banner and footer. */
+export const RECONCILIATION = 'TERM RECONCILIATION';
+
+/**
+ * The last page: all four lists, adding up to the term.
+ *
+ * The lists stopped overlapping when a scholar was taken out of the unpaid
+ * list and given their own, which is correct but means Not Fully Paid plus
+ * Fully Paid no longer reaches the term total — the scholars and the
+ * withdrawn students are the difference. Adding three bands across two
+ * separate files to prove that is not a reasonable thing to ask of anyone, so
+ * the file does it here instead.
+ *
+ * Every list is named, including the ones printed in the other file, because
+ * the figure that will not reconcile is always the one that is somewhere else.
+ *
+ * `lists` are `{ name, students, collected, outstanding, here }`.
+ */
+export const drawReconciliation = (doc, {
+  lists = [],
+  title = 'PAYMENT STATUS REPORT',
+  otherFile = '',
+  termLabel = '',
+  accent = TONES.owed,
+  logo = null,
+  now = new Date(),
+}) => {
+  doc.addPage(REPORT_FORMAT, REPORT_ORIENTATION);
+
+  const total = lists.reduce(
+    (sum, list) => ({
+      students: sum.students + list.students,
+      collected: sum.collected + list.collected,
+      outstanding: sum.outstanding + list.outstanding,
+    }),
+    { students: 0, collected: 0, outstanding: 0 },
+  );
+
+  drawPageHeader(doc, {
+    title,
+    sectionTitle: RECONCILIATION,
+    accent,
+    subtitle: 'Every enrolled student is counted on exactly one of the lists below',
+    termLabel,
+    countText: countLabel(total.students, 0),
+    logo,
+    now,
+  });
+
+  // Same proportional trick as the student table: declared as shares of the
+  // printable width so nothing drifts off the edge
+  const shares = [52, 46, 22, 38, 38];
+  const scale = USABLE_WIDTH / shares.reduce((sum, share) => sum + share, 0);
+  const widths = shares.map((share) => share * scale);
+
+  autoTable(doc, {
+    head: [['List', 'Printed', 'Students', 'Collected', 'Outstanding']],
+    body: lists.map((list) => [
+      list.name,
+      list.here ? 'In this file' : `Separate file${otherFile ? ` — ${otherFile}` : ''}`,
+      String(list.students),
+      formatAmount(list.collected),
+      formatAmount(list.outstanding),
+    ]),
+    foot: [[
+      'ALL ENROLLED STUDENTS',
+      '',
+      String(total.students),
+      formatAmount(total.collected),
+      formatAmount(total.outstanding),
+    ]],
+    startY: BODY_TOP,
+    margin: { left: MARGIN, right: MARGIN },
+    theme: 'grid',
+    styles: {
+      fontSize: 8.4,
+      cellPadding: { top: 2.4, bottom: 2.4, left: 2, right: 2 },
+      lineWidth: 0.1,
+      lineColor: [214, 214, 214],
+      textColor: INK,
+    },
+    headStyles: {
+      fillColor: [55, 65, 81], textColor: PAPER, fontSize: 8, fontStyle: 'bold',
+      lineWidth: 0.1, lineColor: [55, 65, 81],
+    },
+    footStyles: {
+      fillColor: accent, textColor: PAPER, fontSize: 9.2, fontStyle: 'bold',
+      lineWidth: 0.1, lineColor: accent,
+    },
+    columnStyles: {
+      0: { cellWidth: widths[0], fontStyle: 'bold' },
+      1: { cellWidth: widths[1], textColor: MUTED },
+      2: { cellWidth: widths[2], halign: 'right' },
+      3: { cellWidth: widths[3], halign: 'right' },
+      4: { cellWidth: widths[4], halign: 'right' },
+    },
+    didParseCell: (data) => {
+      // Column alignment does not reach the foot on its own, and a grand total
+      // sitting under its columns rather than beside them is the whole point
+      if (data.section === 'foot') {
+        data.cell.styles.halign = data.column.index === 0 ? 'left' : 'right';
+      }
+
+      if (data.section === 'body' && data.column.index === 4 && data.cell.raw !== '0.00') {
+        data.cell.styles.textColor = OWED;
+        data.cell.styles.fontStyle = 'bold';
+      }
+    },
+  });
+
+  doc.setFontSize(7.4).setFont('helvetica', 'normal').setTextColor(...MUTED);
+
+  // Wrapped to the printable width rather than split by hand, so renaming a
+  // list can never leave a line running off the page
+  const note =
+    'The four lists do not overlap. A scholar is counted only under Scholars and a withdrawn student only '
+    + 'under Withdrawn, so neither appears in Not Fully Paid or Fully Paid — adding just those two falls short '
+    + 'of the term total by whatever the scholars and withdrawn students hold. All four lines above are needed '
+    + 'to reach it.';
+
+  doc.text(doc.splitTextToSize(note, USABLE_WIDTH), MARGIN, doc.lastAutoTable.finalY + 7);
+
+  return total;
 };
 
 /**

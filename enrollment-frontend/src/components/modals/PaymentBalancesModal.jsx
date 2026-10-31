@@ -10,7 +10,8 @@ import {
 import { paymentAPI } from '../../services/api';
 import { termAccountFor } from '@/lib/accountBalance';
 import {
-  REPORT_FORMAT, REPORT_ORIENTATION, STATUS, TONES, drawPaymentStatusReport, finishReport, statusFor,
+  REPORT_FORMAT, REPORT_ORIENTATION, STATUS, TONES, drawPaymentStatusReport, drawReconciliation,
+  finishReport, statusFor,
 } from '@/lib/paymentStatusReport';
 import { isEnrolled, isWithdrawn, reportedScholarship, scholarshipRank } from '@/lib/studentStatus';
 import { loadSchoolLogo } from '@/lib/schoolLogo';
@@ -446,6 +447,13 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
     paid: { name: 'Fully Paid', sections: ['paid'] },
   };
 
+  /**
+   * The order the reconciliation sheet lists them in: the two main lists
+   * first, because they are the pair people try to add together and find
+   * short, then the two that account for the difference.
+   */
+  const RECONCILE_ORDER = ['unpaid', 'paid', 'scholars', 'withdrawn'];
+
   const handleExportPdf = async (bundleKey) => {
     if (isExporting) return;
     setIsExporting(true);
@@ -495,6 +503,26 @@ const PaymentBalancesModal = ({ isOpen, onClose, students = [] }) => {
 
         ranges.push({ label: sheet.name, to: doc.getNumberOfPages() });
       });
+
+      // The last page, in both files: every list named and added up, so the
+      // term total can be checked without adding bands across two documents
+      const inThisFile = new Set(bundle.sections);
+
+      drawReconciliation(doc, {
+        lists: RECONCILE_ORDER.map((key) => ({
+          name: SHEETS[key].name,
+          students: SHEETS[key].rows.length,
+          collected: SHEETS[key].rows.reduce((sum, r) => sum + (r.paid || 0), 0),
+          outstanding: SHEETS[key].rows.reduce((sum, r) => sum + (r.remaining || 0), 0),
+          here: inThisFile.has(key),
+        })),
+        otherFile: BUNDLES[bundleKey === 'unpaid' ? 'paid' : 'unpaid'].name,
+        termLabel,
+        accent: SHEETS[bundle.sections[0]].accent,
+        logo,
+      });
+
+      ranges.push({ label: 'Reconciliation', to: doc.getNumberOfPages() });
 
       finishReport(doc, ranges);
 
