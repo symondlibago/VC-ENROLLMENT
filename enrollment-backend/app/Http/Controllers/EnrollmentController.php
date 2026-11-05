@@ -1031,7 +1031,7 @@ public function getStudentsForIdReleasing()
             // Start querying grades for the specific student
             $query = Grade::with([
                 // Eager load relationships and select only the columns you need for optimization
-                'subject:id,subject_code,descriptive_title,year,semester',
+                'subject:id,subject_code,descriptive_title,year,semester,total_units',
                 'instructor.user:id,name'
             ])->where('pre_enrolled_student_id', $student->id);
 
@@ -1048,8 +1048,27 @@ public function getStudentsForIdReleasing()
             $grades = $query->orderBy('created_at', 'desc')->get();
             $sectionInstructors = $this->sectionInstructorNames($student);
 
+            /*
+             * The school year each grade belongs to.
+             *
+             * Most rows never had one stamped on them — the column was added
+             * later — so where the grade is silent the student's own enrolment
+             * for that year level and semester answers instead. Without this a
+             * grade slip has nothing to print in "School Year and Sem", which
+             * is the one line on it that cannot be left blank.
+             *
+             * Nothing is guessed from the student's current term: a 4th year's
+             * 1st Year subjects would all come back stamped with this year.
+             */
+            $terms = \App\Models\EnrollmentHistory::where('pre_enrolled_student_id', $student->id)
+                ->orderBy('created_at')
+                ->get(['year', 'semester', 'school_year'])
+                ->keyBy(fn ($term) => "{$term->year}|{$term->semester}");
+
             // Format the data for a clean frontend response
-            $formattedGrades = $grades->map(function ($grade) use ($sectionInstructors) {
+            $formattedGrades = $grades->map(function ($grade) use ($sectionInstructors, $terms) {
+                $year = $grade->year ?? $grade->subject->year ?? null;
+                $semester = $grade->semester ?? $grade->subject->semester ?? null;
                 return [
                     'id' => $grade->id,
                     'subject_code' => $grade->subject->subject_code ?? 'N/A',
@@ -1062,6 +1081,10 @@ public function getStudentsForIdReleasing()
                     'status' => $grade->status,
                     'year' => $grade->subject->year,
                     'semester' => $grade->subject->semester,
+                    // Units and the term, both for the printed grade slip
+                    'total_units' => $grade->subject->total_units ?? null,
+                    'school_year' => $grade->school_year
+                        ?? $terms->get("{$year}|{$semester}")?->school_year,
                 ];
             });
 

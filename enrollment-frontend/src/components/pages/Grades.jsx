@@ -59,7 +59,7 @@ const StudentGradebookView = ({ loading, filteredStudents, searchTerm, onSearchT
                       <td className="px-6 py-4"><div className="flex items-center gap-2"><GraduationCap size={14} className="text-gray-500" /><span>{student.courseName}</span></div></td>
                       <td className="px-6 py-4"><div className="flex items-center gap-2"><CalendarDays size={14} className="text-gray-500" /><span>{student.year}</span></div></td>
                       <td className="px-6 py-4">
-                        <Button variant="outline" size="sm" onClick={() => onViewGrades(student.id, student.name, student.courseName, student.year)} className="gradient-primary text-white liquid-button cursor-pointer">
+                        <Button variant="outline" size="sm" onClick={() => onViewGrades(student)} className="gradient-primary text-white liquid-button cursor-pointer">
                           <Eye className="w-4 h-4 mr-2" /> View Grades
                         </Button>
                       </td>
@@ -301,11 +301,25 @@ const Grades = () => {
     }
   }, [activeTab]);
 
-  const handleViewGrades = (studentId, studentName, courseName, year) =>
-    setModalState({ isOpen: true, studentId, studentName, courseName, year });
+  // The whole student rather than four loose arguments: the grade slip needs
+  // their ID number and course code as well, and a positional list that long
+  // is one reordering away from printing somebody else's details
+  const handleViewGrades = (student) =>
+    setModalState({
+      isOpen: true,
+      studentId: student.id,
+      studentName: student.name,
+      studentNumber: student.student_id_number,
+      courseName: student.courseName,
+      courseCode: student.courseCode,
+      year: student.year,
+    });
 
   const closeModal = () =>
-    setModalState({ isOpen: false, studentId: null, studentName: '', courseName: '', year: '' });
+    setModalState({
+      isOpen: false, studentId: null, studentName: '', studentNumber: '',
+      courseName: '', courseCode: '', year: '',
+    });
 
   const filteredStudents = useMemo(() =>
     students.filter((student) =>
@@ -327,7 +341,9 @@ const Grades = () => {
         onClose={closeModal}
         studentId={modalState.studentId}
         studentName={modalState.studentName}
+        studentNumber={modalState.studentNumber}
         courseName={modalState.courseName}
+        courseCode={modalState.courseCode}
         year={modalState.year}
       />
 

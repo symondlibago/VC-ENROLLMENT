@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import SuccessAlert from './SuccessAlert';
 import { periodsFor, computeFinalGrade, isAllZero, MANUAL_REMARKS } from '@/lib/gradingPeriods';
+import { getEquivalentGrade } from '@/lib/gradeEquivalent';
+import PrintGradeSlip from '@/components/layout/PrintGradeSlip';
 
 // MotionDropdown component remains the same...
 const MotionDropdown = ({ value, onChange, options, placeholder }) => {
@@ -59,7 +61,9 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
 };
 
 
-const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseName, year }) => {
+const StudentGradesModal = ({
+  isOpen, onClose, studentId, studentName, studentNumber, courseName, courseCode, year,
+}) => {
   const [grades, setGrades] = useState([]);
   const [editedGrades, setEditedGrades] = useState([]);
   // Senior High is marked on three terms, college on four periods
@@ -71,7 +75,11 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [alert, setAlert] = useState({ isVisible: false, message: '', type: 'success' });
+  // Year and semester are asked of the server; the school year is narrowed
+  // here, because it is read off the rows that come back rather than being a
+  // column the grades query can filter on
   const [filters, setFilters] = useState({ year: '', semester: '' });
+  const [schoolYear, setSchoolYear] = useState('');
   
   const user = authAPI.getUserData();
   const canEdit = user && (user.role === 'Admin' || user.role === 'Registrar');
@@ -111,6 +119,7 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
       setIsEditing(false);
       setGrades([]);
       setEditedGrades([]);
+      setSchoolYear('');
     }
   }, [isOpen, studentId, filters]);
 
@@ -143,44 +152,12 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
    */
   const calculateFinalGrade = (grade) => computeFinalGrade(grade, year, grade.year);
 
-  // Helper for Equivalent Conversion based on your provided table
-  const getEquivalent = (numericGrade) => {
-    if (numericGrade === null) return '--';
-    
-    const g = Math.round(numericGrade); // Round to nearest whole number for mapping
-
-    if (g >= 100) return "1.0";
-    if (g === 99) return "1.1";
-    if (g === 98) return "1.2";
-    if (g === 97) return "1.25";
-    if (g === 96) return "1.3";
-    if (g === 95) return "1.4";
-    if (g === 94) return "1.5";
-    if (g === 93) return "1.6";
-    if (g === 92) return "1.7";
-    if (g === 91) return "1.75";
-    if (g === 90) return "1.8";
-    if (g === 89) return "1.9";
-    if (g === 88) return "2.0";
-    if (g === 87) return "2.1";
-    if (g === 86) return "2.2";
-    if (g === 85) return "2.25";
-    if (g === 84) return "2.3";
-    if (g === 83) return "2.4";
-    if (g === 82) return "2.5";
-    if (g === 81) return "2.6";
-    if (g === 80) return "2.7";
-    if (g === 79) return "2.75";
-    if (g === 78) return "2.8";
-    if (g === 77) return "2.9";
-    if (g >= 75) return "3.0"; // 75-76%
-    if (g === 74) return "3.1";
-    if (g === 73) return "3.2";
-    if (g === 72) return "3.25";
-    if (g === 71) return "3.3";
-    if (g === 70) return "3.4";
-    return "5.0"; // 69% and below
-  };
+  /**
+   * The 1.0–5.0 equivalent, from the one table the grade slip and the grading
+   * sheets also read. It was copied out here once and is the figure the slip
+   * prints, so the two must never be able to drift apart.
+   */
+  const getEquivalent = (numericGrade) => getEquivalentGrade(numericGrade) ?? '--';
 
   const getGradeColorClass = (grade) => {
     if (grade === null || grade === undefined || grade === '') return 'text-gray-900';
@@ -276,6 +253,26 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
     return <Badge variant="outline">{status || 'In Progress'}</Badge>;
   };
   
+  /**
+   * The school year the grade slip prints in its header.
+   *
+   * It does not filter the table. The rows a slip carries are whatever the
+   * year and semester above already selected; this only answers the one line
+   * on the slip the grades themselves often cannot — most were recorded
+   * before the column existed.
+   *
+   * Offered from the school years these grades know about, with the student's
+   * own terms as a fallback so there is always something to pick.
+   */
+  const schoolYearOptions = useMemo(() => {
+    const years = [...new Set(grades.map((g) => g.school_year).filter(Boolean))].sort().reverse();
+
+    return [
+      { label: 'School year (auto)', value: '' },
+      ...years.map((value) => ({ label: value, value })),
+    ];
+  }, [grades]);
+
   const yearOptions = [ { label: 'All Years', value: '' }, { label: 'Grade 11', value: 'Grade 11' }, { label: 'Grade 12', value: 'Grade 12' }, { label: '1st Year', value: '1st Year' }, { label: '2nd Year', value: '2nd Year' }, { label: '3rd Year', value: '3rd Year' }, { label: '4th Year', value: '4th Year' }];
   const semesterOptions = [ { label: 'All Semesters', value: '' }, { label: '1st Semester', value: '1st Semester' }, { label: '2nd Semester', value: '2nd Semester' }];
   
@@ -321,12 +318,30 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
                 <div className="flex gap-4">
                     <MotionDropdown value={filters.year} onChange={(value) => handleFilterChange('year', value)} options={yearOptions} placeholder="Filter by Year..." />
                     <MotionDropdown value={filters.semester} onChange={(value) => handleFilterChange('semester', value)} options={semesterOptions} placeholder="Filter by Semester..." />
+                    <MotionDropdown value={schoolYear} onChange={setSchoolYear} options={schoolYearOptions} placeholder="School Year..." />
                 </div>
-                {canEdit && !isEditing && (
-                    <Button className="cursor-pointer" onClick={() => setIsEditing(true)}>
-                        <Edit className="w-4 h-4 mr-2" /> Edit Grades
-                    </Button>
-                )}
+                <div className="flex items-center gap-3">
+                    {/* Prints the rows on screen, so the slip and the table
+                        can never show a different term */}
+                    {!isEditing && (
+                        <PrintGradeSlip
+                            student={{
+                                studentId: studentNumber,
+                                name: studentName,
+                                courseCode: courseCode || courseName,
+                                year,
+                            }}
+                            grades={editedGrades}
+                            schoolYear={schoolYear}
+                            year={year}
+                        />
+                    )}
+                    {canEdit && !isEditing && (
+                        <Button className="cursor-pointer" onClick={() => setIsEditing(true)}>
+                            <Edit className="w-4 h-4 mr-2" /> Edit Grades
+                        </Button>
+                    )}
+                </div>
               </div>
 
               <div className="overflow-x-auto">
