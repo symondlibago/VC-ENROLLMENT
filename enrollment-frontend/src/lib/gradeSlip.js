@@ -292,7 +292,7 @@ export const drawGradeSlip = (doc, {
    * room for it: the units total, the closing line, the note, the grading
    * reference and both signature blocks.
    */
-  const TAIL = 51;
+  const TAIL = 55.5;
   const available = SLIP_HEIGHT - TAIL - tableTop - headerHeight;
 
   /*
@@ -305,9 +305,19 @@ export const drawGradeSlip = (doc, {
   const totalRow = 1;
   const capacity = Math.max(1, Math.floor(available / MIN_ROW_HEIGHT) - totalRow);
 
-  // Blank lines are the paper's way of showing nothing was added after the
-  // last subject. They are the first thing to go when the term is a long one
-  const padding = rows.length + blankRows <= capacity ? blankRows : 0;
+  /*
+   * Blank lines are the paper's way of showing nothing was added after the
+   * last subject — worth keeping, but not at the cost of the rows above them.
+   * They stay only while the real subjects still get a comfortable line to
+   * sit on, and a term heavy enough to squeeze them simply loses them.
+   */
+  const COMFORTABLE = 4;
+  const heightWith = (count) => available / (count + totalRow);
+
+  const padding = rows.length + blankRows <= capacity
+    && heightWith(rows.length + blankRows) >= COMFORTABLE
+    ? blankRows
+    : 0;
   const printed = [...rows, ...Array.from({ length: padding }, () => null)];
 
   const overflow = printed.slice(capacity);
@@ -317,6 +327,15 @@ export const drawGradeSlip = (doc, {
     MIN_ROW_HEIGHT,
     available / (onThisSheet.length + totalRow),
   ));
+
+  /*
+   * Type sized to the row it sits in.
+   *
+   * Rows shrink as a term gets heavier, and a fixed size eventually prints
+   * the ascenders straight through the rule above — the subject code ends up
+   * sitting on the line rather than inside the box.
+   */
+  const cellSize = Math.min(7.4, Math.max(5.4, (rowHeight - 1.1) * 2.6));
 
   doc.setDrawColor(...RULE).setLineWidth(0.25);
 
@@ -341,11 +360,15 @@ export const drawGradeSlip = (doc, {
         if (!value) return;
 
         const bold = column.key === 'grade';
-        doc.setFont(MONO, bold ? 'bold' : 'normal').setFontSize(7.4);
+        doc.setFont(MONO, bold ? 'bold' : 'normal').setFontSize(cellSize);
         setInk(doc, INK);
 
         const room = bounds[index].to - bounds[index].from - 3;
-        doc.text(clip(doc, value, room), cellX(bounds, index, column.align), y + rowHeight - 1.5, {
+        // Sat on the row's own centre line rather than a fixed offset, so the
+        // text stays inside the box at every size
+        const baseline = y + rowHeight / 2 + cellSize * 0.175;
+
+        doc.text(clip(doc, value, room), cellX(bounds, index, column.align), baseline, {
           align: column.align,
         });
       });
@@ -393,14 +416,18 @@ export const drawGradeSlip = (doc, {
   y += 4.4;
 
   // ── the grading reference ───────────────────────────────────────────────
-  doc.setFont(MONO, 'bold').setFontSize(5.4);
+  doc.setFont(MONO, 'bold').setFontSize(7);
   doc.text('GRADING SYSTEM:', LEFT, y);
 
-  const legendTop = y + 2.4;
-  const legendStep = 2.3;
-  const columnX = [LEFT, LEFT + 22, LEFT + 44, LEFT + 66, LEFT + 92];
+  // Set bold and well up from the original: this is the key a student reads
+  // to work out what their 2.25 means, and at the paper's size it was the
+  // faintest thing on the sheet. The column pitch is set by the widest entry
+  // in each — "3.0- 76/75%" at 11 characters — not chosen by eye
+  const legendTop = y + 3.4;
+  const legendStep = 3.3;
+  const columnX = [LEFT, LEFT + 26, LEFT + 52, LEFT + 78, LEFT + 106];
 
-  doc.setFont(MONO, 'normal').setFontSize(4.9);
+  doc.setFont(MONO, 'bold').setFontSize(7);
   setInk(doc, INK);
   GRADING_SYSTEM.forEach((line, rowIndex) => {
     line.forEach((cell, columnIndex) => {
