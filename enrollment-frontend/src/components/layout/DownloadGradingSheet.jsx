@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import { FileDown, ChevronDown, FileText } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { downloadGradingSheetDocx } from '@/lib/gradingSheetDocx';
-import { periodsFor, computeFinalGrade, remarksFor, isClearanceHeld, CLEARANCE_REMARK } from '@/lib/gradingPeriods';
+import {
+  periodsFor, computeFinalGrade, remarksFor, isClearanceHeld, isHeldRemark, NOT_CLEARED, DROPPED,
+} from '@/lib/gradingPeriods';
 
 /**
  * `disabled` is for the caller to hold the export shut — chiefly while grades
@@ -260,9 +262,11 @@ const DownloadGradingSheet = ({ subject, students, instructorName, disabled = fa
           } else if (colIndex === periods.length + 1 || colIndex === periods.length + 2) {
             data.cell.styles.textColor = getGradeColor(gv.finalGrade);
           } else if (colIndex === periods.length + 3) {
-            // Amber for a clearance hold: not a failure, just not releasable yet
-            if (gv.remarks === CLEARANCE_REMARK) data.cell.styles.textColor = [180, 83, 9];
-            else data.cell.styles.textColor = gv.remarks === 'FAILED' ? [220, 38, 38] : [0, 0, 0];
+            // Amber flags the signature still owed, whatever result it holds
+            if (isHeldRemark(gv.remarks)) data.cell.styles.textColor = [180, 83, 9];
+            else data.cell.styles.textColor = gv.remarks === 'FAILED' || gv.remarks === DROPPED
+              ? [220, 38, 38]
+              : [0, 0, 0];
           }
         },
       });
@@ -338,7 +342,7 @@ const DownloadGradingSheet = ({ subject, students, instructorName, disabled = fa
         doc.setFont('helvetica', 'italic');
         doc.setTextColor(180, 83, 9);
         doc.text(
-          `${CLEARANCE_REMARK} — grade earned but held at INC pending completion of the student's clearance for this term.`,
+          `${NOT_CLEARED} — the result shown is final but held pending completion of the student's clearance for this term.`,
           margin,
           legendBottom + 4
         );

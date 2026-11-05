@@ -79,17 +79,62 @@ export const hasAnyMark = (grades) =>
  */
 export const MANUAL_REMARKS = ['INC', 'NFE', 'NFR', 'DA', 'Credited'];
 
+/** The suffix every clearance-held remark carries. */
+export const NOT_CLEARED = '(NOT CLEARED)';
+
 /**
- * What a grade held for an unsigned clearance prints as.
+ * What a grade held for an unsigned clearance prints as when the result it
+ * earned is not known — the fallback, not the usual case.
  *
- * Spelt out rather than left at a bare INC: the result was earned, and whoever
- * reads the sheet needs to know it is the clearance holding it back and not an
- * unfinished requirement.
+ * Spelt out rather than left at a bare INC: whoever reads the sheet needs to
+ * know it is the clearance holding it back and not an unfinished requirement.
  */
-export const CLEARANCE_REMARK = 'INC (NOT CLEARED)';
+export const CLEARANCE_REMARK = `INC ${NOT_CLEARED}`;
 
 /** Whether this grade reads INC only because the clearance is unsigned. */
 export const isClearanceHeld = (grades) => Boolean(grades?.clearance_hold);
+
+/** Whether a printed remark is one the clearance is holding back. */
+export const isHeldRemark = (remark) => String(remark ?? '').endsWith(NOT_CLEARED);
+
+/**
+ * What a held grade prints as: the result it earned, and the reason it is not
+ * released yet.
+ *
+ * A bare INC on a grade that already scored 5.0 reads as though finishing a
+ * requirement could still save it. The result is already decided — only its
+ * release is waiting — so the sheet says both.
+ */
+export const heldRemark = (grades) => {
+  const earned = String(grades?.held_status ?? '').toUpperCase();
+
+  return earned === 'PASSED' || earned === 'FAILED'
+    ? `${earned} ${NOT_CLEARED}`
+    : CLEARANCE_REMARK;
+};
+
+/** A subject nobody sat any part of. */
+export const DROPPED = 'DROPPED';
+
+/**
+ * Whether every period this class is marked on came in at zero — all four
+ * college periods, or all three Senior High terms.
+ *
+ * An unmarked period does not count: a blank is a mark nobody has entered
+ * yet, and reading it as a zero would drop students mid-semester.
+ */
+export const isAllZero = (grades, ...years) =>
+  periodsFor(...years).every((period) => {
+    const value = grades?.[period.key];
+
+    if (value === null || value === undefined || value === '') return false;
+
+    return parseFloat(value) === 0;
+  });
+
+/** Whether the remark was chosen by a person rather than derived from marks. */
+export const hasManualRemark = (grades) =>
+  MANUAL_REMARKS.includes(grades?.status) && !isClearanceHeld(grades);
 
 /**
  * The remark for a grade: what the record says, not what the marks imply.
@@ -98,23 +143,29 @@ export const isClearanceHeld = (grades) => Boolean(grades?.clearance_hold);
  * it overwrite the saved status — which is what three separate exports used
  * to do — prints PASSED over a deliberate INC, NFE or DA, and over a result
  * the clearance is holding back.
+ *
+ * A remark somebody chose comes first, because a person deciding beats any
+ * rule. Then a dropped subject: zero in every period is nobody turning up,
+ * and there is no result to pass, fail or withhold behind a clearance.
  */
 export const remarksFor = (grades, ...years) => {
-  if (isClearanceHeld(grades)) {
-    return CLEARANCE_REMARK;
+  if (hasManualRemark(grades)) {
+    return grades.status;
   }
 
-  const status = grades?.status;
+  if (isAllZero(grades, ...years)) {
+    return DROPPED;
+  }
 
-  if (MANUAL_REMARKS.includes(status)) {
-    return status;
+  if (isClearanceHeld(grades)) {
+    return heldRemark(grades);
   }
 
   const final = computeFinalGrade(grades, ...years);
 
   // Nothing to derive from yet, so whatever the record says stands
   if (final === null) {
-    return status || '';
+    return grades?.status || '';
   }
 
   return Math.round(final) >= 75 ? 'PASSED' : 'FAILED';

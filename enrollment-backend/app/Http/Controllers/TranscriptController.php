@@ -24,8 +24,14 @@ class TranscriptController extends Controller
     /** The school's own name, as it is underlined on the collegiate record. */
     public const HOME_SCHOOL = 'VINEYARD INTERNATIONAL POLYTECHNIC COLLEGE – Cagayan de Oro City';
 
-    /** Grade statuses that print as a remark instead of a numeric equivalent. */
-    private const REMARK_STATUSES = ['INC', 'NFE', 'NFR', 'DA', 'Credited'];
+    /**
+     * Grade statuses that print as a remark instead of a numeric equivalent.
+     *
+     * Dropped is among them: every period reads zero, so the equivalent would
+     * come out 5.0 and the transcript would show a subject the student sat and
+     * failed rather than one they stopped attending.
+     */
+    private const REMARK_STATUSES = ['INC', 'NFE', 'NFR', 'DA', 'Credited', Grade::DROPPED];
 
     /** Earlier semesters first; a summer term closes out its school year. */
     private const SEMESTER_ORDER = ['1st Semester' => 1, '2nd Semester' => 2, 'Summer' => 3];
@@ -155,7 +161,7 @@ class TranscriptController extends Controller
     {
         $units = (float) ($grade->subject->total_units ?? 0);
         $mark = $grade->passingMark();
-        $failed = in_array($grade->status, ['Failed', 'NFE', 'NFR', 'DA'], true)
+        $failed = in_array($grade->status, ['Failed', 'NFE', 'NFR', 'DA', Grade::DROPPED], true)
             || ($mark !== null && $mark < 75);
 
         return [

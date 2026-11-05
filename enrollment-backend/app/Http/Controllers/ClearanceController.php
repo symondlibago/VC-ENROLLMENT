@@ -535,6 +535,7 @@ class ClearanceController extends Controller
                 'g.semester',
                 'g.year',
                 'g.held_status',
+                'g.held_at',
                 'g.final_grade',
                 's.id as student_id',
                 's.student_id_number',
@@ -600,8 +601,15 @@ class ClearanceController extends Controller
                     'term' => "{$row->semester}, {$row->school_year}",
                     'year_level' => $row->year,
                     'final_grade' => $row->final_grade !== null ? (float) $row->final_grade : null,
-                    // The result it goes back to once the clearance is signed
+                    // The result the grade earned, which a completed INC
+                    // resolves back to
                     'held_status' => $row->held_status,
+                    // When the INC was incurred. A hold with no date predates
+                    // the rule and still releases straight to its result, so
+                    // the page can say which of the two will happen rather
+                    // than promising one and doing the other.
+                    'held_at' => $row->held_at,
+                    'becomes_inc' => $row->held_at !== null,
                     'clearance_id' => $waiting->first()->clearance_id ?? null,
                     'outstanding' => $waiting->pluck('name')->values(),
                 ];

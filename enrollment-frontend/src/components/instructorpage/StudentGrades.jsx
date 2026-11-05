@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { usesTransmutation } from '@/lib/transmutation';
 import {
-  periodsFor, computeFinalGrade, MANUAL_REMARKS, isClearanceHeld, gradeSignature, hasAnyMark,
+  periodsFor, computeFinalGrade, MANUAL_REMARKS, isClearanceHeld, isAllZero, gradeSignature, hasAnyMark,
 } from '@/lib/gradingPeriods';
 
 const MotionDropdown = ({ value, onChange, options, placeholder, searchable = false }) => {
@@ -771,16 +771,30 @@ const StudentGrades = () => {
                   const heldForClearance = isClearanceHeld(student.grades);
                   const isMarked = MANUAL_REMARKS.includes(savedStatus);
 
+                  const dropped = isAllZero(student.grades, student.year);
+
                   let statusBadge;
-                  if (heldForClearance) {
-                      // Reads INC like any other, so it says why — otherwise
-                      // this looks like a requirement the student still owes
+                  if (isMarked && !heldForClearance) {
+                      statusBadge = <Badge className="bg-yellow-100 text-yellow-800">{savedStatus}</Badge>;
+                  } else if (dropped) {
+                      // Zero in every period is nobody turning up, so there is
+                      // no result to pass, fail or hold behind a clearance
+                      statusBadge = (
+                        <Badge className="bg-gray-200 text-gray-800 whitespace-nowrap"
+                          title="Zero in every grading period — recorded as dropped rather than failed.">
+                          Dropped
+                        </Badge>
+                      );
+                  } else if (heldForClearance) {
+                      // Names the result it is holding: a bare INC on a grade
+                      // that already scored 5.0 reads as though finishing a
+                      // requirement could still save it
                       statusBadge = (
                         <Badge
                           className="bg-amber-100 text-amber-800 border border-amber-200 whitespace-nowrap"
-                          title={`Earned ${student.grades?.held_status || 'a result'}, held at INC until the clearance for this term is signed off. It restores itself automatically.`}
+                          title={`Earned ${student.grades?.held_status || 'a result'}, held until the clearance for this term is signed off. It releases itself automatically.`}
                         >
-                          INC · Not cleared
+                          {(student.grades?.held_status || 'INC')} · Not cleared
                         </Badge>
                       );
                   } else if (isMarked) {

@@ -8,7 +8,7 @@ import LoadingSpinner from '@/components/layout/LoadingSpinner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import SuccessAlert from './SuccessAlert';
-import { periodsFor, computeFinalGrade } from '@/lib/gradingPeriods';
+import { periodsFor, computeFinalGrade, isAllZero, MANUAL_REMARKS } from '@/lib/gradingPeriods';
 
 // MotionDropdown component remains the same...
 const MotionDropdown = ({ value, onChange, options, placeholder }) => {
@@ -192,11 +192,17 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
    * The final grade is null until every period the class uses is filled in, so
    * that alone decides whether the subject is still in progress — Senior High
    * needs three terms, college four.
+   *
+   * Mirrors Grade::derivedStatus on the server, which writes the same value
+   * when the instructor's own page saves the marks.
    */
   const computeAutoStatus = (grade) => {
-    if (['INC', 'NFE', 'NFR', 'DA', 'Credited'].includes(grade.status)) {
+    if (MANUAL_REMARKS.includes(grade.status)) {
       return grade.status;
     }
+
+    // Zero in every period is nobody turning up, not a mark of zero
+    if (isAllZero(grade, year, grade.year)) return 'Dropped';
 
     const computedFinal = calculateFinalGrade(grade);
     if (computedFinal === null) return 'In Progress';
@@ -265,6 +271,7 @@ const StudentGradesModal = ({ isOpen, onClose, studentId, studentName, courseNam
     if (status === 'Passed') return <Badge className="bg-green-100 text-green-800">{status}</Badge>;
     if (status === 'Failed') return <Badge variant="destructive">{status}</Badge>;
     if (status === 'Credited') return <Badge className="bg-blue-100 text-blue-800">{status}</Badge>;
+    if (status === 'Dropped') return <Badge className="bg-gray-200 text-gray-800">{status}</Badge>;
     if (['INC', 'NFE', 'NFR', 'DA'].includes(status)) return <Badge className="bg-yellow-100 text-yellow-800">{status}</Badge>;
     return <Badge variant="outline">{status || 'In Progress'}</Badge>;
   };

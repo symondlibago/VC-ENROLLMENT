@@ -1164,7 +1164,7 @@ public function getStudentsForIdReleasing()
             'grades.*.midterm_grade' => 'nullable|numeric|min:0|max:100',
             'grades.*.semifinal_grade' => 'nullable|numeric|min:0|max:100',
             'grades.*.final_grade' => 'nullable|numeric|min:0|max:100',
-            'grades.*.status' => ['required', 'string', Rule::in(['Passed', 'Failed', 'In Progress', 'INC', 'NFE', 'NFR', 'DA', 'Credited'])],
+            'grades.*.status' => ['required', 'string', Rule::in(Grade::STATUSES)],
         ]);
 
         if ($validator->fails()) {
@@ -1214,10 +1214,10 @@ public function getStudentsForIdReleasing()
                             $grade->clearance_hold = false;
                             $grade->held_status = null;
                         } else {
-                            $mark = $grade->passingMark();
-                            $grade->status = $mark === null
-                                ? 'In Progress'
-                                : ($mark >= 75 ? 'Passed' : 'Failed');
+                            // The same rule the instructor's path uses, zeros
+                            // and all, so the status does not depend on who
+                            // happened to record the marks
+                            $grade->status = $grade->derivedStatus();
                             $grade->clearance_hold = false;
                             $grade->held_status = null;
                         }

@@ -1,6 +1,8 @@
 import { saveAs } from 'file-saver';
 import { createDocxBlob, para, table, spacer, pageBreak, image } from './docx';
-import { periodsFor, computeFinalGrade, remarksFor, isClearanceHeld, CLEARANCE_REMARK } from './gradingPeriods';
+import {
+  periodsFor, computeFinalGrade, remarksFor, isClearanceHeld, isHeldRemark, NOT_CLEARED, DROPPED,
+} from './gradingPeriods';
 
 const FAIL = 'DC2626';
 /** A clearance hold is not a failure, so it gets its own colour. */
@@ -118,7 +120,11 @@ function buildSectionXml(subject, sectionName, students, hasLogo) {
         text: remarks,
         align: 'center',
         size: 13,
-        color: remarks === CLEARANCE_REMARK ? HELD : (remarks === 'FAILED' ? FAIL : '000000'),
+        // Amber flags the signature still owed, whatever result it is holding;
+        // a plain FAILED or DROPPED is the result itself
+        color: isHeldRemark(remarks)
+          ? HELD
+          : (remarks === 'FAILED' || remarks === DROPPED ? FAIL : '000000'),
       },
     ];
   });
@@ -166,7 +172,7 @@ function buildSectionXml(subject, sectionName, students, hasLogo) {
   const heldNote = students.some((s) => isClearanceHeld(s.grades))
     ? para(
         [{
-          text: `${CLEARANCE_REMARK} — grade earned but held at INC pending completion of the student's clearance for this term.`,
+          text: `${NOT_CLEARED} — the result shown is final but held pending completion of the student's clearance for this term.`,
           italic: true,
           size: 12,
           color: HELD,

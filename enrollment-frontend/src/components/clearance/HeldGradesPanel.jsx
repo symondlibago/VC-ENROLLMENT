@@ -90,8 +90,10 @@ const HeldGradesPanel = ({ notify }) => {
           </p>
           <p className="text-amber-800">
             {scope === 'own_classes'
-              ? 'These are the grades you submitted that read INC because the student is not yet cleared for the term. Nothing needs processing here — each one returns to its real result the moment the clearance is signed off.'
-              : 'These grades were earned but read INC because the student is not yet cleared for the term. Nothing needs processing here — each one returns to its real result the moment the clearance is signed off.'}
+              ? 'These are the grades you submitted while the student was not yet cleared for the term, so each one reads INC.'
+              : 'These grades were earned while the student was not yet cleared for the term, so each one reads INC.'}
+            {' '}The grades came in first and the clearance second, so signing it off does not undo the INC — it becomes an INC
+            to be paid for and completed. Nothing is processed on this page; the Will become column says where each one lands.
           </p>
         </div>
       </div>
@@ -161,15 +163,27 @@ const HeldGradesPanel = ({ notify }) => {
                             INC
                           </Badge>
                           <ArrowRight size={12} className="text-gray-400" />
-                          <Badge
-                            className={`border text-[11px] ${
-                              row.held_status === 'Passed'
-                                ? 'bg-green-100 text-green-800 border-green-200'
-                                : 'bg-red-100 text-red-800 border-red-200'
-                            }`}
-                          >
-                            {row.held_status ?? '—'}
-                          </Badge>
+                          {/* A hold taken under the current rule turns into a
+                              payable INC; one that predates it still releases
+                              straight to the result it earned */}
+                          {row.becomes_inc ? (
+                            <Badge
+                              className="bg-amber-100 text-amber-900 border border-amber-300 text-[11px]"
+                              title={`INC incurred ${row.held_at ? new Date(row.held_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''} — the grades were in before the clearance was signed. Completing it settles the subject as ${row.held_status ?? 'its earned result'}.`}
+                            >
+                              INC to be paid
+                            </Badge>
+                          ) : (
+                            <Badge
+                              className={`border text-[11px] ${
+                                row.held_status === 'Passed'
+                                  ? 'bg-green-100 text-green-800 border-green-200'
+                                  : 'bg-red-100 text-red-800 border-red-200'
+                              }`}
+                            >
+                              {row.held_status ?? '—'}
+                            </Badge>
+                          )}
                         </span>
                       </td>
                       <td className="px-4 py-3">

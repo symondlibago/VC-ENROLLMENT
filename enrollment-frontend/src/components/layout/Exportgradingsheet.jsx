@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { instructorAPI } from '@/services/api';
 import { downloadGradingSheetDocx } from '@/lib/gradingSheetDocx';
-import { periodsFor, computeFinalGrade, remarksFor, isClearanceHeld, CLEARANCE_REMARK } from '@/lib/gradingPeriods';
+import {
+  periodsFor, computeFinalGrade, remarksFor, isClearanceHeld, isHeldRemark, NOT_CLEARED, DROPPED,
+} from '@/lib/gradingPeriods';
 
 // ---------------------------------------------------------------------------
 // Helpers (mirror DownloadGradingSheet logic exactly)
@@ -232,10 +234,11 @@ const generateGradingSheetPDF = ({ subject, students, instructorName, sectionNam
       } else if (colIndex === periods.length + 1 || colIndex === periods.length + 2) {
         data.cell.styles.textColor = getGradeColor(gv.finalGrade);
       } else if (colIndex === periods.length + 3) {
-        // Amber for a clearance hold: the result is not a failure, it is
-        // simply not releasable yet
-        if (gv.remarks === CLEARANCE_REMARK) data.cell.styles.textColor = [180, 83, 9];
-        else data.cell.styles.textColor = gv.remarks === 'FAILED' ? [220, 38, 38] : [0, 0, 0];
+        // Amber flags the signature still owed, whatever result it holds
+        if (isHeldRemark(gv.remarks)) data.cell.styles.textColor = [180, 83, 9];
+        else data.cell.styles.textColor = gv.remarks === 'FAILED' || gv.remarks === DROPPED
+          ? [220, 38, 38]
+          : [0, 0, 0];
       }
     },
   });
@@ -312,7 +315,7 @@ const generateGradingSheetPDF = ({ subject, students, instructorName, sectionNam
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(180, 83, 9);
     doc.text(
-      `${CLEARANCE_REMARK} — grade earned but held at INC pending completion of the student's clearance for this term.`,
+      `${NOT_CLEARED} — the result shown is final but held pending completion of the student's clearance for this term.`,
       margin,
       legendBottom + 4
     );

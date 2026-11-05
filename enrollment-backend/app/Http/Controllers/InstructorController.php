@@ -353,7 +353,7 @@ public function bulkUpdateGrades(Request $request)
             'grades.*.midterm_grade' => 'nullable|numeric|min:0|max:100',
             'grades.*.semifinal_grade' => 'nullable|numeric|min:0|max:100',
             'grades.*.final_grade' => 'nullable|numeric|min:0|max:100',
-            'grades.*.status' => ['nullable', 'string', Rule::in(['Passed', 'Failed', 'In Progress', 'INC', 'NFE', 'NFR', 'DA'])],
+            'grades.*.status' => ['nullable', 'string', Rule::in(\App\Models\Grade::STATUSES)],
         ]);
 
         if ($validator->fails()) {
@@ -497,13 +497,10 @@ public function bulkUpdateGrades(Request $request)
                         // College is judged on the final period as it always
                         // has been; Senior High has no fourth period, so it is
                         // judged on the average of its three terms.
-                        $mark = $grade->passingMark();
-
-                        if ($mark !== null) {
-                            $grade->status = $mark >= 75 ? 'Passed' : 'Failed';
-                        } else {
-                            $grade->status = 'In Progress';
-                        }
+                        // Zero in every period is nobody turning up, which is a
+                        // drop rather than a mark of zero — derivedStatus holds
+                        // that rule so the record and the sheet cannot disagree
+                        $grade->status = $grade->derivedStatus();
 
                         $grade->clearance_hold = false;
                         $grade->held_status = null;

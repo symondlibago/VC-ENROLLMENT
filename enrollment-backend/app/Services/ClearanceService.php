@@ -729,9 +729,14 @@ class ClearanceService
     /**
      * Puts a finalised grade on hold at INC until the student is cleared.
      *
-     * The result the grade actually earned is kept in `held_status`, so
-     * lifting the hold restores it exactly rather than recomputing from
-     * marks that may have been edited in the meantime.
+     * The result the grade actually earned is kept in `held_status`, so a
+     * completed INC resolves back to it rather than to something recomputed
+     * from marks that may have been edited in the meantime.
+     *
+     * `held_at` is stamped once and never moved. It is the moment the INC was
+     * incurred — the fact the whole rule turns on — so a later correction to
+     * the same grade must not quietly push the date forward and change which
+     * side of the rule the student falls on.
      */
     public function holdGrade(Grade $grade, string $earnedStatus): void
     {
@@ -739,12 +744,26 @@ class ClearanceService
             'status' => 'INC',
             'clearance_hold' => true,
             'held_status' => $earnedStatus,
+            'held_at' => $grade->held_at ?? Carbon::now(),
         ]);
     }
 
     /**
-     * Lifts the holds a clearance was blocking, restoring each grade's own
-     * result. Returns how many were released.
+     * Settles the holds a clearance was blocking. Returns how many.
+     *
+     * An INC is incurred by not being cleared when the grades came in, and
+     * clearing afterwards does not undo that: the student has to pay for and
+     * complete the INC. So a hold does not evaporate here — it becomes the
+     * real INC it always was, and the completion form opens.
+     *
+     * The order is what decides it, and the hold already recorded that order.
+     * A grade finalised while the student was cleared is never held in the
+     * first place, so it goes straight to its result and no INC exists. Only
+     * grades finalised first, cleared second, reach this method at all.
+     *
+     * Holds with no `held_at` predate the rule. They were taken when clearing
+     * simply let the grade through, so that is still what they do — nobody is
+     * billed under a rule decided after their grade was already on hold.
      */
     public function releaseHolds(Clearance $clearance): int
     {
@@ -758,22 +777,36 @@ class ClearanceService
             ? self::COLLEGE_TERMS   // a Senior High year covers both terms' grades
             : [$clearance->semester];
 
-        $released = 0;
+        $settled = 0;
 
         Grade::where('pre_enrolled_student_id', $student->id)
             ->where('school_year', $clearance->school_year)
             ->whereIn('semester', $semesters)
             ->where('clearance_hold', true)
             ->get()
-            ->each(function (Grade $grade) use (&$released) {
-                $grade->update([
-                    'status' => $grade->held_status ?: 'Passed',
-                    'clearance_hold' => false,
-                    'held_status' => null,
-                ]);
-                $released++;
+            ->each(function (Grade $grade) use (&$settled) {
+                $settled++;
+
+                if ($grade->held_at === null) {
+                    $grade->update([
+                        'status' => $grade->held_status ?: 'Passed',
+                        'clearance_hold' => false,
+                        'held_status' => null,
+                    ]);
+
+                    return;
+                }
+
+                // Stays INC, but a real one now: dropping the hold flag is
+                // what makes needsCompletionForm() true and opens the form.
+                // `held_status` and `held_at` both stay — the first is what
+                // completing it resolves to, the second is the proof of when
+                // the charge was incurred.
+                $grade->update(['status' => 'INC', 'clearance_hold' => false]);
+
+                IncRecordService::syncForGrade($grade);
             });
 
-        return $released;
+        return $settled;
     }
 }

@@ -26,10 +26,12 @@ class Grade extends Model
         'final_grade',
         'status',
         // Held at INC because the student has not been cleared. `held_status`
-        // is the result the grade actually earned, kept so lifting the hold
-        // restores it rather than recomputing from marks that may have moved.
+        // is the result the grade actually earned, and `held_at` is when the
+        // hold went on — the moment the INC was incurred, and the cutoff that
+        // tells a hold under the current rule from one that predates it.
         'clearance_hold',
         'held_status',
+        'held_at',
     ];
 
     protected $casts = [
@@ -38,6 +40,7 @@ class Grade extends Model
         'semifinal_grade' => 'float',
         'final_grade' => 'float',
         'clearance_hold' => 'boolean',
+        'held_at' => 'datetime',
     ];
 
     /**
@@ -48,6 +51,17 @@ class Grade extends Model
      * meaning was added.
      */
     public const MANUAL_REMARKS = ['INC', 'NFE', 'NFR', 'DA', 'Credited'];
+
+    /**
+     * Every status a grade may hold, matching the enum on the column.
+     *
+     * One list, so a validator cannot reject a status the database accepts or
+     * wave through one it does not. Two controllers kept their own copies and
+     * had already drifted apart by `Credited` before `Dropped` was added.
+     */
+    public const STATUSES = [
+        'Passed', 'Failed', 'INC', 'In Progress', 'NFE', 'NFR', 'DA', 'Credited', self::DROPPED,
+    ];
 
     /**
      * Whether the status was chosen by a person rather than derived.
@@ -179,5 +193,48 @@ class Grade extends Model
     public function passingMark(): ?float
     {
         return $this->isShs() ? $this->computedFinalGrade() : $this->final_grade;
+    }
+
+    /** The status a subject nobody sat any part of carries. */
+    public const DROPPED = 'Dropped';
+
+    /**
+     * Whether every period this class is marked on came in at zero — all four
+     * college periods, or all three Senior High terms.
+     *
+     * An unmarked period does not count: a blank is a mark nobody has entered
+     * yet, and reading it as a zero would drop students mid-semester.
+     */
+    public function isAllZero(): bool
+    {
+        foreach ($this->periodGrades() as $grade) {
+            if ($grade === null || (float) $grade !== 0.0) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * The status the marks imply, for a grade nobody has set a remark on.
+     *
+     * The one rule both the saved record and every screen follow — mirrors
+     * `remarksFor` in the frontend's gradingPeriods, which has to agree or a
+     * printed sheet says something the record does not.
+     */
+    public function derivedStatus(): string
+    {
+        if ($this->isAllZero()) {
+            return self::DROPPED;
+        }
+
+        $mark = $this->passingMark();
+
+        if ($mark === null) {
+            return 'In Progress';
+        }
+
+        return $mark >= 75 ? 'Passed' : 'Failed';
     }
 }
