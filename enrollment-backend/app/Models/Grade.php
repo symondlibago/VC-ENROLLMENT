@@ -186,13 +186,19 @@ class Grade extends Model
     }
 
     /**
-     * The mark a pass or fail is judged on. College has always used the final
-     * period; Senior High has no fourth period, so it uses the three-term
-     * average instead.
+     * The mark a pass or fail is judged on: the average of the periods the
+     * class is marked on, which is the same figure every screen and sheet
+     * prints as the Final Grade.
+     *
+     * College used to be judged on its final period alone while the pages
+     * showed the four-period average, so a student could read 80 and a 2.7
+     * beside the word Failed — 227 subjects were in that state, 155 of them
+     * recorded as failures the student had in fact passed. One figure decides
+     * it now, and it is the one on the paper.
      */
     public function passingMark(): ?float
     {
-        return $this->isShs() ? $this->computedFinalGrade() : $this->final_grade;
+        return $this->computedFinalGrade();
     }
 
     /** The status a subject nobody sat any part of carries. */

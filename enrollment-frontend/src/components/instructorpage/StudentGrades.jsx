@@ -786,15 +786,26 @@ const StudentGrades = () => {
                         </Badge>
                       );
                   } else if (heldForClearance) {
-                      // Names the result it is holding: a bare INC on a grade
-                      // that already scored 5.0 reads as though finishing a
-                      // requirement could still save it
+                      /*
+                       * Read off the Final Grade in the row, not off the
+                       * stored held_status.
+                       *
+                       * That stored value was worked out from the final
+                       * period alone, so a student averaging 80 with a weak
+                       * last period was being shown as Failed beside their
+                       * own passing mark. The column and the badge now read
+                       * the same figure.
+                       */
+                      const earned = computedFinal !== null
+                          ? (computedFinal >= 75 ? 'Passed' : 'Failed')
+                          : (student.grades?.held_status || 'INC');
+
                       statusBadge = (
                         <Badge
                           className="bg-amber-100 text-amber-800 border border-amber-200 whitespace-nowrap"
-                          title={`Earned ${student.grades?.held_status || 'a result'}, held until the clearance for this term is signed off. It releases itself automatically.`}
+                          title={`Earned ${earned}, held until the clearance for this term is signed off. It releases itself automatically.`}
                         >
-                          {(student.grades?.held_status || 'INC')} · Not cleared
+                          {earned} · Not cleared
                         </Badge>
                       );
                   } else if (isMarked) {

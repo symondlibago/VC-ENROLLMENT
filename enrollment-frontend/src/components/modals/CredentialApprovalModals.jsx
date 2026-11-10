@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { X, Loader2, AlertCircle, Wallet, ShieldCheck, Undo2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import CustomCalendar from '../layout/CustomCalendar';
-import { STEP_LABELS, peso } from '@/lib/credentialOptions';
+import { STEP_LABELS, peso, priceRequest } from '@/lib/credentialOptions';
 import { toIsoDate, todayIso } from '@/lib/dateFormat';
 
 /**
@@ -46,16 +46,26 @@ export const CredentialPaymentModal = ({ isOpen, onClose, request, onSubmit, isS
   const [remarks, setRemarks] = useState('');
   const [error, setError] = useState('');
 
+  // What the tariff says this request comes to, worked out from the documents
+  // and their page counts rather than tallied at the counter
+  const quote = useMemo(() => priceRequest(request?.credentials), [request]);
+
   useEffect(() => {
     if (!isOpen) return;
-    setAmount('');
+    // Filled in rather than left blank: the cashier is confirming a figure,
+    // not calculating one. Still editable, because a request carrying an
+    // "Others" line has no price until somebody puts one on it.
+    setAmount(quote.complete ? String(quote.total) : '');
     setOrNumber('');
     setDate(todayIso());
     setRemarks('');
     setError('');
-  }, [isOpen]);
+  }, [isOpen, quote.complete, quote.total]);
 
   if (!isOpen || !request) return null;
+
+  const entered = parseFloat(amount) || 0;
+  const differs = quote.complete && Math.abs(entered - quote.total) > 0.005;
 
   const submit = () => {
     const total = parseFloat(amount) || 0;
@@ -92,6 +102,38 @@ export const CredentialPaymentModal = ({ isOpen, onClose, request, onSubmit, isS
         <div data-lenis-prevent className="flex-1 min-h-0 p-6 space-y-4 overflow-y-auto">
           <RequestSummary request={request} />
 
+          {/* The tariff, itemised. Pages are already multiplied in and the
+              picture fee counted once, so nothing is left to add up here */}
+          {quote.lines.length > 0 && (
+            <div className="rounded-lg border bg-white p-3 text-sm">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Schedule of fees
+              </p>
+              <div className="space-y-1">
+                {quote.lines.map((line, index) => (
+                  <div key={index} className="flex items-baseline justify-between gap-3">
+                    <span className="text-gray-700">
+                      {line.label}
+                      <span className="text-gray-400 text-xs ml-1.5">{line.detail}</span>
+                    </span>
+                    <span className="font-mono text-gray-900 shrink-0">
+                      {line.amount ? peso(line.amount) : '—'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-baseline justify-between gap-3 mt-2 pt-2 border-t font-semibold">
+                <span className="text-gray-900">Total</span>
+                <span className="font-mono text-(--dominant-red)">{peso(quote.total)}</span>
+              </div>
+              {quote.unpriced > 0 && (
+                <p className="mt-2 text-xs text-amber-700">
+                  {quote.unpriced} item{quote.unpriced === 1 ? ' has' : 's have'} no set price — enter the amount yourself.
+                </p>
+              )}
+            </div>
+          )}
+
           <div>
             <label className="text-sm font-medium text-gray-700">Amount Paid</label>
             <div className="relative mt-1">
@@ -103,6 +145,21 @@ export const CredentialPaymentModal = ({ isOpen, onClose, request, onSubmit, isS
                 className={`${inputClass} pl-7 font-semibold`}
               />
             </div>
+            {/* Said plainly rather than blocked: a cashier overriding the
+                tariff usually has a reason, and they should see that they did */}
+            {differs && (
+              <p className="mt-1.5 text-xs text-amber-700">
+                This differs from the {peso(quote.total)} the schedule comes to.
+                {' '}
+                <button
+                  type="button"
+                  onClick={() => { setAmount(String(quote.total)); setError(''); }}
+                  className="underline cursor-pointer font-medium"
+                >
+                  Use {peso(quote.total)}
+                </button>
+              </p>
+            )}
           </div>
 
           <div>

@@ -26,8 +26,71 @@ class CredentialRequest extends Model
         'transcript_of_records' => 'Official Transcript of Records',
         'good_moral' => 'Certificate of Good Moral',
         'diploma' => 'Diploma',
+        'certification_of_non_scholarship' => 'Certification of Non-Scholarship',
+        'certification_of_graduation' => 'Certification of Graduation',
+        'certification_of_nstp_serial' => 'Certification of NSTP Serial Number',
+        'certified_true_copy' => 'Certified True Copy',
         'others' => 'Others',
     ];
+
+    /**
+     * What the registrar's office charges for each document.
+     *
+     * `per_page` is multiplied by the pages asked for; `flat` is not, however
+     * many pages the line carries. `picture` is the fee for the photograph
+     * affixed to the document — charged once for that document and never per
+     * page, which is the part the cashier was working out by hand.
+     *
+     * Mirrors CREDENTIAL_PRICES in the frontend's credentialOptions. A type
+     * missing from this table is priced at the counter; "Others" is whatever
+     * was asked for and nobody can put a number on it in advance.
+     */
+    public const PRICES = [
+        'honorable_dismissal' => ['per_page' => 150, 'picture' => 50],
+        'transcript_of_records' => ['per_page' => 150, 'picture' => 50],
+        'certified_true_copy' => ['per_page' => 40],
+        'certification_of_completion' => ['flat' => 150],
+        'diploma' => ['flat' => 250],
+        'good_moral' => ['flat' => 100],
+        'certification_of_enrollment' => ['flat' => 100],
+        'certification_of_units_earned' => ['flat' => 100],
+        'certification_of_non_scholarship' => ['flat' => 100],
+        'certification_of_graduation' => ['flat' => 100],
+        'certification_of_nstp_serial' => ['flat' => 100],
+    ];
+
+    /**
+     * What this request comes to, and whether anything on it still needs a
+     * price putting on by hand.
+     *
+     * Returns `['total' => float, 'unpriced' => int]`. A caller can tell a
+     * request that genuinely costs nothing from one nobody has priced yet.
+     */
+    public function quote(): array
+    {
+        $total = 0.0;
+        $unpriced = 0;
+
+        foreach ((array) ($this->credentials ?? []) as $credential) {
+            $rule = self::PRICES[$credential['type'] ?? ''] ?? null;
+
+            if (!$rule) {
+                $unpriced++;
+                continue;
+            }
+
+            $pages = max(1, (int) ($credential['pages'] ?? 1));
+
+            $total += isset($rule['per_page'])
+                ? $rule['per_page'] * $pages
+                : $rule['flat'];
+
+            // Once for the document, never once per page
+            $total += $rule['picture'] ?? 0;
+        }
+
+        return ['total' => round($total, 2), 'unpriced' => $unpriced];
+    }
 
     /** Why the credentials are being requested. */
     public const PURPOSES = [

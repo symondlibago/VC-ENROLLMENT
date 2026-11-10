@@ -12,6 +12,7 @@ import {
 import { credentialAPI } from '@/services/api';
 import {
   CREDENTIAL_TYPES, CREDENTIAL_LABELS, PURPOSE_OPTIONS, PURPOSE_LABELS, PAGE_CHOICES,
+  peso, priceCredential, priceRequest,
 } from '@/lib/credentialOptions';
 
 /**
@@ -197,6 +198,10 @@ const CredentialRequestFormModal = ({ isOpen, onClose, onSubmit, isSaving, editi
   };
 
   const selectedTypes = useMemo(() => lines.map((line) => line.type), [lines]);
+
+  // The tariff for what is selected, recomputed as pages are picked, so the
+  // registrar files a request already knowing what it will cost
+  const quote = useMemo(() => priceRequest(lines), [lines]);
 
   const toggleCredential = (type) => {
     setError('');
@@ -499,13 +504,27 @@ const CredentialRequestFormModal = ({ isOpen, onClose, onSubmit, isSaving, editi
                       ) : (
                         <p className="font-semibold text-sm text-gray-900 pt-1">{CREDENTIAL_LABELS[line.type]}</p>
                       )}
-                      <button
-                        onClick={() => toggleCredential(line.type)}
-                        className="text-gray-400 hover:text-(--dominant-red) cursor-pointer shrink-0"
-                        aria-label="Remove"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-start gap-3 shrink-0">
+                        {/* What this line costs, so the registrar is reading
+                            the same figure the cashier will charge */}
+                        {(() => {
+                          const priced = priceCredential(line);
+                          return priced.priced ? (
+                            <span className="pt-1 text-sm font-semibold font-mono text-gray-900">
+                              {peso(priced.total)}
+                            </span>
+                          ) : (
+                            <span className="pt-1.5 text-xs text-amber-700">priced at the counter</span>
+                          );
+                        })()}
+                        <button
+                          onClick={() => toggleCredential(line.type)}
+                          className="text-gray-400 hover:text-(--dominant-red) cursor-pointer mt-1"
+                          aria-label="Remove"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
@@ -548,6 +567,31 @@ const CredentialRequestFormModal = ({ isOpen, onClose, onSubmit, isSaving, editi
                     </div>
                   </div>
                 ))}
+
+                {/* The whole request, so nothing has to be added up by eye.
+                    Page counts are already multiplied in and the picture fee
+                    counted once per document */}
+                <div className="rounded-xl border-2 border-gray-200 bg-white px-4 py-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-sm font-semibold text-gray-900">
+                      Estimated total
+                      <span className="ml-2 text-xs font-normal text-gray-500">
+                        {quote.lines.length} line{quote.lines.length === 1 ? '' : 's'}
+                      </span>
+                    </span>
+                    <span className="text-lg font-bold font-mono text-(--dominant-red)">
+                      {peso(quote.total)}
+                    </span>
+                  </div>
+                  {quote.unpriced > 0 && (
+                    <p className="mt-1 text-xs text-amber-700">
+                      Excludes {quote.unpriced} item{quote.unpriced === 1 ? '' : 's'} the cashier prices at the counter.
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Per page where the document is charged that way; the picture fee is counted once each.
+                  </p>
+                </div>
               </div>
             )}
           </section>
