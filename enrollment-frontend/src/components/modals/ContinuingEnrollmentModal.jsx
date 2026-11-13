@@ -440,11 +440,15 @@ const ContinuingEnrollmentModal = ({ isOpen, onClose, showAlert }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <ValidationErrorModal isOpen={isValidationModalOpen} onClose={() => setIsValidationModalOpen(false)} message={validationMessage} />
+      {/* A fixed height rather than one the content decides, so the modal is
+          the same size on every step. Letting it shrink to fit step 1 left the
+          School Year dropdown in step 2 opening into nothing, with the options
+          reachable only by scrolling. */}
       <motion.div
         initial={{ opacity: 0, y: 30, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 30, scale: 0.95 }}
-        className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[100vh] flex flex-col relative"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-5xl h-[88vh] flex flex-col relative"
       >
         {/* Render the warning modal on top */}
         <IrregularWarningModal

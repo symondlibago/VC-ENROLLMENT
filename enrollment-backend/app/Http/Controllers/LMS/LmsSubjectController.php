@@ -45,7 +45,11 @@ class LmsSubjectController extends Controller
         $user = $request->user();
         $role = $this->role($request);
 
-        $query = Subject::query()->select('id', 'subject_code', 'descriptive_title', 'course_id', 'year', 'semester');
+        // Archived subjects stay listed here — a class already running keeps
+        // its modules and announcements until the term ends. 'archived_at' is
+        // selected so the flag sent to the client is the truth rather than a
+        // default of "not archived" from a column that was never loaded.
+        $query = Subject::query()->select('id', 'subject_code', 'descriptive_title', 'course_id', 'year', 'semester', 'archived_at');
 
         if ($role === 'instructor') {
             $assignedIds = LmsInstructorScope::subjectIdsFor($user->id);

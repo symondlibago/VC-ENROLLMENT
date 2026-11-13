@@ -18,6 +18,8 @@ import {
   School,
   Building,
   BarChart3,
+  Archive,
+  ArchiveRestore,
 } from 'lucide-react';
 import { courseAPI, programAPI, subjectAPI, enrollmentAPI } from '@/services/api';
 import { isEnrolled } from '@/lib/studentStatus';
@@ -64,6 +66,13 @@ const Courses = () => {
   const [enrolledStudents, setEnrolledStudents] = useState([]);
   const [isProgramDetailsModalOpen, setIsProgramDetailsModalOpen] = useState(false);
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
+  // Bumped whenever a subject is archived or restored, so the open list
+  // refetches instead of showing what it loaded before the change.
+  const [subjectRefreshToken, setSubjectRefreshToken] = useState(0);
+  // The subject waiting on a yes. Holding the subject rather than a boolean
+  // keeps its code and title in the dialog without a second piece of state.
+  const [subjectPendingArchive, setSubjectPendingArchive] = useState(null);
+  const [subjectPendingRestore, setSubjectPendingRestore] = useState(null);
   const [isSubjectFormModalOpen, setIsSubjectFormModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedSubject, setSelectedSubject] = useState(null);
@@ -505,14 +514,71 @@ const Courses = () => {
       console.error(`Error deleting item:`, error);
       setAlert({
         isVisible: true,
-        message: `Failed to delete item. ${error.message || 'Please try again.'}`,
+        // The server refuses to delete a subject that has grades or enrolled
+        // students and says why, so show that rather than a generic failure.
+        message: error.message || 'Failed to delete item. Please try again.',
         type: 'error'
       });
+      setIsDeleteModalOpen(false);
+      setSelectedItem(null);
     } finally {
       setIsLoading(false);
     }
   };
-  
+
+  // Archive takes a subject out of the curriculum without touching a single
+  // grade or enrolment. Restore puts it back. Both are confirmed first: it is
+  // reversible, but it changes what the whole school can enroll in.
+  const handleArchiveSubject = async () => {
+    const subject = subjectPendingArchive;
+    if (!subject) return;
+
+    setIsLoading(true);
+    try {
+      const response = await subjectAPI.archive(subject.id);
+      setAlert({
+        isVisible: true,
+        message: response.message || `${subject.subject_code} archived.`,
+        type: response.success ? 'success' : 'error'
+      });
+      if (response.success) setSubjectRefreshToken((token) => token + 1);
+    } catch (error) {
+      setAlert({
+        isVisible: true,
+        message: error.message || 'Failed to archive subject. Please try again.',
+        type: 'error'
+      });
+    } finally {
+      setIsLoading(false);
+      setSubjectPendingArchive(null);
+    }
+  };
+
+  const handleRestoreSubject = async () => {
+    const subject = subjectPendingRestore;
+    if (!subject) return;
+
+    setIsLoading(true);
+    try {
+      const response = await subjectAPI.restore(subject.id);
+      setAlert({
+        isVisible: true,
+        message: response.message || `${subject.subject_code} restored.`,
+        type: response.success ? 'success' : 'error'
+      });
+      if (response.success) setSubjectRefreshToken((token) => token + 1);
+    } catch (error) {
+      setAlert({
+        isVisible: true,
+        message: error.message || 'Failed to restore subject. Please try again.',
+        type: 'error'
+      });
+    } finally {
+      setIsLoading(false);
+      setSubjectPendingRestore(null);
+    }
+  };
+
 
   return (
     <motion.div
@@ -883,6 +949,9 @@ const Courses = () => {
           setSelectedItem(subject);
           setIsDeleteModalOpen(true);
         }}
+        onArchiveSubject={setSubjectPendingArchive}
+        onRestoreSubject={setSubjectPendingRestore}
+        refreshToken={subjectRefreshToken}
       />
       
       <SubjectModal
@@ -904,6 +973,44 @@ const Courses = () => {
          isLoading={isLoading}
        />
        
+       {/* Archiving is reversible and destroys nothing, so this says what it
+           actually does instead of borrowing the delete warning. */}
+       <DeleteConfirmationModal
+         isOpen={!!subjectPendingArchive}
+         onClose={() => setSubjectPendingArchive(null)}
+         onConfirm={handleArchiveSubject}
+         title="Archive Subject"
+         message={`${subjectPendingArchive?.subject_code ?? 'This subject'} will stop being offered for enrollment. Students already enrolled in it keep it, and every grade recorded against it stays on record.`}
+         itemName={subjectPendingArchive
+           ? `${subjectPendingArchive.subject_code} — ${subjectPendingArchive.descriptive_title}`
+           : ''}
+         itemLabel="Subject to be archived:"
+         warning={<><strong>This can be undone.</strong> You can restore it to the curriculum at any time from the same menu.</>}
+         tone="warning"
+         confirmLabel="Archive"
+         loadingLabel="Archiving..."
+         confirmIcon={Archive}
+         isLoading={isLoading}
+       />
+
+       <DeleteConfirmationModal
+         isOpen={!!subjectPendingRestore}
+         onClose={() => setSubjectPendingRestore(null)}
+         onConfirm={handleRestoreSubject}
+         title="Restore Subject"
+         message={`${subjectPendingRestore?.subject_code ?? 'This subject'} will go back into the curriculum and can be chosen during enrollment again.`}
+         itemName={subjectPendingRestore
+           ? `${subjectPendingRestore.subject_code} — ${subjectPendingRestore.descriptive_title}`
+           : ''}
+         itemLabel="Subject to be restored:"
+         warning={null}
+         tone="warning"
+         confirmLabel="Restore"
+         loadingLabel="Restoring..."
+         confirmIcon={ArchiveRestore}
+         isLoading={isLoading}
+       />
+
        <SuccessAlert
          isVisible={alert.isVisible}
          message={alert.message}

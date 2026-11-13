@@ -272,6 +272,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Subject routes
     Route::get('/subjects/search', [SubjectController::class, 'search']);
+    // Declared before the resource so 'archive'/'restore' are not swallowed by
+    // the {subject} wildcard.
+    Route::post('/subjects/{subject}/archive', [SubjectController::class, 'archive']);
+    Route::post('/subjects/{subject}/restore', [SubjectController::class, 'restore']);
     Route::apiResource('subjects', SubjectController::class);
     Route::get('courses/{course}/subjects', [SubjectController::class, 'getByCourse']);
     

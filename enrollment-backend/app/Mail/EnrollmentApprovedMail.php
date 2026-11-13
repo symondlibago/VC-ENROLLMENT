@@ -11,19 +11,29 @@ use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
 /**
- * The confirmation that goes out once the last approval lands — the student's
- * full record as filed, every subject they are enrolled in, who signed off,
- * and the acknowledgement they accepted.
+ * The confirmation that goes out once the last approval lands.
  *
- * Written to be the one email a student keeps: everything the registrar holds
- * on them for this term, in a form they can read on a phone or print.
+ * On a student's first term it is everything: the full record as filed, the
+ * subjects, who signed off, and the acknowledgement they accepted — the one
+ * email they keep, readable on a phone or printable.
+ *
+ * On every term after that it is a certificate of registration and nothing
+ * else. A continuing student did not fill the form again, so reciting their
+ * birthplace and their father's occupation back at them each semester would
+ * be noise around the part they actually opened the email for.
  */
 class EnrollmentApprovedMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public PreEnrolledStudent $student)
-    {
+    /**
+     * @param  bool  $firstNotice  Their first enrolled notice, so the whole
+     *                             record is included rather than the COR alone.
+     */
+    public function __construct(
+        public PreEnrolledStudent $student,
+        public bool $firstNotice = true,
+    ) {
     }
 
     public function envelope(): Envelope
@@ -49,6 +59,7 @@ class EnrollmentApprovedMail extends Mailable
             view: 'emails.enrollment.approved',
             with: [
                 'student' => $this->student,
+                'firstNotice' => $this->firstNotice,
                 'subjects' => $subjects,
                 'totalUnits' => $subjects->sum(fn ($subject) => (float) $subject->total_units),
                 'totalHours' => $subjects->sum(fn ($subject) => (float) $subject->number_of_hours),

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, BookMarked, Plus, ChevronDown, Edit, Trash2, Calendar, Users } from 'lucide-react';
+import { X, BookMarked, Plus, ChevronDown, Edit, Trash2, Calendar, Users, Archive, ArchiveRestore, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { subjectAPI } from '@/services/api';
 import ScheduleModal from './ScheduleModal';
@@ -27,7 +27,10 @@ const SubjectDetailsModal = ({
   programType = null,
   onAddSubject = () => {},
   onEditSubject = () => {},
-  onDeleteSubject = () => {}
+  onDeleteSubject = () => {},
+  onArchiveSubject = () => {},
+  onRestoreSubject = () => {},
+  refreshToken = 0
 }) => {
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -38,6 +41,10 @@ const SubjectDetailsModal = ({
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [isViewStudentsOpen, setIsViewStudentsOpen] = useState(false);
+  // This is the screen that manages the curriculum, so it is the one place
+  // that asks for archived subjects at all. They stay hidden until asked for,
+  // because a curriculum change retires many at once.
+  const [showArchived, setShowArchived] = useState(false);
   // Get year and semester options based on program type
   const getYearOptions = () => {
     switch (programType) {
@@ -69,14 +76,16 @@ const SubjectDetailsModal = ({
     if (isOpen && course) {
       fetchSubjects();
     }
-  }, [isOpen, course]);
+  }, [isOpen, course, refreshToken]);
 
   const fetchSubjects = async () => {
     if (!course) return;
-    
+
     setLoading(true);
     try {
-      const response = await subjectAPI.getByCourse(course.id);
+      // Archived ones are fetched whether or not they are being shown, so the
+      // count on the toggle is right without a second round trip.
+      const response = await subjectAPI.getByCourse(course.id, undefined, undefined, true);
       if (response.success) {
         setSubjects(response.data);
       }
@@ -88,12 +97,17 @@ const SubjectDetailsModal = ({
   };
 
   // Filter subjects based on selected year and semester
-  const filteredSubjects = subjects.filter(subject => {
+  const subjectsInTerm = subjects.filter(subject => {
     return (
       (selectedYear === 'All Years' || selectedYear === 'All Grades' || subject.year === selectedYear) &&
       (selectedSemester === 'All Semesters' || subject.semester === selectedSemester)
     );
   });
+
+  const archivedInTerm = subjectsInTerm.filter(subject => subject.is_archived).length;
+  const filteredSubjects = showArchived
+    ? subjectsInTerm
+    : subjectsInTerm.filter(subject => !subject.is_archived);
 
   // Helper function to determine which columns to show based on program type
   const shouldShowColumn = (columnName) => {
@@ -288,6 +302,19 @@ const SubjectDetailsModal = ({
                         </div>
                       )}
                     </div>
+                    {/* Archived subjects stay out of the way until wanted */}
+                    {archivedInTerm > 0 && (
+                      <Button
+                        variant="outline"
+                        className="flex items-center cursor-pointer"
+                        onClick={() => setShowArchived(!showArchived)}
+                      >
+                        {showArchived
+                          ? <EyeOff className="w-4 h-4 mr-2" />
+                          : <Eye className="w-4 h-4 mr-2" />}
+                        {showArchived ? 'Hide' : 'Show'} archived ({archivedInTerm})
+                      </Button>
+                    )}
                   </div>
 
                   {/* Add Subject Button */}
@@ -344,9 +371,21 @@ const SubjectDetailsModal = ({
                       </TableHeader>
                       <TableBody>
                         {filteredSubjects.map((subject) => (
-                          <TableRow key={subject.id}>
+                          <TableRow
+                            key={subject.id}
+                            className={subject.is_archived ? 'bg-gray-50 text-gray-400' : undefined}
+                          >
                             {shouldShowColumn('subject_code') && (
-                              <TableCell className="font-mono">{subject.subject_code}</TableCell>
+                              <TableCell className="font-mono">
+                                <span className={subject.is_archived ? 'line-through' : undefined}>
+                                  {subject.subject_code}
+                                </span>
+                                {subject.is_archived && (
+                                  <span className="ml-2 align-middle inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-600">
+                                    Archived
+                                  </span>
+                                )}
+                              </TableCell>
                             )}
                             {shouldShowColumn('descriptive_title') && (
                               <TableCell>{subject.descriptive_title}</TableCell>
@@ -394,6 +433,17 @@ const SubjectDetailsModal = ({
                                     <Edit className="mr-2 h-4 w-4 group-hover:text-white" />
                                     Edit
                                   </DropdownMenuItem>
+                                  {subject.is_archived ? (
+                                    <DropdownMenuItem onClick={() => onRestoreSubject(subject)}>
+                                      <ArchiveRestore className="mr-2 h-4 w-4 group-hover:text-white" />
+                                      Restore to curriculum
+                                    </DropdownMenuItem>
+                                  ) : (
+                                    <DropdownMenuItem onClick={() => onArchiveSubject(subject)}>
+                                      <Archive className="mr-2 h-4 w-4 group-hover:text-white" />
+                                      Archive
+                                    </DropdownMenuItem>
+                                  )}
                                   <DropdownMenuItem onClick={() => onDeleteSubject(subject)}>
                                     <Trash2 className="mr-2 h-4 w-4 group-hover:text-white" />
                                     Delete

@@ -92,7 +92,10 @@ class EnrollmentController extends Controller
             'enrollment_type' => 'required|string|max:255',
             'scholarship' => 'nullable|string|max:255',
             'selected_subjects' => 'required|array',
-            'selected_subjects.*' => 'exists:subjects,id',
+            // Archived subjects are refused here, not just hidden from the
+            // picker: a tab opened before the subject was retired would
+            // otherwise still be able to enroll somebody into it.
+            'selected_subjects.*' => [Rule::exists('subjects', 'id')->whereNull('archived_at')],
             // The student has to have accepted the acknowledgement. Checked
             // here as well as in the form, because the form is only the part
             // we can see.
@@ -100,6 +103,8 @@ class EnrollmentController extends Controller
         ], [
             'acknowledgement_accepted.accepted' =>
                 'The enrollment acknowledgement has to be accepted before the form can be submitted.',
+            'selected_subjects.*.exists' =>
+                'One of the selected subjects is no longer offered. Refresh the page and choose again.',
         ]);
 
         if ($validator->fails()) {
@@ -608,7 +613,9 @@ public function getPreEnrolledStudentDetails($id): JsonResponse
 
         // Get all course IDs from the student list to fetch curriculum subjects in one go
         $courseIds = $enrolledStudents->pluck('course_id')->unique()->filter();
-        $allCurriculumSubjects = \App\Models\Subject::whereIn('course_id', $courseIds)->get()->groupBy('course_id');
+        // Active only: a subject retired from the curriculum is no longer
+        // something a student can be short of.
+        $allCurriculumSubjects = \App\Models\Subject::active()->whereIn('course_id', $courseIds)->get()->groupBy('course_id');
 
         $enrolledStudents = $enrolledStudents->map(function ($student) use ($allCurriculumSubjects) {
 
@@ -1468,7 +1475,10 @@ public function getStudentsForIdReleasing()
                 return response()->json(['success' => false, 'message' => 'No course found for your account.'], 404);
             }
 
-            $subjects = \App\Models\Subject::where('course_id', $student->course_id)
+            // The curriculum as it stands today. A retired subject is not
+            // something this student still has to take.
+            $subjects = \App\Models\Subject::active()
+                ->where('course_id', $student->course_id)
                 ->with('prerequisite:id,subject_code')
                 ->orderBy('year')
                 ->orderBy('semester')
@@ -1601,7 +1611,12 @@ public function submitContinuingEnrollment(Request $request): JsonResponse
             'school_year' => 'required|string',
             'section_id' => 'nullable|exists:sections,id',
             'selected_subjects' => 'required|array',
-            'selected_subjects.*' => 'exists:subjects,id',
+            // Same guard as a new enrollment: a subject retired from the
+            // curriculum cannot be enrolled into, however the request got here.
+            'selected_subjects.*' => [Rule::exists('subjects', 'id')->whereNull('archived_at')],
+        ], [
+            'selected_subjects.*.exists' =>
+                'One of the selected subjects is no longer offered. Refresh the page and choose again.',
         ]);
 
         if ($validator->fails()) {
@@ -1674,7 +1689,7 @@ public function submitContinuingEnrollment(Request $request): JsonResponse
             $hasMissedSummerSubjects = false;
             if ($student->course && $student->course->program && $student->course->program->program_code === 'Diploma') {
                 
-                $allCurriculumSubjects = \App\Models\Subject::where('course_id', $student->course_id)->get();
+                $allCurriculumSubjects = \App\Models\Subject::active()->where('course_id', $student->course_id)->get();
 
                 $getYearValue = function ($yearStr) {
                     if (str_contains($yearStr, 'Summer')) {
@@ -1937,7 +1952,7 @@ public function getStudentEnrollmentEligibilityStatus(Request $request): JsonRes
             $hasMissedSummerSubjects = false;
             if ($student->course && $student->course->program && $student->course->program->program_code === 'Diploma') {
                 
-                $allCurriculumSubjects = \App\Models\Subject::where('course_id', $student->course_id)->get();
+                $allCurriculumSubjects = \App\Models\Subject::active()->where('course_id', $student->course_id)->get();
                 
                 $getYearValue = function ($yearStr) {
                     if (str_contains($yearStr, 'Summer')) {
@@ -2052,7 +2067,8 @@ public function getSubjectsForNextTerm(Request $request): JsonResponse
         }
 
         // 2. Fetch subjects for the student's course and the requested term
-        $subjects = \App\Models\Subject::where('course_id', $student->course_id)
+        $subjects = \App\Models\Subject::active()
+            ->where('course_id', $student->course_id)
             ->where('year', $request->input('year'))
             ->where('semester', $request->input('semester'))
             ->with('prerequisite:id,subject_code') // Eager load prerequisite for frontend display

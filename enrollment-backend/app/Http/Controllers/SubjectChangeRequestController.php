@@ -42,8 +42,12 @@ class SubjectChangeRequestController extends Controller {
         $enrolledSubjects = $student->subjects()->get();
         $enrolledSubjectIds = $enrolledSubjects->pluck('id');
 
-        // Get all available subjects for the course that aren't already taken
-        $availableSubjects = Subject::where('course_id', $student->course_id)
+        // Available means offerable, so archived subjects are left out. The
+        // enrolled list above is not filtered — a student keeps what they are
+        // already registered in even after it leaves the curriculum, and has
+        // to be able to drop it.
+        $availableSubjects = Subject::active()
+                                          ->where('course_id', $student->course_id)
                                           ->whereNotIn('id', $enrolledSubjectIds)
                                           ->orderBy('year')
                                           ->orderBy('semester')
@@ -63,9 +67,14 @@ class SubjectChangeRequestController extends Controller {
         $validated = $request->validate([
             'student_id' => 'required|exists:pre_enrolled_students,id',
             'subjects_to_add' => 'nullable|array',
-            'subjects_to_add.*' => 'exists:subjects,id',
+            // Adding is a choice, so it is held to the live curriculum.
+            'subjects_to_add.*' => [\Illuminate\Validation\Rule::exists('subjects', 'id')->whereNull('archived_at')],
             'subjects_to_drop' => 'nullable|array',
+            // Dropping is not: whatever they hold, they must be able to shed.
             'subjects_to_drop.*' => 'exists:subjects,id',
+        ], [
+            'subjects_to_add.*.exists' =>
+                'One of the subjects you are adding is no longer offered. Refresh the page and choose again.',
         ]);
         
         try {

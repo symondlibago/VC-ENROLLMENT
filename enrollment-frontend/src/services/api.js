@@ -432,11 +432,13 @@ export const subjectAPI = {
     }
   },
 
-  // Get subjects by course ID
-  getByCourse: async (courseId, year, semester) => {
+  // Get subjects by course ID.
+  // Archived subjects are left out unless asked for, so every enrollment
+  // picker is safe by default and only the curriculum screen opts in.
+  getByCourse: async (courseId, year, semester, includeArchived = false) => {
     try {
       const response = await api.get(`/courses/${courseId}/subjects`, {
-        params: { year, semester } 
+        params: { year, semester, include_archived: includeArchived ? 1 : undefined }
       });
       return response.data;
     } catch (error) {
@@ -474,13 +476,34 @@ export const subjectAPI = {
     }
   },
 
-  // Delete subject
+  // Delete subject. Refused by the server when grades or enrolled students
+  // are attached — archive those instead.
   delete: async (id) => {
     try {
       const response = await api.delete(`/subjects/${id}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || { success: false, message: 'Failed to delete subject' };
+    }
+  },
+
+  // Retire a subject from the curriculum, keeping every record attached to it
+  archive: async (id) => {
+    try {
+      const response = await api.post(`/subjects/${id}/archive`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to archive subject' };
+    }
+  },
+
+  // Put an archived subject back into the curriculum
+  restore: async (id) => {
+    try {
+      const response = await api.post(`/subjects/${id}/restore`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to restore subject' };
     }
   }
 };

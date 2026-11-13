@@ -72,6 +72,7 @@ class PreEnrolledStudent extends Model
         'acknowledgement_accepted_at',
         'acknowledgement_version',
         'enrolled_notified_at',
+        'enrolled_notified_term',
     ];
 
     protected $casts = [
@@ -138,6 +139,24 @@ class PreEnrolledStudent extends Model
     public function getApprovalStatusFor(string $role): ?EnrollmentApproval
     {
         return $this->enrollmentApprovals->firstWhere('role', $role);
+    }
+
+    /**
+     * The term this student currently sits in, as one comparable string.
+     *
+     * Anything that must happen once per term rather than once per student
+     * compares against this. Lower-cased and trimmed so "2026-2027" and
+     * " 2026-2027 " are the same term, and built the same way here as in the
+     * migration that backfilled it, so the two can never disagree.
+     */
+    public function termKey(): string
+    {
+        return self::termKeyFor($this->school_year, $this->semester);
+    }
+
+    public static function termKeyFor(?string $schoolYear, ?string $semester): string
+    {
+        return strtolower(trim((string) $schoolYear)) . '|' . strtolower(trim((string) $semester));
     }
 
     public function isFullyApproved(): bool

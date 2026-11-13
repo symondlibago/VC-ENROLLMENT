@@ -37,9 +37,15 @@
                 You&rsquo;re officially enrolled.
             </div>
             <div style="font-size:14px; color:#6b7280; margin-top:12px; line-height:1.7;">
-                Congratulations, <strong style="color:#111827;">{{ $firstName }}</strong>. Every office has
-                approved your enrollment, and your place for this term is confirmed. Everything on record is
-                below &mdash; keep this email, it is your copy.
+                @if ($firstNotice)
+                    Congratulations, <strong style="color:#111827;">{{ $firstName }}</strong>. Every office has
+                    approved your enrollment, and your place for this term is confirmed. Everything on record is
+                    below &mdash; keep this email, it is your copy.
+                @else
+                    Welcome back, <strong style="color:#111827;">{{ $firstName }}</strong>. Every office has
+                    approved your enrollment for this term, and your place is confirmed. Your certificate of
+                    registration is below &mdash; keep this email, it is your copy.
+                @endif
             </div>
         </td>
     </tr>
@@ -66,6 +72,30 @@
             </table>
         </td>
     </tr>
+
+    {{-- Where the whole record is not being sent, the registration still has
+         to say what was registered. Same rows the full record carries under
+         "Academic", lifted out so the COR stands on its own. --}}
+    @unless ($firstNotice)
+        <tr>
+            <td style="padding:28px 32px 0 32px;">
+                <div style="font-size:12px; letter-spacing:1.2px; text-transform:uppercase; color:#9ca3af; font-weight:600; margin-bottom:12px;">
+                    Registration details
+                </div>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px; color:#4b5563;">
+                    {!! $row('Full name', $student->full_name) !!}
+                    {!! $row('Student number', $student->student_id_number) !!}
+                    {!! $row('Course', $student->course->course_name ?? $student->course->course_code ?? '') !!}
+                    {!! $row('Program', $student->course->program->program_name ?? '') !!}
+                    {!! $row('Year level', $student->year) !!}
+                    {!! $row('Section', $section) !!}
+                    {!! $row('Term', $student->semester . ', ' . $student->school_year) !!}
+                    {!! $row('Enrollment type', $student->enrollment_type) !!}
+                    {!! $row('Scholarship', $student->scholarship) !!}
+                </table>
+            </td>
+        </tr>
+    @endunless
 
     {{-- Subjects: the part they will actually come back for --}}
     <tr>
@@ -138,6 +168,11 @@
             </table>
         </td>
     </tr>
+
+    {{-- The whole record, and the acknowledgement behind it, belong to the
+         term the student actually filled the form in. A later term repeats
+         neither: nothing was re-answered, so there is nothing to confirm. --}}
+    @if ($firstNotice)
 
     {{-- Everything on file --}}
     <tr>
@@ -261,6 +296,8 @@
         </td>
     </tr>
 
+    @endif
+
     {{-- What to do now --}}
     <tr>
         <td style="padding:28px 32px 32px 32px;">
@@ -268,10 +305,18 @@
                 What to do now
             </div>
             <div style="font-size:13px; color:#4b5563; line-height:1.8;">
-                &bull; Note your student number &mdash; you will use it for everything from here on.<br>
-                &bull; Check your class schedule with your Program Head before classes begin.<br>
-                &bull; Keep your receipts; you will need them when you claim your student ID.<br>
-                &bull; Keep this email as your copy of what the College has on record for you.
+                @if ($firstNotice)
+                    &bull; Note your student number &mdash; you will use it for everything from here on.<br>
+                    &bull; Check your class schedule with your Program Head before classes begin.<br>
+                    &bull; Keep your receipts; you will need them when you claim your student ID.<br>
+                    &bull; Keep this email as your copy of what the College has on record for you.
+                @else
+                    &bull; Check the subjects above. If one is missing or should not be there, see your
+                    Program Head before classes begin.<br>
+                    &bull; Check your class schedule with your Program Head.<br>
+                    &bull; Keep your receipts; you will need them at the cashier and for your clearance.<br>
+                    &bull; Keep this email as your copy of your registration for this term.
+                @endif
             </div>
         </td>
     </tr>

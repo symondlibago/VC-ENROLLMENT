@@ -20,11 +20,14 @@ class SubjectController extends Controller
             return response()->json(['data' => []]); // Don't search for very short terms
         }
         
-        $query = Subject::where(function ($q) use ($searchTerm) {
+        // Active only: this feeds pickers — prerequisites and the like — and
+        // a retired subject must not become something new depends on.
+        $query = Subject::active()
+            ->where(function ($q) use ($searchTerm) {
                 $q->where('subject_code', 'like', "%{$searchTerm}%")
                   ->orWhere('descriptive_title', 'like', "%{$searchTerm}%");
             })
-            ->select('id', 'subject_code', 'descriptive_title');
+            ->select('id', 'subject_code', 'descriptive_title', 'archived_at');
 
         if ($courseId) {
             $query->where('course_id', $courseId);
@@ -84,6 +87,14 @@ class SubjectController extends Controller
         try {
             // Start querying subjects for the given course
             $query = $course->subjects()->with('prerequisite:id,subject_code');
+
+            // Archived subjects are left out unless the caller is the screen
+            // that manages the curriculum itself. Excluding by default is what
+            // keeps a retired subject out of every enrolment picker at once,
+            // including any added later.
+            if (!$request->boolean('include_archived')) {
+                $query->active();
+            }
 
             if ($request->has('year') && $request->year) {
                 $query->where('year', $request->year);
@@ -222,6 +233,30 @@ class SubjectController extends Controller
     public function destroy(Subject $subject): JsonResponse
     {
         try {
+            // Deleting cascades, permanently, through every grade, enrolment,
+            // INC record, schedule and add/drop item that names this subject.
+            // A subject anyone has touched is archived instead, never deleted.
+            $gradeCount = $subject->grades()->count();
+            $studentCount = $subject->students()->count();
+
+            if ($gradeCount > 0 || $studentCount > 0) {
+                $held = array_filter([
+                    $gradeCount > 0 ? "{$gradeCount} grade" . ($gradeCount === 1 ? '' : 's') : null,
+                    $studentCount > 0 ? "{$studentCount} enrolled student" . ($studentCount === 1 ? '' : 's') : null,
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => "{$subject->subject_code} has " . implode(' and ', $held)
+                        . ' on record. Deleting it would erase them. Archive it instead to take it'
+                        . ' out of the curriculum while keeping every record intact.',
+                    'blocked_by' => [
+                        'grades' => $gradeCount,
+                        'students' => $studentCount,
+                    ],
+                ], 409);
+            }
+
             $subject->delete();
 
             return response()->json([
@@ -233,6 +268,64 @@ class SubjectController extends Controller
                 'success' => false,
                 'message' => 'Failed to delete subject',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Retire a subject from the curriculum, keeping everything attached to it.
+     */
+    public function archive(Request $request, Subject $subject): JsonResponse
+    {
+        try {
+            if (!$subject->archive($request->user()?->id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "{$subject->subject_code} is already archived.",
+                ], 409);
+            }
+
+            $subject->load(['course', 'prerequisite:id,subject_code', 'archivedBy:id,name']);
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$subject->subject_code} archived. It will no longer be offered for enrollment.",
+                'data' => $subject,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to archive subject',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Put an archived subject back into the curriculum.
+     */
+    public function restore(Subject $subject): JsonResponse
+    {
+        try {
+            if (!$subject->restore()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "{$subject->subject_code} is not archived.",
+                ], 409);
+            }
+
+            $subject->load(['course', 'prerequisite:id,subject_code']);
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$subject->subject_code} restored. It can be offered for enrollment again.",
+                'data' => $subject,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to restore subject',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
