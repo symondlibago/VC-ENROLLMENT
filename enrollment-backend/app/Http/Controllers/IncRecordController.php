@@ -301,15 +301,15 @@ class IncRecordController extends Controller
     }
 
     /**
-     * Clears the INC mark on the grade once the completion form is fully
-     * approved. The grade follows what the student actually earned, so a
-     * completed INC on a failing mark is recorded as Failed, not Passed.
+     * Clears the INC, NFE or NFR mark on the grade once the completion form is
+     * fully approved. The grade follows what the student actually earned, so a
+     * completed form on a failing mark is recorded as Failed, not Passed.
      */
     private function settleGrade(IncRecord $record): ?string
     {
         $grade = $record->grade;
 
-        // needsCompletionForm(), not status === 'INC': a grade held for
+        // needsCompletionForm(), not a status comparison: a grade held for
         // clearance also reads INC and must not be settled here — it goes
         // back to its own result when the clearance is signed.
         if (!$grade || !$grade->needsCompletionForm()) {
@@ -343,6 +343,10 @@ class IncRecordController extends Controller
         return [
             'id' => $record->id,
             'status' => $record->status,
+            // Which remark opened this form — INC, NFE or NFR. The page and
+            // the printed document both name it, so it travels with the row
+            // rather than being assumed.
+            'grade_remark' => $record->grade_remark ?: 'INC',
             'student' => [
                 'id' => $student->id ?? null,
                 'name' => $student ? $student->getFullNameAttribute() : 'Unknown',

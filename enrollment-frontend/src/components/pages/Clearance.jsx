@@ -17,6 +17,7 @@ import SuccessAlert from '../modals/SuccessAlert';
 import MotionDropdown from '../idreleasing/MotionDropdown';
 import QrScanner from '../clearance/QrScanner';
 import ClearanceDetailSheet from '../clearance/ClearanceDetailSheet';
+import SignAllNoteModal from '../clearance/SignAllNoteModal';
 
 const PER_PAGE = 20;
 
@@ -61,6 +62,8 @@ const Clearance = () => {
   const [selected, setSelected] = useState(() => new Set());
   const [busy, setBusy] = useState(false);
   const [detailId, setDetailId] = useState(null);
+  // Which "sign all" is waiting on the note box: { sendEmail } or null
+  const [signAllNote, setSignAllNote] = useState(null);
   const [scanned, setScanned] = useState(null);
   const [scanBusy, setScanBusy] = useState(false);
 
@@ -185,16 +188,46 @@ const Clearance = () => {
    * announces it later either.
    *
    * Named sendEmail rather than notify: `notify` is the toast in this file.
+   *
+   * `remarks` is whatever the cashier typed in the note box, and is left out
+   * entirely when blank so the server writes its own wording rather than an
+   * empty string.
    */
-  const bulkSignAll = async (sendEmail = true) => {
+  const bulkSignAll = async (sendEmail = true, remarks = '') => {
     setBusy(true);
     try {
       const response = await enrollmentAPI.clearance.approveAll({
         clearance_ids: [...selected],
         notify: sendEmail,
+        ...(remarks ? { remarks } : {}),
       });
       notify(response.message, 'success');
+      setSignAllNote(null);
       await refresh();
+    } catch (error) {
+      notify(error.message || 'Could not sign every line.', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * The same thing for the student whose code was just scanned — one student,
+   * so the note the desk types is about them alone.
+   */
+  const signScannedAll = async (remarks = '') => {
+    if (!scanned) return;
+
+    setBusy(true);
+    try {
+      const response = await enrollmentAPI.clearance.approveAll({
+        clearance_ids: [scanned.id],
+        ...(remarks ? { remarks } : {}),
+      });
+      notify(response.message, 'success');
+      setSignAllNote(null);
+      const fresh = await enrollmentAPI.clearance.show(scanned.id);
+      setScanned(fresh.data);
     } catch (error) {
       notify(error.message || 'Could not sign every line.', 'error');
     } finally {
@@ -528,19 +561,7 @@ const Clearance = () => {
                       <Button
                         className="w-full h-11 gradient-primary text-white cursor-pointer"
                         disabled={busy}
-                        onClick={async () => {
-                          setBusy(true);
-                          try {
-                            const response = await enrollmentAPI.clearance.approveAll({ clearance_ids: [scanned.id] });
-                            notify(response.message, 'success');
-                            const fresh = await enrollmentAPI.clearance.show(scanned.id);
-                            setScanned(fresh.data);
-                          } catch (error) {
-                            notify(error.message || 'Could not sign every line.', 'error');
-                          } finally {
-                            setBusy(false);
-                          }
-                        }}
+                        onClick={() => setSignAllNote({ kind: 'scanned' })}
                       >
                         <UserCheck size={16} className="mr-2" /> Sign every remaining line
                       </Button>
@@ -643,7 +664,7 @@ const Clearance = () => {
                       variant="outline"
                       className="h-10 cursor-pointer"
                       disabled={busy}
-                      onClick={() => bulkSignAll(true)}
+                      onClick={() => setSignAllNote({ kind: 'selection', sendEmail: true })}
                       title="Sign every outstanding line for the selected students, and email each one to say they are cleared"
                     >
                       <UserCheck size={15} className="mr-1.5" /> Sign all lines
@@ -656,7 +677,7 @@ const Clearance = () => {
                       variant="outline"
                       className="h-10 cursor-pointer text-gray-600 border-gray-300"
                       disabled={busy}
-                      onClick={() => bulkSignAll(false)}
+                      onClick={() => setSignAllNote({ kind: 'selection', sendEmail: false })}
                       title="Sign every outstanding line without emailing anyone — for bringing a finished term's records up to date"
                     >
                       <MailX size={15} className="mr-1.5" /> Sign all, no email
@@ -728,6 +749,22 @@ const Clearance = () => {
             notify={notify}
             onClose={() => setDetailId(null)}
             onChanged={refresh}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {signAllNote && (
+          <SignAllNoteModal
+            target={signAllNote.kind === 'scanned'
+              ? (scanned?.subject?.name ?? 'this student')
+              : `${selected.size} student${selected.size === 1 ? '' : 's'}`}
+            sendEmail={signAllNote.kind === 'scanned' ? true : signAllNote.sendEmail}
+            busy={busy}
+            onCancel={() => setSignAllNote(null)}
+            onConfirm={(note) => (signAllNote.kind === 'scanned'
+              ? signScannedAll(note)
+              : bulkSignAll(signAllNote.sendEmail, note))}
           />
         )}
       </AnimatePresence>

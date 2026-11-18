@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useReducer, useRef, useState } from 'rea
 import { motion } from 'framer-motion';
 import {
   X, Search, Loader2, ScrollText, UserRound, GraduationCap, BookOpenCheck,
-  StickyNote, ImageUp, FileDown, AlertCircle, Trash2,
+  StickyNote, ImageUp, FileDown, AlertCircle, Trash2, Save, FolderOpen, Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CustomCalendar from '../layout/CustomCalendar';
@@ -13,7 +13,7 @@ import {
 } from './torFields';
 import { torReducer } from '@/lib/torReducer';
 import {
-  emptyTranscript, hasContent, properCaseName, PRELIMINARY_LABELS, PURPOSES,
+  emptyTranscript, hasContent, properCaseName, withIds, PRELIMINARY_LABELS, PURPOSES,
 } from '@/lib/tor';
 import { downloadTranscriptDocx } from '@/lib/torDocx';
 import { credentialAPI, transcriptAPI } from '@/services/api';
@@ -27,8 +27,13 @@ import { credentialAPI, transcriptAPI } from '@/services/api';
  * paper copy says.
  *
  * The photo is held in memory only — it is carried into the document and
- * forgotten when the modal closes.
+ * forgotten when the modal closes. That includes drafts: a transcript for an
+ * older student can take two days to assemble, and the form is worth keeping,
+ * but a 5 MB image in a JSON column every time it is saved is not.
  */
+
+/** The form as it is stored, without the photo or anything else volatile. */
+const serialize = (tor) => JSON.stringify(tor);
 
 const PHOTO_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/jpg': 'jpg' };
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
@@ -68,6 +73,17 @@ const TorGeneratorModal = ({ isOpen, onClose, onNotify }) => {
   const [error, setError] = useState('');
   const [photo, setPhoto] = useState(null); // { data, ext, preview }
 
+  // ── Drafts: the half-finished transcript waiting on a filing cabinet ──
+  const [draftId, setDraftId] = useState(null);
+  const [drafts, setDrafts] = useState([]);
+  const [draftsOpen, setDraftsOpen] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [busyDraft, setBusyDraft] = useState(null);
+  // What the form looked like when it was last saved or loaded. Anything
+  // different from this is work that would be lost on closing.
+  const savedRef = useRef(serialize(emptyTranscript()));
+  const [closePrompt, setClosePrompt] = useState(false);
+
   const searchBox = useRef(null);
   const fileInput = useRef(null);
   // Keeps the object URL reachable from unmount cleanup, which cannot rely on
@@ -86,6 +102,17 @@ const TorGeneratorModal = ({ isOpen, onClose, onNotify }) => {
     if (fileInput.current) fileInput.current.value = '';
   }, []);
 
+  const loadDrafts = useCallback(async () => {
+    try {
+      const res = await transcriptAPI.drafts.list();
+      setDrafts(res.success ? res.data : []);
+    } catch {
+      // A drafts list that will not load must not stop a transcript being
+      // typed — the button simply shows none.
+      setDrafts([]);
+    }
+  }, []);
+
   // Start clean every time the modal opens, and let go of the photo either way.
   useEffect(() => {
     if (isOpen) {
@@ -95,9 +122,14 @@ const TorGeneratorModal = ({ isOpen, onClose, onNotify }) => {
       setResults([]);
       setShowResults(false);
       setError('');
+      setDraftId(null);
+      setDraftsOpen(false);
+      setClosePrompt(false);
+      savedRef.current = serialize(emptyTranscript());
+      loadDrafts();
     }
     clearPhoto();
-  }, [isOpen, clearPhoto]);
+  }, [isOpen, clearPhoto, loadDrafts]);
 
   // Debounced student lookup, the same as the request form's.
   useEffect(() => {
@@ -193,7 +225,19 @@ const TorGeneratorModal = ({ isOpen, onClose, onNotify }) => {
     setError('');
     try {
       await downloadTranscriptDocx(tor, photo);
+
+      // The transcript exists now, so the draft behind it has done its job.
+      if (draftId) {
+        try {
+          await transcriptAPI.drafts.remove(draftId);
+        } catch {
+          // Not worth failing a finished transcript over; the registrar can
+          // delete it from the list.
+        }
+      }
+
       onNotify?.('Transcript generated — check your downloads.', 'success');
+      savedRef.current = serialize(tor);
       onClose();
     } catch (e) {
       setError(e.message || 'Could not build the transcript.');
@@ -202,19 +246,107 @@ const TorGeneratorModal = ({ isOpen, onClose, onNotify }) => {
     }
   };
 
+  // ── Drafts ──
+
+  /** Anything typed that is not in the last saved copy. */
+  const unsaved = hasContent(tor) && serialize(tor) !== savedRef.current;
+
+  const saveDraft = async ({ thenClose = false } = {}) => {
+    if (!hasContent(tor)) {
+      setError("Add the student's name or a subject before saving a draft.");
+      return false;
+    }
+
+    setSavingDraft(true);
+    setError('');
+    try {
+      // An id updates the draft already open, so saving twice leaves one
+      // draft rather than a trail of half-finished copies.
+      const res = await transcriptAPI.drafts.save(draftId, tor);
+      if (!res.success) throw new Error(res.message);
+
+      setDraftId(res.data.id);
+      savedRef.current = serialize(tor);
+      await loadDrafts();
+      onNotify?.(res.message || 'Draft saved.', 'success');
+
+      if (thenClose) onClose();
+
+      return true;
+    } catch (e) {
+      setError(e.message || 'Could not save the draft.');
+      return false;
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  const openDraft = async (draft) => {
+    setBusyDraft(draft.id);
+    setError('');
+    try {
+      const res = await transcriptAPI.drafts.get(draft.id);
+      if (!res.success) throw new Error(res.message);
+
+      dispatch({ type: 'load', args: [res.data.payload] });
+      setDraftId(draft.id);
+      setMode('manual');
+      setDraftsOpen(false);
+      // Compared against the form the reducer actually built, not the payload
+      // that went in: 'load' regenerates every row id, so comparing with the
+      // raw payload would read as unsaved the moment it opened.
+      savedRef.current = serialize(withIds(res.data.payload));
+    } catch (e) {
+      setError(e.message || 'Could not open that draft.');
+    } finally {
+      setBusyDraft(null);
+    }
+  };
+
+  const deleteDraft = async (draft) => {
+    setBusyDraft(draft.id);
+    try {
+      const res = await transcriptAPI.drafts.remove(draft.id);
+      if (!res.success) throw new Error(res.message);
+
+      if (draftId === draft.id) setDraftId(null);
+      await loadDrafts();
+      onNotify?.(res.message || 'Draft deleted.', 'success');
+    } catch (e) {
+      setError(e.message || 'Could not delete that draft.');
+    } finally {
+      setBusyDraft(null);
+    }
+  };
+
+  /**
+   * Closing with work on screen asks first.
+   *
+   * This is the whole point of drafts: the transcript that could not be
+   * finished today must not be thrown away by a click on the X.
+   */
+  const requestClose = () => {
+    if (unsaved) {
+      setClosePrompt(true);
+      return;
+    }
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      onClick={onClose}
+      onClick={requestClose}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.97, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.18 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[94vh] flex flex-col overflow-hidden"
+        /* relative so the unsaved-work prompt can sit over the modal */
+        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[94vh] flex flex-col overflow-hidden"
       >
         {/* Header */}
         <div className="bg-(--dominant-red) text-white px-6 py-5 flex items-center justify-between shrink-0">
@@ -223,17 +355,80 @@ const TorGeneratorModal = ({ isOpen, onClose, onNotify }) => {
             <div className="min-w-0">
               <h2 className="text-xl font-bold leading-tight">Transcript of Records</h2>
               <p className="text-white/80 text-sm truncate">
-                Pull a student's record or type an alumnus's, then generate the document.
+                {draftId
+                  ? 'Working on a saved draft — save again to keep your changes.'
+                  : "Pull a student's record or type an alumnus's, then generate the document."}
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center hover:bg-white/15 cursor-pointer transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {drafts.length > 0 && (
+              <button
+                onClick={() => setDraftsOpen((open) => !open)}
+                className={`h-9 px-3 rounded-lg inline-flex items-center gap-2 text-sm font-medium cursor-pointer transition-colors ${
+                  draftsOpen ? 'bg-white text-(--dominant-red)' : 'hover:bg-white/15'
+                }`}
+              >
+                <FolderOpen className="w-4 h-4" />
+                Drafts ({drafts.length})
+              </button>
+            )}
+            <button
+              onClick={requestClose}
+              className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-white/15 cursor-pointer transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
+
+        {/* Saved drafts, folded away until asked for */}
+        {draftsOpen && (
+          <div className="shrink-0 border-b border-gray-200 bg-amber-50/60 max-h-56 overflow-y-auto" data-lenis-prevent>
+            <ul className="divide-y divide-amber-100">
+              {drafts.map((draft) => (
+                <li key={draft.id} className="flex items-center gap-3 px-6 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-gray-900 text-sm truncate">
+                      {draft.title}
+                      {draft.id === draftId && (
+                        <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                          open
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
+                      <Clock className="w-3 h-3" />
+                      {toLongDate(draft.updated_at) || draft.updated_at}
+                      {draft.subject_count > 0 && ` · ${draft.subject_count} subject${draft.subject_count === 1 ? '' : 's'}`}
+                      {draft.owner && ` · ${draft.owner}`}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busyDraft === draft.id}
+                    onClick={() => openDraft(draft)}
+                    className="cursor-pointer bg-white shrink-0"
+                  >
+                    {busyDraft === draft.id
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : 'Open'}
+                  </Button>
+                  <button
+                    type="button"
+                    disabled={busyDraft === draft.id}
+                    onClick={() => deleteDraft(draft)}
+                    title="Delete this draft"
+                    className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-700 hover:bg-red-50 cursor-pointer transition-colors disabled:opacity-40"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Body */}
         <div data-lenis-prevent className="flex-1 min-h-0 overflow-y-auto bg-gray-50/60">
@@ -506,11 +701,25 @@ const TorGeneratorModal = ({ isOpen, onClose, onNotify }) => {
         {/* Footer */}
         <div className="shrink-0 border-t border-gray-200 bg-white px-6 py-4 flex items-center justify-between gap-4">
           <p className="text-xs text-gray-400 hidden sm:block">
-            Long bond (8.5 × 13). The letterhead, seal, grading system and signatories are fixed.
+            {unsaved
+              ? 'Unsaved changes — save a draft to finish this another day.'
+              : 'Long bond (8.5 × 13). The letterhead, seal, grading system and signatories are fixed.'}
           </p>
           <div className="flex items-center gap-3 ml-auto">
-            <Button variant="outline" onClick={onClose} className="cursor-pointer">
+            <Button variant="outline" onClick={requestClose} className="cursor-pointer">
               Cancel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => saveDraft()}
+              disabled={savingDraft || generating || loadingRecord}
+              className="cursor-pointer bg-white hover:bg-amber-50 hover:text-amber-800 hover:border-amber-700 min-w-[130px]"
+            >
+              {savingDraft ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving…</>
+              ) : (
+                <><Save className="w-4 h-4 mr-2" />{draftId ? 'Update draft' : 'Save draft'}</>
+              )}
             </Button>
             <Button
               onClick={handleGenerate}
@@ -525,6 +734,60 @@ const TorGeneratorModal = ({ isOpen, onClose, onNotify }) => {
             </Button>
           </div>
         </div>
+
+        {/* The guard that makes drafts worth having: closing with work on
+            screen offers to keep it rather than binning it. */}
+        {closePrompt && (
+          <div
+            className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 p-4"
+            onClick={() => setClosePrompt(false)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
+            >
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-amber-100 rounded-full shrink-0">
+                  <AlertCircle className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Keep this transcript?</h3>
+                  <p className="text-sm text-gray-600 mt-1 leading-relaxed">
+                    You have typed work that has not been saved. Save it as a draft and you
+                    can pick it up tomorrow, exactly as it is now.
+                  </p>
+                  <p className="text-xs text-gray-400 mt-2">
+                    The photo is not kept with a draft — attach it again before generating.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 mt-6">
+                <Button
+                  variant="outline"
+                  onClick={() => { setClosePrompt(false); onClose(); }}
+                  className="cursor-pointer bg-white hover:bg-red-50 hover:text-red-800 hover:border-red-800"
+                >
+                  Discard
+                </Button>
+                <Button
+                  onClick={async () => {
+                    const saved = await saveDraft({ thenClose: true });
+                    if (!saved) setClosePrompt(false);
+                  }}
+                  disabled={savingDraft}
+                  className="bg-(--dominant-red) hover:bg-red-800 text-white cursor-pointer min-w-[140px]"
+                >
+                  {savingDraft ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving…</>
+                  ) : (
+                    <><Save className="w-4 h-4 mr-2" />Save draft</>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </motion.div>
     </div>
   );

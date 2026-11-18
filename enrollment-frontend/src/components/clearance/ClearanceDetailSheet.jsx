@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { X, Check, ShieldCheck, Clock, Loader2, UserCheck, AlertTriangle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Check, ShieldCheck, Clock, Loader2, UserCheck, AlertTriangle, Undo2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { enrollmentAPI } from '@/services/api';
 import LoadingSpinner from '@/components/layout/LoadingSpinner';
+import DeleteConfirmationModal from '@/components/modals/DeleteConfirmationModal';
+import SignAllNoteModal from '@/components/clearance/SignAllNoteModal';
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock';
 
 /**
@@ -24,6 +26,34 @@ const signedOn = (value) => {
 };
 
 /**
+ * Signing every line used to write a fixed sentence into `remarks` that only
+ * repeated what the `on_behalf` flag already says, and thousands of rows hold
+ * nothing but that sentence. Nobody wrote them, so they are not shown.
+ */
+const AUTO_REMARK = /^signed by the \w+ on the holders' behalf$/i;
+
+/** The sentence `revoke` writes when a signature is taken back. */
+const UNDO_REMARK = /^signature undone by /i;
+
+const isCashier = (code) => typeof code === 'string' && code.endsWith('cashier');
+
+/**
+ * What is worth showing under a line, and which kind it is.
+ *
+ * A note is the assessment desk's, so it is only read as one on their line —
+ * which also keeps older rows, written back when a note was copied onto all
+ * sixteen signatories, from reappearing on the nurse's.
+ */
+const noteOn = (item) => {
+  const text = (item?.remarks ?? '').trim();
+
+  if (!text || AUTO_REMARK.test(text)) return null;
+  if (UNDO_REMARK.test(text)) return { kind: 'undo', text };
+
+  return isCashier(item?.role_code) ? { kind: 'note', text } : null;
+};
+
+/**
  * Every signature line on one student's clearance.
  *
  * Slides up from the bottom, which on a phone puts the lines under the
@@ -34,6 +64,10 @@ const ClearanceDetailSheet = ({ clearanceId, canApproveAll, notify, onClose, onC
   const [loading, setLoading] = useState(true);
   const [busyItem, setBusyItem] = useState(null);
   const [signingAll, setSigningAll] = useState(false);
+  // The signed line waiting on a yes before its signature is taken back
+  const [undoing, setUndoing] = useState(null);
+  // Whether the note box is open, asked before signing the rest of the lines
+  const [noteOpen, setNoteOpen] = useState(false);
 
   // Only the sheet scrolls while it is open
   useBodyScrollLock();
@@ -74,11 +108,38 @@ const ClearanceDetailSheet = ({ clearanceId, canApproveAll, notify, onClose, onC
     }
   };
 
-  const signEverything = async () => {
+  const undoSignature = async () => {
+    const item = undoing;
+    if (!item) return;
+
+    setBusyItem(item.id);
+    try {
+      const response = await enrollmentAPI.clearance.revoke(item.id);
+      notify(response.message, 'success');
+      await load();
+      onChanged?.();
+    } catch (error) {
+      notify(error.message || 'Could not undo that signature.', 'error');
+    } finally {
+      setBusyItem(null);
+      setUndoing(null);
+    }
+  };
+
+  /**
+   * Signs the rest of this student's lines, with whatever the desk wrote in
+   * the note box. This is where a cashier's note belongs most precisely: one
+   * student, so the note is about them and nobody else.
+   */
+  const signEverything = async (remarks = '') => {
     setSigningAll(true);
     try {
-      const response = await enrollmentAPI.clearance.approveAll({ clearance_ids: [clearanceId] });
+      const response = await enrollmentAPI.clearance.approveAll({
+        clearance_ids: [clearanceId],
+        ...(remarks ? { remarks } : {}),
+      });
       notify(response.message, 'success');
+      setNoteOpen(false);
       await load();
       onChanged?.();
     } catch (error) {
@@ -164,9 +225,10 @@ const ClearanceDetailSheet = ({ clearanceId, canApproveAll, notify, onClose, onC
               {data.items.map((item) => {
                 const approved = item.status === 'approved';
                 const blocked = item.is_final && !approved && outstanding.length > 1;
+                const note = noteOn(item);
 
                 return (
-                  <div key={item.id} className="p-4 flex items-center gap-3">
+                  <div key={item.id} className="p-4 flex items-start gap-3">
                     <div
                       className={`w-9 h-9 rounded-full shrink-0 flex items-center justify-center ${
                         approved ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
@@ -200,6 +262,18 @@ const ClearanceDetailSheet = ({ clearanceId, canApproveAll, notify, onClose, onC
                       ) : (
                         <p className="text-xs text-gray-400 mt-0.5">Not yet signed</p>
                       )}
+
+                      {/* The assessment desk's note, or — on any line — the
+                          reason its signature was taken back. The second is
+                          provenance rather than a message, so it is quieter. */}
+                      {note && (
+                        <p className={note.kind === 'note'
+                          ? 'text-xs text-gray-800 mt-1.5 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5 whitespace-pre-wrap break-words'
+                          : 'text-xs text-gray-400 italic mt-1 whitespace-pre-wrap break-words'}
+                        >
+                          {note.text}
+                        </p>
+                      )}
                     </div>
 
                     {!approved && item.can_sign && (
@@ -210,6 +284,29 @@ const ClearanceDetailSheet = ({ clearanceId, canApproveAll, notify, onClose, onC
                         className="gradient-primary text-white h-9 px-4 shrink-0 cursor-pointer disabled:opacity-40"
                       >
                         {busyItem === item.id ? <Loader2 size={14} className="animate-spin" /> : 'Sign'}
+                      </Button>
+                    )}
+
+                    {/* Whoever may sign the line may take it back — the same
+                        permission, so a desk can correct its own mis-click
+                        without going through an admin. */}
+                    {approved && item.can_sign && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busyItem === item.id}
+                        onClick={() => setUndoing(item)}
+                        title="Undo this signature"
+                        /* The outline variant hovers to --accent, which is the
+                           dominant red, so the hover background is set here as
+                           well as the colour — tinting only the text left a red
+                           icon on a red fill. Same pairing the other quiet
+                           destructive buttons use. */
+                        className="h-9 px-3 shrink-0 cursor-pointer bg-white text-gray-500 hover:bg-red-50 hover:text-red-800 hover:border-red-800 disabled:opacity-40"
+                      >
+                        {busyItem === item.id
+                          ? <Loader2 size={14} className="animate-spin" />
+                          : <Undo2 size={14} />}
                       </Button>
                     )}
                   </div>
@@ -229,7 +326,7 @@ const ClearanceDetailSheet = ({ clearanceId, canApproveAll, notify, onClose, onC
                 <Button
                   className="w-full gradient-primary text-white h-11 cursor-pointer"
                   disabled={signingAll}
-                  onClick={signEverything}
+                  onClick={() => setNoteOpen(true)}
                 >
                   {signingAll ? (
                     <Loader2 size={16} className="animate-spin mr-2" />
@@ -243,6 +340,35 @@ const ClearanceDetailSheet = ({ clearanceId, canApproveAll, notify, onClose, onC
           </>
         )}
       </motion.div>
+
+      <DeleteConfirmationModal
+        isOpen={!!undoing}
+        onClose={() => setUndoing(null)}
+        onConfirm={undoSignature}
+        title="Undo Signature"
+        message={`The ${undoing?.role_name ?? 'this'} line will go back to unsigned. If this was the last signature, the student stops being cleared and any grades it released go back on hold.`}
+        itemName={undoing
+          ? `${undoing.role_name}${undoing.approver_name ? ` — signed by ${undoing.approver_name}` : ''}`
+          : ''}
+        itemLabel="Signature to undo:"
+        warning={<><strong>INC forms already paid for or signed are left alone.</strong> Only the ones nobody has acted on are withdrawn.</>}
+        tone="warning"
+        confirmLabel="Undo signature"
+        loadingLabel="Undoing..."
+        confirmIcon={Undo2}
+        isLoading={busyItem === undoing?.id}
+      />
+
+      <AnimatePresence>
+        {noteOpen && (
+          <SignAllNoteModal
+            target={data?.subject?.name ?? 'this student'}
+            busy={signingAll}
+            onCancel={() => setNoteOpen(false)}
+            onConfirm={signEverything}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -420,19 +420,32 @@ public function bulkUpdateGrades(Request $request)
                         // Stamp the term and section this grade belongs to. Without it the
                         // student vanishes from this roster the moment they re-enroll, since
                         // re-enrollment re-syncs student_subject and section_student.
+                        //
+                        // Written once, while it is still blank, and never rewritten. The
+                        // student record says where they sit *now*: the right answer the
+                        // first time a mark is entered, and the wrong one ever after. Once
+                        // the student re-enrolls, re-stamping drags a finished first-
+                        // semester result into second semester, which takes it off first
+                        // semester's grading sheet and puts it out of reach of the
+                        // clearance already signed for that term — so a passing grade sits
+                        // at INC and will not edit back, however many times it is saved.
                         $student = $students->get($gradeInput['student_id']);
-                        if ($student) {
+                        if ($student && !$grade->school_year) {
                             $grade->school_year = $student->school_year;
                             $grade->semester    = $student->semester;
                             $grade->year        = $student->year;
                         }
 
-                        $sectionId = Schedule::where('subject_id', $gradeInput['subject_id'])
-                            ->where('instructor_id', $instructor->id)
-                            ->whereIn('section_id', $studentSectionIds)
-                            ->value('section_id');
-                        if ($sectionId) {
-                            $grade->section_id = $sectionId;
+                        // Same rule for the section, and the lookup is skipped entirely
+                        // once there is one to keep.
+                        if (!$grade->section_id) {
+                            $sectionId = Schedule::where('subject_id', $gradeInput['subject_id'])
+                                ->where('instructor_id', $instructor->id)
+                                ->whereIn('section_id', $studentSectionIds)
+                                ->value('section_id');
+                            if ($sectionId) {
+                                $grade->section_id = $sectionId;
+                            }
                         }
                     }
 

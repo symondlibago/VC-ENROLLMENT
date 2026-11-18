@@ -9,10 +9,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ChevronDown, Download, FileText, Loader2, Printer } from 'lucide-react';
+import { ChevronDown, Download, FileText, FileType2, Loader2, Printer } from 'lucide-react';
 import {
   SLIP_HEIGHT, SLIP_WIDTH, drawGradeSlip, slipRow, surnameOf, termLine, termParts,
 } from '@/lib/gradeSlip';
+import { downloadGradeSlipDocx } from '@/lib/gradeSlipDocx';
 import { loadSchoolLogo } from '@/lib/schoolLogo';
 import { loadSignatures } from '@/lib/signatures';
 
@@ -36,16 +37,25 @@ const PrintGradeSlip = ({ student, grades = [], schoolYear = '', year }) => {
   const { semester, year: termYear } = termParts(grades, schoolYear);
 
   // Filed the way the office looks one up: whose it is, then which term
-  const fileName = ['Grade_Slip', safePart(surnameOf(student?.name)), safePart(semester), safePart(termYear)]
+  const baseName = ['Grade_Slip', safePart(surnameOf(student?.name)), safePart(semester), safePart(termYear)]
     .filter(Boolean)
-    .join('_')
-    .concat('.pdf');
+    .join('_');
+  const fileName = `${baseName}.pdf`;
 
   const run = async (mode) => {
     if (busy || grades.length === 0) return;
     setBusy(true);
 
     try {
+      const rows = grades.map((grade) => slipRow(grade, year));
+
+      // Word takes the same rows the PDF does, so the two cannot come out
+      // saying different things about the same term.
+      if (mode === 'docx') {
+        await downloadGradeSlipDocx({ student, rows, term, fileName: baseName });
+        return;
+      }
+
       const [logo, signatures] = await Promise.all([loadSchoolLogo(), loadSignatures()]);
 
       const doc = new jsPDF({
@@ -54,13 +64,7 @@ const PrintGradeSlip = ({ student, grades = [], schoolYear = '', year }) => {
         format: [SLIP_WIDTH, SLIP_HEIGHT],
       });
 
-      drawGradeSlip(doc, {
-        student,
-        rows: grades.map((grade) => slipRow(grade, year)),
-        term,
-        logo,
-        signatures,
-      });
+      drawGradeSlip(doc, { student, rows, term, logo, signatures });
 
       if (mode === 'save') {
         doc.save(fileName);
@@ -97,7 +101,6 @@ const PrintGradeSlip = ({ student, grades = [], schoolYear = '', year }) => {
         <DropdownMenuLabel className="text-xs text-gray-500 font-normal">
           {grades.length} subject{grades.length === 1 ? '' : 's'}
           {term ? ` — ${term}` : ''}
-          <span className="block text-[11px] text-gray-400">8.5&quot; &times; 5.5&quot; half sheet</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem className="cursor-pointer hover:bg-gray-100 p-2" onClick={() => run('print')}>
@@ -107,6 +110,10 @@ const PrintGradeSlip = ({ student, grades = [], schoolYear = '', year }) => {
         <DropdownMenuItem className="cursor-pointer hover:bg-gray-100 p-2" onClick={() => run('save')}>
           <Download className="w-4 h-4 mr-2" />
           Save as PDF
+        </DropdownMenuItem>
+        <DropdownMenuItem className="cursor-pointer hover:bg-gray-100 p-2" onClick={() => run('docx')}>
+          <FileType2 className="w-4 h-4 mr-2" />
+          Save as Word (.docx)
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

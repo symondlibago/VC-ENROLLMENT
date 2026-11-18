@@ -76,18 +76,34 @@ class Grade extends Model
     }
 
     /**
-     * Whether this INC is the kind that needs a completion form — paid for,
+     * Remarks the student has to pay for and complete before the subject is
+     * settled.
+     *
+     * All three mean the same thing to the registry — something the student
+     * owes is outstanding — and all three are cleared the same way: pay, have
+     * the instructor, program head and registrar sign, and the mark resolves
+     * to what was actually earned. NFE is a final exam not sat and NFR a
+     * requirement not handed in; neither is a result, and neither should sit
+     * on a record with nothing to settle it.
+     *
+     * Not every manual remark belongs here. DA and Credited are decisions
+     * already made, with nothing left to pay.
+     */
+    public const PAYABLE_REMARKS = ['INC', 'NFE', 'NFR'];
+
+    /**
+     * Whether this mark is the kind that needs a completion form — paid for,
      * approved, issued. A clearance hold is not: it resolves itself.
      */
     public function needsCompletionForm(): bool
     {
-        return $this->status === 'INC' && !$this->clearance_hold;
+        return in_array($this->status, self::PAYABLE_REMARKS, true) && !$this->clearance_hold;
     }
 
     /** The same question as a query, so a filter cannot forget the difference. */
     public function scopeNeedingCompletion($query)
     {
-        return $query->where('status', 'INC')->where('clearance_hold', false);
+        return $query->whereIn('status', self::PAYABLE_REMARKS)->where('clearance_hold', false);
     }
 
     /** Grades reading INC only because the student is not yet cleared. */

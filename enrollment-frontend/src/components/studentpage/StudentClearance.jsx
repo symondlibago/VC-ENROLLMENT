@@ -22,6 +22,24 @@ const signedOn = (value) => {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
+/**
+ * The assessment desk's note to the student — a balance, a date to come back.
+ *
+ * Only their line carries one. The fixed sentence older batch-signings stamped
+ * into every `remarks` column is not a message to anybody, and the record of a
+ * signature being undone is the school's business rather than a note, so
+ * neither is shown here.
+ */
+const AUTO_REMARK = /^signed by the \w+ on the holders' behalf$/i;
+const UNDO_REMARK = /^signature undone by /i;
+
+const cashierNote = (item) => {
+  const text = (item?.remarks ?? '').trim();
+  const fromCashier = typeof item?.role_code === 'string' && item.role_code.endsWith('cashier');
+
+  return text && fromCashier && !AUTO_REMARK.test(text) && !UNDO_REMARK.test(text) ? text : null;
+};
+
 /** A ring showing how far along the clearance is. */
 const ProgressRing = ({ approved, total, cleared }) => {
   const size = 132;
@@ -276,11 +294,18 @@ const StudentClearance = () => {
                       {outstanding.map((item) => (
                         <div
                           key={item.id}
-                          className="flex items-center gap-2.5 p-3 rounded-xl border border-gray-200 bg-white"
+                          className="flex items-start gap-2.5 p-3 rounded-xl border border-gray-200 bg-white"
                         >
-                          <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-                          <span className="text-sm font-medium text-gray-800 leading-tight">
-                            {item.role_name}
+                          <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0 mt-1.5" />
+                          <span className="min-w-0">
+                            <span className="block text-sm font-medium text-gray-800 leading-tight">
+                              {item.role_name}
+                            </span>
+                            {cashierNote(item) && (
+                              <span className="block text-xs text-amber-900 mt-1.5 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5 whitespace-pre-wrap break-words">
+                                {cashierNote(item)}
+                              </span>
+                            )}
                           </span>
                         </div>
                       ))}
@@ -315,6 +340,11 @@ const StudentClearance = () => {
                               {signedOn(item.approved_at)}
                               {item.approver_name ? ` · ${item.approver_name}` : ''}
                             </span>
+                            {cashierNote(item) && (
+                              <span className="block text-xs text-amber-900 mt-1.5 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5 whitespace-pre-wrap break-words">
+                                {cashierNote(item)}
+                              </span>
+                            )}
                           </span>
                         </div>
                       ))}

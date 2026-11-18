@@ -53,6 +53,12 @@ const TEL = 'Tel. Nos. (088) 856-8646 / (088) 882-1922 / 0917-770-0173';
 const EMAIL = 'Email Address: vipccdo07@gmail.com';
 
 /**
+ * The letterhead, name first. Exported so the Word version of the slip reads
+ * off the same lines as the printed one rather than keeping its own copy.
+ */
+export const SCHOOL_LINES = [SCHOOL, ADDRESS, CITY, TEL, EMAIL];
+
+/**
  * The conversion table as it is printed at the foot of the slip.
  *
  * Spelt out rather than generated from {@link getEquivalentGrade}: the office
@@ -60,7 +66,7 @@ const EMAIL = 'Email Address: vipccdo07@gmail.com';
  * reflow the moment a band changed and stop matching the paper everyone has
  * already been handed.
  */
-const GRADING_SYSTEM = [
+export const GRADING_SYSTEM = [
   ['1.0- 100%', '1.6- 93%', '2.2- 86%', '2.75- 79%', '3.3- 71%'],
   ['1.1- 99%', '1.7- 92%', '2.25- 85%', '2.8- 78%', '3.4- 70%'],
   ['1.2- 98%', '1.75- 91%', '2.3- 84%', '2.9- 77%', '5.0- 69%'],

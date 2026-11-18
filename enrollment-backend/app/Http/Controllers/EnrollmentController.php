@@ -1092,6 +1092,18 @@ public function getStudentsForIdReleasing()
                     'total_units' => $grade->subject->total_units ?? null,
                     'school_year' => $grade->school_year
                         ?? $terms->get("{$year}|{$semester}")?->school_year,
+                    // Whether this INC is the clearance holding the result
+                    // back, and what it is holding. Without these the page
+                    // shows a plain INC for a held grade, an editor sets it to
+                    // Passed, the clearance gate puts it straight back, and
+                    // nothing on screen ever says why. The term the hold is
+                    // actually tested against travels too, because a grade
+                    // filed under a different term from the clearance is the
+                    // one case that looks like the rule is simply broken.
+                    'clearance_hold' => (bool) $grade->clearance_hold,
+                    'held_status' => $grade->held_status,
+                    'grade_school_year' => $grade->school_year,
+                    'grade_semester' => $grade->semester,
                 ];
             });
 
@@ -1203,9 +1215,19 @@ public function getStudentsForIdReleasing()
 
         $clearanceService = app(\App\Services\ClearanceService::class);
 
+        /*
+         * Grades the clearance gate took back.
+         *
+         * Setting one of these to Passed looks like it worked — the request
+         * succeeds and the page reloads — but the gate has already put the
+         * result back on hold, so the editor sees INC again and has no idea
+         * why. Collected here so the answer can say so.
+         */
+        $held = [];
+
         // 3. Database Transaction
         try {
-            DB::transaction(function () use ($request, $clearanceService) {
+            DB::transaction(function () use ($request, $clearanceService, &$held) {
                 foreach ($request->grades as $gradeData) {
                     // The programme comes along because the clearance gate
                     // needs it to tell Senior High from college
@@ -1258,7 +1280,19 @@ public function getStudentsForIdReleasing()
                             && in_array($grade->status, ['Passed', 'Failed'], true)
                             && !$clearanceService->isClearedFor($student, $grade->school_year, $grade->semester)
                         ) {
-                            $clearanceService->holdGrade($grade, $grade->status);
+                            $earned = $grade->status;
+                            $clearanceService->holdGrade($grade, $earned);
+
+                            $grade->loadMissing('subject:id,subject_code');
+                            $held[] = [
+                                'subject' => $grade->subject->subject_code ?? "#{$grade->subject_id}",
+                                'earned' => $earned,
+                                // The term the gate looked for a clearance in,
+                                // which is the grade's own and not necessarily
+                                // the one the student is sitting in now
+                                'school_year' => $grade->school_year,
+                                'semester' => $grade->semester,
+                            ];
                         }
 
                         $grade->save();
@@ -1268,6 +1302,21 @@ public function getStudentsForIdReleasing()
                     }
                 }
             });
+
+            if ($held) {
+                $terms = collect($held)
+                    ->map(fn ($row) => trim("{$row['semester']} {$row['school_year']}") ?: 'that term')
+                    ->unique()
+                    ->implode(', ');
+
+                return response()->json([
+                    'success' => true,
+                    'held' => $held,
+                    'message' => 'Saved, but ' . collect($held)->pluck('subject')->implode(', ')
+                        . ' went back to INC: the student is not cleared for ' . $terms
+                        . '. Sign that clearance and the result is released on its own.',
+                ]);
+            }
 
             return response()->json(['success' => true, 'message' => 'Grades updated successfully.']);
 

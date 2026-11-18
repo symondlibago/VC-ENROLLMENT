@@ -126,9 +126,16 @@ export const drawIncForm = (form, doc = null, logo = null) => {
   pdf.text('.', left + 179, y);
 
   y += 8;
-  pdf.text('This is to complete his/her INC mark of the subject enrolled during the', left, y);
-  underlinedValue(pdf, form.incSemesterOrdinal, left + 118, y, 16);
-  pdf.text('Semester, School Year', left + 136, y);
+  // NFE and NFR are settled on this same form, so the sentence names the mark
+  // the instructor actually recorded rather than always saying INC.
+  const remark = form.gradeRemark || 'INC';
+  const opening = `This is to complete his/her ${remark} mark of the subject enrolled during the`;
+  pdf.text(opening, left, y);
+  // The blank follows the sentence rather than sitting at a fixed column, so a
+  // longer or shorter remark cannot push the text through it.
+  const afterOpening = left + pdf.getTextWidth(opening) + 2;
+  underlinedValue(pdf, form.incSemesterOrdinal, afterOpening, y, 16);
+  pdf.text('Semester, School Year', afterOpening + 18, y);
   y += 8;
   underlinedValue(pdf, form.incSchoolYear, left, y, 30);
   pdf.text('.', left + 31, y);

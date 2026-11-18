@@ -126,6 +126,8 @@ function runProps(r, defaults) {
     (r.underline ? '<w:u w:val="single"/>' : '') +
     (r.caps ? '<w:caps/>' : '') +
     `<w:sz w:val="${size}"/><w:szCs w:val="${size}"/>` +
+    // Word's marker-pen highlight, for text the paper shows highlighted
+    (r.highlight ? `<w:highlight w:val="${r.highlight}"/>` : '') +
     ((r.color || defaults.color) ? `<w:color w:val="${r.color || defaults.color}"/>` : '') +
     '</w:rPr>';
 }
@@ -368,6 +370,8 @@ const PAPER = {
   // Philippine long bond / folio: 8.5in x 13in.
   folio: [12240, 18720],
   long: [12240, 18720],
+  // A short bond cut crosswise: 8.5in x 5.5in. The grade slip's sheet.
+  halfLetter: [12240, 7920],
 };
 
 const NS = [

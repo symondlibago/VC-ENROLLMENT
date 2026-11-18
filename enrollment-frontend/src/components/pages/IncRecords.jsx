@@ -692,9 +692,14 @@ const IncRecords = () => {
                                 <span
                                   key={record.id}
                                   className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium ${style.className}`}
-                                  title={`${record.subject?.descriptive_title} — ${style.label}`}
+                                  title={`${record.subject?.descriptive_title} — ${record.grade_remark || 'INC'} · ${style.label}`}
                                 >
                                   {record.subject?.subject_code}
+                                  {/* Only when it is not the usual INC, so the
+                                      common case stays uncluttered */}
+                                  {record.grade_remark && record.grade_remark !== 'INC' && (
+                                    <span className="font-bold opacity-80">· {record.grade_remark}</span>
+                                  )}
                                 </span>
                               );
                             })}
@@ -749,7 +754,16 @@ const IncRecords = () => {
                         return (
                           <tr key={record.id} className="bg-gray-50/60 border-t border-gray-100 align-top">
                             <td className="px-6 py-3 pl-12">
-                              <div className="font-medium text-gray-900">{record.subject?.subject_code}</div>
+                              <div className="font-medium text-gray-900 flex items-center gap-1.5">
+                                {record.subject?.subject_code}
+                                {/* The mark that opened this form. Spelt out
+                                    on every row here, because this is where
+                                    the instructor and registrar sign it off
+                                    and they are signing off that mark. */}
+                                <span className="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-600">
+                                  {record.grade_remark || 'INC'}
+                                </span>
+                              </div>
                               <div className="text-xs text-gray-500 max-w-[220px]">{record.subject?.descriptive_title}</div>
                               {record.section && <div className="text-xs text-blue-700 mt-0.5">{record.section}</div>}
                               <Badge className={`${style.className} mt-1.5 font-medium`}>{style.label}</Badge>

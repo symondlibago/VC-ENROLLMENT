@@ -701,6 +701,8 @@ export const enrollmentAPI = {
     scan: (token, params) => unwrap(api.post('/clearance/scan', { token, ...params }), 'That code could not be matched'),
 
     approve: (itemId, payload) => unwrap(api.post(`/clearance/items/${itemId}/approve`, payload), 'Failed to sign that line'),
+    // Undo a signature given to the wrong student
+    revoke: (itemId, payload) => unwrap(api.post(`/clearance/items/${itemId}/revoke`, payload), 'Failed to undo that signature'),
     bulkApprove: (payload) => unwrap(api.post('/clearance/bulk-approve', payload), 'Failed to sign those lines'),
     approveAll: (payload) => unwrap(api.post('/clearance/approve-all', payload), 'Failed to sign every line'),
     generate: (payload) => unwrap(api.post('/clearance/generate', payload), 'Failed to generate the clearances'),
@@ -1085,6 +1087,53 @@ export const transcriptAPI = {
     } catch (error) {
       throw error.response?.data || { success: false, message: "Failed to load the student's record" };
     }
+  },
+
+  /**
+   * Unfinished transcripts, so a record that takes two days to assemble does
+   * not have to be typed twice.
+   */
+  drafts: {
+    list: async () => {
+      try {
+        const response = await api.get('/transcript-drafts');
+        return response.data;
+      } catch (error) {
+        throw error.response?.data || { success: false, message: 'Failed to load your drafts' };
+      }
+    },
+
+    get: async (id) => {
+      try {
+        const response = await api.get(`/transcript-drafts/${id}`);
+        return response.data;
+      } catch (error) {
+        throw error.response?.data || { success: false, message: 'Failed to open that draft' };
+      }
+    },
+
+    // No id creates a new draft; an id updates the one already saved, so the
+    // registrar saving twice does not leave two half-finished copies behind.
+    save: async (id, payload, title) => {
+      try {
+        const body = { payload, ...(title ? { title } : {}) };
+        const response = id
+          ? await api.put(`/transcript-drafts/${id}`, body)
+          : await api.post('/transcript-drafts', body);
+        return response.data;
+      } catch (error) {
+        throw error.response?.data || { success: false, message: 'Failed to save the draft' };
+      }
+    },
+
+    remove: async (id) => {
+      try {
+        const response = await api.delete(`/transcript-drafts/${id}`);
+        return response.data;
+      } catch (error) {
+        throw error.response?.data || { success: false, message: 'Failed to delete that draft' };
+      }
+    },
   },
 };
 

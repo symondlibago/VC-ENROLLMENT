@@ -17,6 +17,7 @@ use App\Http\Controllers\InstructorController;
 use App\Http\Controllers\IncRecordController;
 use App\Http\Controllers\CredentialRequestController;
 use App\Http\Controllers\TranscriptController;
+use App\Http\Controllers\TranscriptDraftController;
 use App\Http\Controllers\StudentGradeExportController;
 use App\Http\Controllers\UniformFabricController;
 use App\Http\Controllers\IdReleasingController;
@@ -96,8 +97,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/credential-requests/{credentialRequest}/cancel', [CredentialRequestController::class, 'cancel']);
 
     // Transcript of records: the registrar pulls a student's record, edits it
-    // on screen and generates the document. Nothing is stored.
+    // on screen and generates the document. The generated document is not
+    // stored — only an unfinished one, as a draft, so it can be finished later.
     Route::get('/transcripts/{preEnrolledStudent}', [TranscriptController::class, 'show']);
+    Route::apiResource('transcript-drafts', TranscriptDraftController::class)->except(['edit', 'create']);
 
     // Uniform fabric monitoring (cashier & admin): deliveries in, student purchases out
     Route::get('/uniform-fabric', [UniformFabricController::class, 'index']);
@@ -131,6 +134,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/scan', [ClearanceController::class, 'scan']);
 
         Route::post('/items/{item}/approve', [ClearanceController::class, 'approve']);
+        // Undo a signature given to the wrong student
+        Route::post('/items/{item}/revoke', [ClearanceController::class, 'revoke']);
         Route::post('/bulk-approve', [ClearanceController::class, 'bulkApprove']);
         Route::post('/approve-all', [ClearanceController::class, 'approveAll']);
         Route::post('/generate', [ClearanceController::class, 'generate']);

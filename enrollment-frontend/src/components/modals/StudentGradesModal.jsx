@@ -228,7 +228,16 @@ const StudentGradesModal = ({
     try {
         const response = await gradeAPI.updateStudentGrades(changedGradesPayload);
         if (response.success) {
-            setAlert({ isVisible: true, message: 'Grades updated successfully!', type: 'success' });
+            // The clearance gate can take a Passed straight back. Saying so is
+            // the difference between "the system is broken" and "sign the
+            // clearance" — it used to report plain success either way.
+            const heldBack = Array.isArray(response.held) && response.held.length > 0;
+
+            setAlert({
+              isVisible: true,
+              message: heldBack ? response.message : 'Grades updated successfully!',
+              type: heldBack ? 'warning' : 'success',
+            });
             setIsEditing(false);
             fetchGrades(); // Refresh data
         }
@@ -244,7 +253,28 @@ const StudentGradesModal = ({
     setEditedGrades(JSON.parse(JSON.stringify(grades))); // Revert changes
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status, grade = null) => {
+    /*
+     * A grade the clearance is holding reads INC like any other, and used to
+     * be shown as one. Editing it to Passed then looked broken: the gate put
+     * it straight back and nothing on screen said why. The hold is named here
+     * instead, along with the result waiting behind it.
+     */
+    if (grade?.clearance_hold) {
+      const term = [grade.grade_semester, grade.grade_school_year].filter(Boolean).join(' ');
+      const earned = grade.held_status || 'the result';
+
+      return (
+        <Badge
+          className="bg-amber-100 text-amber-900 border border-amber-300"
+          title={`${earned} earned, held until the clearance for ${term || 'this term'} is signed. `
+            + 'Editing the status will not release it — sign the clearance.'}
+        >
+          {grade.held_status ? `${grade.held_status} · Not cleared` : 'INC · Not cleared'}
+        </Badge>
+      );
+    }
+
     if (status === 'Passed') return <Badge className="bg-green-100 text-green-800">{status}</Badge>;
     if (status === 'Failed') return <Badge variant="destructive">{status}</Badge>;
     if (status === 'Credited') return <Badge className="bg-blue-100 text-blue-800">{status}</Badge>;
@@ -417,7 +447,7 @@ const StudentGradesModal = ({
                                     value={grade.status}
                                     onChange={(value) => handleGradeDataChange(grade.id, 'status', value)}
                                 />
-                              ) : getStatusBadge(grade.status)}
+                              ) : getStatusBadge(grade.status, grade)}
                             </td>
                           </tr>
                         );

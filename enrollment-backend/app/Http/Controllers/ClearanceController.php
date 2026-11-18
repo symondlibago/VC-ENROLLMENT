@@ -468,9 +468,16 @@ class ClearanceController extends Controller
                     ->map(fn ($item) => [
                         'id' => $item->id,
                         'role_name' => $item->role->name,
+                        // So the page can tell the assessment desk's line from
+                        // the rest, which is the only one a note belongs on
+                        'role_code' => $item->role->code,
                         'status' => $item->status,
                         'approved_at' => $item->approved_at?->toDateTimeString(),
                         'approver_name' => $item->approver->name ?? null,
+                        // The desk's own note — a cashier's balance or a date
+                        // to come back by. The student is the person it is
+                        // usually about, so it is on their copy too.
+                        'remarks' => $item->remarks,
                     ])->values(),
             ]),
         ]);
@@ -654,6 +661,57 @@ class ClearanceController extends Controller
         ]);
     }
 
+    /**
+     * Undoes one signature — the line signed against the wrong student.
+     *
+     * Everything it caused goes with it: a clearance that is no longer
+     * complete stops being cleared, and the grades it released go back on
+     * hold. Forms already paid for or signed are left alone and counted, so
+     * the answer says plainly what could not be taken back.
+     */
+    public function revoke(Request $request, ClearanceItem $item): JsonResponse
+    {
+        if ($denied = $this->denyUnlessApprover()) {
+            return $denied;
+        }
+
+        $validator = Validator::make($request->all(), [
+            'reason' => 'nullable|string|max:1000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        try {
+            $result = $this->clearance->revoke($item, Auth::user(), $request->input('reason'));
+        } catch (ClearanceException $e) {
+            return $this->fail($e);
+        }
+
+        $revoked = $result['item'];
+        $clearance = $revoked->clearance->fresh();
+
+        $message = "{$revoked->role->name} signature undone.";
+
+        if ($result['reheld'] > 0) {
+            $message .= " {$result['reheld']} grade(s) put back on hold.";
+        }
+
+        if ($result['kept'] > 0) {
+            $message .= " {$result['kept']} INC already paid or signed was left as it is.";
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $message,
+            'data' => $this->itemPayload($revoked),
+            'clearance_status' => $clearance->status,
+            'reheld' => $result['reheld'],
+            'kept' => $result['kept'],
+        ]);
+    }
+
     public function bulkApprove(Request $request): JsonResponse
     {
         if ($denied = $this->denyUnlessApprover()) {
@@ -725,8 +783,12 @@ class ClearanceController extends Controller
             $result = $this->clearance->approveAll(
                 $request->input('clearance_ids'),
                 $user,
-                $request->input('remarks')
-                    ?: sprintf("Signed by the %s on the holders' behalf", strtolower($user->role)),
+                // Whatever the desk typed, and nothing when they typed nothing.
+                // This used to fall back to "Signed by the X on the holders'
+                // behalf", which only repeated the `on_behalf` flag already
+                // stored beside it — and left a real note no room to be seen
+                // among thousands of copies of that one sentence.
+                $request->input('remarks'),
                 $notify
             );
         } catch (ClearanceException $e) {

@@ -42,6 +42,9 @@ export const buildFormData = (record) => ({
   schoolYear: record.school_year || '',
   incSemesterOrdinal: ordinal(record.semester),
   incSchoolYear: record.school_year || '',
+  // The form reads "to complete his/her ___ mark", and that blank is whichever
+  // remark the instructor recorded — INC, NFE or NFR
+  gradeRemark: record.grade_remark || 'INC',
   subjectCode: record.subject?.subject_code || '',
   descriptiveTitle: record.subject?.descriptive_title || '',
   rating: ratingForRecord(record),

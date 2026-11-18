@@ -9,6 +9,7 @@ use App\Models\ClearanceItem;
 use App\Models\ClearanceRole;
 use App\Models\EnrollmentHistory;
 use App\Models\Grade;
+use App\Models\IncRecord;
 use App\Models\Instructor;
 use App\Models\PreEnrolledStudent;
 use App\Models\User;
@@ -453,6 +454,128 @@ class ClearanceService
     }
 
     /**
+     * Takes a signature back off a line.
+     *
+     * For the signature given to the wrong student, which is a mis-click and
+     * not a decision. Whoever may sign the line may undo it, so a desk can
+     * correct itself without going through an admin; the same `canSign` gate
+     * decides both, and so cannot drift between them.
+     *
+     * Everything that signature caused is undone with it. If it was the last
+     * one, the clearance stops being cleared, the grades it released go back
+     * on hold, and the completion forms opened for them are withdrawn — but
+     * only the ones nobody has acted on. A form already paid for or signed
+     * stays exactly where it is: correcting a mis-click does not reach into
+     * money that has changed hands.
+     */
+    public function revoke(ClearanceItem $item, User $user, ?string $reason = null): array
+    {
+        $item->loadMissing('role', 'clearance');
+
+        if (!$item->role) {
+            throw new ClearanceException('That signature line is no longer in use.');
+        }
+
+        if (!$this->canSign($user, $item->role)) {
+            throw ClearanceException::forbidden(
+                "You are not assigned to sign the {$item->role->name} line."
+            );
+        }
+
+        if (!$item->isApproved()) {
+            throw new ClearanceException("The {$item->role->name} line is not signed.");
+        }
+
+        $result = DB::transaction(function () use ($item, $user, $reason) {
+            $note = sprintf(
+                'Signature undone by %s on %s%s',
+                $user->name,
+                Carbon::now()->format('M j, Y'),
+                $reason ? " — {$reason}" : ''
+            );
+
+            $item->update([
+                'status' => 'pending',
+                'approved_by' => null,
+                'approved_at' => null,
+                'on_behalf' => false,
+                'remarks' => $note,
+            ]);
+
+            $clearance = $item->clearance->fresh();
+
+            // Back to pending, and the notice is unspent again: the student
+            // may have been told they were cleared when they were not, so
+            // clearing it properly later has to be able to tell them so.
+            $this->recompute($clearance);
+            $clearance->update(['cleared_notified_at' => null]);
+
+            return $this->reholdGrades($clearance->fresh());
+        });
+
+        return $result + ['item' => $item->fresh(['role', 'approver'])];
+    }
+
+    /**
+     * Puts back the holds a clearance had lifted, and reports what it left.
+     *
+     * Only grades this clearance itself released are candidates: the hold
+     * leaves `held_status` and `held_at` behind when it converts, and those
+     * two together are the proof. Holds taken before the INC rule existed
+     * were released without them and cannot be told apart from an ordinary
+     * grade afterwards, so they stay released — the student simply sees the
+     * result they had already earned.
+     */
+    public function reholdGrades(Clearance $clearance): array
+    {
+        $student = $clearance->student;
+
+        if (!$student || $clearance->status === 'cleared') {
+            return ['reheld' => 0, 'kept' => 0];
+        }
+
+        $semesters = $clearance->semester === Clearance::WHOLE_YEAR
+            ? self::COLLEGE_TERMS
+            : [$clearance->semester];
+
+        $reheld = 0;
+        $kept = 0;
+
+        Grade::where('pre_enrolled_student_id', $student->id)
+            ->where('school_year', $clearance->school_year)
+            ->whereIn('semester', $semesters)
+            ->where('clearance_hold', false)
+            ->where('status', 'INC')
+            ->whereNotNull('held_at')
+            ->whereNotNull('held_status')
+            ->get()
+            ->each(function (Grade $grade) use (&$reheld, &$kept) {
+                $record = IncRecord::where('pre_enrolled_student_id', $grade->pre_enrolled_student_id)
+                    ->where('subject_id', $grade->subject_id)
+                    ->where('school_year', $grade->school_year)
+                    ->where('semester', $grade->semester)
+                    ->first();
+
+                // Paid for, or signed by somebody: that INC is now a real
+                // piece of work in progress and is not swept away here.
+                if ($record && !IncRecordService::isUntouched($record)) {
+                    $kept++;
+
+                    return;
+                }
+
+                $grade->update(['clearance_hold' => true]);
+
+                // Withdraws the completion form the release had opened
+                IncRecordService::syncForGrade($grade);
+
+                $reheld++;
+            });
+
+        return ['reheld' => $reheld, 'kept' => $kept];
+    }
+
+    /**
      * Signs one line for many students at once.
      *
      * Permission is checked once for the role, then the rows are written in a
@@ -538,7 +661,8 @@ class ClearanceService
 
         $held = $this->heldRoleIds($user);
 
-        $items = ClearanceItem::whereIn('clearance_id', $clearanceIds)
+        $items = ClearanceItem::with('role:id,code')
+            ->whereIn('clearance_id', $clearanceIds)
             ->pending()
             ->whereHas('role', fn ($q) => $q->where('is_active', true))
             ->get();
@@ -551,12 +675,18 @@ class ClearanceService
             // Grouped so the stand-in flag stays honest for the lines the
             // admin does personally hold
             foreach ($items->groupBy('clearance_role_id') as $roleId => $group) {
+                // The note belongs to the assessment desk, so it is written on
+                // that one line and no other. Spread across all sixteen it
+                // would read as though the librarian and the nurse had each
+                // written the same sentence about a payment.
+                $isCashier = self::isCashierRole($group->first()->role?->code);
+
                 ClearanceItem::whereIn('id', $group->pluck('id'))->update([
                     'status' => 'approved',
                     'approved_by' => $user->id,
                     'approved_at' => Carbon::now(),
                     'on_behalf' => !$held->contains($roleId),
-                    'remarks' => $remarks,
+                    'remarks' => $isCashier ? $remarks : null,
                     'updated_at' => Carbon::now(),
                 ]);
             }
@@ -565,6 +695,19 @@ class ClearanceService
         });
 
         return ['approved' => $items->count(), 'cleared' => $cleared];
+    }
+
+    /**
+     * Whether a role is the assessment desk — "cashier" for a student,
+     * "faculty_cashier" for an instructor. The one line a note belongs on.
+     *
+     * Matched on the code rather than `is_final`: that these two happen to be
+     * the last to sign is a separate fact, and a third final role added later
+     * should not start collecting the cashier's notes.
+     */
+    public static function isCashierRole(?string $code): bool
+    {
+        return $code !== null && str_ends_with($code, 'cashier');
     }
 
     /**

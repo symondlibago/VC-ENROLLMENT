@@ -11,7 +11,7 @@ class IncRecord extends Model
 
     protected $fillable = [
         'pre_enrolled_student_id', 'subject_id', 'grade_id', 'instructor_id', 'section_id',
-        'school_year', 'semester', 'year', 'status',
+        'school_year', 'semester', 'year', 'status', 'grade_remark',
         'amount', 'or_number', 'payment_date',
         'cashier_approved_at', 'cashier_approved_by', 'cashier_remarks',
         'instructor_approved_at', 'instructor_approved_by', 'instructor_remarks',
