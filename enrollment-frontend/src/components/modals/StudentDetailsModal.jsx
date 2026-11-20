@@ -685,7 +685,12 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
                   <Field label="Enrollment Type">{student.enrollment_type}</Field>
                   <Field label="Semester">{student.semester}</Field>
                   <Field label="School Year">{student.school_year}</Field>
-                  <Field label="Enrollment Date">{new Date(student.created_at).toLocaleDateString()}</Field>
+                  {/* When they last enrolled. `created_at` is only the day the
+                      record was first made, which for a continuing student is
+                      years before the term being looked at. */}
+                  <Field label="Enrollment Date">
+                    {new Date(student.enrolled_at || student.created_at).toLocaleDateString()}
+                  </Field>
                   <Field label="Enrollment Code">{student.enrollment_code?.code || 'N/A'}</Field>
                   <Field label="Program">{student.course?.program?.program_code || 'N/A'} Program</Field>
                 </div>

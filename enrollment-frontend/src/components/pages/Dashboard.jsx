@@ -87,11 +87,14 @@ const Dashboard = () => {
             pendingApprovals: pendingStudents.length
           }));
 
-          // Recent Enrollments List (Top 5 Enrolled, sorted by date)
-          // Assuming 'updated_at' or 'created_at' is the enrollment timestamp. 
-          // If enrollment_date exists, use that.
+          // Recent Enrollments List (Top 5 Enrolled, newest first)
+          //
+          // Sorted on enrollment_date, which is the day the student last
+          // enrolled and the only date in this payload — it carries neither
+          // created_at nor updated_at, so the old sort compared two Invalid
+          // Dates and left the list in whatever order it arrived.
           const sortedRecent = [...enrolledStudents]
-            .sort((a, b) => new Date(b.created_at || b.updated_at) - new Date(a.created_at || a.updated_at))
+            .sort((a, b) => new Date(b.enrollment_date) - new Date(a.enrollment_date))
             .slice(0, 5)
             .map(student => ({
               id: student.id,

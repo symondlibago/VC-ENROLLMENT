@@ -73,13 +73,29 @@ class PreEnrolledStudent extends Model
         'acknowledgement_version',
         'enrolled_notified_at',
         'enrolled_notified_term',
+        // When they last enrolled, which for a continuing student is a date
+        // long after the record itself was created
+        'enrolled_at',
     ];
 
     protected $casts = [
         'birth_date' => 'date',
         'acknowledgement_accepted_at' => 'datetime',
         'enrolled_notified_at' => 'datetime',
+        'enrolled_at' => 'datetime',
     ];
+
+    /**
+     * The date to show as "Enrollment Date".
+     *
+     * Falls back to when the record was made, for any row written before the
+     * column existed and for anything that creates a student without going
+     * through an enrollment form.
+     */
+    public function enrolledOn(): ?\Illuminate\Support\Carbon
+    {
+        return $this->enrolled_at ?? $this->created_at;
+    }
 
     protected static function booted(): void
     {

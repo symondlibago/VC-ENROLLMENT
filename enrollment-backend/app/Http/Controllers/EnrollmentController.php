@@ -125,6 +125,11 @@ class EnrollmentController extends Controller
             // which wording they agreed to is a record, not an input.
             $data['acknowledgement_accepted_at'] = now();
             $data['acknowledgement_version'] = EnrollmentAcknowledgement::VERSION;
+
+            // The day they enrolled. Equal to created_at here, and kept as its
+            // own column so re-enrolling can move it without rewriting when
+            // the record was made.
+            $data['enrolled_at'] = now();
             
             if ($request->hasFile('id_photo') && $request->file('id_photo')->isValid()) {
                 $idPhotoPath = $request->file('id_photo')->store('identification', 's3'); 
@@ -362,7 +367,7 @@ public function getPreEnrolledStudents()
                 'course' => $student->course ? $student->course->course_name : null,
                 'course_code' => $student->course ? $student->course->course_code : null,
                 'program' => $student->course && $student->course->program ? $student->course->program->program_name : null,
-                'enrollment_date' => $student->created_at->format('Y-m-d'),
+                'enrollment_date' => $student->enrolledOn()?->format('Y-m-d'),
                 'semester' => $student->semester,
                 'school_year' => $student->school_year,
                 'enrollment_type' => $student->enrollment_type,
@@ -1805,6 +1810,9 @@ public function submitContinuingEnrollment(Request $request): JsonResponse
             $student->school_year = $request->input('school_year');
             $student->enrollment_type = 'Continuing';
             $student->enrollment_status = 'pending';
+            // They are enrolling now, so the Enrollment page says now — not
+            // the day they first applied, which may be several years back.
+            $student->enrolled_at = now();
             $student->enrollmentApprovals()->delete();
             
             // ✅ This save() will now include the new academic_status
