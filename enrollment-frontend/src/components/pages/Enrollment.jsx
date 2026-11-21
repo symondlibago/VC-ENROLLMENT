@@ -8,6 +8,7 @@ import {
     ChevronLeft,
     ChevronRight,
     UserPlus,
+    FileDown,
 } from 'lucide-react';
 import { enrollmentAPI, authAPI, uploadReceiptAPI } from '@/services/api';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import StudentDetailsModal from '../modals/StudentDetailsModal';
 import ContinuingEnrollmentModal from '../modals/ContinuingEnrollmentModal';
+import ExportEnrollmentModal from '../modals/ExportEnrollmentModal';
 import SuccessAlert from '../modals/SuccessAlert'; // Import SuccessAlert
 import { toast } from 'sonner';
 
@@ -254,6 +256,7 @@ const Enrollment = () => {
 const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchTerm, selectedFilter, setSelectedFilter }) => {
     const PAGE_SIZE = 50;
     const [currentPage, setCurrentPage] = useState(1);
+    const [isExportOpen, setIsExportOpen] = useState(false);
 
     const filteredEnrollments = useMemo(() => {
         // 1. Filter the enrollments based on search and selected filter
@@ -329,6 +332,16 @@ const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchT
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 " size={20} />
                             <Input placeholder="Search by name, email, or course..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
                         </div>
+                        {/* Exports the whole list through its own filters, not
+                            whatever the search box happens to be narrowed to */}
+                        <Button
+                            variant="outline"
+                            className="h-10 shrink-0 cursor-pointer bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                            onClick={() => setIsExportOpen(true)}
+                        >
+                            <FileDown className="w-4 h-4 mr-2" />
+                            Export
+                        </Button>
                     </div>
                 </CardContent>
             </Card>
@@ -438,6 +451,15 @@ const EnrollmentListPage = ({ enrollments, onViewDetails, searchTerm, setSearchT
                     </div>
                 )}
             </Card>
+
+            <AnimatePresence>
+                {isExportOpen && (
+                    <ExportEnrollmentModal
+                        students={enrollments}
+                        onClose={() => setIsExportOpen(false)}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 };

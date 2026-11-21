@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Search } from 'lucide-react';
 
 /**
  * The dropdown this app uses everywhere — never a native <select>, whose OS
@@ -8,6 +8,10 @@ import { ChevronDown } from 'lucide-react';
  *
  * The panel animates in and its options stagger, capped so a long list does
  * not take noticeably longer to appear than a short one.
+ *
+ * `searchable` puts a filter box at the top of the panel, for the lists long
+ * enough that scrolling them is worse than typing. It is opt-in so the short
+ * lists everywhere else are not given a box they do not need.
  */
 const MotionDropdown = ({
   value,
@@ -17,14 +21,43 @@ const MotionDropdown = ({
   icon: Icon,
   className = '',
   disabled = false,
+  searchable = false,
+  searchPlaceholder = 'Search…',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const ref = useRef(null);
+  const searchRef = useRef(null);
 
   const selected = useMemo(
     () => options.find((option) => option.value === value) ?? { label: placeholder, value: '' },
     [options, value, placeholder]
   );
+
+  const shown = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!searchable || !needle) return options;
+
+    // An "all" option carries an empty value; it is the way back to no
+    // filter at all, so it stays reachable while searching.
+    return options.filter((option) => option.value === ''
+      || String(option.label).toLowerCase().includes(needle));
+  }, [options, query, searchable]);
+
+  // A stale query would silently hide options the next time it opens
+  useEffect(() => {
+    if (!isOpen) {
+      setQuery('');
+      return;
+    }
+    if (searchable) {
+      // After the panel has mounted, or there is nothing to focus yet
+      const id = requestAnimationFrame(() => searchRef.current?.focus());
+      return () => cancelAnimationFrame(id);
+    }
+
+    return undefined;
+  }, [isOpen, searchable]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -70,7 +103,39 @@ const MotionDropdown = ({
             transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
             className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden max-h-72 overflow-y-auto"
           >
-            {options.map((option, index) => (
+            {searchable && (
+              // Sticky, so the box stays put while the list behind it scrolls
+              <div className="sticky top-0 z-10 bg-white border-b border-gray-200 p-2">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                  <input
+                    ref={searchRef}
+                    type="text"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    // Enter picks the only thing left, which is the point of
+                    // typing in the first place
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter') return;
+                      event.preventDefault();
+                      const only = shown.filter((option) => option.value !== '');
+                      if (only.length === 1) {
+                        onChange(only[0].value);
+                        setIsOpen(false);
+                      }
+                    }}
+                    placeholder={searchPlaceholder}
+                    className="w-full pl-8 pr-2 py-1.5 text-sm border border-gray-200 rounded-md outline-none focus:border-gray-400"
+                  />
+                </div>
+              </div>
+            )}
+
+            {shown.length === 0 && (
+              <p className="px-4 py-3 text-sm text-gray-400">Nothing matches “{query.trim()}”.</p>
+            )}
+
+            {shown.map((option, index) => (
               <motion.button
                 key={option.value}
                 type="button"

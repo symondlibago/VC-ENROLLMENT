@@ -370,6 +370,8 @@ public function getPreEnrolledStudents()
                 'enrollment_date' => $student->enrolledOn()?->format('Y-m-d'),
                 'semester' => $student->semester,
                 'school_year' => $student->school_year,
+                // Year level, so the export can be filtered by it
+                'year' => $student->year,
                 'enrollment_type' => $student->enrollment_type,
                 'status' => $this->getEnrollmentStatus($student),
                 'progress' => $this->calculateProgress($student),
