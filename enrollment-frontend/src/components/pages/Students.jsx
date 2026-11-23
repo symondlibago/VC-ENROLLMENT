@@ -19,7 +19,9 @@ import {
   Calendar,
   MapPin,
   Download,
-  Loader2
+  Loader2,
+  X,
+  UserMinus
 } from 'lucide-react';
 import { downloadCsv } from '@/lib/csv';
 import { matchesScholarship, scholarshipLabel, scholarshipOptions } from '@/lib/scholarship';
@@ -319,6 +321,56 @@ const Students = () => {
     }
   };
 
+  /**
+   * Takes students out of whatever section they are sitting in, from the
+   * student list rather than from inside one section's details.
+   *
+   * Grouped by section because removal is a per-section endpoint and a
+   * selection easily spans several. Students already unassigned are skipped
+   * rather than sent, so a mixed selection is not an error.
+   *
+   * Both lists are refreshed afterwards: `sections` drives the section cards
+   * and their counts, `enrolledStudents` drives the badge on every row.
+   */
+  const handleRemoveFromSection = async (studentsToClear) => {
+    const bySection = studentsToClear.reduce((map, student) => {
+      if (!student.sectionId) return map;
+      const key = String(student.sectionId);
+      map[key] = [...(map[key] ?? []), student.id];
+      return map;
+    }, {});
+
+    const sectionIds = Object.keys(bySection);
+    if (sectionIds.length === 0) {
+      showAlert('None of those students are in a section.', 'error');
+      return;
+    }
+
+    try {
+      let removed = 0;
+
+      for (const sectionId of sectionIds) {
+        const response = await sectionAPI.removeStudents(Number(sectionId), bySection[sectionId]);
+        if (!response.success) {
+          throw new Error(response.message || 'Failed to remove from the section.');
+        }
+        removed += bySection[sectionId].length;
+        setSections(prev => prev.map(s => (s.id === Number(sectionId) ? response.data : s)));
+      }
+
+      const studentsRes = await enrollmentAPI.getEnrolledStudents();
+      setEnrolledStudents(studentsRes.data || []);
+
+      showAlert(
+        `${removed} student${removed === 1 ? '' : 's'} removed from `
+        + `${sectionIds.length === 1 ? 'their section' : `${sectionIds.length} sections`}.`
+      );
+    } catch (error) {
+      console.error('Failed to remove students from their section:', error);
+      showAlert(error.message || 'Failed to remove them from the section.', 'error');
+    }
+  };
+
   const handleAddStudentsToSection = async (sectionId, studentIds) => {
     try {
       const response = await sectionAPI.addStudents(sectionId, studentIds);
@@ -515,7 +567,8 @@ const Students = () => {
                 onEditStudent={handleEditStudent}
                 onViewStudentDetails={handleViewStudentDetails}
                 onAssignSection={handleAddStudentsToSection}
-                currentUser={currentUser} 
+                onRemoveSection={handleRemoveFromSection}
+                currentUser={currentUser}
               />
           }
         </motion.div>
@@ -601,10 +654,13 @@ const GRADE_EXPORT_COLUMNS = [
   { key: 'status', label: 'Status' },
 ];
 
-const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter, yearFilter, setYearFilter, schoolYearFilter, setSchoolYearFilter, semesterFilter, setSemesterFilter, referralFilter, setReferralFilter, typeFilter, setTypeFilter, genderFilter, setGenderFilter, scholarshipFilter, setScholarshipFilter, scholarshipOptions, onNotify, schoolYearOptions, semesterOptions, onEditStudent, onViewStudentDetails, onAssignSection, currentUser }) => {
+const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, courseFilter, setCourseFilter, sectionFilter, setSectionFilter, yearFilter, setYearFilter, schoolYearFilter, setSchoolYearFilter, semesterFilter, setSemesterFilter, referralFilter, setReferralFilter, typeFilter, setTypeFilter, genderFilter, setGenderFilter, scholarshipFilter, setScholarshipFilter, scholarshipOptions, onNotify, schoolYearOptions, semesterOptions, onEditStudent, onViewStudentDetails, onAssignSection, onRemoveSection, currentUser }) => {
     const [selectedIds, setSelectedIds] = useState(() => new Set());
     const [page, setPage] = useState(1);
     const [exporting, setExporting] = useState(false);
+    const [clearing, setClearing] = useState(false);
+    // The selected students waiting on a yes before their sections go
+    const [confirmClear, setConfirmClear] = useState(null);
 
     // Only the rows on screen are rendered; 790 at once is what made the page
     // crawl while scrolling.
@@ -664,6 +720,30 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
       }
     };
 
+    /**
+     * The ticked students who are actually in a section.
+     *
+     * Scoped to the rows on screen, which is what "selected of N shown" on
+     * the bar already promises — a tick left behind by an earlier filter is
+     * not quietly acted on.
+     */
+    const sectionedSelection = useMemo(
+      () => students.filter(s => selectedIds.has(s.id) && s.sectionId),
+      [students, selectedIds]
+    );
+
+    const clearSections = async () => {
+      if (!confirmClear?.length) return;
+      setClearing(true);
+      try {
+        await onRemoveSection(confirmClear);
+        setSelectedIds(new Set());
+      } finally {
+        setClearing(false);
+        setConfirmClear(null);
+      }
+    };
+
     const courseOptions = useMemo(() => [{ label: 'All Courses', value: 'all' }, ...courses.map(c => ({ label: c.course_code, value: c.id.toString() }))], [courses]);
     const sectionOptions = useMemo(() => [{ label: 'All Sections', value: 'all' }, { label: 'Unassigned', value: 'unassigned' }, ...sections.map(s => ({ label: s.name, value: s.id.toString() }))], [sections]);
     const yearOptions = [{ label: 'All Year Levels', value: 'all' }, { label: '1st Year', value: '1st Year' }, { label: '2nd Year', value: '2nd Year' }, { label: '3rd Year', value: '3rd Year' }, { label: '4th Year', value: '4th Year' }];
@@ -702,6 +782,20 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
             {selectedIds.size > 0 && (
               <Button variant="outline" onClick={() => setSelectedIds(new Set())} className="cursor-pointer">
                 Clear
+              </Button>
+            )}
+            {/* Only offered when some of the ticked students actually have a
+                section to lose, so it never does nothing. */}
+            {canEdit && sectionedSelection.length > 0 && (
+              <Button
+                variant="outline"
+                disabled={clearing}
+                onClick={() => setConfirmClear(sectionedSelection)}
+                className="cursor-pointer bg-white text-gray-700 border-gray-300 hover:bg-red-50 hover:text-red-800 hover:border-red-800"
+              >
+                {clearing
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Removing…</>
+                  : <><UserMinus className="w-4 h-4 mr-2" />Remove Section ({sectionedSelection.length})</>}
               </Button>
             )}
             <Button
@@ -795,7 +889,24 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
                       </DropdownMenu>
                     </div>
                   ) : (
-                    <Badge variant="secondary">{student.sectionName}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">{student.sectionName}</Badge>
+                      {/* The mirror of Assign: taking one student out without
+                          opening the section they happen to be in. One
+                          student, and putting them back is one click, so it
+                          goes straight through without a prompt. */}
+                      {canEdit && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          title={`Remove from ${student.sectionName}`}
+                          onClick={() => onRemoveSection([student])}
+                          className="h-7 px-2 shrink-0 cursor-pointer bg-white text-gray-500 border-gray-300 hover:bg-red-50 hover:text-red-800 hover:border-red-800"
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </TableCell>
                 <TableCell>
@@ -817,6 +928,22 @@ const StudentPage = ({ students, sections, courses, searchTerm, setSearchTerm, c
             )) : <TableRow><TableCell colSpan="8" className="text-center h-24">No students found.</TableCell></TableRow>}
           </TableBody>
         </Table>
+
+        <DeleteConfirmationModal
+          isOpen={!!confirmClear}
+          onClose={() => setConfirmClear(null)}
+          onConfirm={clearSections}
+          title="Remove From Section"
+          message={`${confirmClear?.length ?? 0} student${confirmClear?.length === 1 ? '' : 's'} will go back to Unassigned. Their grades, subjects and enrollment are untouched — only the section placement is cleared.`}
+          itemName={[...new Set((confirmClear ?? []).map(s => s.sectionName))].join(', ')}
+          itemLabel={`Section${new Set((confirmClear ?? []).map(s => s.sectionName)).size === 1 ? '' : 's'} affected:`}
+          warning={<>They can be put back at any time with <strong>Assign</strong>.</>}
+          tone="warning"
+          confirmLabel="Remove from section"
+          loadingLabel="Removing..."
+          confirmIcon={UserMinus}
+          isLoading={clearing}
+        />
 
         {pageCount > 1 && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 border-t border-gray-100">
