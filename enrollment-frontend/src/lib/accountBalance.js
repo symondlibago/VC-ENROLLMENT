@@ -48,6 +48,20 @@ export const summarizeAccount = (paymentData = {}, termPayments = []) => {
 
   const assessment = fees.reduce((total, fee) => total + fee.amount, 0);
 
+  /*
+   * Money overpaid last term, already taken off what is owed this one.
+   *
+   * Read from its own column, never inferred from `assessment - total_amount`.
+   * That gap looks identical whether a credit was applied or somebody simply
+   * corrected a fee, so inferring it quietly swallowed every fee edit: add
+   * 500 to tuition and the "credit" grew by 500 while the balance never
+   * moved.
+   *
+   * `advance_payment` is no substitute — it holds a credit only until it is
+   * spent, and reads zero for exactly the students who have been given one.
+   */
+  const creditApplied = Math.max(0, toAmount(paymentData.credit_applied));
+
   const discount = toAmount(paymentData.discount_deduction);
   const downPayment = toAmount(paymentData.payment_amount);
   const installments = (termPayments || []).reduce(
@@ -59,7 +73,7 @@ export const summarizeAccount = (paymentData = {}, termPayments = []) => {
   // are the same arithmetic but not the same floating-point result, and the
   // difference shows up as a one-centavo drift on the rounded peso figure.
   // This order is the one the saved records were computed with.
-  const net = assessment - discount - downPayment - installments;
+  const net = assessment - creditApplied - discount - downPayment - installments;
 
   // Derived back out of the balance so the three printed totals always
   // reconcile on the slip: assessment - credits is the balance, exactly.
@@ -68,6 +82,7 @@ export const summarizeAccount = (paymentData = {}, termPayments = []) => {
   return {
     fees,
     assessment,
+    creditApplied,
     discount,
     discountRate: toAmount(paymentData.discount),
     downPayment,

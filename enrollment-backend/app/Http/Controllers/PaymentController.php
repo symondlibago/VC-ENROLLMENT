@@ -46,6 +46,8 @@ class PaymentController extends Controller
             'discount_deduction' => 'nullable|numeric|min:0',
             'remaining_amount' => 'nullable|numeric',
             'advance_payment' => 'nullable|numeric|min:0',
+            // Last term's overpayment, already taken off total_amount
+            'credit_applied' => 'nullable|numeric|min:0',
             'term_payment' => 'nullable|numeric|min:0',
             'payment_date' => 'nullable|date',
             'term_payments' => 'nullable|array',
@@ -83,6 +85,7 @@ class PaymentController extends Controller
                     'discount_deduction' => $request->input('discount_deduction'),
                     'remaining_amount' => $request->input('remaining_amount'),
                     'advance_payment' => $request->input('advance_payment'),
+                    'credit_applied' => $request->input('credit_applied', 0),
                     'term_payment' => $request->input('term_payment'),
                     'payment_date' => $request->input('payment_date'),
                 ]
@@ -295,6 +298,7 @@ class PaymentController extends Controller
             'discount_deduction' => 'numeric|min:0',
             'remaining_amount' => 'numeric',
             'advance_payment' => 'numeric|min:0',
+            'credit_applied' => 'numeric|min:0',
             'term_payment' => 'numeric|min:0',
             'payment_date' => 'date',
         ]);

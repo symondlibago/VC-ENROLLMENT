@@ -232,13 +232,23 @@ const drawAssessment = (doc, { summary }) => {
  * single carried line so the total still reconciles on the page.
  */
 export const creditLines = (summary, termPayments) => {
-  const lines = [
+  const lines = [];
+
+  // Overpaid last term and carried into this one. First, because it was
+  // applied before the student paid anything towards this term — and named,
+  // because a slip that silently nets it off reads as an arithmetic error to
+  // whoever checks the figures.
+  if (summary.creditApplied > 0.005) {
+    lines.push({ label: 'Advance from Previous Term', amount: summary.creditApplied });
+  }
+
+  lines.push(
     { label: 'Down Payment', amount: summary.downPayment },
     {
       label: summary.discountRate ? `Discount (${formatAmount(summary.discountRate).replace(/\.00$/, '')}%)` : 'Discount',
       amount: summary.discount,
     },
-  ];
+  );
 
   const posted = [...(termPayments || [])]
     .filter((payment) => toAmount(payment?.amount) !== 0 || payment?.or_number)

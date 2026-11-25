@@ -28,6 +28,8 @@ class Payment extends Model
         'term_payment',
         'payment_date',
         'advance_payment',
+        // Last term's overpayment, already deducted from total_amount
+        'credit_applied',
     ];
 
     public function preEnrolledStudent()

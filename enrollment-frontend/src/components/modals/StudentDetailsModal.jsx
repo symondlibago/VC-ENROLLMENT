@@ -159,6 +159,7 @@ const defaultPaymentState = {
   term_payment: 0,
   payment_date: new Date().toISOString().split('T')[0],
   advance_payment: 0,
+  credit_applied: 0,
 };
 
 const defaultManualEdit = {
@@ -383,6 +384,12 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
     const discountPercent = parseFloat(paymentData.discount) || 0;
 
     // 3. Calculate Total and Discount
+    //
+    // `prevCredit` is spent here: it comes off the total, and `advance_payment`
+    // is cleared once it has been. Recorded in `credit_applied` as well, which
+    // is the only field that still says so afterwards — the Term Payment screen
+    // and the printed slip both read it to show the deduction and to keep it
+    // out of the balance.
     const total = (prevAccountDebt + regFee + miscFee + otherFee + tuition + lab + bundled) - prevCredit;
     const newTotalAmount = manualEdit.total_amount ? (parseFloat(paymentData.total_amount) || 0) : total;
     const newDiscountDeduction = manualEdit.discount_deduction
@@ -410,6 +417,7 @@ const StudentDetailsModal = ({ isOpen, onClose, studentId, currentUserRole }) =>
       laboratory_fee: manualEdit.laboratory_fee ? prev.laboratory_fee : newLaboratoryFee.toFixed(2),
       bundled_program_fee: manualEdit.bundled_program_fee ? prev.bundled_program_fee : newBundledProgramFee.toFixed(2),
       total_amount: manualEdit.total_amount ? prev.total_amount : newTotalAmount.toFixed(2),
+      credit_applied: prevCredit.toFixed(2),
       discount_deduction: manualEdit.discount_deduction ? prev.discount_deduction : newDiscountDeduction.toFixed(2),
 
       remaining_amount: newRemainingAmount.toFixed(2),

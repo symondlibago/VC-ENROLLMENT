@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Save, Loader2, Plus, Trash2, CheckCircle, Clock, GraduationCap, Edit3, Lock } from 'lucide-react'; 
 import { enrollmentAPI, paymentAPI } from '../../services/api'; 
 import { Label } from "@/components/ui/label";
@@ -25,7 +25,10 @@ const defaultPaymentState = {
   remaining_amount: 0,
   term_payment: 0,
   payment_date: new Date().toISOString().split('T')[0],
-  advance_payment: 0, 
+  advance_payment: 0,
+  // Last term's overpayment, already taken off total_amount. Carried through
+  // untouched so saving from this screen cannot drop it.
+  credit_applied: 0,
 };
 
 const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveError }) => {
@@ -127,7 +130,11 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
 
       return {
         ...prev,
-        total_amount: summary.assessment.toFixed(2),
+        // Net of any credit carried in from last term, which is the same
+        // figure the cashier's approval screen saved. Writing the raw fee sum
+        // back here wiped that credit out — it survives nowhere else — and
+        // the student was re-billed for money they had already paid.
+        total_amount: (summary.assessment - summary.creditApplied).toFixed(2),
         remaining_amount: summary.balance.toFixed(2),
         advance_payment: summary.advance.toFixed(2),
         term_payment: shouldUpdateTerm
@@ -149,6 +156,12 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
     paymentData.discount_deduction,
     currentTermPayments
   ]);
+
+  /** The credit carried in from last term, for the banner above the totals. */
+  const creditApplied = useMemo(
+    () => summarizeAccount(paymentData, currentTermPayments).creditApplied,
+    [paymentData, currentTermPayments]
+  );
 
   const handlePaymentInputChange = (field, value) => {
     if (field === 'remaining_amount' || field === 'advance_payment' || field === 'term_payment') return;
@@ -334,6 +347,22 @@ const TermPaymentModal = ({ isOpen, onClose, studentId, onSaveSuccess, onSaveErr
 
                     <div>
                       <h4 className="text-md font-medium mb-3 text-gray-700">Payment Details & Totals</h4>
+
+                      {/* Overpaid last term and already taken off the total
+                          below. Said out loud because the total no longer
+                          matches the fees above it, and without this the
+                          cashier is left to wonder which figure is wrong. */}
+                      {creditApplied > 0.005 && (
+                        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5">
+                          <span className="text-sm text-green-900">
+                            <strong>Advance from previous term</strong> — already deducted from the total
+                          </span>
+                          <span className="text-sm font-semibold text-green-800 whitespace-nowrap">
+                            − ₱{creditApplied.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount</label>
