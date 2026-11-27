@@ -57,7 +57,7 @@ import LoadingSpinner from '../layout/LoadingSpinner';
 import DeleteConfirmationModal from '../modals/DeleteConfirmationModal';
 import { sectionAPI, enrollmentAPI, courseAPI, authAPI } from '@/services/api';
 import { getProvinceNameSet } from '@/data/phLocations';
-import { resolveTypedLocation, isHomeCity, cityLabel } from '@/lib/addressResolver';
+import { resolveTypedLocation, resolveTypedBarangay, isHomeCity, cityLabel } from '@/lib/addressResolver';
 import StudentOriginChart from '../students/StudentOriginChart';
 
 
@@ -1033,17 +1033,18 @@ const AddressPage = ({ students, schoolYearOptions, courses }) => {
     matched.forEach((s) => {
       const loc = parseLocation(s.address);
       let key, label, legacy = false;
+      // `short` is the place on its own — the barangay, or the city — for a
+      // chart label; `city` is which municipality the row sits in.
+      let short = null, city = null;
+
       if (loc.structured) {
         // The dropdowns save the PSGC name verbatim, suffix and all —
-        // "CAGAYAN DE ORO CITY (Capital)". A typed address resolves to the
-        // plain name, so without stripping it the same city lands in two rows.
-        const city = cityLabel(loc.city);
-
-        if (groupBy === 'barangay') {
-          label = `${loc.barangay}, ${city}`;
-        } else {
-          label = city;
-        }
+        // "CAGAYAN DE ORO CITY (Capital)", "Barangay 26 (Pob.)". A typed
+        // address resolves to the plain name, so without stripping the suffix
+        // the same place lands in two rows.
+        city = cityLabel(loc.city);
+        short = groupBy === 'barangay' ? cityLabel(loc.barangay) : city;
+        label = groupBy === 'barangay' ? `${short}, ${city}` : city;
         key = label.toUpperCase();
       } else {
         // Free-typed / pre-dropdown addresses. Most of them do name a real
@@ -1051,20 +1052,30 @@ const AddressPage = ({ students, schoolYearOptions, courses }) => {
         // left as a row of their own — otherwise "UPPER CARMEN CDO" and
         // "#558 Bonbon CDOC" each count as a separate location and the report
         // cannot say how many students live outside the city.
-        const resolved = resolveTypedLocation(s.address);
+        const resolved = groupBy === 'barangay'
+          ? resolveTypedBarangay(s.address)
+          : resolveTypedLocation(s.address);
 
-        if (resolved && groupBy === 'city') {
-          label = resolved.label;
+        if (resolved && groupBy === 'barangay') {
+          city = resolved.city;
+          short = resolved.barangay;
+          label = `${short}, ${city}`;
+          key = label.toUpperCase();
+        } else if (resolved) {
+          city = resolved.label;
+          short = city;
+          label = city;
           key = label.toUpperCase();
         } else {
-          // Nothing recognisable in it, or we are grouping by barangay, which
-          // a typed line rarely states precisely enough to trust.
+          // Nothing recognisable in it. Grouped by barangay that also covers
+          // every line outside this city: the dataset holds 41,582 barangays
+          // and picking one out of a typed line elsewhere would be a guess.
           label = normalizeAddress(s.address) || '(No address provided)';
           key = `legacy::${label.toLowerCase()}`;
           legacy = true;
         }
       }
-      if (!groups.has(key)) groups.set(key, { label, count: 0, legacy });
+      if (!groups.has(key)) groups.set(key, { label, short, city, count: 0, legacy });
       groups.get(key).count += 1;
     });
 
@@ -1098,30 +1109,51 @@ const AddressPage = ({ students, schoolYearOptions, courses }) => {
   ].filter(Boolean).join('  ·  ');
 
   /**
-   * The split the school president asked for: how many of these students live
-   * outside Cagayan de Oro. Only meaningful grouped by city — a barangay row
-   * does not say which municipality it belongs to.
+   * What the chart draws.
+   *
+   * By city: the split the school president asked for — how many of these
+   * students live outside Cagayan de Oro.
+   *
+   * By barangay: where inside the city they live. Only this city's barangays
+   * are charted; a barangay elsewhere is a row in the table but says nothing
+   * the president asked about.
    */
   const origin = useMemo(() => {
     const placed = rows.filter((r) => !r.legacy);
-    const home = placed.filter((r) => isHomeCity(r.label)).reduce((n, r) => n + r.count, 0);
-    const outside = placed.filter((r) => !isHomeCity(r.label)).reduce((n, r) => n + r.count, 0);
     const unknown = rows.filter((r) => r.legacy).reduce((n, r) => n + r.count, 0);
+    const total = (list) => list.reduce((n, r) => n + r.count, 0);
 
+    if (groupBy === 'barangay') {
+      const inCity = placed.filter((r) => isHomeCity(r.city));
+      const students = total(inCity);
+      return {
+        view: 'barangay',
+        students,
+        areas: inCity.length,
+        elsewhere: total(placed) - students,
+        unknown,
+        known: students,
+        places: inCity.length,
+        top: inCity.slice(0, 10),
+      };
+    }
+
+    const home = total(placed.filter((r) => isHomeCity(r.label)));
     // Only the places outside the city are charted. Listed beside a home city
     // four hundred strong, every one of them is a stub three pixels wide —
     // and they are the half of the answer that is actually in question.
     const away = placed.filter((r) => !isHomeCity(r.label));
 
     return {
+      view: 'city',
       home,
-      outside,
+      outside: total(away),
       unknown,
-      known: home + outside,
+      known: home + total(away),
       places: away.length,
       top: away.slice(0, 8),
     };
-  }, [rows]);
+  }, [rows, groupBy]);
 
   return (
     <div className="space-y-6">
@@ -1160,9 +1192,7 @@ const AddressPage = ({ students, schoolYearOptions, courses }) => {
         </CardContent>
       </Card>
 
-      {/* Only grouped by city: a barangay row does not say which municipality
-          it sits in, so the inside/outside split would be a guess. */}
-      {groupBy === 'city' && <StudentOriginChart origin={origin} typeLabel={typeLabel} scopeLabel={scopeLabel} />}
+      <StudentOriginChart origin={origin} typeLabel={typeLabel} scopeLabel={scopeLabel} />
 
       <Card>
         <Table>

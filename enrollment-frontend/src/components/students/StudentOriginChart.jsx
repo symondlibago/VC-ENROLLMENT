@@ -78,8 +78,34 @@ const StudentOriginChart = ({ origin, typeLabel, scopeLabel }) => {
   const svgRef = useRef(null);
   const [saving, setSaving] = useState(false);
 
-  const { home, outside, unknown, known, places, top } = origin;
+  const { unknown, known, places, top } = origin;
   if (known === 0) return null;
+
+  // Two questions, one drawing. By city: how many live outside it. By
+  // barangay: where inside it they live.
+  const isCity = origin.view !== 'barangay';
+  const CITY = prettyPlace(HOME_CITY);
+
+  const heading = isCity ? 'Where students come from' : `Where students live in ${CITY}`;
+  const barsTitle = isCity ? 'TOWNS OUTSIDE THE CITY' : 'BARANGAYS IN THE CITY';
+  const BAR = isCity ? AWAY : HOME;
+
+  const stats = isCity
+    ? [
+      { color: HOME, label: `In ${CITY}`, value: origin.home, share: share(origin.home, known) },
+      { color: AWAY, label: 'Outside the city', value: origin.outside, share: share(origin.outside, known) },
+    ]
+    : [
+      { label: `Students in ${CITY}`, value: origin.students },
+      { label: 'Barangays they live in', value: origin.areas },
+    ];
+
+  // Without the split bar everything below it moves up by its height.
+  const SHIFT = isCity ? 0 : -34;
+  const captionY = CAPTION_Y + SHIFT;
+  const dividerY = DIVIDER_Y + SHIFT;
+  const sectionY = SECTION_Y + SHIFT;
+  const rowsTop = ROWS_TOP + SHIFT;
 
   const rows = top;
   const axisMax = niceMax(Math.max(0, ...rows.map((r) => r.count)));
@@ -87,13 +113,13 @@ const StudentOriginChart = ({ origin, typeLabel, scopeLabel }) => {
   const ticks = [...new Set([0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(axisMax * f)))];
   const tickX = (v) => PLOT_X0 + (v / axisMax) * (PLOT_X1 - PLOT_X0);
 
-  const rowsBottom = ROWS_TOP + rows.length * ROW_H;
-  const axisY = rows.length ? rowsBottom + 6 : DIVIDER_Y;
-  const footerY = rows.length ? axisY + 44 : DIVIDER_Y + 26;
+  const rowsBottom = rowsTop + rows.length * ROW_H;
+  const axisY = rows.length ? rowsBottom + 6 : dividerY;
+  const footerY = rows.length ? axisY + 44 : dividerY + 26;
   const H = footerY + 14;
 
   const innerW = W - M * 2;
-  const homeW = Math.max(0, ((innerW - 3) * pct(home, known)) / 100);
+  const homeW = isCity ? Math.max(0, ((innerW - 3) * pct(origin.home, known)) / 100) : 0;
   const awayW = Math.max(0, innerW - 3 - homeW);
 
   const today = new Date();
@@ -131,7 +157,8 @@ const StudentOriginChart = ({ origin, typeLabel, scopeLabel }) => {
       const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
       if (blob) {
         const iso = today.toISOString().slice(0, 10);
-        saveAs(blob, `where-students-come-from-${typeLabel.toLowerCase()}-${iso}.png`);
+        const stem = isCity ? 'where-students-come-from' : 'students-by-barangay';
+        saveAs(blob, `${stem}-${typeLabel.toLowerCase()}-${iso}.png`);
       }
     } finally {
       setSaving(false);
@@ -164,60 +191,74 @@ const StudentOriginChart = ({ origin, typeLabel, scopeLabel }) => {
             style={{ height: 'auto', display: 'block' }}
             fontFamily={FONT}
             role="img"
-            aria-label={`${home} students from ${HOME_CITY} and ${outside} from outside it`}
+            aria-label={isCity
+              ? `${origin.home} students from ${CITY} and ${origin.outside} from outside it`
+              : `${origin.students} students across ${origin.areas} barangays of ${CITY}`}
           >
             <rect x="0" y="0" width={W} height={H} fill="#ffffff" />
 
             {/* ---- Heading ---- */}
             <text x={M} y="52" fontSize="22" fontWeight="700" fill={INK}>
-              Where students come from
+              {heading}
             </text>
             <text x={M} y="76" fontSize="13" fill={INK_SOFT}>
               {scopeLabel || `${typeLabel} students`}
             </text>
 
-            {/* ---- The split: two stats over one proportion bar ---- */}
-            {[
-              { x: M, right: W / 2 - 6, color: HOME, label: `In ${prettyPlace(HOME_CITY)}`, value: home },
-              { x: W / 2 + 6, right: COUNT_X, color: AWAY, label: 'Outside the city', value: outside },
-            ].map((stat) => (
-              <g key={stat.label}>
-                <rect x={stat.x} y={STAT_LABEL_Y - 9} width="10" height="10" rx="3" fill={stat.color} />
-                <text
-                  x={stat.x + 17}
-                  y={STAT_LABEL_Y}
-                  fontSize="11.5"
-                  fontWeight="600"
-                  fill={INK_SOFT}
-                  letterSpacing="0.6"
-                >
-                  {stat.label.toUpperCase()}
-                </text>
-                {/* One <text>: the share flows after the number, so neither
-                    has to be positioned by guessing at its width. */}
-                <text x={stat.x} y={STAT_VALUE_Y}>
-                  <tspan fontSize="27" fontWeight="700" fill={INK}>{stat.value.toLocaleString()}</tspan>
-                  <tspan dx="9" fontSize="14.5" fontWeight="600" fill={INK_SOFT}>{share(stat.value, known)}</tspan>
-                </text>
-              </g>
-            ))}
+            {/* ---- The headline figures ---- */}
+            {stats.map((stat, i) => {
+              const x = i === 0 ? M : W / 2 + 6;
+              return (
+                <g key={stat.label}>
+                  {/* A swatch only where the figure keys to the bar below it */}
+                  {stat.color && (
+                    <rect x={x} y={STAT_LABEL_Y - 9} width="10" height="10" rx="3" fill={stat.color} />
+                  )}
+                  <text
+                    x={stat.color ? x + 17 : x}
+                    y={STAT_LABEL_Y}
+                    fontSize="11.5"
+                    fontWeight="600"
+                    fill={INK_SOFT}
+                    letterSpacing="0.6"
+                  >
+                    {stat.label.toUpperCase()}
+                  </text>
+                  {/* One <text>: the share flows after the number, so neither
+                      has to be positioned by guessing at its width. */}
+                  <text x={x} y={STAT_VALUE_Y}>
+                    <tspan fontSize="27" fontWeight="700" fill={INK}>{stat.value.toLocaleString()}</tspan>
+                    {stat.share && (
+                      <tspan dx="9" fontSize="14.5" fontWeight="600" fill={INK_SOFT}>{stat.share}</tspan>
+                    )}
+                  </text>
+                </g>
+              );
+            })}
 
-            <rect x={M} y={SPLIT_BAR_Y} width={homeW} height={SPLIT_BAR_H} rx="7" fill={HOME} />
-            <rect x={M + homeW + 3} y={SPLIT_BAR_Y} width={awayW} height={SPLIT_BAR_H} rx="7" fill={AWAY} />
+            {isCity && (
+              <>
+                <rect x={M} y={SPLIT_BAR_Y} width={homeW} height={SPLIT_BAR_H} rx="7" fill={HOME} />
+                <rect x={M + homeW + 3} y={SPLIT_BAR_Y} width={awayW} height={SPLIT_BAR_H} rx="7" fill={AWAY} />
+              </>
+            )}
 
-            <text x={M} y={CAPTION_Y} fontSize="12" fill={INK_FAINT}>
-              {known.toLocaleString()} students placed to a town
-              {unknown > 0 && ` · ${unknown} ${unknown === 1 ? 'address names' : 'addresses name'} none and are left out of this split`}
+            <text x={M} y={captionY} fontSize="12" fill={INK_FAINT}>
+              {`${known.toLocaleString()} students placed to a ${isCity ? 'town' : 'barangay'}`}
+              {!isCity && origin.elsewhere > 0 && ` · ${origin.elsewhere} live outside the city`}
+              {unknown > 0 && (isCity
+                ? ` · ${unknown} ${unknown === 1 ? 'address names' : 'addresses name'} none and are left out of this split`
+                : ` · ${unknown} ${unknown === 1 ? 'address names' : 'addresses name'} no barangay`)}
             </text>
 
             {rows.length > 0 && (
               <>
-                <line x1={M} y1={DIVIDER_Y} x2={COUNT_X} y2={DIVIDER_Y} stroke={GRID} strokeWidth="1" />
+                <line x1={M} y1={dividerY} x2={COUNT_X} y2={dividerY} stroke={GRID} strokeWidth="1" />
 
-                <text x={M} y={SECTION_Y} fontSize="11.5" fontWeight="700" fill={INK_SOFT} letterSpacing="0.8">
-                  TOWNS OUTSIDE THE CITY
+                <text x={M} y={sectionY} fontSize="11.5" fontWeight="700" fill={INK_SOFT} letterSpacing="0.8">
+                  {barsTitle}
                 </text>
-                <text x={COUNT_X} y={SECTION_Y} fontSize="11.5" fill={INK_FAINT} textAnchor="end">
+                <text x={COUNT_X} y={sectionY} fontSize="11.5" fill={INK_FAINT} textAnchor="end">
                   {rows.length < places ? `top ${rows.length} of ${places}` : `all ${places}`}
                 </text>
 
@@ -226,7 +267,7 @@ const StudentOriginChart = ({ origin, typeLabel, scopeLabel }) => {
                   <line
                     key={`grid-${t}`}
                     x1={tickX(t)}
-                    y1={ROWS_TOP - 10}
+                    y1={rowsTop - 10}
                     x2={tickX(t)}
                     y2={axisY}
                     stroke={GRID}
@@ -235,17 +276,17 @@ const StudentOriginChart = ({ origin, typeLabel, scopeLabel }) => {
                 ))}
 
                 {rows.map((row, i) => {
-                  const barTop = ROWS_TOP + i * ROW_H;
+                  const barTop = rowsTop + i * ROW_H;
                   const mid = barTop + BAR_H / 2 + 4.5;
                   const width = (row.count / axisMax) * (PLOT_X1 - PLOT_X0);
-                  const name = prettyPlace(row.label);
+                  const name = prettyPlace(row.short || row.label);
                   return (
                     <g key={row.label}>
                       <title>{`${name}: ${row.count} students`}</title>
                       <text x={PLOT_X0 - 16} y={mid} fontSize="13.5" fill={INK_SOFT} textAnchor="end">
                         {clip(name)}
                       </text>
-                      <path d={barPath(PLOT_X0, barTop, width, BAR_H)} fill={AWAY} />
+                      <path d={barPath(PLOT_X0, barTop, width, BAR_H)} fill={BAR} />
                       <text x={COUNT_X} y={mid} fontSize="13.5" fontWeight="700" fill={INK} textAnchor="end">
                         {row.count}
                       </text>

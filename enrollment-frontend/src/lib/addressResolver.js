@@ -73,33 +73,109 @@ const REGION_BY_PROV = new Map(provinces.map((p) => [p.prov_code, p.reg_code]));
 /** Short needles are matched on word boundaries only — see `squashed`. */
 const MIN_SQUASHED = 6;
 
-/** The home city's barangays, as strings to look for in a typed line. */
-const HOME_BARANGAYS = (() => {
-  // Names only, kept as literals so the 1.7MB barangay file stays out of the
-  // bundle. Regenerate from barangays.json (mun_code 104305) if they change.
-  const named = [
-    'Agusan', 'Baikingon', 'Balubal', 'Balulang', 'Bayabas', 'Bayanga', 'Besigan',
-    'Bonbon', 'Bugo', 'Bulua', 'Camaman-an', 'Canito-an', 'Carmen', 'Consolacion',
-    'Cugman', 'Dansolihon', 'F. S. Catanico', 'Gusa', 'Indahag', 'Iponan',
-    'Kauswagan', 'Lapasan', 'Lumbia', 'Macabalan', 'Macasandig', 'Mambuaya',
-    'Nazareth', 'Pagalungan', 'Pagatpat', 'Patag', 'Pigsag-an', 'Puerto', 'Puntod',
-    'San Simon', 'Tablon', 'Taglimao', 'Tagpangi', 'Tignapoloan', 'Tuburan', 'Tumpagon',
-  ];
+/** What follows a name when the name is a street and not a town. */
+const STREET_WORD = /^(?:ST|STR|STREET|AVE|AVENUE|AVENIDA|BLVD|BOULEVARD|DRIVE|DRV|ROAD|RD|HIGHWAY|EXT|EXTENSION|COR|CORNER)(?:\s|$)/;
 
-  const forms = new Set();
-  named.forEach((name) => {
-    forms.add(words(name).trim());
-    forms.add(squashed(name));
-  });
-
-  // The forty numbered poblacion barangays, written both ways
-  for (let n = 1; n <= 40; n += 1) {
-    forms.add(`BARANGAY ${n}`);
-    forms.add(`BRGY ${n}`);
+/**
+ * Whether every mention of a name in this line is a street.
+ *
+ * The country's towns are named after the same heroes its streets are — Burgos,
+ * Luna, Rizal, Mabini — so "22 YACAPIN BURGOS ST." read as a municipality moved
+ * four students living downtown into other provinces. A name written with St,
+ * Ave or Drive after it is an address within a town, not the town.
+ */
+const everyMentionIsAStreet = (haystack, needle) => {
+  for (let from = 0; ;) {
+    const at = haystack.indexOf(` ${needle} `, from);
+    if (at === -1) return true;
+    if (!STREET_WORD.test(haystack.slice(at + needle.length + 2))) return false;
+    from = at + 1;
   }
+};
 
-  return [...forms].filter(Boolean).sort((a, b) => b.length - a.length);
+/**
+ * The home city's eighty barangays, spelled the way the PSGC dataset spells
+ * them, so a typed line and one picked from the dropdowns land on the same row.
+ *
+ * Literals rather than an import: barangays.json is 1.7MB and is lazy-loaded
+ * for the dropdowns alone. Regenerate from it (mun_code 104305) if the city
+ * ever re-draws them.
+ */
+const HOME_BARANGAY_NAMES = [
+  'Agusan', 'Baikingon', 'Balubal', 'Balulang', 'Bayabas', 'Bayanga', 'Besigan',
+  'Bonbon', 'Bugo', 'Bulua', 'Camaman-an', 'Canito-an', 'Carmen', 'Consolacion',
+  'Cugman', 'Dansolihon', 'F. S. Catanico', 'Gusa', 'Indahag', 'Iponan',
+  'Kauswagan', 'Lapasan', 'Lumbia', 'Macabalan', 'Macasandig', 'Mambuaya',
+  'Nazareth', 'Pagalungan', 'Pagatpat', 'Patag', 'Pigsag-an', 'Puerto', 'Puntod',
+  'San Simon', 'Tablon', 'Taglimao', 'Tagpangi', 'Tignapoloan', 'Tuburan', 'Tumpagon',
+  ...Array.from({ length: 40 }, (_, i) => `Barangay ${i + 1}`),
+];
+
+/**
+ * Sitios and subdivisions that name a barangay without saying it, and
+ * misspellings of a barangay's own name.
+ *
+ * Each sitio here is taken from addresses in this database that name both it
+ * and its barangay — "RAMONAL VILLAGE, CAMAMAN-AN", "Gran Europa, Lumbia" —
+ * never from guesswork about the city's geography. Streets are deliberately
+ * left out: Kalambaguhan and Abellanosa run across several barangays, so a
+ * street name is not an answer, and those lines stay as typed for the
+ * registrar to correct.
+ */
+const BARANGAY_ALIASES = [
+  { typed: 'CALAANAN', barangay: 'Canito-an' },
+  { typed: 'MACANHAN', barangay: 'Carmen' },
+  { typed: 'RAMONAL', barangay: 'Camaman-an' },
+  { typed: 'GRAN EUROPA', barangay: 'Lumbia' },
+  // Spelled wrong often enough to be worth naming
+  { typed: 'INDAHG', barangay: 'Indahag' },
+  { typed: 'CONSOLATION', barangay: 'Consolacion' },
+  { typed: 'KAUWAGAN', barangay: 'Kauswagan' },
+  { typed: 'MACANSANDIG', barangay: 'Macasandig' },
+  { typed: 'BAIKINGION', barangay: 'Baikingon' },
+];
+
+/**
+ * The forty numbered barangays, however they are abbreviated — "Brgy. 26",
+ * "BRNGY:15", "BARANGAY17" all run together. Written out rather than indexed,
+ * because a plain search for "Barangay 2" finds it inside "Barangay 26".
+ */
+const NUMBERED_BARANGAY = /(?:^|\s)(?:BARANGAY|BARANGGAY|BRGY|BRNGY|BGY)\s*0*([1-9]|[1-3]\d|40)(?!\d)/;
+
+/**
+ * What to look for in a typed line, and which barangay each one means.
+ *
+ * A run-together form is only kept for a name that is written with a space,
+ * hyphen or dot — "CANITOAN" for Canito-an, "SANSIMON" for San Simon. Matching
+ * a one-word name that way would find Gusa inside Agusan, and the numbered
+ * ones would find Barangay 2 inside Barangay 26.
+ */
+const HOME_BARANGAY_INDEX = (() => {
+  const entries = [];
+  const add = (text, label, alias = false) => {
+    const needle = words(text).trim();
+    if (!needle) return;
+    const compound = /[-.]/.test(text) || (/\s/.test(text.trim()) && !/^Barangay \d+$/.test(text));
+    entries.push({ needle, label, alias, squash: compound ? squashed(text) : null });
+  };
+
+  HOME_BARANGAY_NAMES.forEach((name) => add(name, name));
+  BARANGAY_ALIASES.forEach(({ typed, barangay }) => add(typed, barangay, true));
+
+  // Longest name first; where two are the same length a barangay's real name
+  // beats a sitio's, so "Balulang Macanhan" is read as Balulang.
+  return entries.sort((a, b) => b.needle.length - a.needle.length || a.alias - b.alias);
 })();
+
+/** The home-city barangay a typed line names, or null. */
+const findHomeBarangay = (haystack, flat) => {
+  const hit = HOME_BARANGAY_INDEX.find((e) =>
+    haystack.includes(` ${e.needle} `) || (e.squash && flat.includes(e.squash)));
+  if (hit) return hit.label;
+
+  const numbered = haystack.match(NUMBERED_BARANGAY);
+  return numbered ? `Barangay ${Number(numbered[1])}` : null;
+};
 
 /** Candidate names to look for, longest first. */
 const buildIndex = () => {
@@ -192,8 +268,15 @@ export const resolveTypedLocation = (address) => {
   // Whole words, plus a run-together form for the longer names only —
   // "ELSALVADOR" for "EL SALVADOR". Short names are never matched this way:
   // "BAY" would turn up inside half the street addresses in the country.
-  const found = INDEX.filter((entry) => haystack.includes(` ${entry.needle} `)
-    || (entry.squash.length >= MIN_SQUASHED && flat.includes(entry.squash)));
+  const found = INDEX.filter((entry) => {
+    // A name written out in the line settles it either way: a street there is
+    // not a town, and the run-together form must not let it back in, since
+    // "BURGOS ST" squashes to a string that still contains "BURGOS".
+    if (haystack.includes(` ${entry.needle} `)) {
+      return !everyMentionIsAStreet(haystack, entry.needle);
+    }
+    return entry.squash.length >= MIN_SQUASHED && flat.includes(entry.squash);
+  });
 
   const namedProvinces = new Set(
     found.filter((e) => e.kind === 'province').map((e) => e.provCode).filter(Boolean)
@@ -208,10 +291,7 @@ export const resolveTypedLocation = (address) => {
   if (agreeing) return { label: agreeing.label, kind: 'city' };
 
   // 3. A barangay of the home city, when nothing points somewhere else
-  const mentionsHomeBarangay = HOME_BARANGAYS.some((name) =>
-    (name.includes(' ') ? haystack.includes(` ${name} `) : flat.includes(name) || haystack.includes(` ${name} `))
-  );
-  if (mentionsHomeBarangay && namedProvinces.size === 0) {
+  if (namedProvinces.size === 0 && findHomeBarangay(haystack, flat)) {
     return { label: HOME_CITY, kind: 'city' };
   }
 
@@ -221,6 +301,25 @@ export const resolveTypedLocation = (address) => {
   // 5. A province on its own
   const province = found.find((e) => e.kind === 'province');
   return province ? { label: province.label, kind: 'province' } : null;
+};
+
+/**
+ * Which of the home city's barangays a typed address names.
+ *
+ * Returns `{ barangay, city }`, or null when the line is not in this city or
+ * names no barangay of it. Only the home city is read this far: the dataset
+ * holds 41,582 barangays, and picking one of them out of a free-typed line
+ * from another province would be a guess rather than a reading.
+ *
+ * The city is settled first, so "Kauswagan ... Baungon, Bukidnon" is not read
+ * as the Kauswagan in this city.
+ */
+export const resolveTypedBarangay = (address) => {
+  const place = resolveTypedLocation(address);
+  if (!place || !isHomeCity(place.label)) return null;
+
+  const barangay = findHomeBarangay(words(address), squashed(address));
+  return barangay ? { barangay, city: HOME_CITY } : null;
 };
 
 /** Whether a label is the school's own city, however it was written. */
@@ -255,6 +354,6 @@ export const prettyPlace = (label) => {
 };
 
 /** Home-city barangay names, so callers can group them without re-deriving. */
-export const homeBarangayCount = () => HOME_BARANGAYS.length;
+export const homeBarangayCount = () => HOME_BARANGAY_NAMES.length;
 
 export { HOME_MUN_CODE, stripSuffix as cityLabel };
