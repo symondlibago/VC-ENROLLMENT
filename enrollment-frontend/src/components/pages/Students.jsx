@@ -57,6 +57,8 @@ import LoadingSpinner from '../layout/LoadingSpinner';
 import DeleteConfirmationModal from '../modals/DeleteConfirmationModal';
 import { sectionAPI, enrollmentAPI, courseAPI, authAPI } from '@/services/api';
 import { getProvinceNameSet } from '@/data/phLocations';
+import { resolveTypedLocation, isHomeCity, cityLabel } from '@/lib/addressResolver';
+import StudentOriginChart from '../students/StudentOriginChart';
 
 
 const getStatusBadgeVariant = (status) => {
@@ -1001,19 +1003,28 @@ const AddressPage = ({ students, schoolYearOptions, courses }) => {
   const [courseFilter, setCourseFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [groupBy, setGroupBy] = useState('city'); // 'city' | 'barangay'
-  const [studentType, setStudentType] = useState('new'); // 'new' | 'continuing'
+  const [studentType, setStudentType] = useState('all'); // 'all' | 'new' | 'continuing'
 
   const courseOptions = useMemo(() => [
     { label: 'All Courses', value: 'all' },
     ...(courses || []).map((c) => ({ label: c.course_code, value: c.id.toString() })),
   ], [courses]);
 
+  const studentTypeOptions = [
+    { label: 'All Students', value: 'all' },
+    { label: 'New Students', value: 'new' },
+    { label: 'Continuing Students', value: 'continuing' },
+  ];
+
   const { rows, total, shown } = useMemo(() => {
     // "New" = enrollment_type New; "Continuing" = everyone else (Old / Transferee
     // / Returnee). Optionally narrowed to a school year.
     const matched = students.filter((s) => {
       const type = (s.enrollment_type || '').toLowerCase();
-      const typeMatch = studentType === 'new' ? type === 'new' : type !== 'new';
+      // "Continuing" is everyone who is not New — Old, Transferee, Returnee.
+      const typeMatch = studentType === 'all'
+        ? true
+        : (studentType === 'new' ? type === 'new' : type !== 'new');
       const courseMatch = courseFilter === 'all' || String(s.courseId) === courseFilter;
       return typeMatch && courseMatch && (schoolYear === 'all' || s.school_year === schoolYear);
     });
@@ -1023,18 +1034,35 @@ const AddressPage = ({ students, schoolYearOptions, courses }) => {
       const loc = parseLocation(s.address);
       let key, label, legacy = false;
       if (loc.structured) {
+        // The dropdowns save the PSGC name verbatim, suffix and all —
+        // "CAGAYAN DE ORO CITY (Capital)". A typed address resolves to the
+        // plain name, so without stripping it the same city lands in two rows.
+        const city = cityLabel(loc.city);
+
         if (groupBy === 'barangay') {
-          label = `${loc.barangay}, ${loc.city}`;
+          label = `${loc.barangay}, ${city}`;
         } else {
-          label = loc.city;
+          label = city;
         }
         key = label.toUpperCase();
       } else {
-        // Free-typed / pre-dropdown addresses: keep them visible, grouped by the
-        // exact text the student typed (lightly normalized), marked as legacy.
-        label = normalizeAddress(s.address) || '(No address provided)';
-        key = `legacy::${label.toLowerCase()}`;
-        legacy = true;
+        // Free-typed / pre-dropdown addresses. Most of them do name a real
+        // place somewhere in the line, so they are folded into it rather than
+        // left as a row of their own — otherwise "UPPER CARMEN CDO" and
+        // "#558 Bonbon CDOC" each count as a separate location and the report
+        // cannot say how many students live outside the city.
+        const resolved = resolveTypedLocation(s.address);
+
+        if (resolved && groupBy === 'city') {
+          label = resolved.label;
+          key = label.toUpperCase();
+        } else {
+          // Nothing recognisable in it, or we are grouping by barangay, which
+          // a typed line rarely states precisely enough to trust.
+          label = normalizeAddress(s.address) || '(No address provided)';
+          key = `legacy::${label.toLowerCase()}`;
+          legacy = true;
+        }
       }
       if (!groups.has(key)) groups.set(key, { label, count: 0, legacy });
       groups.get(key).count += 1;
@@ -1059,7 +1087,41 @@ const AddressPage = ({ students, schoolYearOptions, courses }) => {
   // Scale the bars against the largest count across all rows.
   const maxCount = Math.max(0, ...rows.map((r) => r.count));
   const unitLabel = groupBy === 'barangay' ? 'Barangay, City' : 'City / Municipality';
-  const typeLabel = studentType === 'new' ? 'New' : 'Continuing';
+  const typeLabel = studentType === 'all' ? 'All' : (studentType === 'new' ? 'New' : 'Continuing');
+
+  /** What the figure is a figure of — printed into the chart, so a downloaded
+   *  PNG still says which students it counted. */
+  const scopeLabel = [
+    studentType === 'all' ? 'All students' : `${typeLabel} students`,
+    courseFilter === 'all' ? null : courseOptions.find((o) => o.value === courseFilter)?.label,
+    schoolYear === 'all' ? null : schoolYearOptions.find((o) => o.value === schoolYear)?.label,
+  ].filter(Boolean).join('  ·  ');
+
+  /**
+   * The split the school president asked for: how many of these students live
+   * outside Cagayan de Oro. Only meaningful grouped by city — a barangay row
+   * does not say which municipality it belongs to.
+   */
+  const origin = useMemo(() => {
+    const placed = rows.filter((r) => !r.legacy);
+    const home = placed.filter((r) => isHomeCity(r.label)).reduce((n, r) => n + r.count, 0);
+    const outside = placed.filter((r) => !isHomeCity(r.label)).reduce((n, r) => n + r.count, 0);
+    const unknown = rows.filter((r) => r.legacy).reduce((n, r) => n + r.count, 0);
+
+    // Only the places outside the city are charted. Listed beside a home city
+    // four hundred strong, every one of them is a stub three pixels wide —
+    // and they are the half of the answer that is actually in question.
+    const away = placed.filter((r) => !isHomeCity(r.label));
+
+    return {
+      home,
+      outside,
+      unknown,
+      known: home + outside,
+      places: away.length,
+      top: away.slice(0, 8),
+    };
+  }, [rows]);
 
   return (
     <div className="space-y-6">
@@ -1073,14 +1135,6 @@ const AddressPage = ({ students, schoolYearOptions, courses }) => {
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <div className="relative inline-flex bg-gray-100 rounded-lg p-1">
-                  {[{ k: 'new', label: 'New' }, { k: 'continuing', label: 'Continuing' }].map(({ k, label }) => (
-                    <button key={k} onClick={() => setStudentType(k)} className="relative z-10 px-3 py-1.5 text-sm rounded-md">
-                      {studentType === k && <motion.div layoutId="addrTypePill" className="absolute inset-0 bg-white shadow rounded-md" transition={{ type: 'spring', stiffness: 300, damping: 30 }} />}
-                      <span className={`relative z-10 ${studentType === k ? 'text-(--dominant-red) font-semibold' : 'text-gray-600'}`}>{label}</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="relative inline-flex bg-gray-100 rounded-lg p-1">
                   {[{ k: 'city', label: 'By City' }, { k: 'barangay', label: 'By Barangay' }].map(({ k, label }) => (
                     <button key={k} onClick={() => setGroupBy(k)} className="relative z-10 px-3 py-1.5 text-sm rounded-md">
                       {groupBy === k && <motion.div layoutId="addrGroupPill" className="absolute inset-0 bg-white shadow rounded-md" transition={{ type: 'spring', stiffness: 300, damping: 30 }} />}
@@ -1088,6 +1142,7 @@ const AddressPage = ({ students, schoolYearOptions, courses }) => {
                     </button>
                   ))}
                 </div>
+                <MotionDropdown value={studentType} onChange={setStudentType} options={studentTypeOptions} placeholder="All Students" />
                 <MotionDropdown value={courseFilter} onChange={setCourseFilter} options={courseOptions} placeholder="Filter Course" />
                 <MotionDropdown value={schoolYear} onChange={setSchoolYear} options={schoolYearOptions} placeholder="Filter School Year" />
               </div>
@@ -1104,6 +1159,10 @@ const AddressPage = ({ students, schoolYearOptions, courses }) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Only grouped by city: a barangay row does not say which municipality
+          it sits in, so the inside/outside split would be a guess. */}
+      {groupBy === 'city' && <StudentOriginChart origin={origin} typeLabel={typeLabel} scopeLabel={scopeLabel} />}
 
       <Card>
         <Table>
