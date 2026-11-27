@@ -38,6 +38,7 @@ import { Badge } from '@/components/ui/badge';
 import { enrollmentAPI, courseAPI, managementAPI } from '@/services/api';
 import { isEnrolled } from '@/lib/studentStatus';
 import LoadingSpinner from '@/components/layout/LoadingSpinner';
+import StudentSourceChart from '@/components/dashboard/StudentSourceChart';
 
 // Shared palette for the analytics charts
 const CHART_COLORS = ['#991b1b', '#2563eb', '#059669', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
@@ -228,6 +229,36 @@ const Dashboard = () => {
     return Object.entries(counts)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
+  }, [chartStudents]);
+
+  /**
+   * Pie chart: how students first heard about the school.
+   *
+   * Colour follows the source, not its rank, so filtering by school year
+   * cannot repaint Facebook green. Anyone with nothing on file is counted
+   * separately rather than charted — see the chart's own note.
+   */
+  const studentsPerSource = useMemo(() => {
+    const counts = chartStudents.reduce((acc, student) => {
+      const source = (student.referral_source || '').trim();
+      if (source) acc[source] = (acc[source] || 0) + 1;
+      return acc;
+    }, {});
+
+    const ORDER = ['Facebook', 'TikTok', 'Instagram', 'Referral', 'Others'];
+    const colorFor = (name) => {
+      const fixed = ORDER.indexOf(name);
+      // A source nobody planned for takes the next palette slot after the five.
+      const slot = fixed === -1 ? ORDER.length + Object.keys(counts).indexOf(name) : fixed;
+      return CHART_COLORS[slot % CHART_COLORS.length];
+    };
+
+    const sources = Object.entries(counts)
+      .map(([name, value]) => ({ name, value, color: colorFor(name) }))
+      .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
+
+    const answered = sources.reduce((n, s) => n + s.value, 0);
+    return { sources, answered, unknown: chartStudents.length - answered };
   }, [chartStudents]);
 
   // Helper functions for UI
@@ -492,6 +523,30 @@ const Dashboard = () => {
             ) : (
               <div className="h-[300px] flex items-center justify-center text-gray-500 text-sm">
                 No enrollment data to chart yet.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Where students heard about the school.
+
+          Mounted unconditionally, like the two charts above it: this card's
+          data arrives from a later fetch, and a child that first appears after
+          the page's stagger animation has finished is left on its `hidden`
+          variant — taking up its full height while drawing nothing. */}
+      <motion.div variants={itemVariants}>
+        <Card className="card-hover border-0 shadow-sm">
+          <CardContent className="p-6">
+            {studentsPerSource.answered > 0 ? (
+              <StudentSourceChart
+                sources={studentsPerSource.sources}
+                unknown={studentsPerSource.unknown}
+                scopeLabel={`Enrolled students${chartSchoolYear !== 'all' ? ` · ${chartSchoolYear}` : ''}`}
+              />
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-500 text-sm">
+                No one has told us how they heard about the school yet.
               </div>
             )}
           </CardContent>
