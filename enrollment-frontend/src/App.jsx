@@ -23,6 +23,7 @@ import IncRecords from './components/pages/IncRecords';
 import CredentialRequests from './components/pages/CredentialRequests';
 import UniformFabric from './components/pages/UniformFabric';
 import TermPayment from './components/pages/TermPayment';
+import HistoricalPayments from './components/pages/HistoricalPayments';
 import Settings from './components/pages/Settings';
 import LandingPage from './components/auth/LandingPage';
 import LoginPage from './components/auth/LoginPage';
@@ -274,6 +275,19 @@ function App() {
       );
     }
     
+    // Hired to type up the old paper ledgers and nothing else. The backend
+    // enforces the same limit (routes/api.php) — this only keeps the browser
+    // from offering them pages their token would be refused for anyway.
+    if (role === 'Student Assistant') {
+      return (
+        <>
+          <Route path="/historical-payments" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><HistoricalPayments /></motion.div>} />
+          <Route path="/settings" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Settings /></motion.div>} />
+          <Route path="*" element={<Navigate to="/historical-payments" replace />} />
+        </>
+      );
+    }
+
     // Clearance-only desks: the credential board is all they work on
     if (role === 'Librarian' || role === 'Laboratory') {
       return (
@@ -294,6 +308,7 @@ function App() {
         <Route path="/courses" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Courses /></motion.div>} />
         <Route path="/enrollment" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Enrollment /></motion.div>} />
         <Route path="/term-payment" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><TermPayment /></motion.div>} />
+        <Route path="/historical-payments" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><HistoricalPayments /></motion.div>} />
         <Route path="/addingdroppingsubjects" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><AddingDroppingSubjects /></motion.div>} />
         <Route path="/shiftee" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><Shiftee /></motion.div>} />
         <Route path="/facultyadminstaff" element={<motion.div variants={pageTransitionVariants} initial="initial" animate="animate" exit="exit"><FacultyAdminStaff /></motion.div>} />

@@ -21,7 +21,8 @@ import {
   Download,
   Loader2,
   X,
-  UserMinus
+  UserMinus,
+  TriangleAlert,
 } from 'lucide-react';
 import { downloadCsv } from '@/lib/csv';
 import { matchesScholarship, scholarshipLabel, scholarshipOptions } from '@/lib/scholarship';
@@ -55,7 +56,8 @@ import ViewStudentFullDetailsModal from '../modals/ViewStudentFullDetailsModal';
 import SuccessAlert from '../modals/SuccessAlert';
 import LoadingSpinner from '../layout/LoadingSpinner';
 import DeleteConfirmationModal from '../modals/DeleteConfirmationModal';
-import { sectionAPI, enrollmentAPI, courseAPI, authAPI } from '@/services/api';
+import { sectionAPI, enrollmentAPI, courseAPI, authAPI, sectionGapAPI } from '@/services/api';
+import SectionGapsModal from '../modals/SectionGapsModal';
 import { getProvinceNameSet } from '@/data/phLocations';
 import { resolveTypedLocation, resolveTypedBarangay, isHomeCity, cityLabel } from '@/lib/addressResolver';
 import StudentOriginChart from '../students/StudentOriginChart';
@@ -126,6 +128,9 @@ const MotionDropdown = ({ value, onChange, options, placeholder }) => {
 
 const Students = () => {
   const [activeView, setActiveView] = useState('sections');
+  // Students taking a subject no section of theirs teaches
+  const [gapsOpen, setGapsOpen] = useState(false);
+  const [gapCount, setGapCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const [sections, setSections] = useState([]);
@@ -193,6 +198,21 @@ const Students = () => {
       setLoading(false);
     }
   }, []);
+
+  /**
+   * The badge on the Section Check button. Kept off the main load: it is one
+   * more query and the page must not wait on it to render.
+   */
+  const refreshGapCount = useCallback(async () => {
+    try {
+      const res = await sectionGapAPI.getAll();
+      if (res?.success) setGapCount(res.total_gaps || 0);
+    } catch {
+      setGapCount(0);
+    }
+  }, []);
+
+  useEffect(() => { refreshGapCount(); }, [refreshGapCount]);
 
   useEffect(() => {
     fetchData();
@@ -526,6 +546,23 @@ const Students = () => {
                     </button>
                   ))}
               </div>
+              {/* Irregular students enrolled in a subject no section of
+                  theirs teaches — they are sitting in a class whose list
+                  does not have them. */}
+              <Button
+                variant="outline"
+                onClick={() => setGapsOpen(true)}
+                className="relative bg-white border-gray-200 hover:bg-amber-50 hover:text-amber-900 hover:border-amber-300 cursor-pointer"
+                title="Students missing from a section"
+              >
+                <TriangleAlert className={`w-4 h-4 mr-2 ${gapCount > 0 ? 'text-amber-500' : 'text-gray-400'}`} />
+                Section Check
+                {gapCount > 0 && (
+                  <span className="ml-2 px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-xs font-bold tabular-nums">
+                    {gapCount}
+                  </span>
+                )}
+              </Button>
               <Button className="gradient-primary text-white" onClick={handleAddSectionClick}><Plus className="w-4 h-4 mr-2" />Add Section</Button>
             </div>
           </div>
@@ -583,6 +620,17 @@ const Students = () => {
       {isEditModalOpen && <EditStudentModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} studentId={selectedStudentId} onUpdateSuccess={handleUpdateSuccess} />}
       {isViewDetailsModalOpen && <ViewStudentFullDetailsModal isOpen={isViewDetailsModalOpen} onClose={() => setIsViewDetailsModalOpen(false)} studentId={selectedStudentId} />}
       <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleConfirmDeleteSection} title="Delete Section" message="Are you sure you want to delete this section?" itemName={deletingSection?.name} isLoading={isSubmitting} />
+
+      {/* The section lists are only reloaded when something was actually
+          assigned — closing after a look should not redraw the page. */}
+      <SectionGapsModal
+        isOpen={gapsOpen}
+        onClose={(changed) => {
+          setGapsOpen(false);
+          if (changed) { refreshGapCount(); fetchData(); }
+        }}
+        onFixed={(message) => showAlert(message, 'success')}
+      />
     </motion.div>
   );
 };

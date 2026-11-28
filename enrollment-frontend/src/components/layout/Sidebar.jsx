@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Home, Users, BookOpen, Calendar, Settings, ChevronLeft, ChevronRight,
   GraduationCap, FileText, BarChart3, User, CreditCard, BookUser,
-  BookMarked, ClipboardList, CheckCircle, Receipt, Inbox, LogOut, FileWarning,
+  BookMarked, ClipboardList, CheckCircle, Receipt, Archive, Inbox, LogOut, FileWarning,
   FileSignature, Shirt, ShieldCheck,
 } from 'lucide-react';
 import { lmsNotificationsAPI } from '../LMS/api/lmsApi';
@@ -139,7 +139,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
     { id: 'students', icon: Users, label: 'Students', badge: null, path: '/students' }, 
     { id: 'courses', icon: BookOpen, label: 'Courses', badge: null, path: '/courses' },
     { id: 'enrollment', icon: GraduationCap, label: 'Enrollment', badge: null, path: '/enrollment' }, // Dynamic badge
-    { id: 'termpayment', icon: Receipt, label: 'Term Payment', badge: null, path: '/term-payment' }, 
+    { id: 'termpayment', icon: Receipt, label: 'Term Payment', badge: null, path: '/term-payment' },
+    { id: 'historical-payments', icon: Archive, label: 'Historical Payments', badge: null, path: '/historical-payments' },
     { id: 'schedule', icon: Calendar, label: 'Add/Drop Subjects', badge: null, path: '/addingdroppingsubjects' },
     { id: 'shiftee', icon: FileText, label: 'Shiftee', badge: null, path: '/shiftee' },
     { id: 'facultyadminstaff', icon: User, label: 'Faculty & Admin Staff', badge: null, path: '/facultyadminstaff' },
@@ -245,7 +246,14 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, user }) => {
         break;
       }
       case 'Cashier': {
-        const allowedItems = ['dashboard', 'enrollment', 'termpayment', 'schedule', 'shiftee', 'id-releasing', 'inc', 'credentials', 'uniform-fabric', 'settings'];
+        const allowedItems = ['dashboard', 'enrollment', 'termpayment', 'historical-payments', 'schedule', 'shiftee', 'id-releasing', 'inc', 'credentials', 'uniform-fabric', 'settings'];
+        items = adminMenuItems.filter(item => allowedItems.includes(item.id));
+        break;
+      }
+      // Hired to type up the old paper ledgers. One page, and the backend
+      // refuses their token everywhere else regardless of this menu.
+      case 'Student Assistant': {
+        const allowedItems = ['historical-payments', 'settings'];
         items = adminMenuItems.filter(item => allowedItems.includes(item.id));
         break;
       }

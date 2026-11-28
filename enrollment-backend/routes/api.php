@@ -27,6 +27,8 @@ use App\Http\Controllers\ClearanceRoleController;
 use App\Http\Controllers\FacultyClearanceController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ManagementController;
+use App\Http\Controllers\HistoricalTermPaymentController;
+use App\Http\Controllers\SectionGapController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -56,9 +58,28 @@ Route::middleware('throttle:3,1')->group(function () {
 });
 
 // Protected routes
-Route::middleware('auth:sanctum')->group(function () {
+// `confine` runs on every signed-in request: roles hired for one task (the
+// student assistants on the ledger backlog) are refused everything outside
+// their own list, rather than reaching whatever has no role gate of its own.
+Route::middleware(['auth:sanctum', 'confine'])->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    /*
+     | Pre-system term payments, typed up from the paper ledger.
+     |
+     | The student assistants hired to key these in reach these four endpoints
+     | and nothing else in the system. The gate is here rather than in the
+     | menu: hiding a button hides a button, it does not stop a request.
+     */
+    Route::middleware('role:Admin,Cashier,Student Assistant')->group(function () {
+        Route::get('/historical-payments', [HistoricalTermPaymentController::class, 'index']);
+        Route::get('/historical-payments/summary', [HistoricalTermPaymentController::class, 'summary']);
+        Route::get('/historical-payments/export', [HistoricalTermPaymentController::class, 'export']);
+        Route::post('/historical-payments', [HistoricalTermPaymentController::class, 'store']);
+        Route::put('/historical-payments/{historicalTermPayment}', [HistoricalTermPaymentController::class, 'update']);
+        Route::delete('/historical-payments/{historicalTermPayment}', [HistoricalTermPaymentController::class, 'destroy']);
+    });
 
      // --- NEW: User Profile & Password Update Routes ---
      Route::put('/user/profile', [AuthController::class, 'updateProfile']);
@@ -74,6 +95,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('enrollments/{id}/status', [EnrollmentController::class, 'updateApprovalStatus']);
     Route::post('enrollments/{id}/approval', [EnrollmentController::class, 'submitApproval']);
     Route::get('/enrolled-students', [EnrollmentController::class, 'getEnrolledStudents']);
+
+    // Irregular students enrolled in a subject that no section of theirs teaches
+    Route::get('/section-gaps', [SectionGapController::class, 'index']);
+    Route::post('/section-gaps/assign', [SectionGapController::class, 'assign']);
     // Grades for a hand-picked set of students, one row per subject (CSV export)
     Route::post('/enrolled-students/grades-export', StudentGradeExportController::class);
 

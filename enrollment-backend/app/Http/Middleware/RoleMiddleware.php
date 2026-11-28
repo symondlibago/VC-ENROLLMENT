@@ -13,7 +13,13 @@ class RoleMiddleware
      *
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
-    public function handle(Request $request, Closure $next, string $role): Response
+    /**
+     * `role:Cashier` still means exactly that; `role:Admin,Cashier` admits
+     * either. Several desks legitimately share an endpoint — the historical
+     * payment archive is worked by the cashier and the assistants helping
+     * them — and the alternative was a second, near-identical middleware.
+     */
+    public function handle(Request $request, Closure $next, string ...$roles): Response
     {
         if (!$request->user()) {
             return response()->json([
@@ -22,14 +28,19 @@ class RoleMiddleware
             ], 401);
         }
 
-        if ($request->user()->role !== $role) {
+        if (!in_array($request->user()->role, $roles, true)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthorized. Required role: ' . $role
+                'message' => 'Unauthorized. Required role: ' . implode(' or ', $roles)
             ], 403);
         }
 
-        if (!$request->user()->is_active) {
+        // `users` has no is_active column today, and an absent attribute reads
+        // as null — which refused every account on every role-gated route.
+        // Nothing had used `role:` yet, so it went unnoticed. Checked only
+        // when the column exists, so adding one later enforces it again.
+        if (array_key_exists('is_active', $request->user()->getAttributes())
+            && !$request->user()->is_active) {
             return response()->json([
                 'success' => false,
                 'message' => 'Account is inactive'

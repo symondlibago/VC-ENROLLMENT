@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import { useDebounce } from 'use-debounce';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Receipt, Search, MoreVertical, Eye,
@@ -38,6 +39,53 @@ const getStatusIcon = (status) => {
 };
 
 
+const PAGE_SIZE = 25;
+
+/**
+ * One row of the table.
+ *
+ * Memoised, and this is the whole reason the page feels quick. Each row owns a
+ * Radix dropdown, and without this every keystroke in the search box and every
+ * opening or closing of a modal re-rendered all of them — which is what made
+ * the report and collections modals take a visible moment to appear and
+ * another to go away. The row only re-renders when its own student changes.
+ */
+const PaymentRow = memo(({ student, onView }) => (
+    <TableRow>
+        <TableCell>
+            <div className="font-medium font-mono">{student.student_id_number}</div>
+        </TableCell>
+        <TableCell>
+            <div className="font-medium uppercase">{student.name}</div>
+            <div className="text-sm text-gray-500">{student.email}</div>
+        </TableCell>
+        <TableCell>
+            <div className="font-medium">{student.courseName}</div>
+        </TableCell>
+        <TableCell>
+            <Badge className={`${getStatusColor(student.academic_status)} font-medium`}>
+                {getStatusIcon(student.academic_status)}
+                {student.academic_status}
+            </Badge>
+        </TableCell>
+        <TableCell className="text-right">
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="h-8 w-8 p-0 cursor-pointer">
+                        <MoreVertical size={16} />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem className="cursor-pointer" onClick={() => onView(student.id)}>
+                        <Eye size={14} className="mr-2" />View Payment Info
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </TableCell>
+    </TableRow>
+));
+PaymentRow.displayName = 'PaymentRow';
+
 // --- MAIN COMPONENT ---
 const TermPayment = () => {
     const [students, setStudents] = useState([]); // Changed from 'payments'
@@ -48,6 +96,7 @@ const TermPayment = () => {
     const [selectedStudentId, setSelectedStudentId] = useState(null); // Store student ID
     const [isDailyOpen, setIsDailyOpen] = useState(false); // Daily collections modal
     const [isBalancesOpen, setIsBalancesOpen] = useState(false); // Payment status report
+    const [page, setPage] = useState(1);
 
     // ✅ 2. Add the alert state here
     const [alert, setAlert] = useState({ isVisible: false, message: '', type: 'success' });
@@ -72,16 +121,33 @@ const TermPayment = () => {
         fetchStudents();
     }, []);
 
-    const handleViewPayment = (studentId) => {
+    // A stable identity, so the memoised rows survive a modal opening.
+    const handleViewPayment = useCallback((studentId) => {
         setSelectedStudentId(studentId);
         setIsPaymentModalOpen(true);
-    };
+    }, []);
 
-    const filteredStudents = useMemo(() => students.filter(s => {
-        const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                              s.student_id_number.includes(searchTerm);
-        return matchesSearch;
-    }), [students, searchTerm]);
+    // The box stays responsive while the list catches up a beat later.
+    const [query] = useDebounce(searchTerm, 200);
+
+    const filteredStudents = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return students;
+        return students.filter(s =>
+            (s.name || '').toLowerCase().includes(q)
+            || (s.student_id_number || '').includes(q));
+    }, [students, query]);
+
+    const pageCount = Math.max(1, Math.ceil(filteredStudents.length / PAGE_SIZE));
+    const currentPage = Math.min(page, pageCount);
+    // Only a page of rows is ever in the DOM. Eight hundred Radix dropdowns
+    // is what the browser was paying for on every render.
+    const visibleStudents = useMemo(
+        () => filteredStudents.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+        [filteredStudents, currentPage]
+    );
+
+    useEffect(() => { setPage(1); }, [query, students.length]);
 
     const pageVariants = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -20 } };
 
@@ -153,39 +219,8 @@ const TermPayment = () => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredStudents.length > 0 ? filteredStudents.map(student => (
-                                    <TableRow key={student.id}>
-                                        <TableCell>
-                                            <div className="font-medium font-mono">{student.student_id_number}</div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="font-medium uppercase">{student.name}</div>
-                                            <div className="text-sm text-gray-500">{student.email}</div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="font-medium">{student.courseName}</div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge className={`${getStatusColor(student.academic_status)} font-medium`}>
-                                                {getStatusIcon(student.academic_status)}
-                                                {student.academic_status}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" className="h-8 w-8 p-0 cursor-pointer">
-                                                        <MoreVertical size={16} />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem className="cursor-pointer" onClick={() => handleViewPayment(student.id)}>
-                                                        <Eye size={14} className="mr-2" />View Payment Info
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
+                                {visibleStudents.length > 0 ? visibleStudents.map(student => (
+                                    <PaymentRow key={student.id} student={student} onView={handleViewPayment} />
                                 )) : (
                                     <TableRow>
                                         <TableCell colSpan={5} className="text-center h-24">No enrolled students found.</TableCell>
@@ -193,6 +228,25 @@ const TermPayment = () => {
                                 )}
                             </TableBody>
                         </Table>
+
+                        {pageCount > 1 && (
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 border-t border-gray-100">
+                                <p className="text-sm text-gray-500">
+                                    {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredStudents.length)} of {filteredStudents.length}
+                                </p>
+                                <div className="flex items-center gap-1">
+                                    <Button variant="outline" size="sm" className="cursor-pointer"
+                                        disabled={currentPage === 1} onClick={() => setPage(1)}>First</Button>
+                                    <Button variant="outline" size="sm" className="cursor-pointer"
+                                        disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Prev</Button>
+                                    <span className="px-3 text-sm text-gray-600">Page {currentPage} of {pageCount}</span>
+                                    <Button variant="outline" size="sm" className="cursor-pointer"
+                                        disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>Next</Button>
+                                    <Button variant="outline" size="sm" className="cursor-pointer"
+                                        disabled={currentPage === pageCount} onClick={() => setPage(pageCount)}>Last</Button>
+                                </div>
+                            </div>
+                        )}
                     </Card>
                 </motion.div>
             )}

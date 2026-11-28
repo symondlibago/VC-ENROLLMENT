@@ -93,7 +93,7 @@ const AddStaffModal = ({ isOpen, onClose, onSave, staff = null }) => {
           />
 
           <motion.div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden"
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
             initial={{ scale: 0.9, y: 20 }} 
             animate={{ scale: 1, y: 0 }} 
             exit={{ scale: 0.9, y: 20 }}
@@ -118,7 +118,11 @@ const AddStaffModal = ({ isOpen, onClose, onSave, staff = null }) => {
                     <Label htmlFor="role">Role <span className="text-red-500">*</span></Label>
                     {/* The `value` prop ensures the role is displayed on edit */}
                     <Select onValueChange={handleSelectChange} value={formData.role} required>
-                      <SelectTrigger className="border border-gray-300"><SelectValue placeholder="Select a role" /></SelectTrigger>
+                      {/* w-full + min-w-0 so a long role name is ellipsised
+                          inside the field instead of widening the modal. */}
+                      <SelectTrigger className="w-full min-w-0 border border-gray-300 [&>span]:truncate">
+                        <SelectValue placeholder="Select a role" />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Program Head">Program Head</SelectItem>
                         <SelectItem value="Cashier">Cashier</SelectItem>
@@ -129,6 +133,9 @@ const AddStaffModal = ({ isOpen, onClose, onSave, staff = null }) => {
                             officers. Reaches only what their clearance lines
                             allow, assigned under Clearance Signatories. */}
                         <SelectItem value="Staff">Staff (clearance only)</SelectItem>
+                        {/* Hired to type up the old paper ledgers. Reaches the
+                            historical payments page and nothing else. */}
+                        <SelectItem value="Student Assistant">Student Assistant</SelectItem>
                          {isEditMode && staff.role === 'Admin' && <SelectItem value="Admin">Admin</SelectItem>}
                       </SelectContent>
                     </Select>

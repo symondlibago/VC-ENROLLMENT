@@ -18,7 +18,7 @@ class UserController extends Controller
      * itself; whatever such a person can reach comes from the clearance lines
      * they are assigned, which is why those are not roles in this list.
      */
-    public const ASSIGNABLE_ROLES = ['Program Head', 'Cashier', 'Registrar', 'Librarian', 'Laboratory', 'Staff'];
+    public const ASSIGNABLE_ROLES = ['Program Head', 'Cashier', 'Registrar', 'Librarian', 'Laboratory', 'Staff', 'Student Assistant'];
 
     /**
      * Display a listing of admin staff users.

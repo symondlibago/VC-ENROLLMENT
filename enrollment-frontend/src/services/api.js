@@ -1691,3 +1691,92 @@ export const studentAPI = {
 
 
 export default api;
+
+/**
+ * Term payments from before the system, typed up from the paper ledger.
+ * See the migration for why these are kept out of the live payments table.
+ */
+export const historicalPaymentAPI = {
+  // A page at a time: this table grows by thousands of rows a sitting.
+  getAll: async (params = {}) => {
+    try {
+      const response = await api.get('/historical-payments', { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to load historical payments' };
+    }
+  },
+
+  // Which terms have already been keyed in, so a term is not done twice
+  getSummary: async () => {
+    try {
+      const response = await api.get('/historical-payments/summary');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to load the summary' };
+    }
+  },
+
+  // One sitting's batch, saved in a single transaction
+  saveBatch: async (entries) => {
+    try {
+      const response = await api.post('/historical-payments', { entries });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to save the entries' };
+    }
+  },
+
+  // Everything matching a filter, for the PDF — capped server side
+  exportRows: async (params = {}) => {
+    try {
+      const response = await api.get('/historical-payments/export', { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to build the export' };
+    }
+  },
+
+  update: async (id, entry) => {
+    try {
+      const response = await api.put(`/historical-payments/${id}`, entry);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to update the entry' };
+    }
+  },
+
+  remove: async (id) => {
+    try {
+      const response = await api.delete(`/historical-payments/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to remove the entry' };
+    }
+  },
+};
+
+/**
+ * Irregular students enrolled in a subject that no section of theirs teaches,
+ * and the sections that could take them.
+ */
+export const sectionGapAPI = {
+  getAll: async () => {
+    try {
+      const response = await api.get('/section-gaps');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to check section assignments' };
+    }
+  },
+
+  // A list, so a screenful of fixes is one request
+  assign: async (assignments) => {
+    try {
+      const response = await api.post('/section-gaps/assign', { assignments });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to assign' };
+    }
+  },
+};
